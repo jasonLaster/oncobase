@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { makePublicWikiSessionIdentity, type WikiScope } from "@oncobase/wiki-content";
-import { explicitReaderScope, resolveReaderSession } from "./reader-session";
+import { explicitReaderScope, identityRetryDelayMs, resolveReaderSession } from "./reader-session";
 
 const publicIdentity = makePublicWikiSessionIdentity("example");
 const sessionIdentity = { ...publicIdentity, scope: "session" as const, authenticated: true, cacheKey: "example:session:user-access-hash", userHash: "user-access-hash" };
@@ -59,4 +59,11 @@ describe("reader session selection", () => {
       expect(scopes).toEqual(["session"]);
     });
   }
+});
+
+describe("identity retry backoff", () => {
+  test("doubles from 10 seconds and caps at 5 minutes", () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 50].map(identityRetryDelayMs))
+      .toEqual([10_000, 20_000, 40_000, 80_000, 160_000, 300_000, 300_000, 300_000]);
+  });
 });

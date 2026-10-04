@@ -5,10 +5,10 @@ import {
   type WikiScope,
   type WikiSessionIdentity,
 } from "@oncobase/wiki-content";
-import { createElement, Suspense, useEffect, useState } from "react";
+import { createElement, Suspense, useEffect, useRef, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
 import { safeLocalStorage } from "./safe-storage";
-import { explicitReaderScope, resolveReaderSession } from "./reader-session";
+import { explicitReaderScope, identityRetryDelayMs, resolveReaderSession } from "./reader-session";
 import { WikiIdentityPendingContext } from "./wiki-context";
 import { markVisualPhase } from "./visual-phase";
 import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, STARTUP_CACHE_EPOCH } from "./bootstrap/reader-startup-cache";
@@ -143,6 +143,8 @@ export function WikiViteRoot() {
     return snapshot?.manifest.pages.some(page => page.slug === slug) ? snapshot : null;
   });
   const [authRevision, setAuthRevision] = useState(0);
+  // Consecutive background re-verification failures, for capped backoff.
+  const identityFailures = useRef(0);
   const [responseInvalidated, setResponseInvalidated] = useState(false);
   useEffect(() => {
     const reset = () => {
@@ -186,6 +188,7 @@ export function WikiViteRoot() {
   useEffect(() => {
     let cancelled = false;
     let retry: number | undefined;
+    let retryOnline: (() => void) | undefined;
     markVisualPhase("identity-start");
     const initialMarkdown = cached?.bodies[0]?.page.content ?? document.getElementById(PAGE_BOOTSTRAP_ID)?.textContent;
     if (initialMarkdown && initialMarkdown.length <= MAX_BOOTSTRAP_BYTES && mayContainMath(initialMarkdown)) {
@@ -219,6 +222,7 @@ export function WikiViteRoot() {
     )
       .then((identity) => {
         if (!cancelled) {
+          identityFailures.current = 0;
           if (cached && !sameStartupIdentity(cached.identity, identity)) {
             clearStartupSnapshot();
             setCached(null);
@@ -245,8 +249,12 @@ export function WikiViteRoot() {
           const denied = error instanceof Error && /^Wiki request failed: (401|403)\b/.test(error.message);
           if (cached && !denied) {
             // An outage keeps the last permitted presentation, without opening
-            // its database under an unverified identity. Retry in the background.
-            retry = window.setTimeout(() => setAuthRevision(value => value + 1), 10_000);
+            // its database under an unverified identity. Retry in the background
+            // with capped backoff, and promptly once the browser is back online.
+            const retryNow = () => setAuthRevision(value => value + 1);
+            retry = window.setTimeout(retryNow, identityRetryDelayMs(identityFailures.current++));
+            retryOnline = retryNow;
+            window.addEventListener("online", retryOnline, { once: true });
             return;
           }
           if (cached) { clearStartupSnapshot(); setCached(null); }
@@ -266,6 +274,7 @@ export function WikiViteRoot() {
     return () => {
       cancelled = true;
       if (retry !== undefined) window.clearTimeout(retry);
+      if (retryOnline) window.removeEventListener("online", retryOnline);
     };
     // A cached presentation is captured for this validation attempt only.
     // eslint-disable-next-line react-hooks/exhaustive-deps

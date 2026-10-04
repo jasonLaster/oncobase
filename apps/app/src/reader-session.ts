@@ -25,3 +25,11 @@ export async function resolveReaderSession(
     return fetchIdentity("public");
   }
 }
+
+const IDENTITY_RETRY_BASE_MS = 10_000;
+const IDENTITY_RETRY_MAX_MS = 5 * 60_000;
+
+/** Background identity re-verification during an outage: 10 s, 20 s, 40 s … capped at 5 min. */
+export function identityRetryDelayMs(failures: number): number {
+  return Math.min(IDENTITY_RETRY_MAX_MS, IDENTITY_RETRY_BASE_MS * 2 ** Math.max(0, Math.min(failures, 10)));
+}
