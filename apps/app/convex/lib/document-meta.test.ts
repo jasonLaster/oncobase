@@ -23,6 +23,12 @@ function setup() {
 }
 type T = ReturnType<typeof setup>;
 
+/** Writes schedule manifest builds; cancel them so convex-test timers do not
+ * fire into later suites after this test's transaction context is gone. */
+async function cancelScheduled(t: T) {
+  await t.run(async ctx => { for (const job of await ctx.db.system.query("_scheduled_functions").collect()) await ctx.scheduler.cancel(job._id); });
+}
+
 const siteRow = (slug: string) => ({
   slug, name: slug, ownerEmail: "owner@example.test", status: "active" as const, domains: [], publishTokenHash: "fixture",
   config: { enableChat: false, enableComments: false, enableDownloads: false, passwordGate: false, previewSeedSlugs: ["index", "private/a", "gone"] },
@@ -146,7 +152,9 @@ async function snapshot(t: T, fixture: Awaited<ReturnType<typeof seed>>, flip?: 
       priorities: await t.query(api.prefetch.priorities, { siteSlug, serverSecret: PREFETCH_SECRET }),
     };
   } finally {
-    process.env.WIKI_PREFETCH_SECRET = saved;
+    // Assigning undefined would store the string "undefined" for later suites.
+    if (saved === undefined) delete process.env.WIKI_PREFETCH_SECRET;
+    else process.env.WIKI_PREFETCH_SECRET = saved;
   }
 }
 
@@ -179,6 +187,7 @@ test("readers return identical results from documents and documentMeta, and swit
   expect(first.continueCursor.startsWith("docmeta1:")).toBe(true);
   // Other sites are unaffected until they are backfilled.
   expect((await t.query(internal.documentMeta.status, {})).map(row => [row.siteSlug, row.readyAt !== null])).toEqual([["alpha", true], ["beta", false]]);
+  await cancelScheduled(t);
 });
 
 test("a pagination keeps its source when the flag flips or is rolled back mid-way", async () => {
@@ -193,6 +202,7 @@ test("a pagination keeps its source when the flag flips or is rolled back mid-wa
   // Started on documentMeta, rolled back after the first page.
   const backward = await snapshot(t, fixture, () => t.mutation(internal.documentMeta.setReady, { siteSlug: "alpha", ready: false }).then(() => undefined));
   expect(backward).toEqual(baseline);
+  await cancelScheduled(t);
 });
 
 test("every documents write keeps documentMeta in sync", async () => {
@@ -239,6 +249,7 @@ test("every documents write keeps documentMeta in sync", async () => {
   }
   expect(await meta("legacy")).toMatchObject([{ size: 3 }]);
   expect(await verify(t, "diana")).toMatchObject({ missing: 0, stale: 0, scanned: 1 });
+  await cancelScheduled(t);
 });
 
 test("backfill is resumable, idempotent and repairs drift", async () => {
@@ -291,6 +302,7 @@ test("backfill is resumable, idempotent and repairs drift", async () => {
   }
   await expect(t.mutation(internal.documentMeta.backfillBatch, { siteSlug: "beta", cursor: "[\"bogus\"]" })).rejects.toThrow("Invalid backfill cursor");
   await expect(t.mutation(internal.documentMeta.backfillBatch, { siteSlug: "missing" })).rejects.toThrow("not found");
+  await cancelScheduled(t);
 });
 
 test("content pages use the visibility index and finish legacy cursors on the old path", async () => {
@@ -310,4 +322,5 @@ test("content pages use the visibility index and finish legacy cursors on the ol
   expect(rest.every(page => page.sensitive !== true)).toBe(true);
   expect(rest.map(page => page.slug)).toEqual([...rest.map(page => page.slug)].sort());
   await expect(t.query(api.documents.listManifestPage, { siteSlug, cursor: "not-a-cursor", numItems: 2 })).rejects.toThrow("Invalid manifest cursor");
+  await cancelScheduled(t);
 });
