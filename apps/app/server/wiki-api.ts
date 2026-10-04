@@ -39,6 +39,7 @@ import { browserConversationToken } from "./backend-client";
 import { resolveChatOwner } from "./chat-owner";
 import { traceBackendCache, traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
 import { fetchAccessibleSlugs, fetchSlugSensitivity } from "./slug-batch";
+import { fetchBlob } from "./blob-fetch";
 import {
   loadSensitiveSearchPages,
   overlaySearchPages,
@@ -161,6 +162,9 @@ const INDEXED_SEARCH_FALLBACK_LIMIT = 100;
 // Archive generation scans the same corpus; avoid serial network pages while
 // preserving Convex's own byte-bounded pagination for large sites.
 const DOWNLOAD_DOCUMENT_PAGE_SIZE = 500;
+// Per-asset ceiling while building a zip; one stalled Blob read must not
+// hold the archive (and the function) open indefinitely.
+const DOWNLOAD_ASSET_TIMEOUT_MS = 60_000;
 const TIMELINE_META_KEY = "diagnosticTimeline:data";
 const MANIFEST_PRIORITY_SLUGS = [
   "index",
@@ -386,8 +390,9 @@ async function recoverActiveFileAsset(
     const blob = blobs.find((candidate) => candidate.pathname === pathname);
     if (!blob) continue;
 
-    const upstream = await fetch(blob.url, {
+    const upstream = await fetchBlob(blob.url, {
       headers: blobRequestHeaders(request),
+      signal: request.signal,
     });
     if (upstream.ok || upstream.status === 416) return upstream;
   }
@@ -970,8 +975,9 @@ async function handleFileRequest(
   let upstream: Response | null = null;
   const blobUrl = asset.blobUrl;
   try {
-    upstream = await traceBackendPhase("external.blob", () => fetch(blobUrl, {
+    upstream = await traceBackendPhase("external.blob", () => fetchBlob(blobUrl, {
       headers: blobRequestHeaders(request),
+      signal: request.signal,
     }));
   } catch (error) {
     console.error("[file] Active Blob URL fetch failed:", error);
@@ -1184,8 +1190,9 @@ async function handleDicomFileRequest(
     });
     if (row?.blobUrl) {
       const blobUrl = row.blobUrl;
-      const upstream = await traceBackendPhase("external.blob", () => fetch(blobUrl, {
+      const upstream = await traceBackendPhase("external.blob", () => fetchBlob(blobUrl, {
         headers: blobRequestHeaders(request),
+        signal: request.signal,
       }));
       if (upstream.ok) {
         const headers = new Headers({
@@ -1856,7 +1863,8 @@ async function appendAssetsToArchive(
   for (const asset of assets.slice(0, maxAssets)) {
     if (!asset.blobUrl) continue;
     try {
-      const response = await fetch(asset.blobUrl);
+      // Buffered into the archive, so bound the whole read, not just headers.
+      const response = await fetch(asset.blobUrl, { signal: AbortSignal.timeout(DOWNLOAD_ASSET_TIMEOUT_MS) });
       if (!response.ok) {
         console.warn(`[download] Failed to fetch asset ${asset.path}: ${response.status}`);
         continue;
