@@ -52,7 +52,6 @@ import {
   type SearchablePage,
   type SensitivePageCache,
 } from "./search-corpus";
-import { waitUntil } from "@vercel/functions";
 import {
   USER_SESSION_COOKIE,
   USER_SESSION_TTL_MS,
@@ -1970,7 +1969,7 @@ function getPublicSearchCorpus(
     now: Date.now(),
     freshMs: SEARCH_CORPUS_CACHE_TTL_MS,
     maxStaleMs: SEARCH_CORPUS_MAX_STALE_MS,
-    background: waitUntil,
+    background: task => runAfterResponse(task, "search corpus refresh"),
   });
   traceBackendCache("search-corpus", state !== "miss");
   if (state === "stale") traceBackendAttributes({ "search.corpus.stale": true });
