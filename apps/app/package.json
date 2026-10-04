@@ -11,6 +11,7 @@
     "verify:standalone": "bun scripts/verify-standalone.ts",
     "start:server": "bun server/standalone.ts",
     "local:stack": "bun scripts/local-stack.ts",
+    "local:smoke": "bun scripts/local-smoke.ts",
     "typecheck": "bun --cwd ../../packages/oncobase build && tsc --noEmit",
     "test:unit": "bun scripts/test-unit.ts",
     "test:e2e": "playwright test",
