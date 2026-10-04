@@ -277,6 +277,8 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     let requestController: AbortController | undefined;
 
     const scheduleRefresh = (delayMs: number) => {
+      // A run that resolves after cleanup must not leave a timer behind.
+      if (cancelled) return;
       refreshTimer = window.setTimeout(
         () => setNetworkTick((value) => value + 1),
         Math.max(0, delayMs),
@@ -415,6 +417,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
         const activePage = manifest.pages.find((page) => page.slug === activeSlug);
         void fetchSlug(activeSlug, activePage).catch(() => undefined);
         const storage = await storageSnapshot();
+        if (cancelled) return;
         onMetrics({
           status: "ready",
           navigationFreshness: validation.partial ? "saved" : "current",

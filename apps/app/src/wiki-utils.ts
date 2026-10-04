@@ -101,7 +101,8 @@ export async function storageSnapshot() {
   if (!navigator.storage?.estimate) {
     return { usage: null, quota: null, usageRatio: null, pressure: "unknown" as const };
   }
-  const estimate = await navigator.storage.estimate();
+  // Diagnostics only: a failed estimate must never reject into sync paths.
+  const estimate = await navigator.storage.estimate().catch(() => ({} as StorageEstimate));
   const usage = estimate.usage ?? null;
   const quota = estimate.quota ?? null;
   const usageRatio = usage != null && quota != null && quota > 0 ? usage / quota : null;
