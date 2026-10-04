@@ -123,29 +123,158 @@ test(`client reload uses current ${preference} preference after another tab chan
 });
 }
 
-// Since the 2026-09-14 startup cache, the cached public page paints before
-// identity and unmounts when a late session identity selects the session
-// store (6 disappearances locally; layout shift in production). Decide whether
-// that handoff should keep the page mounted before re-enabling this.
-test.fixme("late authenticated identity opens the session reader without exposing cached HTML", async ({ page }) => {
-  const requests = await installWikiApiMocks(page);
-  await gotoWiki(page, `/${first}?scope=public`);
-  requests.setSessionAuthenticated(true);
-  requests.setPageOverride(first, { content: "# Insurance\n\nSESSION_ONLY_SENTINEL" });
+// A cached page paints before identity. A late identity that differs from the
+// cached one decides the handoff: a public page meeting this site's verified
+// session stays mounted until the session store holds the route; any other
+// change (another account, session to public) unmounts at once.
+const handoffOutcome = (page: Page) => page.evaluate(() => window.__WIKI_VISUAL_STABILITY__!.report().events
+  .find((event) => event.kind === "phase:session-handoff")?.data?.outcome ?? null);
+const identityReadyAt = (page: Page, scope: "public" | "session") => page.evaluate((scope) => window.__WIKI_VISUAL_STABILITY__!.report().events
+  .find((event) => event.kind === "phase:identity-ready" && event.data?.scope === scope)?.at ?? null, scope);
+async function waitForStartupSnapshot(page: Page) {
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("wiki-vite:startup:"))), { timeout: 10_000 }).toBe(true);
+}
+async function delaySessionIdentity(page: Page, delayMs = 900) {
   await page.route("**/api/wiki/session**", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 900));
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
     await route.fallback();
   });
+}
+/** Holds session-scope requests to the given endpoints until released. */
+async function holdSessionRequests(page: Page, endpoints: Array<"manifest" | "pages">) {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  for (const endpoint of endpoints) {
+    await page.route(`**/api/wiki/${endpoint}**`, async (route) => {
+      if (new URL(route.request().url()).searchParams.get("scope") === "session") await held;
+      await route.fallback();
+    });
+  }
+  return release;
+}
+// Records when visible pending/loading surfaces mount, including ones shorter than a frame.
+function recordPendingSurfaces() {
+  const seen: Array<{ at: number; id: string }> = [];
+  (window as unknown as { __PENDING_SURFACES__: typeof seen }).__PENDING_SURFACES__ = seen;
+  const ids = ["reader-pending", "page-loading"];
+  new MutationObserver((records) => {
+    for (const record of records) for (const node of record.addedNodes) {
+      // The store's own startup screen renders inside the hidden lifecycle host.
+      if (!(node instanceof Element) || node.closest("[hidden]")) continue;
+      for (const id of ids) if (node.matches(`[data-test-id="${id}"]`) || node.querySelector(`[data-test-id="${id}"]`)) seen.push({ at: performance.now(), id });
+    }
+  }).observe(document, { childList: true, subtree: true });
+}
+const pendingSurfaces = (page: Page) => page.evaluate(() => (window as unknown as { __PENDING_SURFACES__: Array<{ at: number; id: string }> }).__PENDING_SURFACES__);
+
+test("late authenticated identity opens the session reader without exposing cached HTML", async ({ page }) => {
+  await page.addInitScript(recordPendingSurfaces);
+  const requests = await installWikiApiMocks(page);
+  await gotoWiki(page, `/${first}?scope=public`);
+  await waitForStartupSnapshot(page);
+  requests.setSessionAuthenticated(true);
+  requests.setPageOverride(first, { content: "# Insurance\n\nSESSION_ONLY_SENTINEL" });
+  await delaySessionIdentity(page);
   await page.goto(`/${first}`, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#wiki-first-frame-snapshot").filter({ visible: true })).toHaveCount(0);
-  await expect.poll(() => page.evaluate(() => window.__WIKI_VISUAL_STABILITY__!.report().events.some((event) => event.kind === "phase:identity-ready" && event.data?.scope === "session"))).toBe(true);
+  await expect.poll(() => identityReadyAt(page, "session")).not.toBeNull();
   await waitForPageTitle(page, "Insurance");
   await expect(documentArticle(page)).toContainText("SESSION_ONLY_SENTINEL");
   await settle(page);
   expect(await page.evaluate(() => Object.keys(localStorage)
     .filter((key) => key.startsWith("wiki-vite:first-frame:"))
     .some((key) => localStorage.getItem(key)?.includes("SESSION_ONLY_SENTINEL")))).toBe(false);
+  expect(await handoffOutcome(page)).toBe("kept-mounted");
+  const identityAt = (await identityReadyAt(page, "session"))!;
+  expect((await pendingSurfaces(page)).filter((surface) => surface.at >= identityAt)).toEqual([]);
   assertContinuity(await read(page));
+});
+
+test("late session identity keeps public content until the session store holds the route", async ({ page }) => {
+  const requests = await installWikiApiMocks(page);
+  await gotoWiki(page, `/${first}?scope=public`);
+  await waitForStartupSnapshot(page);
+  const publicText = await documentArticle(page).locator(".wiki-markdown").textContent();
+  requests.setSessionAuthenticated(true);
+  requests.setPageOverride(first, { content: "# Insurance\n\nSESSION_ONLY_SENTINEL" });
+  const release = await holdSessionRequests(page, ["pages"]);
+  const sessionManifests = () => requests.manifest.filter((url) => new URL(url).searchParams.get("scope") === "session").length;
+  let manifestsBeforeSwap = 0;
+  try {
+    await page.goto(`/${first}`, { waitUntil: "domcontentloaded" });
+    await expect.poll(() => identityReadyAt(page, "session")).not.toBeNull();
+    // The hidden session store has fetched its manifest (with the sensitive page).
+    await expect.poll(sessionManifests).toBeGreaterThan(0);
+    await settle(page);
+    await expect(documentArticle(page).locator(".wiki-markdown")).toHaveText(publicText!);
+    // One visible app tree; nothing from the session store reaches the DOM early.
+    await expect(page.getByTestId("document-article")).toHaveCount(1);
+    await expect(page.getByTestId("wiki-sidebar")).toHaveCount(1);
+    const html = await page.content();
+    expect(html).not.toContain("SESSION_ONLY_SENTINEL");
+    expect(html).not.toContain("Private Plan");
+    expect(await handoffOutcome(page)).toBeNull();
+    manifestsBeforeSwap = sessionManifests();
+  } finally { release(); }
+  await expect(documentArticle(page)).toContainText("SESSION_ONLY_SENTINEL");
+  expect(await handoffOutcome(page)).toBe("kept-mounted");
+  await settle(page);
+  // The visible reader's sync reuses what the preparing store fetched.
+  expect(sessionManifests(), "session manifest requests after the swap").toBe(manifestsBeforeSwap);
+  assertContinuity(await read(page));
+});
+
+test("late session identity falls back to the session reader's loading state at the handoff deadline", async ({ page }) => {
+  const requests = await installWikiApiMocks(page);
+  await gotoWiki(page, `/${first}?scope=public`);
+  await waitForStartupSnapshot(page);
+  requests.setSessionAuthenticated(true);
+  requests.setPageOverride(first, { content: "# Insurance\n\nSESSION_ONLY_SENTINEL" });
+  const release = await holdSessionRequests(page, ["manifest", "pages"]);
+  try {
+    await page.goto(`/${first}`, { waitUntil: "domcontentloaded" });
+    await expect.poll(() => identityReadyAt(page, "session")).not.toBeNull();
+    await expect(documentArticle(page)).toContainText("Insurance");
+    await expect.poll(() => handoffOutcome(page), { timeout: 10_000 }).toBe("timeout");
+    // Same as an unprepared handoff: the session store's own pending state.
+    await expect(page.getByTestId("page-loading").first()).toBeVisible();
+    await expect(page.getByTestId("document-article")).toHaveCount(1);
+    expect(await page.content()).not.toContain("SESSION_ONLY_SENTINEL");
+  } finally { release(); }
+  await waitForPageTitle(page, "Insurance");
+  await expect(documentArticle(page)).toContainText("SESSION_ONLY_SENTINEL");
+});
+
+test("late identity for another account unmounts the cached session page immediately", async ({ page }) => {
+  const requests = await installWikiApiMocks(page, { sessionAuthenticated: true });
+  await gotoWiki(page, `/${first}?scope=session`);
+  await waitForStartupSnapshot(page);
+  requests.setSessionCacheKey("diana:session:other-user:e2e", "other-user");
+  requests.setPageOverride(first, { content: "# Insurance\n\nOTHER_ACCOUNT_SENTINEL" });
+  await delaySessionIdentity(page);
+  await page.goto(`/${first}`, { waitUntil: "domcontentloaded" });
+  await expect.poll(() => identityReadyAt(page, "session")).not.toBeNull();
+  await expect(documentArticle(page)).toContainText("OTHER_ACCOUNT_SENTINEL");
+  expect(await handoffOutcome(page)).toBe("remount-required");
+  const report = await read(page);
+  const identityAt = (await identityReadyAt(page, "session"))!;
+  // The previous account's page was taken down, not kept until the new store was ready.
+  expect(report.events.some((event) => event.kind === "disappearance" && event.region === "body" && event.at >= identityAt)).toBe(true);
+});
+
+test("late public identity unmounts a cached session page immediately", async ({ page }) => {
+  const requests = await installWikiApiMocks(page, { sessionAuthenticated: true });
+  await gotoWiki(page, "/private/plan?scope=session");
+  await waitForPageTitle(page, "Private Plan");
+  await waitForStartupSnapshot(page);
+  requests.setSessionAuthenticated(false);
+  await delaySessionIdentity(page);
+  await page.goto("/private/plan", { waitUntil: "domcontentloaded" });
+  await expect.poll(() => identityReadyAt(page, "public")).not.toBeNull();
+  await expect.poll(() => handoffOutcome(page)).toBe("remount-required");
+  await settle(page);
+  await expect(page.getByText("Sensitive session-only planning note")).toHaveCount(0);
+  expect(await page.content()).not.toContain("Sensitive session-only planning note");
 });
 
 for (const mode of ["warm", "slow"] as const) {
