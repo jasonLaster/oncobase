@@ -31,10 +31,10 @@ test("backend transport sends credentials only in headers to its configured orig
     return Response.json({ status: "success", value: null });
   }, { preconnect: fetch.preconnect });
   const client = createBackendClient("https://fixture.convex.cloud", { fetch: transport });
-  await client.query(api.documents.getReaderPolicy, { host: "alpha.test" });
+  await client.query(api.sites.getByHost, { host: "alpha.test" });
   expect(calls).toBe(1);
   delete process.env.WIKI_BACKEND_SIGNING_KEY;
-  await expect(client.query(api.documents.getReaderPolicy, { host: "alpha.test" })).rejects.toThrow("not configured");
+  await expect(client.query(api.sites.getByHost, { host: "alpha.test" })).rejects.toThrow("not configured");
   expect(calls).toBe(1);
 });
 
@@ -59,7 +59,7 @@ test("a stalled backend call is aborted instead of outliving the request", async
     }), { preconnect: fetch.preconnect });
     const client = createBackendClient("https://fixture.convex.cloud", { fetch: transport });
     const started = Date.now();
-    await expect(client.query(api.documents.getReaderPolicy, { host: "alpha.test" })).rejects.toThrow();
+    await expect(client.query(api.sites.getByHost, { host: "alpha.test" })).rejects.toThrow();
     expect(sawSignal).toBe(true);
     expect(Date.now() - started).toBeLessThan(2_000);
   } finally {

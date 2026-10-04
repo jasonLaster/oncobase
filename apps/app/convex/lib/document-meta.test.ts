@@ -128,10 +128,8 @@ async function snapshot(t: T, fixture: Awaited<ReturnType<typeof seed>>, flip?: 
       listPublic: await pages(cursor => t.query(api.documents.listPage, { siteSlug, cursor, numItems: 4 })),
       listAll: await pages(cursor => t.query(api.documents.listPage, { siteSlug, cursor, numItems: 4, includeSensitive: true })),
       listSensitiveOnly: await pages(cursor => t.query(api.documents.listPage, { siteSlug, cursor, numItems: 2, includeSensitive: true, sensitiveOnly: true })),
-      descriptions: await pages(cursor => t.query(api.documents.listPageDescriptions, { siteSlug, cursor, numItems: 5, includeSensitive: true })),
       embedding: await pages(cursor => t.query(api.documents.embeddingStatusPage, { siteSlug, cursor, numItems: 5, includeSensitive: true })),
       sensitivity: await t.query(api.documents.getSensitivityBySlugs, { siteSlug, slugs }),
-      description: await Promise.all(slugs.map(slug => t.query(api.documents.getDescription, { siteSlug, slug, includeSensitive: true }))),
       byId: await Promise.all(Object.values(fixture.ids).map(id => t.query(api.documents.getById, { siteSlug, id }))),
       publisherPages: await t.query(internal.documents.internal_publisherManifestPages, { siteSlug, slugs: slugs.slice(0, 10) }),
       pdfPaths: await pages(cursor => t.query(api.documents.listPdfAssetPathsPage, { siteSlug, cursor, numItems: 2 })),
@@ -223,12 +221,10 @@ test("every documents write keeps documentMeta in sync", async () => {
   await t.mutation(api.documents.upsert, { siteSlug, slug: "page", title: "Renamed", content: "longer body", tags: ["b"], contentHash: "h2", sensitive: true, replaceRawContent: true });
   await consistent();
   expect(await meta("page")).toMatchObject([{ title: "Renamed", size: 11, hasRawContent: false, sensitive: true, tags: ["b"] }]);
-  await t.mutation(api.documents.setContentHash, { siteSlug, slug: "page", contentHash: "h3" });
   await t.mutation(api.documents.bulkSetContentHash, { siteSlug, hashFunctionVersion: 4, entries: [{ slug: "page", contentHash: "h4" }, { slug: "missing", contentHash: "x" }] });
-  await t.mutation(api.documents.setDescription, { siteSlug, slug: "page", description: "About" });
   await t.mutation(api.documents.upsertEmbedding, { siteSlug, slug: "page", embedding: new Array(1536).fill(0.5), embeddingHash: "emb" });
   await consistent();
-  expect(await meta("page")).toMatchObject([{ contentHash: "h4", hashFunctionVersion: 4, description: "About", embeddingHash: "emb" }]);
+  expect(await meta("page")).toMatchObject([{ contentHash: "h4", hashFunctionVersion: 4, embeddingHash: "emb" }]);
   await t.mutation(api.documents.deleteBySlug, { siteSlug, slug: "page" });
   await consistent();
   expect((await meta("page"))[0].deletedAt).toBeNumber();

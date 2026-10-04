@@ -50,14 +50,14 @@ test("owned publish writes stay in scope, coalesce invalidation, and reject old 
   await expect(t.mutation(api.sites.failPublish, { slug: "fixture", runId, error: "late abort" })).rejects.toThrow("does not own");
   await t.mutation(internal.sites.expirePublish, { slug: "fixture", runId });
   expect((await site())!.publishRunId).toBe(newer);
-  await t.mutation(api.documents.setContentHash, { siteSlug: "fixture", runId: (await site())!.publishRunId, slug: "first", contentHash: `changed-${(await site())!.manifestRevision}` });
+  await t.mutation(api.documents.bulkSetContentHash, { siteSlug: "fixture", runId: (await site())!.publishRunId, entries: [{ slug: "first", contentHash: `changed-${(await site())!.manifestRevision}` }] });
   await t.run(ctx => ctx.db.patch(siteId, { publishLockUntil: Date.now() - 1 }));
   await expect(write("first", newer)).rejects.toThrow("lease expired");
   await t.mutation(api.sites.failPublish, { slug: "fixture", runId: newer, error: "abort expired own run" });
   expect((await site())!.manifestRevision).toBe(12); // partial writes are made visible on abort too
   expect((await site())!.lastPublishStatus).toBe("failed");
   await t.mutation(api.sites.beginPublish, { slug: "fixture", runId, scope });
-  await t.mutation(api.documents.setContentHash, { siteSlug: "fixture", runId: (await site())!.publishRunId, slug: "first", contentHash: `changed-${(await site())!.manifestRevision}` });
+  await t.mutation(api.documents.bulkSetContentHash, { siteSlug: "fixture", runId: (await site())!.publishRunId, entries: [{ slug: "first", contentHash: `changed-${(await site())!.manifestRevision}` }] });
   await t.run(ctx => ctx.db.patch(siteId, { publishLockUntil: Date.now() - 1 }));
   await t.mutation(internal.sites.expirePublish, { slug: "fixture", runId });
   expect((await site())!.publishRunId).toBeUndefined();
@@ -153,7 +153,7 @@ test("manifest strategy follows actual writes, with bounded journals and conserv
       siteSlug: "fixture", runId, slug: `doc-${i}`, title: "fixture", content: "body", contentHash: "hash", tags: [],
     });
     // Multiple metadata writes to the same page count once.
-    await t.mutation(api.documents.setContentHash, { siteSlug: "fixture", runId, slug: "doc-0", contentHash: "second" });
+    await t.mutation(api.documents.bulkSetContentHash, { siteSlug: "fixture", runId, entries: [{ slug: "doc-0", contentHash: "second" }] });
     if (scenario === "bulk") await t.mutation(api.documents.bulkSetContentHash, { siteSlug: "fixture", runId, entries: [{ slug: "doc-0", contentHash: "third" }] });
     if (scenario === "asset") await t.mutation(api.documents.upsertPdfAsset, { siteSlug: "fixture", runId, path: "asset.pdf", blobUrl: "https://fixture.invalid/asset.pdf", sizeBytes: 4 });
     if (scenario === "legacy") await t.run(ctx => ctx.db.patch(siteId, { publishJournalVersion: undefined }));

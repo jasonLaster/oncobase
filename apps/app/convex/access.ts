@@ -581,30 +581,6 @@ export const deleteUsers = mutation({
   },
 });
 
-export const getUserAllowedPaths = query({
-  args: { userId: v.id("users"), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { userId, siteSlug }) => {
-    const site = await requireSite(ctx, siteSlug);
-    const assignments = await ctx.db
-      .query("userRoles")
-      .withIndex("by_site_user", (q) => q.eq("siteId", site.siteId!).eq("userId", userId))
-      .collect();
-    const patterns: string[] = [];
-    for (const a of assignments) {
-      const perms = await ctx.db
-        .query("rolePermissions")
-        .withIndex("by_site_role", (q) => q.eq("siteId", site.siteId!).eq("roleId", a.roleId))
-        .collect();
-      patterns.push(
-        ...perms
-          .map((p) => p.pathPattern)
-          .filter((pattern): pattern is string => Boolean(pattern)),
-      );
-    }
-    return Array.from(new Set(patterns));
-  },
-});
-
 export const canUserAccessSlug = query({
   args: { userId: v.id("users"), slug: v.string(), siteSlug: v.optional(v.string()) },
   handler: async (ctx, { userId, slug, siteSlug }) => {

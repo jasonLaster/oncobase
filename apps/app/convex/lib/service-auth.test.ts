@@ -35,32 +35,30 @@ test("every server-only public handler denies before reading or mutating data", 
       checked++;
     }
   }
-  expect(checked).toBe(111);
+  expect(checked).toBe(102);
 });
 
-test("direct reader, legacy bulk reads, sensitive flag and hash lookups require a verified service identity", async () => {
+test("document reads, legacy bulk reads, sensitive flag and hash lookups require a verified service identity", async () => {
   const t = convexTest(schema, modules);
   await t.run(async ctx => {
     const siteId = await ctx.db.insert("sites", { slug: "alpha", name: "Alpha", domains: ["alpha.test"], ownerEmail: "fixture@test.invalid", status: "active", publishTokenHash: "not-a-real-token",
       config: { passwordGate: true, passwordHash: "not-a-real-password-hash", enableChat: false, enableComments: false, enableDownloads: false }, quotas: { monthlyOpenAITokens: 0, blobBytes: 0 }, createdAt: 1, updatedAt: 1 });
     for (const sensitive of [false, true]) await ctx.db.insert("documents", { siteId, slug: sensitive ? "restricted" : "index", title: "Fixture", content: sensitive ? "RESTRICTED_FIXTURE" : "PUBLIC_FIXTURE", rawContent: "RAW_FIXTURE", contentHash: "fixture-hash", tags: [], sensitive, updatedAt: 1 });
   });
-  await expect(t.query(api.documents.getReaderPolicy, { host: "alpha.test" })).rejects.toThrow("Unauthorized");
-  await expect(t.query(api.documents.getReaderPage, { host: "alpha.test", slug: "index" })).rejects.toThrow("Unauthorized");
   await expect(t.query(api.documents.getBySlug, { siteSlug: "alpha", slug: "restricted", includeSensitive: true, rawContentSessionTokenHash: "forged" })).rejects.toThrow("Unauthorized");
   await expect(t.query(api.documents.listPageWithContent, { siteSlug: "alpha", cursor: null, numItems: 10, includeSensitive: true })).rejects.toThrow("Unauthorized");
   await expect(t.query(api.sites.getBySlug, { slug: "alpha" })).rejects.toThrow("Unauthorized");
   await expect(t.query(api.sites.getByHost, { host: "alpha.test" })).rejects.toThrow("Unauthorized");
   await expect(t.query(api.users.getByEmailForAuth, { siteSlug: "alpha", email: "fixture@test.invalid" })).rejects.toThrow("Unauthorized");
   const service = t.withIdentity(serviceIdentity);
-  expect((await service.query(api.documents.getReaderPage, { host: "alpha.test", slug: "index" }))?.page?.content).toBe("PUBLIC_FIXTURE");
-  expect((await service.query(api.documents.getReaderPage, { host: "alpha.test", slug: "restricted" }))?.page).toBeNull();
+  expect((await service.query(api.documents.getBySlug, { siteSlug: "alpha", slug: "index" }))?.content).toBe("PUBLIC_FIXTURE");
+  expect(await service.query(api.documents.getBySlug, { siteSlug: "alpha", slug: "restricted" })).toBeNull();
   expect((await service.query(api.documents.getBySlug, { siteSlug: "alpha", slug: "index" }))?.content).not.toBe("RAW_FIXTURE");
   const site = await service.query(api.sites.getBySlug, { slug: "alpha" });
   const browserIdentity = { issuer: SERVICE_ISSUER, subject: "wiki-browser:alpha", role: "wiki-conversations", siteSlug: "alpha", gateVersion: conversationGateVersion(site!) };
   const browser = t.withIdentity(browserIdentity);
   expect(await browser.query(api.conversations.list, { siteSlug: "alpha" })).toEqual([]);
-  await expect(browser.query(api.documents.getReaderPage, { host: "alpha.test", slug: "index" })).rejects.toThrow("Unauthorized");
+  await expect(browser.query(api.documents.getBySlug, { siteSlug: "alpha", slug: "index" })).rejects.toThrow("Unauthorized");
   await expect(browser.query(api.sites.getBySlug, { slug: "alpha" })).rejects.toThrow("Unauthorized");
   await expect(browser.query(api.conversations.list, { siteSlug: "beta" })).rejects.toThrow("Unauthorized");
   await t.run(ctx => ctx.db.patch(site!._id, { config: { ...site!.config, passwordHash: "rotated-fixture" } }));

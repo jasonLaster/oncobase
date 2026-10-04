@@ -308,60 +308,6 @@ export const getSensitivityBySlugs = query({
   },
 });
 
-async function findReaderSite(ctx: QueryCtx, host: string, previewSiteSlug?: string) {
-  const normalized = host.trim().toLowerCase().split(":")[0];
-  const site = previewSiteSlug && normalized.endsWith(".vercel.app")
-    ? await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", previewSiteSlug)).first()
-    : (await ctx.db.query("sites").collect()).find(site => site.domains.includes(normalized));
-  return site?.status === "active" ? site : null;
-}
-
-function readerPolicy(site: NonNullable<Awaited<ReturnType<typeof findReaderSite>>>) {
-  return {
-    siteSlug: site.slug,
-    // Every published document/visibility mutation advances this revision in
-    // its transaction. The site id also protects deletion/recreation of a slug.
-    contentRevision: `${site._id}:${site.manifestRevision ?? 0}`,
-    gate: { enabled: site.config.passwordGate, passwordHash: site.config.passwordHash },
-    piiPatterns: site.config.piiPatterns,
-  };
-}
-
-export const getReaderPolicy = query({
-  args: { host: v.string(), previewSiteSlug: v.optional(v.string()) },
-  handler: async (ctx, { host, previewSiteSlug }) => {
-    const site = await findReaderSite(ctx, host, previewSiteSlug);
-    return site ? readerPolicy(site) : null;
-  },
-});
-
-// One consistent read of host, gate/redaction policy and public document.
-// Convex invalidates its query result when any of those records changes.
-// Never includes rawContent, restricted documents or account permissions.
-export const getReaderPage = query({
-  args: { host: v.string(), slug: v.string(), previewSiteSlug: v.optional(v.string()),
-    metadataOnly: v.optional(v.boolean()),
-    knownBody: v.optional(v.object({ siteSlug: v.string(), digest: v.string() })) },
-  handler: async (ctx, { host, slug, previewSiteSlug, knownBody, metadataOnly }) => {
-    const site = await findReaderSite(ctx, host, previewSiteSlug);
-    if (!site) return null;
-    const doc = await findDocBySlug(ctx, { siteId: site._id, siteSlug: site.slug, site }, slug);
-    const publicDoc = doc && !doc.deletedAt && doc.sensitive === false ? doc : null;
-    // Hash actual published bytes, not just the publisher's source revision:
-    // publishing/redaction can replace content without changing contentHash.
-    const bodyDigest = publicDoc ? bytesToHex(sha256(new TextEncoder().encode(publicDoc.content))) : null;
-    return {
-      ...readerPolicy(site),
-      page: publicDoc ? {
-        slug: publicDoc.slug, title: publicDoc.title,
-        content: metadataOnly || (knownBody?.siteSlug === site.slug && knownBody.digest === bodyDigest) ? null : publicDoc.content,
-        bodyDigest,
-        tags: publicDoc.tags, contentHash: publicDoc.contentHash, description: publicDoc.description, sensitive: false as const,
-      } : null,
-    };
-  },
-});
-
 async function paginatedDocs(ctx: AnyCtx, site: SiteCtx, cursor: string | null, numItems: number) {
   const siteId = site.siteId;
   if (siteId) {
@@ -405,32 +351,6 @@ export const listPage = query({
           title,
           tags,
           sensitiveInclude: sensitiveInclude ?? [],
-          sensitive,
-        })),
-      isDone: result.isDone,
-      continueCursor: result.continueCursor,
-    };
-  },
-});
-
-export const listPageWithDescriptions = query({
-  args: {
-    cursor: v.union(v.string(), v.null()),
-    numItems: v.number(),
-    includeSensitive: v.optional(v.boolean()),
-    siteSlug: v.optional(v.string()),
-  },
-  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
-    const site = await requireSite(ctx, siteSlug);
-    const result = await paginatedDocs(ctx, site, cursor, numItems);
-    return {
-      page: result.page
-        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
-        .map(({ slug, title, description, content, sensitive }) => ({
-          slug,
-          title,
-          description: description ?? null,
-          content,
           sensitive,
         })),
       isDone: result.isDone,
@@ -728,30 +648,9 @@ export const upsert = mutation({
   },
 });
 
-// Admin-only: overwrite a doc's contentHash without touching any
-// other fields. Used by scripts/admin/backfill-content-hashes.ts to
-// migrate from the legacy ingest hash function to the publisher's.
-export const setContentHash = mutation({
-  args: {
-    siteSlug: v.optional(v.string()),
-    runId: v.optional(v.string()),
-    slug: v.string(),
-    contentHash: v.string(),
-  },
-  handler: async (ctx, { siteSlug, runId, slug, contentHash }) => {
-    const site = await requireSite(ctx, siteSlug);
-    const ownedRun = assertPublishRun(site.site, runId, { document: slug });
-    const doc = await findDocBySlug(ctx, site, slug);
-    if (!doc) return { found: false, patched: false };
-    if (doc.contentHash === contentHash) return { found: true, patched: false };
-    await recordPublishChange(ctx, site.site, ownedRun, slug);
-    await patchDocument(ctx, doc, { contentHash });
-    return { found: true, patched: true };
-  },
-});
-
-// Bulk variant of setContentHash. Backfilling 4000+ rows
-// one-mutation-per-call took ~90s; one mutation per batch of 200
+// Overwrite contentHash/hashFunctionVersion for a batch of docs without
+// touching other fields. One mutation per batch of 200 rows (rather than one
+// per document)
 // finishes in seconds. Convex enforces a 16MB function-arg cap, so
 // callers must batch.
 export const bulkSetContentHash = mutation({
@@ -789,52 +688,6 @@ export const bulkSetContentHash = mutation({
     }
     if (patched && !ownedRun) await recordPublishChange(ctx, site.site, false);
     return { patched, alreadyMatching, missing };
-  },
-});
-
-export const listPageDescriptions = query({
-  args: {
-    cursor: v.union(v.string(), v.null()),
-    numItems: v.number(),
-    includeSensitive: v.optional(v.boolean()),
-    siteSlug: v.optional(v.string()),
-  },
-  handler: async (ctx, { cursor, numItems, includeSensitive, siteSlug }) => {
-    const site = await requireSite(ctx, siteSlug);
-    const result = await paginatedMetadata(ctx, site, cursor, numItems);
-    return {
-      page: result.page
-        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive))
-        .map(({ slug, description }) => ({ slug, description: description ?? null })),
-      isDone: result.isDone,
-      continueCursor: result.continueCursor,
-    };
-  },
-});
-
-export const getDescription = query({
-  args: {
-    slug: v.string(),
-    includeSensitive: v.optional(v.boolean()),
-    siteSlug: v.optional(v.string()),
-  },
-  handler: async (ctx, { slug, includeSensitive, siteSlug }) => {
-    const site = await requireSite(ctx, siteSlug);
-    const doc = await findDocumentMetadata(ctx, site, slug);
-    return doc && canReadDocument(doc, includeSensitive) ? doc.description ?? null : null;
-  },
-});
-
-export const setDescription = mutation({
-  args: { slug: v.string(), description: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { slug, description, siteSlug }) => {
-    const site = await requireSite(ctx, siteSlug);
-    assertPublishRun(site.site, undefined);
-    const doc = await findDocBySlug(ctx, site, slug);
-    if (!doc) return { found: false };
-    await invalidateManifest(ctx, site.siteId);
-    await patchDocument(ctx, doc, { description });
-    return { found: true };
   },
 });
 
@@ -1050,26 +903,6 @@ export const setMeta = mutation({
         value,
       });
     }
-  },
-});
-
-export const deleteMeta = mutation({
-  args: { key: v.string(), siteSlug: v.optional(v.string()) },
-  handler: async (ctx, { key, siteSlug }) => {
-    const site = await requireSite(ctx, siteSlug);
-    const siteId = site.siteId;
-    const existing = siteId
-      ? await ctx.db
-          .query("meta")
-          .withIndex("by_site_key", (q) => q.eq("siteId", siteId).eq("key", key))
-          .first()
-      : await ctx.db
-          .query("meta")
-          .withIndex("by_key", (q) => q.eq("key", key))
-          .first();
-    if (!existing || !rowBelongsToSite(existing, site)) return { deleted: false };
-    await ctx.db.delete(existing._id);
-    return { deleted: true };
   },
 });
 

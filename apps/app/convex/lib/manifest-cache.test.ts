@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { current, install, requestBuild, status, deltaBase, failed } from "../manifestCache";
 import { invalidateManifest, queueManifestBuild } from "./manifestRevision";
 import { finishPublish } from "../sites";
-import { upsert, setContentHash, bulkSetContentHash, setDescription, deleteBySlug, upsertPdfAsset, upsertFileAsset, deletePdfAssetByPath, deleteFileAssetByPath, backfillAssetHashes } from "../documents";
+import { upsert, bulkSetContentHash, deleteBySlug, upsertPdfAsset, upsertFileAsset, deletePdfAssetByPath, deleteFileAssetByPath, backfillAssetHashes } from "../documents";
 
 function handler(fn: unknown) {
   return (fn as { _handler: (ctx: any, args: any) => Promise<any> })._handler;
@@ -90,9 +90,7 @@ test("every document and asset write invalidates its tenant's manifest", async (
   const cases: [unknown, Record<string, unknown>][] = [
     [upsert, { slug: "one", title: "Updated", content: "New body", contentHash: "two", tags: [], sensitive: true }],
     [upsert, { slug: "new", title: "New", content: "New body", contentHash: "two", tags: [] }],
-    [setContentHash, { slug: "one", contentHash: "two" }],
     [bulkSetContentHash, { entries: [{ slug: "one", contentHash: "two" }] }],
-    [setDescription, { slug: "one", description: "Updated description" }],
     [deleteBySlug, { slug: "one" }],
     [upsertPdfAsset, { path: "one.pdf", url: "https://fixture.invalid/one", contentHash: "two" }],
     [upsertFileAsset, { path: "one.png", url: "https://fixture.invalid/one", contentHash: "two" }],
@@ -112,7 +110,7 @@ test("every document and asset write invalidates its tenant's manifest", async (
 test("unchanged documents and missing deletion targets do not queue rebuilds", async () => {
   const { ctx, jobs } = fixture();
   await handler(upsert)(ctx, { siteSlug: "alpha", slug: "one", title: "One", content: "Body", contentHash: "one", tags: [] });
-  await handler(setContentHash)(ctx, { siteSlug: "alpha", slug: "one", contentHash: "one" });
+  await handler(bulkSetContentHash)(ctx, { siteSlug: "alpha", entries: [{ slug: "one", contentHash: "one" }] });
   await handler(deleteBySlug)(ctx, { siteSlug: "alpha", slug: "missing" });
   await handler(deleteFileAssetByPath)(ctx, { siteSlug: "alpha", path: "missing" });
   expect(jobs).toHaveLength(0);
