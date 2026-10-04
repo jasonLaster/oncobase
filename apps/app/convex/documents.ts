@@ -450,6 +450,107 @@ export const listPageWithContent = query({
   },
 });
 
+// Public text-search corpus, read as independent slug ranges so the server can
+// fetch them in parallel instead of one sequential cursor chain. Ranges come
+// from the visibility index with equality on every prefix field (a slug range
+// may only follow equalities), one partition per readable public combination
+// (see READABLE_SEARCH_FILTERS). Restricted rows and tombstones are never read.
+const SEARCH_CORPUS_PARTITIONS = READABLE_SEARCH_FILTERS.public;
+// Stored bytes, not returned bytes: a range read also loads each row's raw
+// body and embedding. Well under the 16 MiB per-function read limit even when
+// `size` (UTF-16 length) undercounts multi-byte UTF-8 text.
+const SEARCH_CORPUS_RANGE_BYTES = 4 * 1024 * 1024;
+const EMBEDDING_STORED_BYTES = 1536 * 8 + 1024;
+const SEARCH_CORPUS_PAGE_ITEMS = 1000;
+
+function searchPartitionRange(siteId: Id<"sites">, partition: number, from: string | null, to: string | null) {
+  const visibility = SEARCH_CORPUS_PARTITIONS[partition];
+  if (!visibility || !Number.isInteger(partition)) throw new Error("Invalid search partition");
+  return (q: any) => {
+    let range = q.eq("siteId", siteId).eq("deletedAt", visibility.deletedAt).eq("sensitive", visibility.sensitive);
+    if (from !== null) range = range.gte("slug", from);
+    if (to !== null) range = range.lt("slug", to);
+    return range;
+  };
+}
+
+/** Contiguous slug ranges covering every public partition, sized from the
+ * body-free projection. The first range of a partition is open below and the
+ * last open above, so rows written after planning still fall in exactly one
+ * range. Each planned range carries a fingerprint of its rows' identity and
+ * versions (slug, title, content hash, update time), so a reader holding that
+ * range's previous result can skip the read. Before the site's projection is
+ * ready, each partition is one unfingerprinted range (read with continuation
+ * cursors, as the sequential reader did). */
+export const searchCorpusPlan = query({
+  args: { siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const siteId = site.siteId;
+    type Range = { partition: number; from: string | null; to: string | null; fingerprint: string | null };
+    if (!siteId) return { ranges: [] as Range[], documents: 0, planned: false };
+    if (!documentMetaReady(site)) {
+      return { ranges: SEARCH_CORPUS_PARTITIONS.map((_, partition): Range => ({ partition, from: null, to: null, fingerprint: null })), documents: null, planned: false };
+    }
+    const ranges: Range[] = [];
+    let documents = 0;
+    for (let partition = 0; partition < SEARCH_CORPUS_PARTITIONS.length; partition++) {
+      const rows = await ctx.db.query("documentMeta")
+        .withIndex("by_site_deleted_sensitive_slug", searchPartitionRange(siteId, partition, null, null))
+        .collect();
+      if (!rows.length) continue;
+      documents += rows.length;
+      let from: string | null = null;
+      let bytes = 0;
+      let identity: string[] = [];
+      const close = (to: string | null) => {
+        const fingerprint = bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(identity)))).slice(0, 32);
+        ranges.push({ partition, from, to, fingerprint });
+      };
+      for (const row of rows) {
+        const stored = row.size * (row.hasRawContent ? 2 : 1) + (row.embeddingHash ? EMBEDDING_STORED_BYTES : 0) + 1024;
+        if (bytes > 0 && bytes + stored > SEARCH_CORPUS_RANGE_BYTES) {
+          close(row.slug);
+          from = row.slug;
+          bytes = 0;
+          identity = [];
+        }
+        bytes += stored;
+        identity.push(row.slug, row.title, row.contentHash ?? "", String(row.updatedAt));
+      }
+      close(null);
+    }
+    return { ranges, documents, planned: true };
+  },
+});
+
+/** One page of a planned public range: only what text search needs. */
+export const listSearchPages = query({
+  args: {
+    partition: v.number(),
+    from: v.union(v.string(), v.null()),
+    to: v.union(v.string(), v.null()),
+    cursor: v.union(v.string(), v.null()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { partition, from, to, cursor, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const siteId = site.siteId;
+    if (!siteId) return { page: [], isDone: true, continueCursor: "" };
+    const result = await ctx.db.query("documents")
+      .withIndex("by_site_deleted_sensitive_slug", searchPartitionRange(siteId, partition, from, to))
+      .paginate({ cursor, numItems: SEARCH_CORPUS_PAGE_ITEMS });
+    return {
+      page: result.page
+        // The range already excludes them; keep the shared visibility rule.
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, false))
+        .map(({ slug, title, content, contentHash }) => ({ slug, title, content, contentHash })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
 export const listManifestPage = query({
   args: {
     cursor: v.union(v.string(), v.null()),

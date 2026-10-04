@@ -37,7 +37,7 @@ test("every server-only public handler denies before reading or mutating data", 
       checked++;
     }
   }
-  expect(checked).toBe(103);
+  expect(checked).toBe(105);
 });
 
 test("document reads, legacy bulk reads, sensitive flag and hash lookups require a verified service identity", async () => {
@@ -49,6 +49,7 @@ test("document reads, legacy bulk reads, sensitive flag and hash lookups require
   });
   await expect(t.query(api.documents.getBySlug, { siteSlug: "alpha", slug: "restricted", includeSensitive: true, rawContentSessionTokenHash: "forged" })).rejects.toThrow("Unauthorized");
   await expect(t.query(api.documents.listPageWithContent, { siteSlug: "alpha", cursor: null, numItems: 10, includeSensitive: true })).rejects.toThrow("Unauthorized");
+  await expect(t.query(api.documents.listSearchPages, { siteSlug: "alpha", partition: 1, from: null, to: null, cursor: null })).rejects.toThrow("Unauthorized");
   await expect(t.query(api.sites.getBySlug, { slug: "alpha" })).rejects.toThrow("Unauthorized");
   await expect(t.query(api.sites.getByHost, { host: "alpha.test" })).rejects.toThrow("Unauthorized");
   await expect(t.query(api.users.getByEmailForAuth, { siteSlug: "alpha", email: "fixture@test.invalid" })).rejects.toThrow("Unauthorized");

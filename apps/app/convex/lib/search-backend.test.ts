@@ -3,7 +3,7 @@ import { convexTest } from "convex-test";
 import schema from "../schema";
 import { api } from "../_generated/api";
 import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
-import { insertDocument } from "./documentMeta";
+import { insertDocument, patchDocument } from "./documentMeta";
 
 const serviceIdentity = { issuer: SERVICE_ISSUER, subject: SERVICE_SUBJECT, role: "backend-service" };
 const modules = { "../documents.ts": () => import("../documents"), "../_generated/server.js": () => import("../_generated/server") };
@@ -39,4 +39,45 @@ test("indexed search never spends result slots or reads on restricted or deleted
   expect(await slugs({ limit: 1 })).toHaveLength(1);
   const session = await slugs({ limit: 20, includeSensitive: true });
   expect(session).toEqual([...Array.from({ length: 6 }, (_, index) => `restricted-${index}`), "legacy-unset", "legacy-zero", "legacy-zero-restricted", "public"].sort());
+});
+
+test("the corpus plan covers every public row in bounded, fingerprinted ranges", async () => {
+  const big = { sizeBytes: 3_000_000, sensitive: false };
+  const { t, service, siteId } = await fixture([
+    ["a", "alpha body", big], ["b", "bravo body", big], ["c", "charlie body", big],
+    ["c-restricted", "secret", { ...big, sensitive: true }], ["c-deleted", "gone", { ...big, deletedAt: 9 }],
+    ["legacy", "unset body"], ["zero", "zero body", { deletedAt: 0, sensitive: false }],
+  ]);
+  const plan = await service.query(api.documents.searchCorpusPlan, { siteSlug: "alpha" });
+  expect(plan.planned).toBe(true);
+  expect(plan.documents).toBe(5);
+  // One 3 MB row per range in the main partition; legacy partitions in index order.
+  expect(plan.ranges.map(({ partition, from, to }) => [partition, from, to])).toEqual([
+    [0, null, null], [1, null, "b"], [1, "b", "c"], [1, "c", null], [3, null, null],
+  ]);
+  const read = async (range: (typeof plan.ranges)[number]) => {
+    const { fingerprint: _fingerprint, ...args } = range;
+    const result = await service.query(api.documents.listSearchPages, { siteSlug: "alpha", ...args, cursor: null });
+    expect(result.isDone).toBe(true);
+    return result.page.map(page => page.slug);
+  };
+  expect((await Promise.all(plan.ranges.map(read))).flat()).toEqual(["legacy", "a", "b", "c", "zero"]);
+
+  // Only the range holding the changed row gets a new fingerprint.
+  await t.run(async ctx => {
+    // eslint-disable-next-line no-restricted-syntax -- Test fixture edits the row it just wrote.
+    const row = await ctx.db.query("documents").withIndex("by_site_slug", q => q.eq("siteId", siteId).eq("slug", "b")).first();
+    await patchDocument(ctx, row!, { content: "bravo edited", contentHash: "next", updatedAt: 2 });
+  });
+  const next = await service.query(api.documents.searchCorpusPlan, { siteSlug: "alpha" });
+  expect(next.ranges.map((range, index) => range.fingerprint === plan.ranges[index]!.fingerprint)).toEqual([true, true, false, true, true]);
+});
+
+test("before the metadata projection is ready, each partition is one continuation-read range", async () => {
+  const { service } = await fixture([["a", "alpha"], ["b", "bravo", { sensitive: false }]], { metaReady: false });
+  const plan = await service.query(api.documents.searchCorpusPlan, { siteSlug: "alpha" });
+  expect(plan).toEqual({ planned: false, documents: null, ranges: [0, 1, 2, 3].map(partition => ({ partition, from: null, to: null, fingerprint: null })) });
+  const first = await service.query(api.documents.listSearchPages, { siteSlug: "alpha", partition: 1, from: null, to: null, cursor: null });
+  expect(first.page).toEqual([{ slug: "b", title: "b", content: "bravo" }]);
+  await expect(service.query(api.documents.listSearchPages, { siteSlug: "alpha", partition: 4, from: null, to: null, cursor: null })).rejects.toThrow("Invalid search partition");
 });
