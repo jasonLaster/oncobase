@@ -100,35 +100,50 @@ export async function loadPublicSearchCorpus(
   let next = 0;
   let rpcs = 1;
   let prepareMs = 0;
+  // One failed range fails the load; the other workers stop reading.
+  let failed = false;
   await traceBackendPhase("search.corpus.fetch", () => Promise.all(
     Array.from({ length: Math.min(concurrency, pending.length) }, async () => {
-      while (next < pending.length) {
-        const index = pending[next++]!;
-        const { partition, from, to, fingerprint } = ranges[index]!;
-        const pages: SearchablePage[] = [];
-        const cursors = new Set<string>();
-        let cursor: string | null = null;
-        for (;;) {
-          const result: SearchPagesResult = await client.query(
-            api.documents.listSearchPages,
-            withSiteSlug(siteSlug, { partition, from, to, cursor }),
-          );
-          rpcs++;
-          // Preparation is synchronous; other ranges' reads stay in flight.
-          const prepareStarted = performance.now();
-          for (const page of result.page) pages.push(prepareSearchPage(page, patterns));
-          prepareMs += performance.now() - prepareStarted;
-          if (result.isDone) break;
-          if (!result.continueCursor || cursors.has(result.continueCursor)) throw new Error("Search pagination failed");
-          cursor = result.continueCursor;
-          cursors.add(cursor);
-        }
-        chunks[index] = pages;
-        for (const page of pages) characters += searchPageCharacters(page);
-        if (fingerprint) rangePages.set(JSON.stringify([partition, from, to, fingerprint]), pages);
+      try {
+        await readRanges();
+      } catch (error) {
+        failed = true;
+        throw error;
       }
     }),
   ));
+  async function readRanges() {
+    while (next < pending.length && !failed) {
+      const index = pending[next++]!;
+      const { partition, from, to, fingerprint } = ranges[index]!;
+      const pages: SearchablePage[] = [];
+      const cursors = new Set<string>();
+      let cursor: string | null = null;
+      for (;;) {
+        const result: SearchPagesResult = await client.query(
+          api.documents.listSearchPages,
+          withSiteSlug(siteSlug, { partition, from, to, cursor }),
+        );
+        rpcs++;
+        // Preparation is synchronous; other ranges' reads stay in flight.
+        const prepareStarted = performance.now();
+        for (const page of result.page) pages.push(prepareSearchPage(page, patterns));
+        prepareMs += performance.now() - prepareStarted;
+        // Yield between ranges: with reads completing back to back, Bun
+        // otherwise defers due timers (the search wait budget) until the
+        // whole load ends, and concurrent requests on the instance stall.
+        await new Promise<void>(resolve => setImmediate(resolve));
+        if (result.isDone) break;
+        if (failed) return;
+        if (!result.continueCursor || cursors.has(result.continueCursor)) throw new Error("Search pagination failed");
+        cursor = result.continueCursor;
+        cursors.add(cursor);
+      }
+      chunks[index] = pages;
+      for (const page of pages) characters += searchPageCharacters(page);
+      if (fingerprint) rangePages.set(JSON.stringify([partition, from, to, fingerprint]), pages);
+    }
+  }
   // Plan order (visibility partition, then slug) is the previous single
   // cursor's order, so equal-score ties keep their ranking.
   const pages = chunks.flat();
