@@ -13,6 +13,7 @@ function preloadReaderModules(urls: string[]) {
     link.rel = "modulepreload";
     link.crossOrigin = "";
     link.href = href;
+    link.dataset.reader = "";
     document.head.appendChild(link);
   }
 }

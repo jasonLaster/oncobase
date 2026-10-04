@@ -14,6 +14,8 @@ import { publicIdentityFromPageBootstrap } from "./bootstrap/public-identity";
 import { PAGE_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES } from "./bootstrap/page-payload";
 import { mayContainMath, preloadMarkdownMath } from "@oncobase/wiki-markdown/math-loader";
 
+markVisualPhase("boot-reader-module");
+
 function readScope(): WikiScope {
   // A public cache may paint while identity is checked, but it never decides
   // whether the authenticated reader is allowed to load session content.

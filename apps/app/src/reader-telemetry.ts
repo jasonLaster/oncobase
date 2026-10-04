@@ -1,4 +1,4 @@
-import { READER_PHASES, type ReaderPhase, type ReaderSpan } from "../shared/reader-telemetry";
+import { READER_PHASES, READER_REASONS, type ReaderPhase, type ReaderReason, type ReaderSpan } from "../shared/reader-telemetry";
 
 // Per-page random identity, never persisted or derived from a user or page.
 let id: string | undefined;
@@ -43,11 +43,73 @@ function enqueue(span: ReaderSpan) {
   } catch { /* Diagnostics cannot break reading, even in restricted browsers. */ }
 }
 
-export function recordReaderPhase(name: string, data?: Record<string, unknown>) {
+/** A lifecycle mark: time since navigation (or `at`, an earlier performance.now()). */
+export function recordReaderPhase(name: string, data?: Record<string, unknown>, at = performance.now()) {
   const phase = name === "sync" ? `sync-${data?.status}` : name;
   if (!READER_PHASES.includes(phase as ReaderPhase)) return;
-  if (performance.now() > 300_000) return;
-  enqueue({ name: phase as ReaderPhase, start: performance.timeOrigin, duration: performance.now(), status: phase.endsWith("error") || phase === "store-timeout" ? 500 : 200 });
+  if (at > 300_000 || at < 0) return;
+  const reason = READER_REASONS.includes(data?.reason as ReaderReason) ? data!.reason as ReaderReason : undefined;
+  enqueue({ name: phase as ReaderPhase, start: performance.timeOrigin, duration: at, status: phase.endsWith("error") || phase === "store-timeout" ? 500 : 200,
+    ...(reason ? { reason } : {}) });
+  // Resource timing is complete once the store booted (or gave up).
+  if (phase === "store-boot-complete" || phase === "store-timeout") setTimeout(recordBootResources, 0);
+}
+
+/** Fixed sync failure class: source plus HTTP class, timeout, network or other. Never the message. */
+export function syncErrorReason(source: "manifest" | "body", error: unknown): ReaderReason {
+  const message = error instanceof Error ? error.message : "";
+  const status = /^Wiki request failed: (\d)\d\d\b/.exec(message)?.[1];
+  const kind = status === "4" ? "http4xx" : status === "5" ? "http5xx"
+    : /timed out/.test(message) || (error instanceof Error && error.name === "TimeoutError") ? "timeout"
+      : error instanceof TypeError ? "network" : "other";
+  return `${source}-${kind}`;
+}
+
+/** A boot sub-span with a real duration, starting `offsetMs` after navigation. */
+export function recordReaderSpan(name: "store-worker-db-open" | "store-worker-recreate", offsetMs: number, duration: number) {
+  if (typeof window === "undefined" || !Number.isFinite(offsetMs) || offsetMs < 0 || offsetMs > 300_000 || !Number.isFinite(duration) || duration < 0) return;
+  enqueue({ name, start: performance.timeOrigin + offsetMs, duration, status: 200, offsetMs });
+}
+
+// Entry-graph URLs as the HTML declared them, captured before any lazy preload.
+let entryUrls: Set<string> | undefined;
+function captureEntryUrls() {
+  entryUrls ??= new Set([...document.querySelectorAll<HTMLScriptElement | HTMLLinkElement>('script[type="module"][src], link[rel="modulepreload"]:not([data-reader])')]
+    .map(node => "src" in node ? node.src : node.href));
+}
+type ResourceCategory = "entry" | "reader" | "css" | "worker" | "shared-worker" | "wasm";
+function resourceCategory(entry: PerformanceResourceTiming, reader: Set<string>): ResourceCategory | null {
+  const url = entry.name.split(/[?#]/)[0]!;
+  if (/\.wasm$/.test(url) && /sqlite/.test(url)) return "wasm";
+  if (/shared-worker/.test(url)) return "shared-worker";
+  if (/livestore\.worker/.test(url)) return "worker";
+  if (/\.css$/.test(url)) return "css";
+  if (reader.has(entry.name)) return "reader";
+  if (entryUrls?.has(entry.name)) return "entry";
+  return null;
+}
+let resourcesRecorded = false;
+/** One span per fixed boot category: never a URL, only start, span, bytes and cache state. */
+export function recordBootResources() {
+  if (resourcesRecorded || typeof window === "undefined" || typeof performance.getEntriesByType !== "function") return;
+  resourcesRecorded = true;
+  try {
+    const reader = new Set([...document.querySelectorAll<HTMLLinkElement>('link[rel="modulepreload"][data-reader]')].map(link => link.href));
+    const groups = new Map<ResourceCategory, PerformanceResourceTiming[]>();
+    for (const entry of performance.getEntriesByType("resource") as PerformanceResourceTiming[]) {
+      const category = resourceCategory(entry, reader);
+      if (category) groups.set(category, [...groups.get(category) ?? [], entry]);
+    }
+    for (const [category, entries] of groups) {
+      const offsetMs = Math.min(...entries.map(entry => entry.startTime));
+      const end = Math.max(...entries.map(entry => entry.responseEnd || entry.startTime + entry.duration));
+      if (offsetMs > 300_000) continue;
+      enqueue({ name: `resource-${category}`, start: performance.timeOrigin + offsetMs, duration: Math.max(0, end - offsetMs), status: 200, offsetMs,
+        bytes: Math.round(entries.reduce((sum, entry) => sum + (entry.transferSize || 0), 0)), count: entries.length,
+        // Zero transfer with a decoded body: served from the HTTP/memory cache.
+        cached: entries.every(entry => entry.transferSize === 0 && entry.decodedBodySize > 0) });
+    }
+  } catch { /* Resource timing is optional. */ }
 }
 
 /** Passed only to the reader content client; no global fetch patching. */
@@ -112,6 +174,8 @@ export function observeReaderVitals() {
   if (typeof window === "undefined" || import.meta.env.MODE === "test" || typeof PerformanceObserver === "undefined") return;
   try {
     traceId();
+    captureEntryUrls();
+    finalizers.push(recordBootResources);
     const navigation = performance.getEntriesByType("navigation")[0] as (PerformanceNavigationTiming & { responseStatus?: number }) | undefined;
     if (navigation && navigation.responseStart > 0) {
       const app = navigation.serverTiming?.find(entry => entry.name === "app");

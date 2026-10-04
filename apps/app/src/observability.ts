@@ -44,7 +44,7 @@ function state(): WikiViteObservability {
 
 export function publishMetrics(metrics: Metrics) {
   if (state().metrics?.status !== metrics.status) {
-    markVisualPhase("sync", { status: metrics.status });
+    markVisualPhase("sync", { status: metrics.status, reason: metrics.status === "error" ? metrics.errorReason : undefined });
   }
   state().metrics = metrics;
 }

@@ -1,3 +1,4 @@
+import type { ReaderReason } from "../shared/reader-telemetry";
 export type MetricsStatus = "idle" | "syncing" | "ready" | "offline" | "error";
 export type NavigationFreshness = "checking" | "current" | "saved" | "offline";
 export type StoragePressure = "unknown" | "ok" | "warning" | "critical";
@@ -18,6 +19,8 @@ export type Metrics = {
   lastRouteRenderMs: number | null;
   failedBodyFetches: number;
   failedBodySlug: string | null;
+  /** Fixed class of the latest error status (telemetry only). */
+  errorReason?: ReaderReason;
 };
 
 export type MetricsPatch = Partial<Metrics>;

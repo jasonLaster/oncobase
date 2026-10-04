@@ -1,5 +1,6 @@
+import { bootScriptStart } from "./boot-timing";
 import { clearStartupSnapshot } from "./bootstrap/startup-cache-lifecycle";
-import { lazy, StrictMode, Suspense, useEffect } from "react";
+import { lazy, StrictMode, Suspense, useEffect, useLayoutEffect } from "react";
 import { educationOnlyResponse } from "./education-access";
 import { landingResponse, rootRouteFor } from "./root-route";
 import { prefetchReaderSession } from "./reader-session-prefetch";
@@ -8,7 +9,7 @@ import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
-import { observeReaderVitals } from "./reader-telemetry";
+import { observeReaderVitals, recordReaderPhase } from "./reader-telemetry";
 // Specialist viewers do not need the reader's schema or database imports.
 // Keep that dependency graph outside their startup path.
 const WikiViteRoot = lazy(() => import("./WikiViteRoot").then(module => ({ default: module.WikiViteRoot })));
@@ -50,6 +51,7 @@ publishRuntimeEnvironment({
   commitSha: document.querySelector<HTMLMetaElement>('meta[name="wiki-build-commit"]')?.content || undefined,
 });
 observeReaderVitals();
+recordReaderPhase("boot-script", undefined, bootScriptStart);
 
 const ImmersiveDicomRoot = lazy(() =>
   import("./ImmersiveDicomRoot").then((module) => ({
@@ -92,11 +94,22 @@ function RootRouteBoundary() {
   }
 }
 
+let firstCommit = true;
+function FirstCommit() {
+  useLayoutEffect(() => {
+    if (firstCommit) recordReaderPhase("boot-react-commit");
+    firstCommit = false;
+  }, []);
+  return null;
+}
+
 // Verify the session while the reader chunk downloads, not after it mounts.
 if (rootRouteFor(location.pathname, educationOnlyResponse(), landingResponse()) === "reader") prefetchReaderSession();
 
+recordReaderPhase("boot-entry");
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
+    <FirstCommit />
     <AppErrorBoundary>
       <BrowserRouter>
         <Suspense fallback={<AppStarting />}>

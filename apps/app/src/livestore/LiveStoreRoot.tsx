@@ -34,6 +34,9 @@ import { StoreStartupLoading } from "./StoreStartup";
 import { resolveReaderStorage, isDiagnosticMemoryStorageRequest, readerBootDeadline, networkAwareBootDeadline,
   READER_LEADER_BOOT_TIMEOUT_MS, READER_FOLLOWER_BOOT_TIMEOUT_MS } from "./reader-storage";
 import { markVisualPhase } from "../visual-phase";
+import { recordReaderPhase, recordReaderSpan } from "../reader-telemetry";
+import type { ReaderReason } from "../../shared/reader-telemetry";
+import { observeWorkerBoot } from "./worker-boot-telemetry";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
 import { createReaderBoot, readerBootRequest } from "../bootstrap/seed-state";
 import {
@@ -45,13 +48,46 @@ import {
 const StoreStartupRecovery = lazy(() => import("./StoreStartupRecovery"));
 const ReaderStartupCacheWriter = lazy(() => import("../bootstrap/ReaderStartupCacheWriter").then(module => ({ default: module.ReaderStartupCacheWriter })));
 
+markVisualPhase("boot-store-module");
+
+// sessionStorage is copied by duplicated/opener tabs. A per-document ID
+// prevents two live tabs from presenting the same LiveStore session identity.
+const sessionId = crypto.getRandomValues(new Uint32Array(4)).join("-");
+// Furthest boot milestone reached on this page; classifies a store timeout.
+const bootProgress = { follower: false, workerCreated: false, dbOpen: false, leaderDone: false };
+observeWorkerBoot(sessionId, ({ kind, at, duration }) => {
+  const offset = at - performance.timeOrigin;
+  if (kind === "script") return recordReaderPhase("store-worker-script", undefined, offset);
+  if (kind === "db-open") bootProgress.dbOpen = true;
+  recordReaderSpan(kind === "db-open" ? "store-worker-db-open" : "store-worker-recreate", offset, duration);
+});
+function noteBootStage(stage: string | undefined) {
+  if (stage !== "done" || bootProgress.leaderDone) return;
+  bootProgress.leaderDone = true;
+  markVisualPhase("store-leader-done");
+}
+function timeoutReason(temporary: boolean, hasAdapter: boolean): ReaderReason {
+  if (temporary) return "temporary";
+  if (!hasAdapter) return "adapter";
+  if (bootProgress.leaderDone) return "snapshot";
+  if (bootProgress.dbOpen) return "leader-boot";
+  if (bootProgress.workerCreated) return "worker-boot";
+  return bootProgress.follower ? "follower" : "lock-wait";
+}
+
 const persistedAdapter = makePersistedAdapter({
-  // sessionStorage is copied by duplicated/opener tabs. A per-document ID
-  // prevents two live tabs from presenting the same LiveStore session identity.
-  sessionId: crypto.getRandomValues(new Uint32Array(4)).join("-"),
+  sessionId,
   storage: { type: "opfs" },
-  worker: LiveStoreWorker,
-  sharedWorker: LiveStoreSharedWorker,
+  // Construction marks: the dedicated worker exists only once this tab holds the leader lock.
+  worker: (options: { name: string }) => {
+    bootProgress.workerCreated = true;
+    markVisualPhase("store-worker-created");
+    return new LiveStoreWorker(options);
+  },
+  sharedWorker: (options: { name: string }) => {
+    markVisualPhase("store-shared-worker-created");
+    return new LiveStoreSharedWorker(options);
+  },
   // Rapid route reloads can overlap the optimistic client-side OPFS snapshot
   // read with the previous leader's final write. Ask the leader for a recreated
   // snapshot so a partially observed SQLite image never reaches React queries.
@@ -204,7 +240,8 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
     void Promise.all([adapterPromise, readerBootDeadline(navigator.locks, storeId)]).then(([resolved, deadline]) => {
       // A late probe must not replace a temporary store already in use.
       if (active) {
-        markVisualPhase(deadline === READER_FOLLOWER_BOOT_TIMEOUT_MS ? "store-existing-leader" : "store-new-leader");
+        bootProgress.follower = deadline === READER_FOLLOWER_BOOT_TIMEOUT_MS;
+        markVisualPhase(bootProgress.follower ? "store-existing-leader" : "store-new-leader");
         setBootTimeoutMs(networkAwareBootDeadline(deadline,
           performance.getEntriesByType("resource") as PerformanceResourceTiming[], location.origin));
         setAdapter((current: Awaited<typeof adapterPromise> | null) => current ?? resolved);
@@ -215,7 +252,7 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
   const [bootAttempt, setBootAttempt] = useState(0);
   const retryBoot = useCallback(() => setBootAttempt((attempt) => attempt + 1), []);
   const recoverStalledBoot = useCallback(() => {
-    markVisualPhase("store-timeout", { temporary: adapter === temporaryAdapter });
+    markVisualPhase("store-timeout", { temporary: adapter === temporaryAdapter, reason: timeoutReason(adapter === temporaryAdapter, Boolean(adapter)) });
     dismissFirstFrameSnapshot();
     if (adapter === temporaryAdapter) {
       setStalled(true);
@@ -248,6 +285,7 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
             stage={stage}
             timeoutMs={adapter === persistedAdapter ? bootTimeoutMs : runtimeTimeoutMs}
             onTimeout={recoverStalledBoot}
+            onStage={noteBootStage}
           />
         )}
         renderShutdown={() => bootstrapMode ? <StopEarlyReader stop={setStalled} /> : <StoreStartupRecovery />}

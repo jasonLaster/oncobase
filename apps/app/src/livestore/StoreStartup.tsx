@@ -8,16 +8,20 @@ export const STORE_STARTUP_TIMEOUT_MS = 15_000;
 export function StoreStartupLoading({
   stage,
   onTimeout,
+  onStage,
   timeoutMs = STORE_STARTUP_TIMEOUT_MS,
 }: {
   stage?: string;
   onTimeout: () => void;
+  /** Observes provider boot stages (diagnostics only). */
+  onStage?: (stage: string | undefined) => void;
   timeoutMs?: number;
 }) {
   useLayoutEffect(() => {
     const timer = window.setTimeout(onTimeout, timeoutMs);
     return () => window.clearTimeout(timer);
   }, [onTimeout, timeoutMs]);
+  useLayoutEffect(() => { onStage?.(stage); }, [onStage, stage]);
   return <div className="reader-pending" data-test-id="reader-pending" data-startup-stage={stage}>
     <PageTransferActivity label="Opening reader…" onRetry={() => window.location.reload()} />
   </div>;

@@ -45,6 +45,10 @@ export async function handleReaderTelemetry(request: Request) {
       ...(span.serverMs === undefined ? {} : { "server.duration_ms": span.serverMs }),
       ...(span.serverTraceId === undefined ? {} : { "oncobase.server.trace_id": span.serverTraceId }),
       ...(span.partial === undefined ? {} : { "manifest.partial": span.partial }), ...(span.cached === undefined ? {} : { "reader.cached": span.cached }),
+      ...(span.reason === undefined ? {} : { "reader.reason": span.reason }),
+      // Boot spans: start since navigation (client clock), transfer bytes, resource count.
+      ...(span.offsetMs === undefined ? {} : { "reader.offset_ms": span.offsetMs }),
+      ...(span.bytes === undefined ? {} : { "reader.transfer_bytes": span.bytes }), ...(span.count === undefined ? {} : { "reader.count": span.count }),
     }, span.status === 0 || span.status >= 400);
     console.info("oncobase.reader", JSON.stringify(batch));
     return new Response(null, { status: 204, headers });

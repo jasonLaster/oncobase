@@ -4,10 +4,27 @@ export const READER_PHASES = ["identity-start", "identity-ready", "identity-erro
   // In-app navigation to rendered body (cached: body already local); search latency.
   "route-render", "search-text", "search-ai",
   // An error boundary caught a render error (scope only; never the message).
-  "render-error-root", "render-error-route", "render-error-body", "render-error-comments"] as const;
+  "render-error-root", "render-error-route", "render-error-body", "render-error-comments",
+  // Browser boot, as time since navigation: first module evaluated, entry body
+  // reached render, first React commit, WikiViteRoot and LiveStoreRoot modules evaluated.
+  "boot-script", "boot-entry", "boot-react-commit", "boot-reader-module", "boot-store-module",
+  // LiveStore boot observed from app code (no library patches): workers constructed
+  // (the dedicated worker only exists once this tab holds the leader lock), the
+  // worker script evaluating, the worker's wasm load + OPFS open (real duration),
+  // a state-db recreate (real duration), and the leader reporting boot done.
+  "store-shared-worker-created", "store-worker-created", "store-worker-script", "store-worker-db-open", "store-worker-recreate", "store-leader-done",
+  // Resource timing per fixed boot category (never URLs): offsetMs = fetch start
+  // since navigation, duration = first start to last response end, bytes = transfer size.
+  "resource-entry", "resource-reader", "resource-css", "resource-worker", "resource-shared-worker", "resource-wasm"] as const;
 export type ReaderPhase = typeof READER_PHASES[number];
+/** Fixed failure classes for store-timeout (furthest boot milestone reached) and sync-error (source-kind). */
+export const READER_REASONS = ["adapter", "lock-wait", "follower", "worker-boot", "leader-boot", "snapshot", "temporary",
+  "auth", ...(["manifest", "body"] as const).flatMap(source => (["timeout", "network", "http4xx", "http5xx", "other"] as const).map(kind => `${source}-${kind}` as const))] as const;
+export type ReaderReason = typeof READER_REASONS[number];
 /** serverMs/serverTraceId come from the response's Server-Timing `app` and `trace` entries. */
-export type ReaderSpan = { name: ReaderPhase; start: number; duration: number; status: number; rpcMs?: number; serverMs?: number; serverTraceId?: string; partial?: boolean; cached?: boolean };
+export type ReaderSpan = { name: ReaderPhase; start: number; duration: number; status: number; rpcMs?: number; serverMs?: number; serverTraceId?: string; partial?: boolean; cached?: boolean;
+  reason?: ReaderReason; offsetMs?: number; bytes?: number; count?: number };
+const bounded = (value: unknown, max: number) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= max;
 export type ReaderBatch = { version: 1; traceId: string; spans: ReaderSpan[]; dropped: number };
 
 // Reconstruct a strict allowlist, rather than forwarding arbitrary properties.
@@ -24,6 +41,10 @@ export function parseReaderBatch(value: unknown, now = Date.now()): ReaderBatch 
       ...(typeof item.serverTraceId === "string" && /^[a-f0-9]{32}$/.test(item.serverTraceId) && !/^0+$/.test(item.serverTraceId) ? { serverTraceId: item.serverTraceId } : {}),
       ...(typeof item.partial === "boolean" ? { partial: item.partial } : {}),
       ...(typeof item.cached === "boolean" ? { cached: item.cached } : {}),
+      ...(READER_REASONS.includes(item.reason as ReaderReason) ? { reason: item.reason } : {}),
+      ...(bounded(item.offsetMs, 300_000) ? { offsetMs: item.offsetMs } : {}),
+      ...(Number.isInteger(item.bytes) && bounded(item.bytes, 1e9) ? { bytes: item.bytes } : {}),
+      ...(Number.isInteger(item.count) && bounded(item.count, 1000) ? { count: item.count } : {}),
     });
   }
   return { version: 1, traceId: body.traceId, spans, dropped: Number.isInteger(body.dropped) && body.dropped >= 0 && body.dropped <= 1e6 ? body.dropped : 0 };

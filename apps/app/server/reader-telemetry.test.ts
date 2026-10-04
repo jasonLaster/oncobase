@@ -86,3 +86,23 @@ test("browser spans keep validated server timing and trace joins only", async ()
   expect(reader.attributes["oncobase.server.trace_id"]).toBe(span.serverTraceId);
   await provider.shutdown();
 });
+
+test("boot spans keep only fixed reasons and bounded numeric resource fields", async () => {
+  const span = { name: "resource-worker", start: Date.now() - 100, duration: 80, status: 200, offsetMs: 412.5, bytes: 171_000, count: 1, cached: false, reason: "lock-wait", url: "PRIVATE" };
+  const parsed = parseReaderBatch({ ...fixture(), spans: [span] })!.spans[0]!;
+  expect(parsed).toEqual({ name: "resource-worker", start: span.start, duration: 80, status: 200, offsetMs: 412.5, bytes: 171_000, count: 1, cached: false, reason: "lock-wait" });
+  const invalid = parseReaderBatch({ ...fixture(), spans: [{ ...span, reason: "PRIVATE", offsetMs: -1, bytes: 1.5, count: 1001 }] })!.spans[0]!;
+  expect(JSON.stringify(invalid)).not.toContain("PRIVATE");
+  expect([invalid.reason, invalid.offsetMs, invalid.bytes, invalid.count]).toEqual([undefined, undefined, undefined, undefined]);
+  expect(parseReaderBatch({ ...fixture(), spans: [{ ...span, name: "sync-error", reason: "manifest-http5xx" }] })!.spans[0]!.reason).toBe("manifest-http5xx");
+
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const handle = traceBackendHandler(handleReaderTelemetry, { tracer: provider.getTracer("test") });
+  await handle(new Request("https://wiki.example/api/wiki/telemetry", { method: "POST", headers: { origin: "https://wiki.example", "Content-Type": "application/json" },
+    body: JSON.stringify({ ...fixture(), spans: [span, { name: "store-timeout", start: Date.now() - 10, duration: 3000, status: 500, reason: "worker-boot" }] }) }));
+  const resource = exporter.getFinishedSpans().find(s => s.name === "observation.reader.resource-worker")!;
+  expect(resource.attributes).toMatchObject({ "reader.offset_ms": 412.5, "reader.transfer_bytes": 171_000, "reader.count": 1, "reader.cached": false });
+  expect(exporter.getFinishedSpans().find(s => s.name === "observation.reader.store-timeout")!.attributes["reader.reason"]).toBe("worker-boot");
+  await provider.shutdown();
+});

@@ -1,4 +1,4 @@
-import { readerFetch } from "../reader-telemetry";
+import { readerFetch, syncErrorReason } from "../reader-telemetry";
 import { useStore } from "@livestore/react";
 import {
   createWikiContentClient,
@@ -222,6 +222,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
           onMetrics({
             status: "error",
+            errorReason: "auth",
             message: "Session expired; local session cache cleared",
             eventCount: 1,
             failedBodyFetches: 1,
@@ -231,6 +232,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             ...(slug === currentSlugRef.current
               ? {
                   status: "error" as const,
+                  errorReason: syncErrorReason("body", error),
                   message: `Failed to fetch markdown for ${slug}`,
                   failedBodySlug: slug,
                 }
@@ -446,6 +448,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
             store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
             onMetrics({
               status: "error",
+              errorReason: "auth",
               navigationFreshness: "saved",
               message: "Session expired; local session cache cleared",
               eventCount: 1,
@@ -464,6 +467,7 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
           } else {
             onMetrics({
               status: navigator.onLine ? "error" : "offline",
+              errorReason: syncErrorReason("manifest", error),
               navigationFreshness: navigator.onLine ? "saved" : "offline",
               message: error instanceof Error ? error.message : String(error),
             });
