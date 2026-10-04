@@ -1,3 +1,5 @@
+import { safeLocalStorage } from "../safe-storage";
+
 const STORAGE_KEY = "wiki-vite-livestore-devtools";
 const QUERY_PARAM = "livestoreDevtools";
 
@@ -19,21 +21,21 @@ export function readLiveStoreDevtoolsEnabled(): boolean {
   const queryPreference = readQueryPreference(new URL(window.location.href));
   if (queryPreference != null) {
     if (queryPreference) {
-      window.localStorage.setItem(STORAGE_KEY, "1");
+      safeLocalStorage.setItem(STORAGE_KEY, "1");
     } else {
-      window.localStorage.removeItem(STORAGE_KEY);
+      safeLocalStorage.removeItem(STORAGE_KEY);
     }
     return queryPreference;
   }
 
-  return window.localStorage.getItem(STORAGE_KEY) === "1";
+  return safeLocalStorage.getItem(STORAGE_KEY) === "1";
 }
 
 export function reloadWithLiveStoreDevtools(enabled: boolean) {
   if (enabled) {
-    window.localStorage.setItem(STORAGE_KEY, "1");
+    safeLocalStorage.setItem(STORAGE_KEY, "1");
   } else {
-    window.localStorage.removeItem(STORAGE_KEY);
+    safeLocalStorage.removeItem(STORAGE_KEY);
   }
 
   const nextUrl = new URL(window.location.href);

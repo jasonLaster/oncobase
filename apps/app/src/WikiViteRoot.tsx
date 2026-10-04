@@ -7,6 +7,7 @@ import {
 } from "@oncobase/wiki-content";
 import { createElement, Suspense, useEffect, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
+import { safeLocalStorage } from "./safe-storage";
 import { explicitReaderScope, resolveReaderSession } from "./reader-session";
 import { WikiIdentityPendingContext } from "./wiki-context";
 import { markVisualPhase } from "./visual-phase";
@@ -89,7 +90,7 @@ function publicIdentityFallback(scope: WikiScope) {
 }
 
 function switchToPublicScope() {
-  window.localStorage.setItem("wiki-vite-scope", "public");
+  safeLocalStorage.setItem("wiki-vite-scope", "public");
   const url = new URL(window.location.href);
   url.searchParams.set("scope", "public");
   window.location.assign(`${url.pathname}${url.search}${url.hash}`);
@@ -227,7 +228,7 @@ export function WikiViteRoot() {
           if (identity.scope === "public") {
             try {
               persistPublicIdentity(
-                window.localStorage,
+                safeLocalStorage,
                 publicIdentityPartition(),
                 identity,
               );

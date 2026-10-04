@@ -31,6 +31,7 @@ import {
 import { useLocation, useNavigate } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
 import { requestSessionCacheCleanup } from "../livestore/cache-retirement";
+import { safeLocalStorage } from "../safe-storage";
 import { useWikiSession, useWikiIdentityPending } from "../wiki-context";
 import type { PaletteMode } from "./CommandPalette";
 import type {} from "../bootstrap/reader-shortcuts";
@@ -278,7 +279,7 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
   const scope = (() => {
     const urlScope = new URLSearchParams(location.search).get("scope");
     if (urlScope === "session" || urlScope === "public") return urlScope;
-    return window.localStorage.getItem("wiki-vite-scope") === "session" ? "session" : "public";
+    return safeLocalStorage.getItem("wiki-vite-scope") === "session" ? "session" : "public";
   })();
 
   return (
@@ -303,11 +304,11 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
         await signOut();
         if (identity?.siteSlug) {
           requestSessionCacheCleanup(
-            window.localStorage,
+            safeLocalStorage,
             identity.siteSlug,
           );
         }
-        window.localStorage.setItem("wiki-vite-scope", "public");
+        safeLocalStorage.setItem("wiki-vite-scope", "public");
         window.location.reload();
       }}
       onThemeToggle={cycleWikiThemePreference}
@@ -343,14 +344,14 @@ export function ScopeSwitcher({
       <a
         className={scope === "public" ? "active" : ""}
         href={scopeHref(pathname, search, hash, "public")}
-        onClick={() => window.localStorage.setItem("wiki-vite-scope", "public")}
+        onClick={() => safeLocalStorage.setItem("wiki-vite-scope", "public")}
       >
         Public
       </a>
       <a
         className={scope === "session" ? "active" : ""}
         href={scopeHref(pathname, search, hash, "session")}
-        onClick={() => window.localStorage.setItem("wiki-vite-scope", "session")}
+        onClick={() => safeLocalStorage.setItem("wiki-vite-scope", "session")}
       >
         Session
       </a>
