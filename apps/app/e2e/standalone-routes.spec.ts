@@ -3,6 +3,7 @@ import { documentArticle, gotoWiki, installWikiApiMocks } from "./fixtures";
 
 for (const route of [
   { path: "/login", testId: "login-page" },
+  { path: "/sign-in", testId: "sign-in-page" },
   { path: "/terms-and-conditions", testId: "terms-and-conditions" },
 ]) {
   test(`${route.path} does not require the reader session or database`, async ({ page, context }) => {

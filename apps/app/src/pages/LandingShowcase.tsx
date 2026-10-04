@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useResolvedWikiTheme } from "../PublicThemeControl";
 import { DianaMark } from "./LandingBrands";
-import { requestSignIn, signInHref } from "./landing-sign-in";
+import { signInHref } from "./sign-in";
 
 type ThemedImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> & {
   /** Public path without the `-light`/`-dark` suffix, e.g. `/landing/reader-desktop`. */
@@ -24,37 +24,20 @@ export function ThemedImage({ base, extension, ...props }: ThemedImageProps) {
 }
 
 /**
- * Private pages send signed-out visitors back here, so these links move to the
- * password form and continue to the page after sign-in.
+ * Private pages send signed-out visitors back to the landing page, so these
+ * links ask for the password first and then continue to the page.
  */
 export function PrivateLink({
   path,
-  label,
   className,
   children,
 }: {
   path: string;
-  label: string;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <a
-      className={className}
-      href={signInHref(path)}
-      onClick={(event) => {
-        if (
-          event.button !== 0 ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.shiftKey ||
-          event.altKey
-        )
-          return;
-        event.preventDefault();
-        requestSignIn(path, label);
-      }}
-    >
+    <a className={className} href={signInHref(path)}>
       {children}
     </a>
   );
@@ -148,7 +131,7 @@ export function KnowledgeBaseContents() {
                       <ArrowRight size={13} />
                     </a>
                   ) : (
-                    <PrivateLink path={path} label={label}>
+                    <PrivateLink path={path}>
                       <FileText size={14} />
                       <span>{label}</span>
                       <LockKeyhole

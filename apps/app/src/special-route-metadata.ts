@@ -11,6 +11,7 @@ export type SpecialRouteMetadata = {
 };
 
 export const LANDING_TITLE = "Diana TNBC Knowledge Base";
+export const SIGN_IN_TITLE = `Sign in — ${LANDING_TITLE}`;
 const LANDING_DESCRIPTION =
   "Diana’s records, scans, and research in one knowledge base, so everyone helping with her triple-negative breast cancer care can work from the same page.";
 
@@ -99,6 +100,9 @@ export function specialRouteMetadata({
   siteName: string;
 }): SpecialRouteMetadata | null {
   if (pathname === "/login") return landingRouteMetadata();
+  if (pathname === "/sign-in") {
+    return { ...landingRouteMetadata(), title: SIGN_IN_TITLE };
+  }
   const definition = routeDefinition(pathname);
   if (!definition) return null;
 

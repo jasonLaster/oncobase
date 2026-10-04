@@ -7,6 +7,7 @@ describe("rootRouteFor", () => {
     expect(rootRouteFor("/wiki/some/page", false)).toBe("reader");
     expect(rootRouteFor("/search", true)).toBe("reader");
     expect(rootRouteFor("/login", false)).toBe("login");
+    expect(rootRouteFor("/sign-in", false)).toBe("sign-in");
     expect(rootRouteFor("/terms-and-conditions", false)).toBe("terms");
     expect(rootRouteFor("/education", false)).toBe("education");
     expect(rootRouteFor("/education/topic", false)).toBe("education");
@@ -19,5 +20,6 @@ describe("rootRouteFor", () => {
     expect(rootRouteFor("/wiki/private", true)).toBe("password");
     expect(rootRouteFor("/wiki/education/topic", true)).toBe("reader");
     expect(rootRouteFor("/login", true)).toBe("login");
+    expect(rootRouteFor("/sign-in", true)).toBe("sign-in");
   });
 });

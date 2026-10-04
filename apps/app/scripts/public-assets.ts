@@ -23,6 +23,8 @@ const PUBLIC_FILES = new Set([
   "landing/diagnostics-timeline.jpg",
   "landing/dicom-viewer.jpg",
   "landing/og-image.jpg",
+  "landing/sign-in-cartoon-light.webp",
+  "landing/sign-in-cartoon-dark.webp",
 ]);
 
 function files(directory: string, prefix = ""): string[] {

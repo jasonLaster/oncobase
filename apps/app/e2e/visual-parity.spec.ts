@@ -362,10 +362,14 @@ test.describe("Visual parity", () => {
     const page = await context.newPage();
     try {
       await page.goto("/login", { waitUntil: "domcontentloaded" });
+      // The landing page links to the dedicated sign-in page.
+      await page.getByRole("link", { name: "Sign in", exact: true }).click();
+      await expect(page).toHaveURL(/\/sign-in$/);
 
       const card = page.locator(".auth-card");
       const input = page.getByRole("textbox", { name: "Password" });
       const button = page.getByRole("button", { name: "Enter" });
+      await expect(input).toBeInViewport();
       const cardBox = await card.boundingBox();
       const inputBox = await input.boundingBox();
       const buttonBox = await button.boundingBox();
@@ -381,8 +385,6 @@ test.describe("Visual parity", () => {
       expect(buttonBox!.x).toBe(inputBox!.x);
       expect(buttonBox!.width).toBe(inputBox!.width);
       expect(buttonBox!.y).toBeGreaterThanOrEqual(inputBox!.y + inputBox!.height + 12);
-      await page.getByRole("link", { name: "Sign in", exact: true }).click();
-      await expect(input).toBeInViewport();
     } finally {
       await context.close();
     }

@@ -16,7 +16,7 @@ const EducationApp = lazy(() => import("./education/EducationApp").then(module =
 
 // A login response supersedes previously remembered access, including a gate
 // redirect after cookie expiration. Never revive it on Back/reload.
-if (location.pathname === "/login") clearStartupSnapshot();
+if (["/login", "/sign-in"].includes(location.pathname)) clearStartupSnapshot();
 
 // Retire inert HTML copies from older releases. Structured reader data remains
 // cached, but only React renders its controls and document content.
@@ -62,6 +62,9 @@ const PathologyViewerPage = lazy(() =>
 const LoginPage = lazy(() =>
   import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
 );
+const SignInPage = lazy(() =>
+  import("./pages/SignInPage").then((module) => ({ default: module.SignInPage })),
+);
 const TermsAndConditionsPage = lazy(() =>
   import("./pages/TermsAndConditionsPage").then((module) => ({
     default: module.TermsAndConditionsPage,
@@ -81,6 +84,7 @@ function RootRouteBoundary() {
     case "password": return <AppStarting />;
     case "education": return <EducationApp />;
     case "login": return <LoginPage />;
+    case "sign-in": return <SignInPage />;
     case "terms": return <TermsAndConditionsPage />;
     case "pathology": return <PathologyViewerPage />;
     case "dicom": return <ImmersiveDicomRoot />;

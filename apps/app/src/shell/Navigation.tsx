@@ -51,6 +51,7 @@ const NON_DOCUMENT_ROUTE_PREFIXES = [
   "/login",
   "/pii-view",
   "/search",
+  "/sign-in",
   "/table-examples",
   "/tags",
   "/timeline",

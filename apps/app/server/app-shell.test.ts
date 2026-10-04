@@ -477,6 +477,27 @@ describe("wiki Vite app-shell password gate", () => {
     }
   });
 
+  test("serves the sign-in page like login and sends signed-in readers onward", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    const signedOut = await handler(request("/sign-in?redirect=%2Fwiki%2Fpublic"));
+    expect(signedOut.status).toBe(200);
+    const html = await signedOut.text();
+    expect(html).toContain("<title>Sign in — Diana TNBC Knowledge Base</title>");
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow" />');
+
+    const signedIn = await handler(
+      request("/sign-in?redirect=%2Fwiki%2Fpublic", {
+        headers: await authenticatedHeaders(),
+      }),
+    );
+    expect(signedIn.status).toBe(302);
+    expect(signedIn.headers.get("location")).toBe("http://127.0.0.1/wiki/public");
+  });
+
   test("serves authenticated HTML privately while keeping hashed assets immutable", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,

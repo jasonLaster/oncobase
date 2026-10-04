@@ -23,8 +23,13 @@ function safeDecodePathname(pathname: string) {
   }
 }
 
+/** The landing page and the sign-in page both live outside the wiki. */
+export function isSignInPathname(pathname: string) {
+  return pathname === "/login" || pathname === "/sign-in";
+}
+
 export function slugFromRoutePathname(pathname: string) {
-  if (pathname === "/login") return null;
+  if (isSignInPathname(pathname)) return null;
   const decoded = safeDecodePathname(pathname)
     .replace(/^\/+/, "")
     .replace(/\.(?:md|mdx)$/i, "");

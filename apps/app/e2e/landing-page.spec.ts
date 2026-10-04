@@ -131,15 +131,11 @@ test("landing page loads without requesting reader or clinical data", async ({
   expect(readerRequests).toEqual([]);
 });
 
-test("landing navigation reaches every section and sign-in", async ({
+test("landing navigation reaches every section and the sign-in page", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/login");
-  await page
-    .getByRole("link", { name: "Sign in to the knowledge base", exact: true })
-    .click();
-  await expect(page.getByLabel("Password", { exact: true })).toBeInViewport();
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   for (const [link, heading] of [
     ["Our story", "#story-title"],
@@ -153,8 +149,17 @@ test("landing navigation reaches every section and sign-in", async ({
   await expect(
     navigation.getByRole("link", { name: "Education", exact: true }),
   ).toHaveAttribute("href", "/education");
+  // The password form lives on its own page.
+  await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByLabel("Password", { exact: true })).toBeInViewport();
+  await page.getByRole("link", { name: "About the knowledge base" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page
+    .getByRole("link", { name: "Sign in to the knowledge base", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/sign-in$/);
 });
 
 for (const width of [393, 1440]) {
@@ -199,22 +204,13 @@ for (const width of [393, 1440]) {
       .toBeGreaterThanOrEqual((await header.boundingBox())!.height + 20);
     await expect(header).toHaveAttribute("data-tone", "diana");
 
-    await header.getByRole("link", { name: "Sign in", exact: true }).click();
-    const password = page.getByLabel("Password", { exact: true });
-    await expect(password).toBeInViewport();
-    expect((await password.boundingBox())!.y).toBeGreaterThanOrEqual(
-      (await header.boundingBox())!.height,
-    );
-    expect(Math.abs((await header.boundingBox())!.y)).toBeLessThan(1);
-    await expect(header).toHaveAttribute("data-tone", "diana");
-
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(header).toHaveAttribute("data-tone", "diana");
     expect(Math.abs((await header.boundingBox())!.y)).toBeLessThan(1);
   });
 }
 
-test("phones reach educational content, sign-in, and the footer", async ({
+test("phones reach educational content, the footer, and sign-in", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 393, height: 852 });
@@ -222,10 +218,6 @@ test("phones reach educational content, sign-in, and the footer", async ({
   await expect(
     page.getByRole("link", { name: "Browse educational content" }).first(),
   ).toHaveAttribute("href", "/education");
-  await page
-    .getByRole("link", { name: "Sign in to the knowledge base", exact: true })
-    .click();
-  await expect(page.getByLabel("Password", { exact: true })).toBeInViewport();
   await page.evaluate(() =>
     window.scrollTo(0, document.documentElement.scrollHeight),
   );
@@ -235,11 +227,17 @@ test("phones reach educational content, sign-in, and the footer", async ({
     "diana",
   );
   await expect(
-    page.getByText("A private space for Diana’s village.", { exact: true }),
-  ).toBeVisible();
-  await expect(
     page.getByRole("link", { name: "Terms & conditions" }),
   ).toHaveAttribute("href", "/terms-and-conditions");
+  await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page.getByLabel("Password", { exact: true })).toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "Enter Diana’s knowledge base" }),
+  ).toBeInViewport();
+  await expect(
+    page.getByText("A private space for Diana’s village.", { exact: true }),
+  ).toBeVisible();
 });
 
 test("sign-in reports connection and server failures and allows a retry", async ({
@@ -251,7 +249,7 @@ test("sign-in reports connection and server failures and allows a retry", async 
     if (attempt === 1) await route.abort("failed");
     else await route.fulfill({ status: 503, body: "{}" });
   });
-  await page.goto("/login#sign-in");
+  await page.goto("/sign-in");
   await page.getByLabel("Password", { exact: true }).fill("test-password");
   await page
     .getByRole("button", { name: "Enter Diana’s knowledge base", exact: true })
@@ -297,26 +295,7 @@ test("private links ask for the password and continue to the page", async ({
   );
   await expect(currentCare).toHaveAttribute(
     "href",
-    "/login?redirect=%2Fwiki%2Fcare%2Findex#sign-in",
-  );
-  // A click stays on this page instead of reloading it in a new tab.
-  await page.evaluate(
-    () => ((window as { landingMarker?: true }).landingMarker = true),
-  );
-  await currentCare.click();
-  await expect(page).toHaveURL(
-    /\/login\?redirect=%2Fwiki%2Fcare%2Findex#sign-in$/,
-  );
-  expect(
-    await page.evaluate(
-      () => (window as { landingMarker?: true }).landingMarker,
-    ),
-  ).toBe(true);
-  const password = page.getByLabel("Password", { exact: true });
-  await expect(password).toBeFocused();
-  await expect(password).toBeInViewport();
-  await expect(page.locator(".auth-destination")).toHaveText(
-    "Sign in to open Current care.",
+    "/sign-in?redirect=%2Fwiki%2Fcare%2Findex",
   );
   for (const link of await page
     .locator(".landing-page a[href^='http']")
@@ -326,9 +305,92 @@ test("private links ask for the password and continue to the page", async ({
       new URL((await link.getAttribute("href"))!).hostname,
     );
   }
-  await password.fill("test-password");
+  await currentCare.click();
+  await expect(page).toHaveURL(/\/sign-in\?redirect=%2Fwiki%2Fcare%2Findex$/);
+  await expect(
+    page.getByText(
+      "Enter the shared password to continue to the page you opened.",
+    ),
+  ).toBeVisible();
+  await page.getByLabel("Password", { exact: true }).fill("test-password");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/wiki\/care\/index$/);
+});
+
+test("a private page's redirect opens the sign-in page directly", async ({
+  page,
+}) => {
+  // A bare visit and the bare domain's own redirect show the landing page.
+  for (const path of ["/login", "/login?redirect=%2F"]) {
+    await page.goto(path);
+    await expect(page.getByTestId("login-page")).toBeVisible();
+    await expect(page.getByTestId("sign-in-page")).toHaveCount(0);
+  }
+  await page.goto("/login?redirect=%2Fwiki%2Fcare%2Findex");
+  await expect(page.getByTestId("sign-in-page")).toBeVisible();
+  await expect(page).toHaveTitle("Sign in — Diana TNBC Knowledge Base");
+});
+
+for (const width of [320, 393, 900, 901, 1440]) {
+  test(`sign-in page reflows without overflow at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: width <= 700 ? 852 : 900 });
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/sign-in");
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Open Diana’s knowledge base.",
+      }),
+    ).toBeVisible();
+    const cartoon = page.locator(".si-cartoon img");
+    await expect(cartoon).toHaveAttribute(
+      "src",
+      /sign-in-cartoon-light\.webp$/,
+    );
+    await expect
+      .poll(() =>
+        cartoon.evaluate(
+          (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
+        ),
+      )
+      .toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const art = (await page.locator(".si-art").boundingBox())!;
+    const form = (await page.locator(".auth-card").boundingBox())!;
+    if (width <= 900) expect(form.y).toBeGreaterThanOrEqual(art.y + art.height);
+    else expect(form.x).toBeGreaterThanOrEqual(art.x + art.width);
+    // The password and its button fit on the first screen.
+    await expect(
+      page.getByRole("button", { name: "Enter Diana’s knowledge base" }),
+    ).toBeInViewport();
+    for (const control of [
+      page.getByLabel("Password", { exact: true }),
+      page.getByRole("button", { name: "Dark theme" }),
+    ]) {
+      expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+  });
+}
+
+test("dark sign-in page uses Diana's palette and the dark cartoon", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/sign-in");
+  await expect(page.locator(".auth-card")).toHaveCSS(
+    "background-color",
+    "rgb(48, 36, 48)",
+  );
+  await expect(page.locator(".si-cartoon img")).toHaveAttribute(
+    "src",
+    /sign-in-cartoon-dark\.webp$/,
+  );
 });
 
 test("PII example changes inline details while preserving surrounding context", async ({
@@ -450,10 +512,6 @@ for (const width of [393, 1440]) {
     await page.goto("/login");
     await expect(page.locator("#landing-title")).toBeVisible();
     await expect(page.locator(".lp-contents")).toHaveCSS(
-      "background-color",
-      "rgb(48, 36, 48)",
-    );
-    await expect(page.locator(".lp-access .auth-card")).toHaveCSS(
       "background-color",
       "rgb(48, 36, 48)",
     );

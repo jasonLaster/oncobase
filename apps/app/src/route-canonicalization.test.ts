@@ -4,7 +4,9 @@ import {
   canonicalRoutePathname,
   canonicalSlugMap,
   configuredRedirectPathname,
+  isSignInPathname,
   matchConfiguredRedirect,
+  slugFromRoutePathname,
 } from "./route-canonicalization";
 
 const canonicalSlugs = canonicalSlugMap([
@@ -14,6 +16,14 @@ const canonicalSlugs = canonicalSlugMap([
 ]);
 
 describe("route canonicalization", () => {
+  test("keeps the landing and sign-in pages outside the wiki", () => {
+    for (const pathname of ["/login", "/sign-in"]) {
+      expect(isSignInPathname(pathname)).toBe(true);
+      expect(slugFromRoutePathname(pathname)).toBeNull();
+    }
+    expect(slugFromRoutePathname("/sign-in-guide")).toBe("sign-in-guide");
+  });
+
   test("preserves current research pages and recovers mistakenly redirected reviews", () => {
     const review = "/wiki/research/reviews/breast-conservation-survival";
     const slugs = canonicalSlugMap([review.slice(1), "wiki/research/index"]);

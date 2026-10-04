@@ -117,8 +117,7 @@
     #inside,
     #privacy,
     #education,
-    #platform,
-    #sign-in
+    #platform
   ) {
   scroll-margin-top: calc(var(--lp-header-height, 72px) + 24px);
 }
@@ -909,24 +908,7 @@
   margin-top: 26px;
 }
 
-/* Sign in */
-.lp-access {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 384px;
-  align-items: center;
-  gap: 72px;
-  padding-block: 112px;
-}
-.landing-page .lp-access h2 + p {
-  margin-top: 18px;
-}
-.landing-page .lp-access > div > p {
-  color: var(--lp-muted);
-  font-size: 17px;
-}
-.landing-page .lp-access > div > p + p {
-  margin-top: 6px;
-}
+/* Password form */
 .landing-page .auth-card {
   width: 100%;
   max-width: 384px;
@@ -936,14 +918,6 @@
   background: var(--lp-card);
   box-shadow: 0 20px 50px -30px rgb(var(--lp-shadow) / 0.3);
   color: var(--lp-ink);
-}
-.landing-page .auth-destination {
-  margin-bottom: 14px;
-  font-size: 15px;
-  font-weight: 550;
-}
-.landing-page .auth-destination:empty {
-  margin: 0;
 }
 .landing-page .auth-input {
   display: block;
@@ -1000,6 +974,127 @@
   margin-top: 16px;
   color: var(--lp-muted);
   font-size: 13px;
+}
+
+/* Sign-in page */
+.sign-in-page {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+}
+.si-art {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-height: 100dvh;
+  padding: 32px 56px 56px;
+  overflow: clip;
+  border-right: 1px solid var(--lp-line);
+  background:
+    radial-gradient(ellipse at 10% 10%, #ead9e7cc, transparent 55%),
+    radial-gradient(ellipse at 90% 95%, #eee0eecc, transparent 50%),
+    var(--lp-panel);
+}
+.dark .landing-page .si-art {
+  background:
+    radial-gradient(ellipse at 10% 10%, #44304480, transparent 55%),
+    var(--lp-panel);
+}
+.si-art .lp-village-texture {
+  opacity: 0.2;
+  mask-image: none;
+}
+.si-art > .lp-brand {
+  align-self: flex-start;
+}
+/* The cartoon draws its own rounded frame on a transparent canvas. */
+.si-art .si-cartoon {
+  width: min(100%, 460px);
+  margin: auto auto 0;
+  filter: drop-shadow(0 24px 36px rgb(var(--lp-shadow) / 0.2));
+}
+.si-cartoon img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.si-art-copy {
+  width: min(100%, 460px);
+  margin: 0 auto auto;
+  text-align: center;
+}
+.landing-page .si-motto {
+  font-size: clamp(36px, 3.6vw, 52px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+.si-motto span {
+  color: var(--lp-accent);
+}
+.landing-page .si-art-copy p + p {
+  margin-top: 12px;
+  color: var(--lp-muted);
+  font-size: 17px;
+}
+.si-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: 32px 56px;
+  background: var(--lp-page);
+}
+.si-theme {
+  --brand: var(--lp-accent);
+  --foreground: var(--lp-ink);
+  --border: var(--lp-line);
+  --accent-light: var(--lp-soft);
+  align-self: flex-end;
+}
+.si-form {
+  width: min(100%, 400px);
+  margin: auto;
+}
+.landing-page .si-form h1 {
+  font-size: clamp(32px, 3vw, 40px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.landing-page .si-form > p {
+  margin-top: 14px;
+  color: var(--lp-muted);
+  font-size: 17px;
+}
+.si-form .auth-card {
+  margin-top: 28px;
+}
+.landing-page .si-form .si-access {
+  margin-top: 20px;
+  font-size: 15px;
+  text-align: center;
+}
+.si-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 28px;
+  color: var(--lp-muted);
+  font-size: 14px;
+}
+.si-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+.si-links a:hover {
+  color: var(--lp-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 /* Footer */
@@ -1109,8 +1204,7 @@
   .lp-card-pair,
   .lp-demo-pair,
   .lp-story-inner,
-  .lp-platform-inner,
-  .lp-access {
+  .lp-platform-inner {
     grid-template-columns: minmax(0, 1fr);
   }
   .lp-feature {
@@ -1128,8 +1222,7 @@
   .lp-story-inner {
     gap: 32px;
   }
-  .lp-platform-inner,
-  .lp-access {
+  .lp-platform-inner {
     gap: 32px;
   }
 }
@@ -1255,9 +1348,6 @@
   .lp-platform .lp-oncobase-brand {
     font-size: 30px;
   }
-  .lp-access {
-    padding-block: 80px;
-  }
   .lp-footer {
     flex-direction: column;
     align-items: flex-start;
@@ -1276,6 +1366,56 @@
   }
   .lp-diana-wordmark > span {
     display: none;
+  }
+}
+@media (max-width: 900px) {
+  .sign-in-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .si-art {
+    gap: 20px;
+    min-height: 0;
+    padding: 20px 24px 32px;
+    border-right: 0;
+    border-bottom: 1px solid var(--lp-line);
+  }
+  .si-art .si-cartoon {
+    width: min(52%, 260px);
+    margin: 0 auto;
+  }
+  .si-art-copy {
+    margin: 0 auto;
+  }
+  .landing-page .si-motto {
+    font-size: clamp(30px, 8vw, 40px);
+  }
+  .si-panel {
+    min-height: 0;
+    padding: 32px 24px;
+  }
+  /* The toggle joins the brand row at the top of the art. */
+  .si-theme {
+    position: absolute;
+    top: 13px;
+    right: 24px;
+  }
+  .si-form {
+    margin: 0 auto;
+  }
+  .si-links {
+    margin-top: 28px;
+  }
+}
+@media (max-width: 700px) {
+  .si-art,
+  .si-panel {
+    padding-inline: 16px;
+  }
+  .si-theme {
+    right: 16px;
+  }
+  .landing-page .si-art-copy p + p {
+    font-size: 16px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

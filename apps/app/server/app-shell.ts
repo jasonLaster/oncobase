@@ -18,6 +18,7 @@ import {
   canonicalSlugMap,
   canonicalSlugPathname,
   explicitCanonicalPathname,
+  isSignInPathname,
   slugFromRoutePathname,
   trailingSlashCanonicalPathname,
 } from "../src/route-canonicalization.ts";
@@ -215,7 +216,7 @@ async function canonicalSlugRedirectResponse(
 ) {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   const url = new URL(request.url);
-  if (url.pathname === "/login" || url.pathname.startsWith("/api/") || isAppAssetRequest(url.pathname)) {
+  if (isSignInPathname(url.pathname) || url.pathname.startsWith("/api/") || isAppAssetRequest(url.pathname)) {
     return null;
   }
 
@@ -315,7 +316,7 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
   const isAuthed =
     await hasValidAuthCookie(request, client, siteSlug, gateConfig) ||
     isDianaPreviewTestAuth(request, siteSlug);
-  const isLoginPage = url.pathname === "/login";
+  const isLoginPage = isSignInPathname(url.pathname);
 
   if (isLoginPage && (isAuthed || !gateConfig.enabled)) {
     const redirect = safeLocalRedirect(url.searchParams.get("redirect"));
