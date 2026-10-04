@@ -5,7 +5,7 @@ import type { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
 import { getFunctionName } from "convex/server";
 import type { ConvexHttpClient } from "convex/browser";
 import { externalTraceConfig } from "./otlp-config";
-import { PUBLISH_API_ROUTES, TRACED_API_ROUTES } from "./api-routes";
+import { EDUCATION_API_ALIASES, PUBLISH_API_ROUTES, TRACED_API_ROUTES } from "./api-routes";
 
 export type BackendProfile = {
   attributes?: Record<string, string | number | boolean>;
@@ -95,7 +95,9 @@ function publishParent(request: Request) {
 
 function routeName(request: Request) {
   const pathname = new URL(request.url).pathname;
-  return TRACED_ROUTES.has(pathname) || PUBLISH_ROUTES.has(pathname) ? pathname : "/api/other";
+  // Education aliases run the canonical handler; group them with it.
+  const canonical = EDUCATION_API_ALIASES[pathname] ?? pathname;
+  return TRACED_ROUTES.has(canonical) || PUBLISH_ROUTES.has(canonical) ? canonical : "/api/other";
 }
 
 export function traceBackendHandler(
@@ -131,7 +133,8 @@ export function traceBackendHandler(
     const parent = retained && !historicalSpans ? propagation.extract(ROOT_CONTEXT, {}, { keys: () => [], get: () => undefined }) : incoming;
     const span = tracer?.startSpan(`wiki ${route}`, {
       kind: SpanKind.SERVER, startTime: Date.now() - (performance.now() - started),
-      attributes: { "oncobase.safe": true, "telemetry.init_ms": initializationMs, ...processAttributes, "http.route": route, "http.request.method": request.method, ...(correlation ? { "oncobase.client.trace_id": correlation } : {}) },
+      attributes: { "oncobase.safe": true, "telemetry.init_ms": initializationMs, ...processAttributes, "http.route": route, "http.request.method": request.method,
+        ...(EDUCATION_API_ALIASES[new URL(request.url).pathname] ? { "oncobase.route.alias": "education" } : {}), ...(correlation ? { "oncobase.client.trace_id": correlation } : {}) },
     }, parent);
     const profile: BackendProfile = { route, attributes: { "telemetry.init_ms": initializationMs, ...processAttributes }, durationMs: 0, status: 500, calls: [], phases: [] };
     return requests.run({ tracer, span, root: span, profile, historicalSpans }, async () => {

@@ -260,3 +260,18 @@ test("retained responses expose origin time and the trace ID for browser joins",
     await provider.shutdown();
   }
 });
+
+test("education aliases are traced under their canonical route", async () => {
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const handler = traceBackendHandler(async () => new Response("ok"), { tracer: provider.getTracer("test") });
+  try {
+    await handler(new Request("https://example.test/api/education/manifest?scope=public"));
+    await handler(new Request("https://example.test/api/wiki/manifest"));
+    const [alias, canonical] = exporter.getFinishedSpans();
+    expect(alias!.name).toBe("wiki /api/wiki/manifest");
+    expect(alias!.attributes["oncobase.route.alias"]).toBe("education");
+    expect(canonical!.name).toBe("wiki /api/wiki/manifest");
+    expect(canonical!.attributes["oncobase.route.alias"]).toBeUndefined();
+  } finally { await provider.shutdown(); }
+});
