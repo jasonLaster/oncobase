@@ -38,6 +38,7 @@ import { loadAllowedSensitivePages } from "./allowed-sensitive-slugs";
 import { browserConversationToken } from "./backend-client";
 import { resolveChatOwner } from "./chat-owner";
 import { traceBackendCache, traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
+import { fetchAccessibleSlugs, fetchSlugSensitivity } from "./slug-batch";
 import {
   loadSensitiveSearchPages,
   overlaySearchPages,
@@ -507,14 +508,14 @@ async function filterAccessiblePages<T extends { slug: string; sensitive?: boole
   user: SessionUser | null,
   pages: Array<T | null>,
 ): Promise<T[]> {
-  const visible: T[] = [];
-  for (const page of pages) {
-    if (!page) continue;
-    if (page.sensitive !== true || (await canUserAccessSlug(client, siteSlug, user, page.slug))) {
-      visible.push(page);
-    }
-  }
-  return visible;
+  const present = pages.filter((page): page is T => page !== null);
+  const allowed = await fetchAccessibleSlugs(
+    client,
+    siteSlug,
+    user,
+    present.filter((page) => page.sensitive === true).map((page) => page.slug),
+  );
+  return present.filter((page) => page.sensitive !== true || allowed.has(page.slug));
 }
 
 async function filterPotentiallySensitivePages<T extends { slug: string; sensitive?: boolean }>(
@@ -523,27 +524,18 @@ async function filterPotentiallySensitivePages<T extends { slug: string; sensiti
   user: SessionUser | null,
   pages: Array<T | null>,
 ): Promise<T[]> {
-  const visible: T[] = [];
-  for (const page of pages) {
-    if (!page) continue;
-    if (page.sensitive === false) {
-      visible.push(page);
-      continue;
-    }
-    const doc = page.sensitive === true
-        ? page
-        : await client.query(
-            api.documents.getBySlug,
-            withSiteSlug(siteSlug, {
-              slug: page.slug,
-              includeSensitive: true,
-            }),
-          );
-    if (doc?.sensitive !== true || (await canUserAccessSlug(client, siteSlug, user, page.slug))) {
-      visible.push(page);
-    }
-  }
-  return visible;
+  const present = pages.filter((page): page is T => page !== null);
+  const unknown = present.filter((page) => page.sensitive !== true && page.sensitive !== false);
+  const sensitivity = await fetchSlugSensitivity(client, siteSlug, unknown.map((page) => page.slug));
+  const isSensitive = (page: T) =>
+    page.sensitive === true || (page.sensitive !== false && sensitivity.get(page.slug) === true);
+  const allowed = await fetchAccessibleSlugs(
+    client,
+    siteSlug,
+    user,
+    present.filter(isSensitive).map((page) => page.slug),
+  );
+  return present.filter((page) => !isSensitive(page) || allowed.has(page.slug));
 }
 
 async function validatePassword(
@@ -1848,21 +1840,18 @@ async function appendAssetsToArchive(
       if (!isDone && !cursor) break;
     }
   }
-  const assets = await Promise.all(
-    collected.map(async (asset) => {
-      const sibling = await client.query(
-        api.documents.getBySlug,
-        withSiteSlug(siteSlug, {
-          slug: asset.path.replace(/\.[^/.]+$/, ""),
-          includeSensitive: true,
-        }),
-      );
-      if (!sibling?.sensitive) return asset;
-      return (await canUserAccessSlug(client, siteSlug, sessionUser, sibling.slug))
-        ? asset
-        : null;
-    }),
-  ).then((items) => items.filter((asset): asset is DownloadAsset => asset !== null));
+  const siblingSlug = (asset: DownloadAsset) => asset.path.replace(/\.[^/.]+$/, "");
+  const sensitivity = await fetchSlugSensitivity(client, siteSlug, collected.map(siblingSlug));
+  const allowed = await fetchAccessibleSlugs(
+    client,
+    siteSlug,
+    sessionUser,
+    collected.map(siblingSlug).filter((slug) => sensitivity.get(slug) === true),
+  );
+  const assets = collected.filter((asset) => {
+    const slug = siblingSlug(asset);
+    return sensitivity.get(slug) !== true || allowed.has(slug);
+  });
 
   for (const asset of assets.slice(0, maxAssets)) {
     if (!asset.blobUrl) continue;
@@ -2422,20 +2411,17 @@ function parseGuestUserFromRequest(request: Request) {
   return parseGuestUser(guestCookie);
 }
 
+const COMMENT_ROOM_PREFIX = "markdown:";
+
 async function isSensitiveCommentRoom(
   roomId: string,
   client: ConvexHttpClient,
   siteSlug: string,
 ) {
-  if (!roomId.startsWith("markdown:")) return false;
-  const doc = await client.query(
-    api.documents.getBySlug,
-    withSiteSlug(siteSlug, {
-      includeSensitive: true,
-      slug: roomId.slice("markdown:".length),
-    }),
-  );
-  return doc?.sensitive === true;
+  if (!roomId.startsWith(COMMENT_ROOM_PREFIX)) return false;
+  const slug = roomId.slice(COMMENT_ROOM_PREFIX.length);
+  const sensitivity = await fetchSlugSensitivity(client, siteSlug, [slug]);
+  return sensitivity.get(slug) === true;
 }
 
 async function filterPublicCommentRooms(
@@ -2443,10 +2429,17 @@ async function filterPublicCommentRooms(
   client: ConvexHttpClient,
   siteSlug: string,
 ) {
-  const sensitive = await Promise.all(
-    roomIds.map((roomId) => isSensitiveCommentRoom(roomId, client, siteSlug)),
+  // One chunked sensitivity lookup instead of a full document read per room.
+  const sensitivity = await fetchSlugSensitivity(
+    client,
+    siteSlug,
+    roomIds
+      .filter((roomId) => roomId.startsWith(COMMENT_ROOM_PREFIX))
+      .map((roomId) => roomId.slice(COMMENT_ROOM_PREFIX.length)),
   );
-  return roomIds.filter((_, index) => !sensitive[index]);
+  return roomIds.filter((roomId) =>
+    !roomId.startsWith(COMMENT_ROOM_PREFIX) ||
+    sensitivity.get(roomId.slice(COMMENT_ROOM_PREFIX.length)) !== true);
 }
 
 function invalidateLiveblocksThreadsCache(siteSlug?: string) {

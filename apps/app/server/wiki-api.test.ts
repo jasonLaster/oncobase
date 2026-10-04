@@ -356,6 +356,11 @@ function createFakeConvexClient({
             sensitive: page.sensitive === true,
           };
         }
+        case "documents:getSensitivityBySlugs":
+          return (args.slugs as string[]).flatMap((slug) => {
+            const page = pages.find((candidate) => candidate.slug === slug);
+            return page ? [{ slug, sensitive: page.sensitive === true }] : [];
+          });
         case "access:canUserAccessSlug":
           return !deniedSlugSet.has(String(args.slug));
         case "access:listAllowedSensitiveManifestPage":
@@ -1174,6 +1179,32 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     );
     const sessionFullZip = await JSZip.loadAsync(await sessionFullArchive!.arrayBuffer());
     expect(Object.keys(sessionFullZip.files)).toContain("private/plan.zip");
+  });
+
+  test("download access checks are batched instead of one RPC per page or asset", async () => {
+    const fake = createFakeConvexClient({ deniedSlugs: ["private/plan"] });
+    const calls: string[] = [];
+    const counting = {
+      ...fake,
+      query: (ref: FunctionReference<"query">, args: Record<string, unknown>) => {
+        calls.push(getFunctionName(ref));
+        return fake.query(ref, args);
+      },
+    };
+    const handler = createWikiApiHandler(counting as never);
+    const cookie = await signupCookie(handler, "batched-archive@example.com");
+    calls.length = 0;
+
+    const archive = await handler(request("/api/download?type=full&scope=session", { headers: { Cookie: cookie } }));
+    const zip = await JSZip.loadAsync(await archive!.arrayBuffer());
+    expect(Object.keys(zip.files)).not.toContain("private/plan.zip");
+    expect(Object.keys(zip.files)).not.toContain("private/plan.md");
+    expect(Object.keys(zip.files)).toContain("biopsy/raw/dicom.zip");
+    expect(calls).not.toContain("documents:getBySlug");
+    expect(calls).not.toContain("access:canUserAccessSlug");
+    expect(calls.filter(name => name === "documents:getSensitivityBySlugs")).toHaveLength(1);
+    // One for the sensitive asset siblings, one for the sensitive markdown page.
+    expect(calls.filter(name => name === "access:filterAccessibleSlugs")).toHaveLength(2);
   });
 
   test("serves a nested sensitive asset when the signed-in user can access every owner", async () => {
