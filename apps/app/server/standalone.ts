@@ -1,7 +1,9 @@
 import { fileURLToPath } from "node:url";
 import { createWikiViteHandler } from "./app-shell.js";
 
-const distDir = fileURLToPath(new URL("../dist", import.meta.url));
+// WIKI_DIST_DIR lets the local stack serve a build pointed at its own backend
+// without replacing the default dist used by production-style verification.
+const distDir = process.env.WIKI_DIST_DIR || fileURLToPath(new URL("../dist", import.meta.url));
 const port = Number(process.env.PORT ?? 62003);
 const handleRequest = createWikiViteHandler({ distDir });
 
