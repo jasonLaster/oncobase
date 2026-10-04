@@ -160,29 +160,66 @@ type TextSearchResponse = {
   statusText: string;
 };
 
-const pendingTextSearchRequests = new Map<string, Promise<TextSearchResponse>>();
+// Search routes run for at most 60 s on the server; give up shortly after so
+// a stalled connection surfaces an error instead of spinning forever.
+const SEARCH_REQUEST_TIMEOUT_MS = 65_000;
 
-function requestTextSearch(searchParams: URLSearchParams) {
+function abortAfter(controller: AbortController, ms: number, message: string) {
+  const timer = window.setTimeout(() => controller.abort(new DOMException(message, "TimeoutError")), ms);
+  return () => window.clearTimeout(timer);
+}
+
+function searchErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof DOMException && error.name === "TimeoutError") return error.message;
+  return error instanceof Error ? error.message : fallback;
+}
+
+type PendingTextSearch = {
+  controller: AbortController;
+  promise: Promise<TextSearchResponse>;
+  subscribers: number;
+};
+
+// Identical queries share one request. It is aborted once every subscriber
+// has moved on (a newer query, navigation or unmount).
+const pendingTextSearchRequests = new Map<string, PendingTextSearch>();
+
+function requestTextSearch(searchParams: URLSearchParams, signal: AbortSignal) {
   const key = searchParams.toString();
-  const existing = pendingTextSearchRequests.get(key);
-  if (existing) return existing;
+  let entry = pendingTextSearchRequests.get(key);
+  if (!entry) entry = startTextSearch(key, searchParams);
+  const current = entry;
+  current.subscribers += 1;
+  signal.addEventListener("abort", () => {
+    current.subscribers -= 1;
+    if (current.subscribers > 0 || pendingTextSearchRequests.get(key) !== current) return;
+    pendingTextSearchRequests.delete(key);
+    current.controller.abort();
+  }, { once: true });
+  return current.promise;
+}
 
+function startTextSearch(key: string, searchParams: URLSearchParams): PendingTextSearch {
   const query = searchParams.get("q") ?? "";
   const startedAt = performance.now();
-  const pending = fetch(`/api/search?${searchParams}`).then(async (response) => ({
+  const controller = new AbortController();
+  const cancelTimeout = abortAfter(controller, SEARCH_REQUEST_TIMEOUT_MS, "Search timed out.");
+  const promise = fetch(`/api/search?${searchParams}`, { signal: controller.signal }).then(async (response) => ({
     body: await readJsonBody<TextSearchResponse["body"]>(response),
     durationMs: performance.now() - startedAt,
     ok: response.ok,
     status: response.status,
     statusText: response.statusText,
   }));
-  pendingTextSearchRequests.set(key, pending);
+  const entry: PendingTextSearch = { controller, promise, subscribers: 0 };
+  pendingTextSearchRequests.set(key, entry);
   const clearPending = () => {
-    if (pendingTextSearchRequests.get(key) === pending) {
+    cancelTimeout();
+    if (pendingTextSearchRequests.get(key) === entry) {
       pendingTextSearchRequests.delete(key);
     }
   };
-  void pending.then(
+  void promise.then(
     (response) => {
       clearPending();
       const ready = response.ok && !response.body.error;
@@ -196,8 +233,10 @@ function requestTextSearch(searchParams: URLSearchParams) {
         status: ready ? "ready" : "error",
       });
     },
-    () => {
+    (error: unknown) => {
       clearPending();
+      // A superseded search is not a failure; a timeout is.
+      if (controller.signal.aborted && !(error instanceof DOMException && error.name === "TimeoutError")) return;
       const durationMs = performance.now() - startedAt;
       recordSearchMetric({
         query,
@@ -209,7 +248,7 @@ function requestTextSearch(searchParams: URLSearchParams) {
       });
     },
   );
-  return pending;
+  return entry;
 }
 
 function SearchInput({
@@ -725,6 +764,7 @@ export function SearchPage() {
   const [textIncomplete, setTextIncomplete] = useState(false);
   const [textRetryAfterMs, setTextRetryAfterMs] = useState(0);
   const textRequestGeneration = useRef(0);
+  const textRequestController = useRef<AbortController | null>(null);
   const [aiResults, setAiResults] = useState<AISearchResult[]>([]);
   const [aiStatus, setAiStatus] = useState<SearchStatus>(query ? "loading" : "idle");
   const [aiError, setAiError] = useState<string | null>(null);
@@ -761,6 +801,9 @@ export function SearchPage() {
   }, [query, textResults, textResultsQuery]);
 
   const runTextSearch = useCallback(async (nextQuery: string, background = false) => {
+    textRequestController.current?.abort();
+    const controller = new AbortController();
+    textRequestController.current = controller;
     const generation = ++textRequestGeneration.current;
     const normalized = nextQuery.trim();
     setTextResultsQuery(normalized);
@@ -783,7 +826,7 @@ export function SearchPage() {
 
     try {
       const searchParams = new URLSearchParams({ q: normalized, scope });
-      const response = await requestTextSearch(searchParams);
+      const response = await requestTextSearch(searchParams, controller.signal);
       if (generation !== textRequestGeneration.current) return;
       const { body } = response;
       if (body.error) throw new Error(body.error);
@@ -808,7 +851,7 @@ export function SearchPage() {
       }
       setTextResults([]);
       setTextStatus("error");
-      setTextError(error instanceof Error ? error.message : "Search failed.");
+      setTextError(searchErrorMessage(error, "Search failed."));
     }
   }, [scope]);
 
@@ -816,7 +859,10 @@ export function SearchPage() {
     void runTextSearch(query);
     // Invalidate foreground and exhaustive responses on navigation/unmount.
     // The shared in-flight request can still finish for another subscriber.
-    return () => { textRequestGeneration.current += 1; };
+    return () => {
+      textRequestGeneration.current += 1;
+      textRequestController.current?.abort();
+    };
   }, [query, runTextSearch]);
 
   useEffect(() => {
@@ -845,11 +891,14 @@ export function SearchPage() {
 
     let cancelled = false;
     setAiStatus("loading");
+    const controller = new AbortController();
+    const cancelTimeout = abortAfter(controller, SEARCH_REQUEST_TIMEOUT_MS, "AI search timed out.");
 
     fetch(`/api/ai-search?scope=${encodeURIComponent(scope)}`, {
       body: JSON.stringify({ query: normalized, slugs }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
+      signal: controller.signal,
     })
       .then(async (response) => {
         const body = await readJsonBody<{ results?: AISearchResult[]; error?: string }>(response);
@@ -871,11 +920,11 @@ export function SearchPage() {
           status: "ready",
         });
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         if (cancelled) return;
         setAiResults([]);
         setAiStatus("error");
-        setAiError(error instanceof Error ? error.message : "AI search failed.");
+        setAiError(searchErrorMessage(error, "AI search failed."));
         recordSearchMetric({
           query: normalized,
           mode: "ai",
@@ -883,10 +932,13 @@ export function SearchPage() {
           resultCount: 0,
           status: "error",
         });
-      });
+      })
+      .finally(cancelTimeout);
 
     return () => {
       cancelled = true;
+      cancelTimeout();
+      controller.abort();
     };
     // Slugs come from the slower text-search path. AI mode should begin
     // immediately and not refetch when those candidates arrive.
