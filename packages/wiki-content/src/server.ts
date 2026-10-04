@@ -578,13 +578,16 @@ async function priorityManifestPages(
   const argsForSlug = (slug: string) =>
     includeSensitive ? { slug, includeSensitive: true as const } : { slug };
   const records = await withTimeout(
-    Promise.allSettled(
-      slugs.map(async (slug) => {
-        const exact = await context.documents.getBySlug(argsForSlug(slug));
-        if (exact || slug.endsWith("/index")) return exact;
-        return context.documents.getBySlug(argsForSlug(`${slug}/index`));
-      }),
-    ),
+    (signal) => {
+      const documents = cancellableContext(context, signal).documents;
+      return Promise.allSettled(
+        slugs.map(async (slug) => {
+          const exact = await documents.getBySlug(argsForSlug(slug));
+          if (exact || slug.endsWith("/index")) return exact;
+          return documents.getBySlug(argsForSlug(`${slug}/index`));
+        }),
+      );
+    },
     MANIFEST_BOUNDED_FALLBACK_TIMEOUT_MS,
     "Wiki bounded manifest priority fallback",
   ).catch((error) => {
@@ -690,17 +693,55 @@ function parseSlugs(url: URL) {
     .slice(0, MAX_PAGE_LIMIT);
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+/** Race work against a deadline. When given a factory, the losing work's
+ * signal is aborted so cancellation-aware loops stop issuing further reads
+ * instead of paginating long after the response was sent. */
+export function withTimeout<T>(
+  work: Promise<T> | ((signal: AbortSignal) => Promise<T>),
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+      const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+      controller.abort(error);
+      reject(error);
     }, timeoutMs);
   });
+  const promise = typeof work === "function" ? work(controller.signal) : work;
+  // The loser may still reject after the race settles; never leave it unhandled.
+  promise.catch(() => undefined);
 
   return Promise.race([promise, timeoutPromise]).finally(() => {
     if (timeout) clearTimeout(timeout);
   });
+}
+
+/** A view of the context whose gateway/access calls fail fast once `signal`
+ * aborts. Paginated readers check nothing themselves; their next page read
+ * throws, ending the loop. In-flight calls are bounded by the transport. */
+export function cancellableContext(context: WikiApiContext, signal: AbortSignal): WikiApiContext {
+  const guard = <A extends unknown[], R>(fn: (...args: A) => Promise<R>) =>
+    (...args: A): Promise<R> => {
+      if (signal.aborted) return Promise.reject(signal.reason ?? new Error("Aborted"));
+      return fn(...args);
+    };
+  const wrap = <O extends object>(target: O): O => new Proxy(target, {
+    get(object, key, receiver) {
+      const value = Reflect.get(object, key, receiver);
+      return typeof value === "function"
+        ? guard((...args: unknown[]) => (value as (...a: unknown[]) => Promise<unknown>).apply(object, args))
+        : value;
+    },
+  });
+  return {
+    ...context,
+    documents: wrap(context.documents),
+    ...(context.access ? { access: wrap(context.access) } : {}),
+    ...(context.getManifestSnapshot ? { getManifestSnapshot: guard(context.getManifestSnapshot) } : {}),
+  };
 }
 
 export async function createWikiSessionResponse(
@@ -832,10 +873,13 @@ export async function createWikiManifestResponse(
   let partialManifest = false;
   try {
     const [nextPageResult, assetResult] = await withTimeout(
-      Promise.all([
-        includeSensitive && sessionUser ? sessionManifestPages(context, sessionUser) : listManifestPages(context, false),
-        listAssets(context, includeSensitive && Boolean(context.access), sessionUser),
-      ]),
+      (signal) => {
+        const live = cancellableContext(context, signal);
+        return Promise.all([
+          includeSensitive && sessionUser ? sessionManifestPages(live, sessionUser) : listManifestPages(live, false),
+          listAssets(live, includeSensitive && Boolean(context.access), sessionUser),
+        ]);
+      },
       MANIFEST_TIMEOUT_MS,
       "Wiki manifest generation",
     );

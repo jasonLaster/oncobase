@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createWikiPagesResponse, type PageWithContent, type WikiApiContext } from "./server";
+import { cancellableContext, createWikiPagesResponse, withTimeout, type PageWithContent, type WikiApiContext } from "./server";
 
 const docs: Record<string, PageWithContent> = {
   "public": { slug: "public", title: "Public", content: "open", tags: [], contentHash: "p", sensitive: false },
@@ -75,4 +75,23 @@ test("large slug batches bound concurrent document reads", async () => {
   expect(response.status).toBe(200);
   expect(calls.getBySlug).toHaveLength(100);
   expect(peak()).toBeLessThanOrEqual(8);
+});
+
+test("timed-out paginated work stops issuing reads after the deadline", async () => {
+  const { context } = pagesContext(null);
+  let reads = 0;
+  context.documents.listManifestPage = async ({ cursor }) => {
+    reads++;
+    await new Promise(resolve => setTimeout(resolve, 5));
+    return { page: [], isDone: false, continueCursor: `${Number(cursor ?? 0) + 1}` };
+  };
+  const paginate = async (live: WikiApiContext) => {
+    let cursor: string | null = null;
+    for (;;) cursor = (await live.documents.listManifestPage({ cursor, numItems: 1 })).continueCursor;
+  };
+  await expect(withTimeout(signal => paginate(cancellableContext(context, signal)), 30, "fixture")).rejects.toThrow("fixture timed out");
+  const atDeadline = reads;
+  await new Promise(resolve => setTimeout(resolve, 40));
+  expect(reads - atDeadline).toBeLessThanOrEqual(1);
+  expect(atDeadline).toBeGreaterThan(0);
 });
