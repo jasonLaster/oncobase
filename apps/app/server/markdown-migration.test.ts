@@ -4,7 +4,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { fromHtml } from "hast-util-from-html";
 import { WikiMarkdown } from "@oncobase/wiki-markdown";
 import { renderWikiMarkdownHtml } from "@oncobase/wiki-markdown/server";
-import { renderHtmlFirstBody, renderHtmlFirstParts } from "./html-first-experiment";
 
 type Node = { type: string; tagName?: string; value?: string; properties?: Record<string, unknown>; children?: Node[] };
 function text(node: Node): string {
@@ -23,8 +22,6 @@ const page = (content: string, slug: string) => ({ slug, title: "Fixture", conte
 const renderers = {
   server: renderWikiMarkdownHtml,
   react: (content: string, slug: string) => renderToStaticMarkup(createElement(WikiMarkdown, { content, currentSlug: slug })),
-  initial: (content: string, slug: string) => renderHtmlFirstBody(page(content, slug), "migration-test"),
-  streamed: (content: string, slug: string) => { const parts = renderHtmlFirstParts(page(content, slug)); return parts.first + parts.rest(); },
 };
 
 for (const [name, render] of Object.entries(renderers)) {

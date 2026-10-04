@@ -1,6 +1,5 @@
 import { rm, unlink } from "node:fs/promises";
 import { assertBuildAssets, assertPublicAssets } from "./public-assets";
-import { criticalReaderCss } from "./critical-reader-css";
 import { assertReaderServerBudget } from "./reader-server-budget";
 
 const appDir = new URL("..", import.meta.url).pathname;
@@ -10,14 +9,7 @@ const indexPath = `${appDir}/dist/index.html`;
 assertPublicAssets(`${appDir}/public`);
 assertBuildAssets(`${appDir}/dist`);
 const indexHtml = await Bun.file(indexPath).text();
-const stylesheets = [...indexHtml.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)]
-  .map(([tag]) => tag.match(/href="([^"]+)"/)?.[1]).filter((href): href is string => Boolean(href));
-const criticalCss = criticalReaderCss((await Promise.all(stylesheets.map(href => {
-  if (!/^\/assets\/[\w.-]+\.css$/.test(href)) throw new Error("Unexpected entry stylesheet");
-  return Bun.file(`${appDir}/dist${href}`).text();
-}))).join("\n"));
 await rm(outdir, { recursive: true, force: true });
-await Bun.write(`${outdir}/reader-critical.css`, criticalCss);
 const result = await Bun.build({
   entrypoints: [
     `${appDir}/api-runtime/index.ts`,
@@ -31,7 +23,6 @@ const result = await Bun.build({
   sourcemap: "external",
   define: {
     __WIKI_VITE_INDEX_HTML__: JSON.stringify(indexHtml),
-    __WIKI_CRITICAL_CSS__: JSON.stringify(criticalCss),
   },
 });
 

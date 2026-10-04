@@ -8,10 +8,10 @@ declare const __WIKI_VITE_INDEX_HTML__: string;
 const distDir = path.join(process.cwd(), "apps/app/dist");
 let handler: Promise<(request: Request) => Promise<Response>> | undefined;
 async function handleWikiViteRequest(request: Request) {
-  // All reader UI is client rendered. Legacy HTML flags cannot re-enable a handoff.
+  // All reader UI is client rendered.
   // The lazy import is cold-start cost; attribute it to the first request.
   handler ??= traceBackendPhase("shell.init", () => import("../server/app-shell")).then(({ createWikiViteHandler }) => createWikiViteHandler({
-    distDir, indexHtml: __WIKI_VITE_INDEX_HTML__, htmlFirstExperiment: false,
+    distDir, indexHtml: __WIKI_VITE_INDEX_HTML__,
   })).catch((error) => {
     // A transient failure must not poison this instance for its lifetime.
     handler = undefined;

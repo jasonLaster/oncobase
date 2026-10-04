@@ -360,8 +360,6 @@ async function staticIndexHtml(
   client: ConvexHttpClient,
   filePath: string,
   providedHtml?: string,
-  htmlFirstExperiment = false,
-  criticalCss: Promise<string> = Promise.resolve(""),
 ) {
   const html = providedHtml ?? await readFile(filePath, "utf8");
   const url = new URL(request.url);
@@ -385,7 +383,7 @@ async function staticIndexHtml(
 
   // The normal gate has already run. A route hint only skips payload work;
   // it cannot authorize an API, select an account, or expose server content.
-  if (!htmlFirstExperiment && !isLinkPreviewRequest(request) && readerShellHint(request.headers.get("cookie") ?? "", url)) {
+  if (!isLinkPreviewRequest(request) && readerShellHint(request.headers.get("cookie") ?? "", url)) {
     return html.replace("</head>", '<meta name="robots" content="noindex, nofollow" /></head>');
   }
 
@@ -454,10 +452,6 @@ async function staticIndexHtml(
       url.pathname !== "/search" && !specialRouteMetadata({ pathname: url.pathname, siteName, defaultDescription: "" })) {
     try {
       const safePage = await redactPageContent(client, siteSlug, publicPage, request);
-      if (htmlFirstExperiment && url.searchParams.get("html-first") !== "off") {
-        const { injectHtmlFirstPage } = await import("./html-first-experiment");
-        return injectHtmlFirstPage(documentHtml, safePage, url, siteSlug, await criticalCss);
-      }
       // A gated document is always private/no-store. Only that fresh response
       // may tell an automatic reader it has no account session. Shared public
       // HTML must never select a later visitor's account scope.
@@ -556,18 +550,12 @@ export function createAppShellHandler({
   client = createClient(),
   distDir,
   indexHtml,
-  htmlFirstExperiment = false,
-  criticalCss,
 }: {
   client?: ConvexHttpClient;
   distDir: string;
   indexHtml?: string;
-  htmlFirstExperiment?: boolean;
-  criticalCss?: string;
 }) {
   client = traceConvexClient(client);
-  const readerStyles = criticalCss !== undefined ? Promise.resolve(criticalCss)
-    : readFile(path.join(distDir, "../.vercel-functions/reader-critical.css"), "utf8").catch(() => "");
   return async function handleAppShellRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/robots.txt") {
@@ -596,7 +584,7 @@ export function createAppShellHandler({
 
     if (servesIndex) {
       const [html, headers] = await Promise.all([
-        traceBackendPhase("shell.document", () => staticIndexHtml(request, client, filePath, indexHtml, htmlFirstExperiment, readerStyles)),
+        traceBackendPhase("shell.document", () => staticIndexHtml(request, client, filePath, indexHtml)),
         traceBackendPhase("shell.headers", () => htmlHeaders(request, client, filePath)),
       ]);
       const { "X-Wiki-Reader-Account": accountTag, "X-Wiki-Reader-Access": readerAccess, ...responseHeaders } = headers;
@@ -614,15 +602,10 @@ export function createWikiViteHandler({
   client = createClient(),
   distDir,
   indexHtml,
-  // Kept as an explicit test-harness option only; deployment flags no longer enable it.
-  htmlFirstExperiment = false,
-  criticalCss,
 }: {
   client?: ConvexHttpClient;
   distDir: string;
   indexHtml?: string;
-  htmlFirstExperiment?: boolean;
-  criticalCss?: string;
 }) {
   // The HTML path is the most frequent origin request; without this its
   // Convex RPCs are invisible in traces.
@@ -630,7 +613,7 @@ export function createWikiViteHandler({
   // The full API router includes chat, archives and other optional features.
   // HTML requests use the same shared access helpers without initializing it.
   let apiHandler: Promise<ReturnType<typeof import("./wiki-api.js").createWikiApiHandler>> | undefined;
-  const handleAppShellRequest = createAppShellHandler({ client, distDir, indexHtml, htmlFirstExperiment, criticalCss });
+  const handleAppShellRequest = createAppShellHandler({ client, distDir, indexHtml });
 
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
     const started = performance.now();

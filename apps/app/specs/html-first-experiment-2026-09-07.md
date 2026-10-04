@@ -1,5 +1,7 @@
 # HTML-first reader experiment — September 7, 2026
 
+> **Retired (2026-10-03).** The HTML-first reader, its edge cache, and the harness scripts referenced below (`server/html-first-*.ts`, `server/fast-reader.ts`, `scripts/serve-html-first-experiment.ts`, `scripts/profile-html-first.ts`, `e2e/html-*.spec.ts`) were deleted. Production has been fully client rendered since [client-rendered-reader-2026-09-11](client-rendered-reader-2026-09-11.md). This document is kept as a historical measurement record.
+
 The experiment makes a first visit readable about **4–6 times sooner**, with native links available immediately. In a paired local comparison, the current home article appeared in 260–318 ms instead of 1,416–1,671 ms. The full app still took approximately 1.4–1.8 seconds to start. This improves immediate reading and navigation without pretending that SQLite and the rest of the application have become instant.
 
 This is an opt-in local experiment, not a production release. It is on branch `codex/initial-page-performance`, based on `57fe635a8df512faf8f326099c9cc869dd4bcd11`. It includes the earlier titleless-home snapshot fix in both comparison modes. No remote content, deployment settings, or production cache policy were changed.

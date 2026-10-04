@@ -1,5 +1,7 @@
 # Readable HTML and cached rendering — implementation follow-up
 
+> **Retired (2026-10-03).** The HTML-first reader, its edge cache, and the harness scripts referenced below (`server/html-first-*.ts`, `server/fast-reader.ts`, `scripts/serve-html-first-experiment.ts`, `scripts/profile-html-first.ts`, `e2e/html-*.spec.ts`) were deleted. Production has been fully client rendered since [client-rendered-reader-2026-09-11](client-rendered-reader-2026-09-11.md). This document is kept as a historical measurement record.
+
 The HTML-first experiment now carries the current public page as a validated data payload, and the app consumes it before rendering its reader. This implements the initial-page bootstrap and render-cache recommendations from the earlier investigation. The article remains readable before the full application is interactive.
 
 The change is local on `codex/initial-page-performance`; production has not been changed. `WIKI_HTML_FIRST=1` enables the application path, with the existing experiment flag retained for compatibility. `?html-first=off` still selects the normal reader. The loopback preview remains available through the experiment harness at `http://127.0.0.1:62009/__experiment/start`.
