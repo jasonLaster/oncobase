@@ -58,7 +58,7 @@ try {
     throw new Error(`Standalone route gate smoke failed: ${gatedResponse.status}`);
   }
   const gatedLocation = gatedResponse.headers.get("location") ?? "";
-  if (!gatedLocation.includes("/login") || !gatedLocation.includes("redirect=%2Fwiki%2Flogistics%2Finsurance")) {
+  if (!gatedLocation.includes("/sign-in") || !gatedLocation.includes("redirect=%2Fwiki%2Flogistics%2Finsurance")) {
     throw new Error(`Standalone route gate redirected to unexpected location: ${gatedLocation}`);
   }
   if (
@@ -68,15 +68,16 @@ try {
     throw new Error("Standalone deep route gate did not use auth-safe cache headers");
   }
 
+  // Signed-out visitors see the landing page at "/" instead of a redirect.
   const gatedRootResponse = await fetch(`${origin}/`, {
     redirect: "manual",
   });
-  if (gatedRootResponse.status !== 302) {
-    throw new Error(`Standalone root gate smoke failed: ${gatedRootResponse.status}`);
+  if (gatedRootResponse.status !== 200) {
+    throw new Error(`Standalone root landing smoke failed: ${gatedRootResponse.status}`);
   }
-  const gatedRootLocation = gatedRootResponse.headers.get("location") ?? "";
-  if (!gatedRootLocation.includes("/login") || !gatedRootLocation.includes("redirect=%2F")) {
-    throw new Error(`Standalone root gate redirected to unexpected location: ${gatedRootLocation}`);
+  const gatedRootHtml = await gatedRootResponse.text();
+  if (!gatedRootHtml.includes('name="wiki-reader-access" content="landing"')) {
+    throw new Error("Standalone root did not serve the landing page");
   }
   if (
     gatedRootResponse.headers.get("cache-control") !== "private, no-store" ||

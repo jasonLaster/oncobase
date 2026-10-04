@@ -22,4 +22,10 @@ describe("rootRouteFor", () => {
     expect(rootRouteFor("/login", true)).toBe("login");
     expect(rootRouteFor("/sign-in", true)).toBe("sign-in");
   });
+
+  test("a signed-out landing response renders the landing page only at the root", () => {
+    expect(rootRouteFor("/", false, true)).toBe("login");
+    expect(rootRouteFor("/", false, false)).toBe("reader");
+    expect(rootRouteFor("/wiki/some/page", false, true)).toBe("reader");
+  });
 });

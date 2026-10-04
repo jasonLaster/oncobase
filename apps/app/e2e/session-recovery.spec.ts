@@ -68,7 +68,7 @@ test.describe("Session scope recovery", () => {
     await expect(page.getByText("Session access needed")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open sign in" })).toHaveAttribute(
       "href",
-      /\/login\?redirect=%2Fwiki%2Flogistics%2Finsurance%3Fscope%3Dsession%26devtools%3D1%23claims-follow-up$/,
+      /\/sign-in\?redirect=%2Fwiki%2Flogistics%2Finsurance%3Fscope%3Dsession%26devtools%3D1%23claims-follow-up$/,
     );
 
     await page.getByRole("button", { name: "Continue public" }).click();

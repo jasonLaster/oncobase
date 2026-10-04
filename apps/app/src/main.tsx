@@ -1,7 +1,7 @@
 import { clearStartupSnapshot } from "./bootstrap/startup-cache-lifecycle";
 import { lazy, StrictMode, Suspense, useEffect } from "react";
 import { educationOnlyResponse } from "./education-access";
-import { rootRouteFor } from "./root-route";
+import { landingResponse, rootRouteFor } from "./root-route";
 import { prefetchReaderSession } from "./reader-session-prefetch";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
@@ -16,7 +16,7 @@ const EducationApp = lazy(() => import("./education/EducationApp").then(module =
 
 // A login response supersedes previously remembered access, including a gate
 // redirect after cookie expiration. Never revive it on Back/reload.
-if (["/login", "/sign-in"].includes(location.pathname)) clearStartupSnapshot();
+if (["/login", "/sign-in"].includes(location.pathname) || landingResponse()) clearStartupSnapshot();
 
 // Retire inert HTML copies from older releases. Structured reader data remains
 // cached, but only React renders its controls and document content.
@@ -75,10 +75,10 @@ function RootRouteBoundary() {
   const { pathname, search, hash } = useLocation();
   // Only reader routes need a wiki session or database. This single boundary
   // applies to cold loads, client navigation, and browser history alike.
-  const route = rootRouteFor(pathname, educationOnlyResponse());
+  const route = rootRouteFor(pathname, educationOnlyResponse(), landingResponse());
   const needsPassword = route === "password";
   useEffect(() => {
-    if (needsPassword) window.location.replace(`/login?redirect=${encodeURIComponent(`${pathname}${search}${hash}`)}`);
+    if (needsPassword) window.location.replace(`/sign-in?redirect=${encodeURIComponent(`${pathname}${search}${hash}`)}`);
   }, [needsPassword, pathname, search, hash]);
   switch (route) {
     case "password": return <AppStarting />;
@@ -93,7 +93,7 @@ function RootRouteBoundary() {
 }
 
 // Verify the session while the reader chunk downloads, not after it mounts.
-if (rootRouteFor(location.pathname, educationOnlyResponse()) === "reader") prefetchReaderSession();
+if (rootRouteFor(location.pathname, educationOnlyResponse(), landingResponse()) === "reader") prefetchReaderSession();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

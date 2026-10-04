@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readerShellHint } from "../src/bootstrap/reader-shell-hint";
-import { specialRouteMetadata } from "../src/special-route-metadata";
+import { landingRouteMetadata, specialRouteMetadata } from "../src/special-route-metadata";
+import { LANDING_READER_ACCESS } from "../src/root-route";
 import { injectPageBootstrap } from "./page-bootstrap";
 import { injectHeadMetadata } from "./html-head";
 import { traceBackendCache, traceBackendPhase, traceConvexClient } from "./backend-tracing";
@@ -51,6 +52,8 @@ const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml
 const MARKDOWN_ALIAS_PATH_RE = /\.(?:md|mdx)$/i;
 const PUBLIC_PAGES = new Set(["/terms-and-conditions"]);
 const educationRequests = new WeakSet<Request>();
+// Signed-out visitors to "/" see the landing page in place of the wiki home.
+const landingRequests = new WeakSet<Request>();
 
 type CanonicalSlugCacheEntry = {
   expires: number;
@@ -355,11 +358,17 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
     return handleSharePreviewRequest(sharePreviewRequestFor(request), client, siteSlug);
   }
 
+  if (url.pathname === "/" && !url.searchParams.has("token") &&
+      (request.method === "GET" || request.method === "HEAD")) {
+    landingRequests.add(request);
+    return null;
+  }
+
   const clean = new URL(request.url);
   clean.searchParams.delete("token");
-  const loginUrl = new URL("/login", request.url);
-  loginUrl.searchParams.set("redirect", `${clean.pathname}${clean.search}`);
-  return privateRedirect(request, loginUrl.toString());
+  const signInUrl = new URL("/sign-in", request.url);
+  signInUrl.searchParams.set("redirect", `${clean.pathname}${clean.search}`);
+  return privateRedirect(request, signInUrl.toString());
 }
 
 
@@ -376,6 +385,16 @@ async function staticIndexHtml(
 
   const siteSlug = await resolveSiteSlug(request, client);
   if (!siteSlug) return html;
+
+  // The landing page carries no wiki page data, only its own share card.
+  if (landingRequests.has(request)) {
+    const landing = landingRouteMetadata();
+    return injectHeadMetadata(html, {
+      ...landing,
+      openGraphImage: new URL(landing.openGraphImage!, request.url).toString(),
+      noIndex: true,
+    });
+  }
 
   if (isEducationHubPathname(url.pathname)) {
     const page = slug ? await publicPageForRequest(request, client, siteSlug, slug) : null;
@@ -508,7 +527,9 @@ async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath:
     Boolean(sessionUser);
   return {
     ...staticHeaders(filePath),
-    "X-Wiki-Reader-Access": educationRequests.has(request) ? "education" : "wiki",
+    "X-Wiki-Reader-Access": landingRequests.has(request)
+      ? LANDING_READER_ACCESS
+      : educationRequests.has(request) ? "education" : "wiki",
     "X-Wiki-Reader-Account": sessionUser === undefined ? "unknown" : sessionUser ? createHash("sha256").update(`${siteSlug}:${sessionUser._id}`).digest("hex") : "public",
     "Cache-Control": privateResponse
       ? "private, no-store"

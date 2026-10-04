@@ -1,8 +1,4 @@
-import {
-  expect,
-  request as playwrightRequest,
-  test,
-} from "@playwright/test";
+import { expect, request as playwrightRequest, test } from "@playwright/test";
 
 const runsAgainstProductionServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 
@@ -21,10 +17,20 @@ test("rejects a forged legacy gate cookie with private redirect headers", async 
   });
 
   try {
-    for (const route of ["/", "/tissue-plan.html", "/tissue-plan.html?download=1"]) {
+    // A forged cookie still sees only the landing page at "/".
+    const root = await request.get("/", { maxRedirects: 0 });
+    expect(root.status()).toBe(200);
+    expect(await root.text()).toContain(
+      'name="wiki-reader-access" content="landing"',
+    );
+    expect(root.headers()["cache-control"]).toBe("private, no-store");
+    expect(root.headers().vary).toContain("Cookie");
+    for (const route of ["/tissue-plan.html", "/tissue-plan.html?download=1"]) {
       const response = await request.get(route, { maxRedirects: 0 });
       expect(response.status()).toBe(302);
-      expect(new URL(response.headers().location, origin).pathname).toBe("/login");
+      expect(new URL(response.headers().location, origin).pathname).toBe(
+        "/sign-in",
+      );
       expect(response.headers()["cache-control"]).toBe("private, no-store");
       expect(response.headers().vary).toContain("Cookie");
       expect(response.headers().vary).toContain("Host");

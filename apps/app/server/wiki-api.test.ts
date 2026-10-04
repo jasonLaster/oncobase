@@ -1018,7 +1018,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(missingToken!.headers.get("cache-control")).toBe("private, no-store");
     expect(missingToken!.headers.get("vary")).toContain("Cookie");
     expect(missingToken!.headers.get("location")).toBe(
-      "http://127.0.0.1/login?redirect=%2Fwiki%2Fpublic",
+      "http://127.0.0.1/sign-in?redirect=%2Fwiki%2Fpublic",
     );
     expect(missingToken!.headers.get("set-cookie")).toBeNull();
 
@@ -1030,7 +1030,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(tokenLogin!.headers.get("set-cookie")).toBeNull();
     expect(tokenLogin!.headers.get("vary")).toContain("Cookie");
     expect(tokenLogin!.headers.get("location")).toBe(
-      "http://127.0.0.1/login?redirect=%2Fwiki%2Fpublic",
+      "http://127.0.0.1/sign-in?redirect=%2Fwiki%2Fpublic",
     );
     expect(tokenLogin!.headers.get("location")).not.toContain("token");
 
@@ -1042,7 +1042,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       );
       expect(unsafeTokenLogin?.status).toBe(302);
       expect(unsafeTokenLogin!.headers.get("location")).toBe(
-        "http://127.0.0.1/login?redirect=%2F",
+        "http://127.0.0.1/sign-in?redirect=%2F",
       );
       expect(unsafeTokenLogin!.headers.get("set-cookie")).toBeNull();
     }

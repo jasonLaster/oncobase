@@ -206,7 +206,7 @@ export const WikiPage = memo(function WikiPage({
   const online = useBrowserOnline();
   const returnUrl = new URL(location.pathname + location.search + location.hash, window.location.origin);
   returnUrl.searchParams.delete("scope");
-  const signInHref = `/login?redirect=${encodeURIComponent(returnUrl.pathname + returnUrl.search + returnUrl.hash)}`;
+  const signInHref = `/sign-in?redirect=${encodeURIComponent(returnUrl.pathname + returnUrl.search + returnUrl.hash)}`;
   const [toast, setToast] = useState<string | null>(null);
   const routeSlug = slugFromPath(location.pathname);
   const slug = contentSlugFromRouteSlug(routeSlug);

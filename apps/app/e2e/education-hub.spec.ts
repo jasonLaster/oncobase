@@ -190,5 +190,5 @@ test("phone navigation, deep links, and protected care content retain their boun
     page.getByRole("heading", { name: /Oncology 101/, level: 1 }),
   ).toBeVisible();
   await page.goto("/wiki/care/index");
-  await expect(page).toHaveURL(/\/login\?redirect=/);
+  await expect(page).toHaveURL(/\/sign-in\?redirect=/);
 });

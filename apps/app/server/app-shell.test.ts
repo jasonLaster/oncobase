@@ -211,7 +211,10 @@ describe("wiki Vite app-shell password gate", () => {
     const lookup = spyOn(client, "query");
     const handler = createWikiViteHandler({ client: client as never, distDir });
     const hint = `wiki_reader_shell=${encodeURIComponent(JSON.stringify(["/"]))}`;
-    expect((await handler(request("/", { headers: { Cookie: hint } }))).status).toBe(302);
+    const anonymous = await handler(request("/", { headers: { Cookie: hint } }));
+    const anonymousHtml = await anonymous.text();
+    expect(anonymousHtml).toContain('<meta name="wiki-reader-access" content="landing" />');
+    expect(anonymousHtml).not.toContain("wiki-page-bootstrap");
     lookup.mockClear();
     const response = await handler(request("/", { headers: await authenticatedHeaders(hint) }));
     const html = await response.text();
@@ -237,7 +240,7 @@ describe("wiki Vite app-shell password gate", () => {
     process.env.WIKI_HTML_FIRST_EXPERIMENT = "1";
     try {
       const handler = createWikiViteHandler({ client: fakeClient() as never, distDir });
-      expect((await handler(request("/"))).status).toBe(302);
+      expect((await handler(request("/wiki/public"))).status).toBe(302);
       for (const pathname of ["/", "/?html-first=on", "/search", "/chat"]) {
         const response = await handler(request(pathname, { headers: await authenticatedHeaders() }));
         const body = await response.text();
@@ -269,9 +272,12 @@ describe("wiki Vite app-shell password gate", () => {
       return value;
     } };
     const handler = createWikiViteHandler({ client: client as never, distDir });
+    // Anonymous visitors get the landing page with no wiki data.
     const blocked = await handler(request("/"));
-    expect(blocked.status).toBe(302);
-    expect(await blocked.text()).not.toContain("wiki-page-bootstrap");
+    const blockedHtml = await blocked.text();
+    expect(blockedHtml).toContain('<meta name="wiki-reader-access" content="landing" />');
+    expect(blockedHtml).not.toContain("wiki-page-bootstrap");
+    expect(bodyReads).toBe(0);
     bodyReads = 0;
     const response = await handler(request("/", { headers: await authenticatedHeaders() }));
     const html = await response.text();
@@ -352,18 +358,45 @@ describe("wiki Vite app-shell password gate", () => {
     }
   });
 
-  test("gates anonymous root and deep links with private redirect responses", async () => {
+  test("shows signed-out visitors the landing page at the root without wiki data", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,
       distDir,
     });
 
-    for (const pathname of ["/", "/wiki/public?view=compact"]) {
+    const response = await handler(request("/"));
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(html).toContain('<meta name="wiki-reader-access" content="landing" />');
+    expect(html).toContain("<title>Diana TNBC Knowledge Base</title>");
+    expect(html).toContain('<meta property="og:image" content="http://127.0.0.1/landing/og-image.jpg" />');
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow" />');
+    expect(html).not.toContain("wiki-page-bootstrap");
+    expect(html).not.toContain("# index");
+    // Signed-in readers get the wiki at the same URL, so it must stay private.
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("vary")).toContain("Cookie");
+    expect(response.headers.get("vary")).toContain("Host");
+
+    const withToken = await handler(request("/?token=share"));
+    expect(withToken.status).toBe(302);
+    expect(withToken.headers.get("location")).toBe("http://127.0.0.1/sign-in?redirect=%2F");
+  });
+
+  test("sends anonymous deep links to the sign-in page with private redirects", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    for (const pathname of ["/wiki/public?view=compact", "/index"]) {
       const response = await handler(request(pathname));
 
       expect(response.status).toBe(302);
       expect(response.headers.get("location")).toBe(
-        `http://127.0.0.1/login?redirect=${encodeURIComponent(pathname)}`,
+        `http://127.0.0.1/sign-in?redirect=${encodeURIComponent(pathname)}`,
       );
       expect(response.headers.get("cache-control")).toBe("private, no-store");
       expect(response.headers.get("vary")).toContain("Cookie");
@@ -423,11 +456,11 @@ describe("wiki Vite app-shell password gate", () => {
     });
 
     const response = await handler(
-      request("/", { headers: { Cookie: "authed=true" } }),
+      request("/wiki/public", { headers: { Cookie: "authed=true" } }),
     );
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "http://127.0.0.1/login?redirect=%2F",
+      "http://127.0.0.1/sign-in?redirect=%2Fwiki%2Fpublic",
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("vary")).toContain("Cookie");
@@ -446,7 +479,7 @@ describe("wiki Vite app-shell password gate", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "http://127.0.0.1/login?redirect=%2Fwiki%2Fpublic%3Fview%3Dcompact",
+      "http://127.0.0.1/sign-in?redirect=%2Fwiki%2Fpublic%3Fview%3Dcompact",
     );
     expect(response.headers.get("location")).not.toContain("token");
     expect(response.headers.get("set-cookie")).toBeNull();
@@ -960,7 +993,7 @@ describe("wiki Vite app-shell password gate", () => {
         expect(canonical.status).toBe(pathname === "/wiki/public" ? 302 : 200);
         if (pathname === "/wiki/public") {
           expect(canonical.headers.get("location")).toBe(
-            "http://127.0.0.1/login?redirect=%2Fwiki%2Fpublic%3Fview%3Dcompact",
+            "http://127.0.0.1/sign-in?redirect=%2Fwiki%2Fpublic%3Fview%3Dcompact",
           );
           expect(canonical.headers.get("cache-control")).toBe("private, no-store");
         }
@@ -1019,7 +1052,8 @@ describe("wiki Vite app-shell password gate", () => {
     });
 
     const anonymous = await handler(request("/"));
-    expect(anonymous.status).toBe(302);
+    expect(anonymous.status).toBe(200);
+    expect(await anonymous.text()).toContain('<meta name="wiki-reader-access" content="landing" />');
 
     const authenticated = await handler(
       request("/", { headers: await authenticatedHeaders() }),

@@ -554,8 +554,8 @@ function CommentsShell({
   const canComment = Boolean(sessionUser);
   const signInHref =
     typeof window === "undefined"
-      ? "/login"
-      : `/login?redirect=${encodeURIComponent(
+      ? "/sign-in"
+      : `/sign-in?redirect=${encodeURIComponent(
           `${window.location.pathname}${window.location.search}${window.location.hash}`
         )}`;
 

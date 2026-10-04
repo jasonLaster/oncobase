@@ -93,7 +93,7 @@ export function SignInPage() {
     <div className="landing-page sign-in-page" data-test-id="sign-in-page">
       <section className="si-art" aria-label="Diana TNBC">
         <VillageTexture />
-        <a className="lp-brand" href="/login" aria-label="Diana TNBC home">
+        <a className="lp-brand" href="/" aria-label="Diana TNBC home">
           <DianaBrand />
         </a>
         <figure className="si-cartoon">
@@ -130,7 +130,7 @@ export function SignInPage() {
           <p className="si-access">Need access? Ask Jason.</p>
         </div>
         <nav className="si-links" aria-label="More from Diana TNBC">
-          <a href="/login">
+          <a href="/">
             <ArrowLeft size={15} /> About the knowledge base
           </a>
           <a href="/education">

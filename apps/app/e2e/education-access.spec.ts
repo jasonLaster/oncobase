@@ -24,7 +24,7 @@ test("guests can read, browse, search, and view cartoons without a password", as
   await cartoon.scrollIntoViewIfNeeded();
   await expect.poll(() => cartoon.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
   await page.getByRole("link", { name: "Diagnostics", exact: true }).click();
-  await expect(page).toHaveURL(/\/login\?redirect=/);
+  await expect(page).toHaveURL(/\/sign-in\?redirect=/);
   await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
 });
 

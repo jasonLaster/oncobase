@@ -69,7 +69,7 @@ function Header({
       data-tone={platformTone ? "oncobase" : "diana"}
     >
       <div className="lp-header lp-container">
-        <a className="lp-brand" href="/login" aria-label="Diana TNBC home">
+        <a className="lp-brand" href="/" aria-label="Diana TNBC home">
           <DianaBrand />
         </a>
         <nav aria-label="Main navigation">
@@ -375,7 +375,7 @@ function Footer() {
   return (
     <footer className="lp-footer-shell">
       <div className="lp-footer lp-container">
-        <a className="lp-brand" href="/login" aria-label="Diana TNBC home">
+        <a className="lp-brand" href="/" aria-label="Diana TNBC home">
           <DianaBrand />
         </a>
         <div className="lp-footer-platform lp-oncobase">

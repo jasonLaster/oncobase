@@ -78,6 +78,6 @@ test("public unavailable pages offer sign-in with the original destination and w
   await gotoWiki(page, "/private/plan?scope=public&from=call#notes");
   await expect(page.getByRole("heading", { name: "This page may be restricted" })).toBeVisible();
   const signIn = documentArticle(page).getByRole("link", { name: "Sign in", exact: true });
-  await expect(signIn).toHaveAttribute("href", `/login?redirect=${encodeURIComponent("/private/plan?from=call#notes")}`);
+  await expect(signIn).toHaveAttribute("href", `/sign-in?redirect=${encodeURIComponent("/private/plan?from=call#notes")}`);
   await expect(documentArticle(page)).not.toContainText("Sensitive session-only planning note.");
 });

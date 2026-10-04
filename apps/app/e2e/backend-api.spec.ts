@@ -259,7 +259,7 @@ test.describe("Vite backend API", () => {
     expect(legacyMagicLogin.status()).toBe(302);
     expect(legacyMagicLogin.headers()["set-cookie"]).toBeUndefined();
     expect(legacyMagicLogin.headers().location).toMatch(
-      /\/login\?redirect=%2Fwiki%2Flogistics%2Finsurance$/,
+      /\/sign-in\?redirect=%2Fwiki%2Flogistics%2Finsurance$/,
     );
     expect(legacyMagicLogin.headers().location).not.toContain("token");
 

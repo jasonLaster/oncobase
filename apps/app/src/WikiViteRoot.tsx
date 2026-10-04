@@ -121,7 +121,7 @@ function SessionRecovery({ message }: { message: string }) {
           "a",
           {
             key: "login",
-            href: backendHref(`/login?redirect=${encodeURIComponent(currentReturnTo())}`),
+            href: backendHref(`/sign-in?redirect=${encodeURIComponent(currentReturnTo())}`),
           },
           "Open sign in",
         ),

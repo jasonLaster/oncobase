@@ -120,8 +120,12 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
 
-  await check("GET / without gate cookie", "/", {}, (response) => {
-    expect(response.status === 302 && response.headers.get("location")?.includes("/login"), `expected 302 to /login, got ${response.status}`);
+  await check("GET / without gate cookie", "/", {}, (response, body) => {
+    expect(response.status === 200 && body.includes('name="wiki-reader-access" content="landing"'), `expected the landing page, got ${response.status}`);
+    expect(response.headers.get("cache-control") === "private, no-store", "expected the landing page to stay private");
+  });
+  await check("GET private page without gate cookie", "/wiki/index", {}, (response) => {
+    expect(response.status === 302 && response.headers.get("location")?.includes("/sign-in?redirect=%2Fwiki%2Findex"), `expected 302 to /sign-in, got ${response.status}`);
   });
   await check("POST /api/login wrong password", "/api/login", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "wrong" }),

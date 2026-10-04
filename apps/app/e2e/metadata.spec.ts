@@ -276,7 +276,7 @@ test.describe("production page metadata", () => {
 
       expect(response.status()).toBe(302);
       expect(response.headers().location).toContain(
-        "/login?redirect=%2Fwiki%2Flogistics%2Finsurance"
+        "/sign-in?redirect=%2Fwiki%2Flogistics%2Finsurance"
       );
     } finally {
       await anonymousRequest.dispose();

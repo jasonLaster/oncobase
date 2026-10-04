@@ -154,8 +154,11 @@ test("landing navigation reaches every section and the sign-in page", async ({
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByLabel("Password", { exact: true })).toBeInViewport();
-  await page.getByRole("link", { name: "About the knowledge base" }).click();
-  await expect(page).toHaveURL(/\/login$/);
+  // Signed-out visitors see the landing page at "/" on the deployed server.
+  await expect(
+    page.getByRole("link", { name: "About the knowledge base" }),
+  ).toHaveAttribute("href", "/");
+  await page.goto("/login");
   await page
     .getByRole("link", { name: "Sign in to the knowledge base", exact: true })
     .click();
@@ -315,6 +318,39 @@ test("private links ask for the password and continue to the page", async ({
   await page.getByLabel("Password", { exact: true }).fill("test-password");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/wiki\/care\/index$/);
+});
+
+test("the server's landing response renders the landing page at the root", async ({
+  page,
+}) => {
+  // The deployed gate marks a signed-out "/" response; the dev server serves
+  // HTML without the gate, so add the marker it would send.
+  await page.route(
+    (url) => url.pathname === "/",
+    async (route) => {
+      const response = await route.fetch();
+      const html = (await response.text()).replace(
+        "</head>",
+        '<meta name="wiki-reader-access" content="landing" /></head>',
+      );
+      await route.fulfill({ response, body: html });
+    },
+  );
+  const sessionRequests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/wiki/session")
+      sessionRequests.push(request.url());
+  });
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "It takes a village." }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(
+    page.getByRole("link", { name: "Diana TNBC home" }).first(),
+  ).toHaveAttribute("href", "/");
+  // The visitor is signed out, so the reader session is never requested.
+  expect(sessionRequests).toEqual([]);
 });
 
 test("a private page's redirect opens the sign-in page directly", async ({

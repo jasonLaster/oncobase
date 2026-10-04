@@ -92,13 +92,13 @@ export async function handleLoginRequest(
 
   if (request.method === "GET") {
     const redirect = safeLocalRedirect(url.searchParams.get("redirect"));
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", redirect);
+    const signInUrl = new URL("/sign-in", request.url);
+    signInUrl.searchParams.set("redirect", redirect);
     return new Response(null, {
       status: 302,
       headers: {
         "Cache-Control": "private, no-store",
-        Location: loginUrl.toString(),
+        Location: signInUrl.toString(),
         Vary: "Cookie, Host",
       },
     });

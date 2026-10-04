@@ -114,7 +114,7 @@ export function PathologyViewer() {
         <span role="status" className="pathology-share-status">{shareStatus}</span>
       </div>
     </header>
-    {error ? <div className="pathology-empty" role="alert"><h2>Slides could not load</h2><p>Check your connection or sign in again.</p><button onClick={() => void mutate()}>Retry</button><a href="/login">Sign in</a></div>
+    {error ? <div className="pathology-empty" role="alert"><h2>Slides could not load</h2><p>Check your connection or sign in again.</p><button onClick={() => void mutate()}>Retry</button><a href="/sign-in">Sign in</a></div>
       : !data ? <div className="pathology-empty" role="status">Loading slide collection…</div>
       : missingSlide ? <div className="pathology-empty" role="alert"><h2>This slide is unavailable</h2><p>The shared slide is not in this collection.</p>{slides[0] && <button onClick={() => navigate(slides[0].slideId)}>Open slide collection</button>}</div>
       : !slide ? <div className="pathology-empty"><h2>No slides available</h2><p>Prepared H&E slides will appear here.</p></div>
