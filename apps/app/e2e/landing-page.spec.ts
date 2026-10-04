@@ -160,7 +160,7 @@ test("landing navigation reaches every section and the sign-in page", async ({
   ).toHaveAttribute("href", "/");
   await page.goto("/login");
   await page
-    .getByRole("link", { name: "Sign in to the knowledge base", exact: true })
+    .getByRole("link", { name: "View Diana’s knowledge base", exact: true })
     .click();
   await expect(page).toHaveURL(/\/sign-in$/);
 });

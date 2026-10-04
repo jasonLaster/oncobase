@@ -108,7 +108,7 @@ function Hero() {
             Browse educational content <ArrowRight size={16} />
           </a>
           <a className="lp-text-link" href="/sign-in">
-            Sign in to the knowledge base <ArrowRight size={16} />
+            View Diana’s knowledge base <ArrowRight size={16} />
           </a>
         </div>
         <ProductShots />
