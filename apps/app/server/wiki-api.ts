@@ -67,6 +67,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { Liveblocks, WebhookHandler } from "@liveblocks/node";
 import type { Plugin } from "vite";
 import { legacyRedirectResponse } from "./redirects.ts";
+import { createManifestBuildRequester } from "./manifest-build-requests";
 import { createManifestSnapshotCache, createWikiManifestResponse, createWikiPagesResponse, createWikiSessionResponse, type WikiApiAccessAdapter, type WikiApiDocumentsGateway } from "@oncobase/wiki-content/server";
 import { createWikiGateSession, matchesWikiPasswordHash } from "@oncobase/wiki-content/gate-session";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
@@ -3118,8 +3119,9 @@ async function handleAdminRequest(
 
 export function createWikiApiHandler(client = createClient()) {
   client = traceConvexClient(client);
-  // Per-instance: snapshot bytes are content-addressed by hash.
+  // Per-instance: snapshot bytes are content-addressed, build requests throttled.
   const manifestSnapshotCache = createManifestSnapshotCache({ onLookup: hit => traceBackendCache("manifest-snapshot", hit) });
+  const requestManifestBuild = createManifestBuildRequester();
   return traceBackendHandler(async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     let pathname = new URL(request.url).pathname;
     const dedicatedEducation = pathname.startsWith("/api/education/");
@@ -3217,7 +3219,8 @@ export function createWikiApiHandler(client = createClient()) {
         const args = { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! };
         const snapshot = await client.query(api.manifestCache.current, args);
         traceBackendAttributes({ "manifest.snapshot_hit": Boolean(snapshot) });
-        if (!snapshot) { await client.mutation(api.manifestCache.requestBuild, args); return null; }
+        // The reader is served from the live path either way; never await the build.
+        if (!snapshot) { requestManifestBuild(siteSlug, () => client.mutation(api.manifestCache.requestBuild, args)); return null; }
         // Storage is read only on a manifestSnapshotCache miss for this hash.
         return { hash: snapshot.hash, revision: snapshot.revision, read: async () => traceBackendPhase("manifest.snapshot-read", async () => {
           const response = await fetch(snapshot.url, { signal: AbortSignal.timeout(5000) });

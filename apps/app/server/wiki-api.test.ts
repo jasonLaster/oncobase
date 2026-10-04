@@ -1836,6 +1836,33 @@ test("manifest validation uses two backend queries and reads no document pages",
   }
 });
 
+test("a snapshot miss serves the live manifest without awaiting the build request", async () => {
+  const saved = process.env.WIKI_PREFETCH_SECRET;
+  process.env.WIKI_PREFETCH_SECRET = "synthetic-manifest-http-key-00000000000000";
+  const base = createFakeConvexClient();
+  let buildRequests = 0;
+  try {
+    const client = { ...base,
+      query: async (ref: FunctionReference<"query">, args: Record<string, unknown>) =>
+        getFunctionName(ref) === "manifestCache:current" ? null : base.query(ref, args),
+      mutation: async (ref: FunctionReference<"mutation">, args: Record<string, unknown>) => {
+        if (getFunctionName(ref) !== "manifestCache:requestBuild") return base.mutation(ref, args);
+        buildRequests++;
+        return new Promise(() => {}); // A build request that never settles.
+      } };
+    const handler = createWikiApiHandler(client as never);
+    for (let i = 0; i < 3; i++) {
+      const response = await handler(request("/api/wiki/manifest"));
+      expect(response?.status).toBe(200);
+      expect(response?.headers.get("x-wiki-manifest-source")).not.toBe("snapshot");
+    }
+    expect(buildRequests).toBe(1); // Throttled per site and instance.
+  } finally {
+    if (saved === undefined) delete process.env.WIKI_PREFETCH_SECRET;
+    else process.env.WIKI_PREFETCH_SECRET = saved;
+  }
+});
+
 test("repeat snapshot hits read storage once per hash and representation", async () => {
   const saved = process.env.WIKI_PREFETCH_SECRET;
   const originalFetch = globalThis.fetch;
