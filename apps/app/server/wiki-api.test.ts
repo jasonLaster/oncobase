@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { getFunctionName, type FunctionReference } from "convex/server";
+import { getFunctionName, makeFunctionReference, type FunctionReference } from "convex/server";
 import JSZip from "jszip";
 import {
   createWikiApiHandler,
@@ -260,7 +260,9 @@ function createFakeConvexClient({
           return { ranges: [{ partition: 0, from: null, to: null }], documents: pages.filter(page => !page.sensitive).length, planned: true };
         case "documents:listSearchPages":
           return {
-            page: pages.filter((page) => !page.sensitive)
+            // Disjoint partitions: this fake keeps every public page in partition 0.
+            page: pages.filter((page) => args.partition === 0 && !page.sensitive &&
+              (args.from == null || page.slug >= String(args.from)) && (args.to == null || page.slug < String(args.to)))
               .map(({ slug, title, content }) => ({ slug, title, content, contentHash: slug })),
             isDone: true,
             continueCursor: "",
@@ -894,6 +896,54 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
     expect(responses.map((response) => response?.status)).toEqual([200, 200]);
     expect(corpusLoads).toBe(1);
+  });
+
+  test("cold education search scans the curriculum slice, not the care-dominated index", async () => {
+    const lesson = "wiki/education/immunology/lesson";
+    const client = createFakeConvexClient({
+      extraPages: [
+        // More care-wiki matches than the interim index cap (30).
+        ...Array.from({ length: 40 }, (_, index) => ({ slug: `wiki/care/page-${index}`, title: `Care ${index}`, content: "immunotherapy dose", tags: [] })),
+        { slug: lesson, title: "Immunology", content: "# Immunology\n\nImmunotherapy basics.\nMore immunotherapy.", tags: [] },
+      ],
+    });
+    const originalQuery = client.query.bind(client);
+    let release = () => {};
+    const corpusRead = new Promise<void>((resolve) => { release = resolve; });
+    const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+    client.query = async (ref, args) => {
+      const name = getFunctionName(ref);
+      calls.push({ name, args });
+      // The whole-corpus load (open ranges) stays cold; the slice does not.
+      if (name === "documents:listSearchPages" && args.from == null) await corpusRead;
+      return originalQuery(ref, args);
+    };
+    const profiles: BackendProfile[] = [];
+    const handler = traceBackendHandler(createWikiApiHandler(client as never), { onProfile: profile => profiles.push(profile) });
+    try {
+      // The index alone would return only care pages for this query.
+      const indexed = await originalQuery(makeFunctionReference<"query">("documents:search"), { query: "immunotherapy", limit: 30 }) as Array<{ slug: string }>;
+      expect(indexed.some(result => result.slug === lesson)).toBe(false);
+
+      const response = await handler(request("/api/education/search?q=immunotherapy&limit=100"));
+      expect(response!.headers.get("x-wiki-search-completeness")).toBe("education-slice");
+      expect(response!.headers.get("cache-control")).toContain("no-store");
+      expect(await response!.json()).toEqual({
+        complete: false,
+        retryAfterMs: 1_000,
+        results: [{ filePath: lesson, slug: lesson, title: "Immunology", matches: [
+          { lineNumber: 3, lineContent: "Immunotherapy basics.", matchStart: 0, matchEnd: 13 },
+          { lineNumber: 4, lineContent: "More immunotherapy.", matchStart: 5, matchEnd: 18 },
+        ] }],
+      });
+      expect(calls.some(call => call.name === "documents:search")).toBe(false);
+      expect(calls.filter(call => call.name === "documents:listSearchPages" && call.args.from === "wiki/education/")
+        .map(call => [call.args.partition, call.args.to])).toEqual([[0, "wiki/education0"], [1, "wiki/education0"], [2, "wiki/education0"], [3, "wiki/education0"]]);
+      expect(profiles[0]!.attributes).toMatchObject({ "search.mode": "education-slice", "search.corpus.wait": "skipped-cold", "search.results": 1 });
+      expect(profiles[0]!.phases.map(phase => phase.name)).toContain("search.education");
+    } finally {
+      release();
+    }
   });
 
   test("a cold search answers from the index at once; later searches wait only for a load in flight", async () => {

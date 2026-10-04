@@ -254,8 +254,9 @@ export function traceConvexClient(client: ConvexHttpClient, tracerOverride?: Tra
 
 export type BackendPhase = "manifest.snapshot-read"
   // Text search: corpus wait (bounded for public scope), its load (plan, then
-  // concurrent range reads with preparation), relevance-index fallback, scan.
-  | "search.corpus" | "search.corpus.plan" | "search.corpus.fetch" | "search.indexed" | "search.match"
+  // concurrent range reads with preparation), interim answers (relevance
+  // index; education slice of the corpus), scan.
+  | "search.corpus" | "search.corpus.plan" | "search.corpus.fetch" | "search.indexed" | "search.education" | "search.match"
   | "publish.auth" | "publish.lock" | "publish.inventory.documents" | "publish.inventory.assets" | "publish.state" | "publish.reader" | "publish.document.prepare"
   // HTML shell: every reader navigation that reaches the origin.
   | "download.list-assets"

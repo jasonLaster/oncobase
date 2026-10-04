@@ -97,25 +97,47 @@ export async function loadPublicSearchCorpus(
     }
     if (key) rangePages.set(key, reused ?? []);
   });
+  const read = await traceBackendPhase("search.corpus.fetch", () =>
+    readSearchRanges(client, siteSlug, pending.map(index => ranges[index]!), patterns, concurrency));
+  read.chunks.forEach((pages, position) => {
+    const index = pending[position]!;
+    const { partition, from, to, fingerprint } = ranges[index]!;
+    chunks[index] = pages;
+    for (const page of pages) characters += searchPageCharacters(page);
+    if (fingerprint) rangePages.set(JSON.stringify([partition, from, to, fingerprint]), pages);
+  });
+  const rpcs = read.rpcs + 1;
+  const prepareMs = read.prepareMs;
+  // Plan order (visibility partition, then slug) is the previous single
+  // cursor's order, so equal-score ties keep their ranking.
+  const pages = chunks.flat();
+  searchCorpusStats.set(pages, {
+    loadMs: Math.round(performance.now() - started), prepareMs: Math.round(prepareMs), rpcs, planned: plan.planned,
+    characters, ranges: ranges.length, reusedRanges: ranges.length - pending.length, rangePages,
+  });
+  return pages;
+}
+
+/** Read and prepare public slug ranges (documents:listSearchPages), up to
+ * `concurrency` at a time, following continuation cursors within a range.
+ * Chunks are returned in range order. */
+async function readSearchRanges(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  ranges: Array<{ partition: number; from: string | null; to: string | null }>,
+  patterns: PiiPattern[] | undefined,
+  concurrency: number,
+) {
+  const chunks: SearchablePage[][] = new Array(ranges.length);
   let next = 0;
-  let rpcs = 1;
+  let rpcs = 0;
   let prepareMs = 0;
-  // One failed range fails the load; the other workers stop reading.
+  // One failed range fails the read; the other workers stop reading.
   let failed = false;
-  await traceBackendPhase("search.corpus.fetch", () => Promise.all(
-    Array.from({ length: Math.min(concurrency, pending.length) }, async () => {
-      try {
-        await readRanges();
-      } catch (error) {
-        failed = true;
-        throw error;
-      }
-    }),
-  ));
-  async function readRanges() {
-    while (next < pending.length && !failed) {
-      const index = pending[next++]!;
-      const { partition, from, to, fingerprint } = ranges[index]!;
+  const readRanges = async () => {
+    while (next < ranges.length && !failed) {
+      const index = next++;
+      const { partition, from, to } = ranges[index]!;
       const pages: SearchablePage[] = [];
       const cursors = new Set<string>();
       let cursor: string | null = null;
@@ -140,18 +162,73 @@ export async function loadPublicSearchCorpus(
         cursors.add(cursor);
       }
       chunks[index] = pages;
-      for (const page of pages) characters += searchPageCharacters(page);
-      if (fingerprint) rangePages.set(JSON.stringify([partition, from, to, fingerprint]), pages);
     }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, ranges.length) }, async () => {
+    try {
+      await readRanges();
+    } catch (error) {
+      failed = true;
+      throw error;
+    }
+  }));
+  return { chunks, rpcs, prepareMs };
+}
+
+// listSearchPages partitions: the four readable public visibility
+// combinations (convex/documents.ts READABLE_SEARCH_FILTERS.public).
+const SEARCH_PARTITIONS = [0, 1, 2, 3];
+// Every education slug starts "wiki/education/"; "0" follows "/".
+const EDUCATION_SLUG_RANGE = { from: "wiki/education/", to: "wiki/education0" };
+
+/** The public curriculum alone, read by slug range: a small slice of the
+ * corpus that a cold instance can scan for exact line matches long before the
+ * whole corpus is ready. The relevance index cannot serve it: care-wiki pages
+ * outrank lessons and use up the capped result slots. */
+export async function loadEducationSearchPages(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  patterns: PiiPattern[] | undefined,
+) {
+  const { chunks } = await readSearchRanges(client, siteSlug,
+    SEARCH_PARTITIONS.map(partition => ({ partition, ...EDUCATION_SLUG_RANGE })), patterns, SEARCH_PARTITIONS.length);
+  return chunks.flat();
+}
+
+type SearchResult = {
+  filePath: string;
+  slug: string;
+  title: string;
+  matches: Array<{ lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }>;
+};
+
+/** Line matches over prepared pages, most matches first (stable for ties). */
+function matchSearchPages(pages: SearchablePage[], regex: RegExp, educationOnly: boolean) {
+  const results: SearchResult[] = [];
+  // One linear pass: a single non-global exec per line (no lastIndex state),
+  // no per-line array allocation. Ranking is by match count over every page,
+  // so a limit cannot stop the scan early without changing which pages are
+  // returned; callers apply it after the sort.
+  for (const page of pages) {
+    if (educationOnly && !isEducationSlug(page.slug)) continue;
+    const matches: SearchResult["matches"] = [];
+    const { lines } = page;
+    for (let index = 0; index < lines.length; index++) {
+      const lineContent = lines[index]!;
+      const match = regex.exec(lineContent);
+      if (match) {
+        matches.push({
+          lineNumber: index + 1,
+          lineContent,
+          matchStart: match.index,
+          matchEnd: match.index + match[0].length,
+        });
+      }
+    }
+    if (matches.length > 0) results.push({ filePath: page.slug, slug: page.slug, title: page.title, matches });
   }
-  // Plan order (visibility partition, then slug) is the previous single
-  // cursor's order, so equal-score ties keep their ranking.
-  const pages = chunks.flat();
-  searchCorpusStats.set(pages, {
-    loadMs: Math.round(performance.now() - started), prepareMs: Math.round(prepareMs), rpcs, planned: plan.planned,
-    characters, ranges: ranges.length, reusedRanges: ranges.length - pending.length, rangePages,
-  });
-  return pages;
+  results.sort((a, b) => b.matches.length - a.matches.length);
+  return results;
 }
 
 function searchPageCharacters(page: SearchablePage) {
@@ -374,17 +451,6 @@ export async function handleSearchRequest(
   const includeSensitive = scope === "session" && Boolean(sessionUser);
   const patterns = await getPiiPatterns(client, siteSlug);
   const regex = new RegExp(escapeSearchRegex(query), "i");
-  const results: Array<{
-    filePath: string;
-    slug: string;
-    title: string;
-    matches: Array<{
-      lineNumber: number;
-      lineContent: string;
-      matchStart: number;
-      matchEnd: number;
-    }>;
-  }> = [];
   const corpus = getSearchCorpus(
     client,
     siteSlug,
@@ -407,16 +473,22 @@ export async function handleSearchRequest(
     "search.wait": waitKind,
     ...(waitKind === "unbounded" ? {} : { "search.corpus.wait_budget_ms": waitMs }),
   });
-  const loadIndexed = () => traceBackendPhase("search.indexed", () => loadIndexedSearchResults(
-    client,
-    siteSlug,
-    query,
-    limit,
-    patterns,
-  ));
-  const indexedEarly = waitKind === "short" && !corpus.settled ? loadIndexed() : undefined;
+  const limited = <T>(results: T[]) => (Number.isFinite(limit) ? results.slice(0, limit) : results);
+  // Interim answer while the corpus is not ready: the relevance index, or for
+  // the education reader its own slice of the corpus (exact line matches).
+  const loadInterim = educationOnly
+    ? () => traceBackendPhase("search.education", async () =>
+        limited(matchSearchPages(await loadEducationSearchPages(client, siteSlug, patterns), regex, true)))
+    : () => traceBackendPhase("search.indexed", () => loadIndexedSearchResults(
+        client,
+        siteSlug,
+        query,
+        limit,
+        patterns,
+      ));
+  const interimEarly = waitKind === "short" && !corpus.settled ? loadInterim() : undefined;
   // Unused when the corpus arrives in time; never an unhandled rejection.
-  indexedEarly?.catch(() => undefined);
+  interimEarly?.catch(() => undefined);
   const visiblePages = skipWait ? null : await traceBackendPhase("search.corpus", () => includeSensitive
     ? corpus.pages
     : waitForPublicSearchCorpus(corpus.pages, waitMs));
@@ -425,11 +497,12 @@ export async function handleSearchRequest(
     // Keep the corpus load alive after the response (Vercel would otherwise
     // freeze the instance), so this instance's next search is exhaustive.
     runAfterResponse(corpus.pages, "search corpus warm");
-    traceBackendAttributes({ "search.mode": "indexed", "search.corpus.wait": skipWait ? "skipped-cold" : "budget-exceeded" });
-    const indexedResults = await (indexedEarly ?? loadIndexed());
-    const results = educationOnly ? indexedResults.filter(page => isEducationSlug(page.slug)) : indexedResults;
+    const mode = educationOnly ? "education-slice" : "indexed";
+    traceBackendAttributes({ "search.mode": mode, "search.corpus.wait": skipWait ? "skipped-cold" : "budget-exceeded" });
+    const interimResults: Array<{ slug: string }> = await (interimEarly ?? loadInterim());
+    const results = interimResults.filter(page => !educationOnly || isEducationSlug(page.slug));
     traceBackendAttributes({ "search.results": results.length });
-    const headers = timedResponseHeaders("indexed");
+    const headers = timedResponseHeaders(mode);
     // Interim results: never let a browser or CDN cache replay them to the
     // reader's retry (or anyone else) in place of the exhaustive response.
     headers.set("Cache-Control", "no-store");
@@ -459,41 +532,7 @@ export async function handleSearchRequest(
     } : {}),
   });
 
-  // One linear pass: a single non-global exec per line (no lastIndex state),
-  // no per-line array allocation. Ranking is by match count over the whole
-  // visible corpus, so a limit cannot stop the scan early without changing
-  // which pages are returned; it is applied after the sort.
-  await traceBackendPhase("search.match", () => {
-    for (const page of visiblePages) {
-      if (educationOnly && !isEducationSlug(page.slug)) continue;
-      const matches: (typeof results)[number]["matches"] = [];
-      const { lines } = page;
-      for (let index = 0; index < lines.length; index++) {
-        const lineContent = lines[index]!;
-        const match = regex.exec(lineContent);
-        if (match) {
-          matches.push({
-            lineNumber: index + 1,
-            lineContent,
-            matchStart: match.index,
-            matchEnd: match.index + match[0].length,
-          });
-        }
-      }
-
-      if (matches.length > 0) {
-        results.push({
-          filePath: page.slug,
-          slug: page.slug,
-          title: page.title,
-          matches,
-        });
-      }
-    }
-  });
-
-  results.sort((a, b) => b.matches.length - a.matches.length);
-  const limitedResults = Number.isFinite(limit) ? results.slice(0, limit) : results;
+  const limitedResults = limited(await traceBackendPhase("search.match", () => matchSearchPages(visiblePages, regex, educationOnly)));
   traceBackendAttributes({ "search.results": limitedResults.length });
 
   return Response.json(
