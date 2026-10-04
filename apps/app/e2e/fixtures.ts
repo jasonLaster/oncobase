@@ -390,8 +390,10 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
       if (route.request().resourceType() !== "document" ||
         new URL(route.request().url()).pathname.startsWith("/api/")) return route.fallback();
       const response = await route.fetch({ maxRedirects: 0 });
+      // WebKit cannot fulfill a redirect, so let the browser follow those (and
+      // any other non-HTML answer) itself.
       if (response.status() !== 200 || !response.headers()["content-type"]?.includes("text/html")) {
-        return route.fulfill({ response });
+        return route.continue();
       }
       await route.fulfill({ response, body: bareReaderShell(await response.text()) });
     });
