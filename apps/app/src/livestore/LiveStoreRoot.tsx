@@ -15,10 +15,14 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { unstable_batchedUpdates as batchUpdates } from "react-dom";
-import { startupInitialData, type StartupSnapshot } from "../bootstrap/reader-startup-cache";
+import { sameStartupIdentity, startupInitialData, type StartupSnapshot } from "../bootstrap/reader-startup-cache";
+import { keepsPresentationMounted } from "../bootstrap/session-handoff";
+import { SessionHandoffSync } from "../sync/SessionHandoffSync";
+import type { ReaderHandoffOutcome } from "../../shared/reader-telemetry";
 import { readInitialReaderData } from "../bootstrap/initial-reader-data";
 import { InitialReaderContext, useReaderStore } from "../bootstrap/reader-queries";
 import { App } from "../App";
@@ -35,7 +39,7 @@ import { dismissFirstFrameSnapshot } from "./first-frame-snapshot";
 import { StoreStartupLoading } from "./StoreStartup";
 import { resolveReaderStorage, isDiagnosticMemoryStorageRequest, readerBootDeadline, networkAwareBootDeadline,
   READER_LEADER_BOOT_TIMEOUT_MS, READER_FOLLOWER_BOOT_TIMEOUT_MS } from "./reader-storage";
-import { markVisualPhase } from "../visual-phase";
+import { markSessionHandoff, markVisualPhase } from "../visual-phase";
 import { recordReaderPhase, recordReaderSpan } from "../reader-telemetry";
 import type { ReaderReason } from "../../shared/reader-telemetry";
 import { observeMeasures, observeWorkerBoot } from "./worker-boot-telemetry";
@@ -227,18 +231,39 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
   // provider and discard the mounted article. A new partition remounts us.
   const [initial, setInitial] = useState(() => cachedSnapshot ? startupInitialData(cachedSnapshot, location.pathname) : readInitialReaderData(displayIdentity));
   const [bootstrapMode] = useState(() => Boolean(initial));
-  const [runningContext, setRunningContext] = useState<ContextType<typeof LiveStoreContext>>();
+  const [liveContext, setLiveContext] = useState<ContextType<typeof LiveStoreContext>>();
   const [handedOff, setHandedOff] = useState(false);
   const [initialExpired, setInitialExpired] = useState(false);
-  const publishStore = useCallback((value: ContextType<typeof LiveStoreContext>) => {
-    setRunningContext(value);
-    if (value) {
-      performance.mark("wiki-reader-live-handoff");
-      markVisualPhase("reader-live-handoff");
-      setHandedOff(true);
-      setInitial(null);
-    }
+  // A cached public page met a verified session (the caller keeps us mounted
+  // only then). The session store starts empty: keep presenting the public page
+  // while the running store syncs this route out of sight, then swap in one commit.
+  const prepareHandoff = Boolean(bootstrapMode && identity && cachedSnapshot &&
+    !sameStartupIdentity(cachedSnapshot.identity, identity) && keepsPresentationMounted(cachedSnapshot.identity, identity));
+  const [handoffOutcome, setHandoffOutcome] = useState<ReaderHandoffOutcome | null>(null);
+  const handoffStartedAt = useRef<number | null>(null);
+  useEffect(() => {
+    if (prepareHandoff && handoffStartedAt.current === null) handoffStartedAt.current = performance.now();
+  }, [prepareHandoff]);
+  const awaitingHandoff = prepareHandoff && !handoffOutcome;
+  const runningContext = awaitingHandoff ? undefined : liveContext;
+  const handOff = useCallback(() => {
+    performance.mark("wiki-reader-live-handoff");
+    markVisualPhase("reader-live-handoff");
+    setHandedOff(true);
+    setInitial(null);
   }, []);
+  const publishStore = useCallback((value: ContextType<typeof LiveStoreContext>) => {
+    setLiveContext(value);
+    if (value && !prepareHandoff) handOff();
+  }, [handOff, prepareHandoff]);
+  const handoffSettled = useRef(false);
+  const settleHandoff = useCallback((outcome: Exclude<ReaderHandoffOutcome, "remount-required">) => {
+    if (handoffSettled.current) return;
+    handoffSettled.current = true;
+    markSessionHandoff(outcome, handoffStartedAt.current ?? performance.now());
+    setHandoffOutcome(outcome);
+    handOff();
+  }, [handOff]);
   useEffect(() => {
     if (!initial || handedOff) return;
     const timer = window.setTimeout(() => setInitialExpired(true), Math.max(0, initial.expiresAt - Date.now()));
@@ -310,7 +335,10 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
           <StoreBootError error={error} attempt={bootAttempt} onRetry={retryBoot} />
         )}
       >
-        {bootstrapMode ? <PublishReaderStore publish={publishStore} /> : app}
+        {bootstrapMode ? <>
+          <PublishReaderStore publish={publishStore} />
+          {awaitingHandoff ? <SessionHandoffSync scope={scope} onSettled={settleHandoff} /> : null}
+        </> : app}
       </LiveStoreProvider>
     </StoreBootRetryBoundary>
   );

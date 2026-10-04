@@ -6,7 +6,8 @@ import { safeLocalStorage } from "./safe-storage";
 import { explicitReaderScope, identityRetryDelayMs } from "./reader-session";
 import { takeReaderSession } from "./reader-session-prefetch";
 import { WikiIdentityPendingContext } from "./wiki-context";
-import { markVisualPhase } from "./visual-phase";
+import { markSessionHandoff, markVisualPhase } from "./visual-phase";
+import { keepsPresentationMounted } from "./bootstrap/session-handoff";
 import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, STARTUP_CACHE_EPOCH } from "./bootstrap/reader-startup-cache";
 import { contentSlugFromRouteSlug, slugFromPath } from "./wiki-utils";
 import { AppStarting, ReaderPending } from "./AppStarting";
@@ -214,7 +215,13 @@ export function WikiViteRoot() {
           identityFailures.current = 0;
           if (cached && !sameStartupIdentity(cached.identity, identity)) {
             clearStartupSnapshot();
-            setCached(null);
+            // A public page meeting this site's verified session stays mounted
+            // (the reader swaps once the session store holds the route). Any
+            // other change must stop presenting the cached reader immediately.
+            if (!keepsPresentationMounted(cached.identity, identity)) {
+              markSessionHandoff("remount-required", performance.now());
+              setCached(null);
+            }
           }
           markVisualPhase("identity-ready", { scope: identity.scope });
           setIdentityPending(false);

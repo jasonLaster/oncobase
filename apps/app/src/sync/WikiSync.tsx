@@ -56,7 +56,9 @@ const MANIFEST_FRESH_MS: Record<WikiScope, number> = {
 };
 const MANIFEST_RETRY_MS = 30_000;
 
-export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => void }) {
+/** `background={false}` syncs the current route only (manifest and body), for a
+ * store that is preparing to replace a presentation and not yet visible. */
+export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: MetricsPatch) => void; background?: boolean }) {
   const { store } = useStore();
   const scope = useWikiScope();
   const location = useLocation();
@@ -556,5 +558,5 @@ export function WikiSync({ onMetrics }: { onMetrics: (patch: MetricsPatch) => vo
     if (currentSlug !== "index") rememberSlug(currentSlug);
   }, [currentSlug]);
 
-  return <BackgroundPrefetch onMetrics={onMetrics} isForegroundBusy={isForegroundBusy} />;
+  return background ? <BackgroundPrefetch onMetrics={onMetrics} isForegroundBusy={isForegroundBusy} /> : null;
 }
