@@ -36,7 +36,7 @@ export {
 } from "./reader-access";
 import { loadAllowedSensitivePages } from "./allowed-sensitive-slugs";
 import { browserConversationToken } from "./backend-client";
-import { traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
+import { traceBackendCache, traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
 import { prepareSearchPage, redactionConfigurationKey, type SearchablePage } from "./search-corpus";
 import {
   USER_SESSION_COOKIE,
@@ -174,6 +174,7 @@ type SearchCorpusCacheEntry = {
 // the corpus for the same interval as the public search response. The client
 // key keeps unit-test handlers and independently configured sites isolated.
 const publicSearchCorpusCache = new WeakMap<object, Map<string, SearchCorpusCacheEntry>>();
+const recentSnapshotHashes = new Set<string>();
 
 type DownloadAsset = {
   blobUrl?: string;
@@ -954,10 +955,11 @@ async function handleFileRequest(
     hasPasswordSession;
 
   let upstream: Response | null = null;
+  const blobUrl = asset.blobUrl;
   try {
-    upstream = await fetch(asset.blobUrl, {
+    upstream = await traceBackendPhase("external.blob", () => fetch(blobUrl, {
       headers: blobRequestHeaders(request),
-    });
+    }));
   } catch (error) {
     console.error("[file] Active Blob URL fetch failed:", error);
   }
@@ -1168,9 +1170,10 @@ async function handleDicomFileRequest(
       path: relativePath,
     });
     if (row?.blobUrl) {
-      const upstream = await fetch(row.blobUrl, {
+      const blobUrl = row.blobUrl;
+      const upstream = await traceBackendPhase("external.blob", () => fetch(blobUrl, {
         headers: blobRequestHeaders(request),
-      });
+      }));
       if (upstream.ok) {
         const headers = new Headers({
           "Cache-Control": "private, no-store",
@@ -1947,6 +1950,7 @@ async function getSearchCorpus(
   }
 
   const cached = clientCache.get(siteSlug);
+  traceBackendCache("search-corpus", Boolean(cached && cached.expires > now && cached.redactionKey === redactionKey));
   if (cached && cached.expires > now && cached.redactionKey === redactionKey) return cached.pages;
 
   const pages = loadSearchCorpus(client, siteSlug, false, null, patterns);
@@ -2559,12 +2563,13 @@ async function handleLiveblocksThreadsRequest(
       metadata: Record<string, unknown>;
     }> = [];
 
-    const results = await Promise.allSettled(
+    // One Liveblocks request per room, unbounded: trace the fan-out as a unit.
+    const results = await traceBackendPhase("external.liveblocks", () => Promise.allSettled(
       roomsToQuery.map(async (roomId) => {
         const { data } = await liveblocks.getThreads({ roomId });
         return { roomId, threads: data };
       }),
-    );
+    ));
 
     for (const result of results) {
       if (result.status !== "fulfilled") continue;
@@ -3135,13 +3140,18 @@ export function createWikiApiHandler(client = createClient()) {
       access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
       onManifestFallback: (reason: string) => traceBackendAttributes({ "manifest.fallback_reason": reason }),
-      onManifestPhase: (name: "read" | "filter" | "tree" | "hash" | "serialize", ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
+      onManifestPhase: (name: "read" | "filter" | "tree" | "hash" | "serialize" | "snapshot-encode", ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
       getManifestSnapshot: process.env.WIKI_PREFETCH_SECRET ? async () => {
         if (educationOnly) return null;
         const args = { siteSlug, serverSecret: process.env.WIKI_PREFETCH_SECRET! };
         const snapshot = await client.query(api.manifestCache.current, args);
         traceBackendAttributes({ "manifest.snapshot_hit": Boolean(snapshot) });
         if (!snapshot) { await client.mutation(api.manifestCache.requestBuild, args); return null; }
+        // Snapshots are content-addressed, but each read refetches storage.
+        // Count repeats to size the win of an in-memory cache keyed by hash.
+        traceBackendCache("manifest-snapshot.potential", recentSnapshotHashes.has(snapshot.hash));
+        recentSnapshotHashes.add(snapshot.hash);
+        if (recentSnapshotHashes.size > 8) recentSnapshotHashes.delete(recentSnapshotHashes.values().next().value!);
         return { hash: snapshot.hash, revision: snapshot.revision, read: async () => traceBackendPhase("manifest.snapshot-read", async () => {
           const response = await fetch(snapshot.url, { signal: AbortSignal.timeout(5000) });
           if (!response.ok) throw new Error("Manifest snapshot unavailable");
@@ -3171,11 +3181,11 @@ export function createWikiApiHandler(client = createClient()) {
       pathname === "/api/liveblocks-webhook" ||
       pathname.startsWith("/api/integrations/epic/");
     if (!dedicatedEducation && (!passwordGateExempt || (pathname === "/api/wiki/session" && siteSlug === DEFAULT_SITE_SLUG))) {
-      const gate = await enforceApiPasswordGate(
+      const gate = await traceBackendPhase("api.gate", () => enforceApiPasswordGate(
         request,
         client,
         siteSlug,
-      );
+      ));
       passwordGateEnabled = gate.enabled;
       if (gate.response) {
         const readOnly = request.method === "GET" || request.method === "HEAD";
@@ -3222,7 +3232,10 @@ export function createWikiApiHandler(client = createClient()) {
       const response = await createWikiManifestResponse(request, context);
       traceBackendAttributes({ "manifest.scope": new URL(request.url).searchParams.get("scope") === "session" ? "session" : "public",
         "manifest.strategy": response.headers.get("X-Wiki-Manifest-Source") ?? "validator",
-        "manifest.partial": response.headers.get("X-Wiki-Manifest-Partial") === "true" });
+        "manifest.partial": response.headers.get("X-Wiki-Manifest-Partial") === "true",
+        // Snapshot responses are never 304 in production; this separates a
+        // validator mismatch from a validator that never reaches the origin.
+        "http.request.conditional": request.headers.has("if-none-match") });
       return response;
     }
 

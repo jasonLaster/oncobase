@@ -1,4 +1,4 @@
-import { flushBackendTraces, traceBackendHandler } from "../server/backend-tracing";
+import { flushBackendTraces, traceBackendHandler, traceBackendPhase } from "../server/backend-tracing";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { requestFromIncoming, sendWebResponse } from "../server/http-adapter";
@@ -6,12 +6,17 @@ import { isInternalReaderPath } from "../server/reader-cache-context";
 
 declare const __WIKI_VITE_INDEX_HTML__: string;
 const distDir = path.join(process.cwd(), "apps/app/dist");
-let handler: Promise<(request: Request) => Promise<Response>>;
+let handler: Promise<(request: Request) => Promise<Response>> | undefined;
 async function handleWikiViteRequest(request: Request) {
   // All reader UI is client rendered. Legacy HTML flags cannot re-enable a handoff.
-  handler ??= import("../server/app-shell").then(({ createWikiViteHandler }) => createWikiViteHandler({
+  // The lazy import is cold-start cost; attribute it to the first request.
+  handler ??= traceBackendPhase("shell.init", () => import("../server/app-shell")).then(({ createWikiViteHandler }) => createWikiViteHandler({
     distDir, indexHtml: __WIKI_VITE_INDEX_HTML__, htmlFirstExperiment: false,
-  }));
+  })).catch((error) => {
+    // A transient failure must not poison this instance for its lifetime.
+    handler = undefined;
+    throw error;
+  });
   return (await handler)(request);
 }
 

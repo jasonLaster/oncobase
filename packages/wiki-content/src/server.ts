@@ -169,7 +169,7 @@ export type WikiApiContext = {
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
   onManifestFallback?: (reason: "snapshot-unavailable" | "snapshot-invalid" | "private-query" | "snapshot-changed") => void;
-  onManifestPhase?: (phase: "read" | "filter" | "tree" | "hash" | "serialize", durationMs: number) => void;
+  onManifestPhase?: (phase: "read" | "filter" | "tree" | "hash" | "serialize" | "snapshot-encode", durationMs: number) => void;
 };
 
 function requestedScope(request: Request): WikiScope {
@@ -744,26 +744,31 @@ export async function createWikiManifestResponse(
     );
   }
 
+  const phase = (name: Parameters<NonNullable<WikiApiContext["onManifestPhase"]>>[0], started: number) => {
+    try { context.onManifestPhase?.(name, performance.now() - started); } catch { /* Profiling cannot fail readers. */ }
+  };
   if (scope === "public" && context.getManifestSnapshot) {
     try {
       const snapshot = await context.getManifestSnapshot();
       if (snapshot) {
         const headers = representationHeaders(decorate(context, { ...cacheHeaders(scope, snapshot.hash), "Content-Type": "application/json", "X-Wiki-Manifest-Source": "snapshot" }));
         if (request.headers.get("if-none-match")?.includes(snapshot.hash)) return new Response(null, { status: 304, headers });
-        const json = await new Response(await snapshot.read()).text();
-        return await contentResponse(request,
+        const bytes = await snapshot.read();
+        // Decode, compact, re-serialize and compress run per request, per hash.
+        const encodeStarted = performance.now();
+        const json = await new Response(bytes).text();
+        const response = await contentResponse(request,
           new URL(request.url).searchParams.get("format") === "compact-v1"
             ? manifestJson(request, parseWikiManifest(JSON.parse(json))) : json,
           headers);
+        phase("snapshot-encode", encodeStarted);
+        return response;
       }
     } catch {
       // A missing, stale, failed or retired snapshot uses the normal live path.
       // Never serve stale visibility metadata just to keep the fast path running.
     }
   }
-  const phase = (name: Parameters<NonNullable<WikiApiContext["onManifestPhase"]>>[0], started: number) => {
-    try { context.onManifestPhase?.(name, performance.now() - started); } catch { /* Profiling cannot fail readers. */ }
-  };
   const readStarted = performance.now();
   const includeSensitive = scope === "session" && Boolean(sessionUser);
   let pageResult: Awaited<ReturnType<typeof listManifestPages>>;

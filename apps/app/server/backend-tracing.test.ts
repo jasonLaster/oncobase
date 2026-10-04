@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { makeFunctionReference } from "convex/server";
-import { recordRemoteSpan, traceBackendHandler, traceConvexClient, traceBackendPhase, type BackendProfile } from "./backend-tracing";
+import { errorType, recordRemoteSpan, traceBackendCache, traceBackendHandler, traceConvexClient, traceBackendPhase, type BackendProfile } from "./backend-tracing";
 
 const ref = makeFunctionReference<"query">("documents:listManifestPage");
 
@@ -205,4 +205,58 @@ test("tracing preserves immutable redirect responses", async () => {
   expect(response?.headers.get("location")).toBe("https://example.test/login");
   expect(response?.headers.get("X-Oncobase-Trace-Id")).toMatch(/^[a-f0-9]{32}$/);
   await provider.shutdown();
+});
+
+test("request spans carry process signals, cache counts and error classes without messages", async () => {
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const client = traceConvexClient({ query: async () => { throw new TypeError("PRIVATE detail"); } } as never);
+  // Idempotent: the shell and its nested API router share one client.
+  expect(traceConvexClient(client)).toBe(client);
+  const profiles: BackendProfile[] = [];
+  const handler = traceBackendHandler(async () => {
+    traceBackendCache("site-host", true);
+    traceBackendCache("site-host", false);
+    await traceBackendPhase("shell.gate", () => traceBackendCache("site-host", true));
+    await client.query(ref, {}).catch(() => undefined);
+    return new Response("ok");
+  }, { tracer: provider.getTracer("test"), onProfile: profile => profiles.push(profile) });
+  try {
+    await handler(new Request("https://example.test/api/wiki/session"));
+    await expect(traceBackendHandler(async () => { throw new RangeError("PRIVATE failure"); }, { tracer: provider.getTracer("test") })(
+      new Request("https://example.test/api/wiki/pages"))).rejects.toThrow();
+    const spans = exporter.getFinishedSpans();
+    const root = spans.find(s => s.name === "wiki /api/wiki/session")!;
+    expect(root.attributes["faas.coldstart"]).toBeBoolean();
+    expect(root.attributes["process.inflight_requests"]).toBe(1);
+    // Counts aggregate on the request span even when recorded inside a phase.
+    expect(root.attributes["cache.site-host.hits"]).toBe(2);
+    expect(root.attributes["cache.site-host.misses"]).toBe(1);
+    expect(root.attributes["convex.calls.failed"]).toBe(1);
+    expect(profiles[0]!.attributes!["cache.site-host.hits"]).toBe(2);
+    expect(spans.find(s => s.kind === 2)!.attributes["error.type"]).toBe("TypeError");
+    expect(spans.find(s => s.name === "wiki /api/wiki/pages")!.attributes["error.type"]).toBe("RangeError");
+    expect(JSON.stringify(spans.map(s => s.attributes))).not.toContain("PRIVATE");
+    expect(errorType(Object.assign(new Error("x"), { name: "PRIVATE value with spaces" }))).toBe("Error");
+    expect(errorType("PRIVATE")).toBe("string");
+  } finally { await provider.shutdown(); }
+});
+
+test("retained responses expose origin time and the trace ID for browser joins", async () => {
+  const previous = [process.env.VERCEL, process.env.WIKI_BACKEND_TRACING];
+  process.env.VERCEL = "1";
+  delete process.env.WIKI_BACKEND_TRACING;
+  const provider = new BasicTracerProvider();
+  try {
+    const response = await traceBackendHandler(async () => new Response("ok"), { tracer: provider.getTracer("test"), route: "/reader/shell" })(
+      new Request("https://example.test/guide"));
+    const timing = response!.headers.get("server-timing")!;
+    expect(timing).toMatch(/(?:^|, )app;dur=[\d.]+/);
+    expect(timing).toContain(`trace;desc="${response!.headers.get("X-Oncobase-Trace-Id")}"`);
+  } finally {
+    [process.env.VERCEL, process.env.WIKI_BACKEND_TRACING] = previous;
+    if (previous[0] === undefined) delete process.env.VERCEL;
+    if (previous[1] === undefined) delete process.env.WIKI_BACKEND_TRACING;
+    await provider.shutdown();
+  }
 });

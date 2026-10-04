@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
 import { api } from "../convex/_generated/api.js";
+import { traceBackendPhase } from "./backend-tracing";
 
 const MAX_CANDIDATES = 12;
 const SCORE_BATCH_SIZE = 4;
@@ -47,10 +48,10 @@ function getOpenAIClient() {
 async function embedQuery(query: string) {
   const client = getOpenAIClient();
   if (!client) return null;
-  const response = await client.embeddings.create({
+  const response = await traceBackendPhase("external.openai", () => client.embeddings.create({
     model: EMBEDDING_MODEL,
     input: query,
-  });
+  }));
   return response.data[0]?.embedding ?? null;
 }
 
@@ -213,7 +214,8 @@ export async function handleAiSearchRequest({
 
     for (let index = 0; index < candidateDocs.length; index += SCORE_BATCH_SIZE) {
       const batch = candidateDocs.slice(index, index + SCORE_BATCH_SIZE);
-      const batchResults = await Promise.all(
+      // Rounds are sequential: each costs its slowest model call.
+      const batchResults = await traceBackendPhase("external.ai-gateway", () => Promise.all(
         batch.map(async (doc) => {
           try {
             const { output } = await generateText({
@@ -256,7 +258,7 @@ Score this document's relevance to the query from 0 to 10. A score of 5+ means i
             return null;
           }
         }),
-      );
+      ));
       scored.push(...batchResults);
     }
 

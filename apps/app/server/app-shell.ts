@@ -3,6 +3,7 @@ import { readerShellHint } from "../src/bootstrap/reader-shell-hint";
 import { specialRouteMetadata } from "../src/special-route-metadata";
 import { injectPageBootstrap } from "./page-bootstrap";
 import { injectHeadMetadata } from "./html-head";
+import { traceBackendCache, traceBackendPhase, traceConvexClient } from "./backend-tracing";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -169,6 +170,7 @@ function explicitCanonicalRedirectResponse(request: Request) {
 async function publicCanonicalSlugMap(client: ConvexHttpClient, siteSlug: string) {
   const now = Date.now();
   const cached = canonicalSlugCache.get(siteSlug);
+  traceBackendCache("canonical-slugs", Boolean(cached && cached.expires > now));
   if (cached && cached.expires > now) return cached.map;
 
   const slugs: string[] = [];
@@ -563,6 +565,7 @@ export function createAppShellHandler({
   htmlFirstExperiment?: boolean;
   criticalCss?: string;
 }) {
+  client = traceConvexClient(client);
   const readerStyles = criticalCss !== undefined ? Promise.resolve(criticalCss)
     : readFile(path.join(distDir, "../.vercel-functions/reader-critical.css"), "utf8").catch(() => "");
   return async function handleAppShellRequest(request: Request): Promise<Response> {
@@ -593,8 +596,8 @@ export function createAppShellHandler({
 
     if (servesIndex) {
       const [html, headers] = await Promise.all([
-        staticIndexHtml(request, client, filePath, indexHtml, htmlFirstExperiment, readerStyles),
-        htmlHeaders(request, client, filePath),
+        traceBackendPhase("shell.document", () => staticIndexHtml(request, client, filePath, indexHtml, htmlFirstExperiment, readerStyles)),
+        traceBackendPhase("shell.headers", () => htmlHeaders(request, client, filePath)),
       ]);
       const { "X-Wiki-Reader-Account": accountTag, "X-Wiki-Reader-Access": readerAccess, ...responseHeaders } = headers;
       const accountHtml = html.replace("</head>", `<meta name="wiki-reader-account" content="${accountTag}" /><meta name="wiki-reader-access" content="${readerAccess}" /></head>`);
@@ -621,6 +624,9 @@ export function createWikiViteHandler({
   htmlFirstExperiment?: boolean;
   criticalCss?: string;
 }) {
+  // The HTML path is the most frequent origin request; without this its
+  // Convex RPCs are invisible in traces.
+  client = traceConvexClient(client);
   // The full API router includes chat, archives and other optional features.
   // HTML requests use the same shared access helpers without initializing it.
   let apiHandler: Promise<ReturnType<typeof import("./wiki-api.js").createWikiApiHandler>> | undefined;
@@ -635,13 +641,13 @@ export function createWikiViteHandler({
     }
     const trailingSlashRedirect = trailingSlashRedirectResponse(request);
     if (trailingSlashRedirect) return trailingSlashRedirect;
-    const gateResponse = await enforcePasswordGate(request, client);
+    const gateResponse = await traceBackendPhase("shell.gate", () => enforcePasswordGate(request, client));
     if (gateResponse) return gateResponse;
     const redirectResponse = legacyRedirectResponse(request);
     if (redirectResponse) return redirectResponse;
     const explicitCanonicalRedirect = explicitCanonicalRedirectResponse(request);
     if (explicitCanonicalRedirect) return explicitCanonicalRedirect;
-    const canonicalRedirect = await canonicalSlugRedirectResponse(request, client);
+    const canonicalRedirect = await traceBackendPhase("shell.canonical", () => canonicalSlugRedirectResponse(request, client));
     if (canonicalRedirect) return canonicalRedirect;
     const response = await handleAppShellRequest(request);
     response.headers.append("Server-Timing", `wiki-shell;dur=${(performance.now() - started).toFixed(1)}`);

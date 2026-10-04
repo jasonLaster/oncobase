@@ -1,6 +1,7 @@
 // Shared reader access and redaction helpers. Kept separate from the API router
 // so a normal HTML request does not initialize unrelated API features.
 import { createBackendClient } from "./backend-client";
+import { traceBackendCache } from "./backend-tracing";
 import { USER_SESSION_COOKIE, hashSessionToken } from "./user-auth";
 import type { ConvexHttpClient } from "convex/browser";
 import type { FunctionReturnType } from "convex/server";
@@ -101,6 +102,7 @@ export async function resolveSiteSlug(request: Request, client: ConvexHttpClient
 
   const now = Date.now();
   const cached = hostCache.get(host);
+  traceBackendCache("site-host", Boolean(cached && cached.expires > now));
   if (cached && cached.expires > now) {
     return cached.slug;
   }
@@ -223,6 +225,7 @@ export async function getPiiPatterns(client: ConvexHttpClient, siteSlug: string)
     piiPatternCache.set(client, cache);
   }
   const cached = cache.get(siteSlug);
+  traceBackendCache("pii-patterns", Boolean(cached && cached.expires > now));
   if (cached && cached.expires > now) return cached.patterns;
 
   // Publish the promise before yielding so a cold batch shares one read.

@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { performance as nodePerformance, type EventLoopUtilization } from "node:perf_hooks";
 import { ROOT_CONTEXT, propagation, SpanKind, SpanStatusCode, trace, type Span, type Tracer } from "@opentelemetry/api";
 import type { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
 import { getFunctionName } from "convex/server";
@@ -13,10 +14,24 @@ export type BackendProfile = {
   calls: Array<{ operation: string; name: string; durationMs: number; failed: boolean; pending: boolean }>;
   phases: Array<{ name: string; durationMs: number }>;
 };
-type RequestTrace = { tracer?: Tracer; span?: Span; profile: BackendProfile; historicalSpans?: boolean };
+type RequestTrace = { tracer?: Tracer; span?: Span; root?: Span; profile: BackendProfile; historicalSpans?: boolean };
 const requests = new AsyncLocalStorage<RequestTrace>();
 let provider: BasicTracerProvider | undefined;
 let initializing: Promise<Tracer | undefined> | undefined;
+
+// Process-level signals separate platform bottlenecks from route work: cold
+// starts, Fluid Compute concurrency within one instance, and CPU saturation.
+let servedRequests = 0;
+let inflightRequests = 0;
+function eventLoopUtilization(previous?: EventLoopUtilization) {
+  try { return nodePerformance.eventLoopUtilization(previous); } catch { return undefined; }
+}
+
+/** Class names only (TimeoutError, ConvexError, TypeError): never messages or stacks. */
+export function errorType(error: unknown) {
+  if (error instanceof Error) return /^[A-Za-z][\w.]{0,63}$/.test(error.name) ? error.name : "Error";
+  return typeof error;
+}
 
 async function backendTracer(): Promise<Tracer | undefined> {
   if (process.env.WIKI_BACKEND_TRACING === "0") return undefined;
@@ -99,6 +114,15 @@ export function traceBackendHandler(
     const timing = process.env.WIKI_BACKEND_TIMING === "1" || profileSession || profilePublish;
     const retained = process.env.VERCEL === "1" && process.env.WIKI_BACKEND_TRACING !== "0";
     if (!tracer && !timing && !options.onProfile && !retained) return handler(request);
+    const coldStart = servedRequests++ === 0;
+    const eluStarted = eventLoopUtilization();
+    const processAttributes = {
+      "faas.coldstart": coldStart,
+      // Includes this request. Overlap means CPU-bound phases contend.
+      "process.inflight_requests": ++inflightRequests,
+      // Process start to first request: module evaluation and runtime boot.
+      ...(coldStart ? { "faas.init_ms": Math.round(process.uptime() * 1000) } : {}),
+    };
     const route = options.route ?? routeName(request);
     const incoming = publishParent(request);
     const clientTraceId = request.headers.get("x-wiki-reader-trace") ?? trace.getSpanContext(incoming)?.traceId;
@@ -109,10 +133,10 @@ export function traceBackendHandler(
     const parent = retained && !historicalSpans ? propagation.extract(ROOT_CONTEXT, {}, { keys: () => [], get: () => undefined }) : incoming;
     const span = tracer?.startSpan(`wiki ${route}`, {
       kind: SpanKind.SERVER, startTime: Date.now() - (performance.now() - started),
-      attributes: { "oncobase.safe": true, "telemetry.init_ms": initializationMs, "http.route": route, "http.request.method": request.method, ...(correlation ? { "oncobase.client.trace_id": correlation } : {}) },
+      attributes: { "oncobase.safe": true, "telemetry.init_ms": initializationMs, ...processAttributes, "http.route": route, "http.request.method": request.method, ...(correlation ? { "oncobase.client.trace_id": correlation } : {}) },
     }, parent);
-    const profile: BackendProfile = { route, attributes: { "telemetry.init_ms": initializationMs }, durationMs: 0, status: 500, calls: [], phases: [] };
-    return requests.run({ tracer, span, profile, historicalSpans }, async () => {
+    const profile: BackendProfile = { route, attributes: { "telemetry.init_ms": initializationMs, ...processAttributes }, durationMs: 0, status: 500, calls: [], phases: [] };
+    return requests.run({ tracer, span, root: span, profile, historicalSpans }, async () => {
       try {
         let response = await handler(request);
         // Redirect/fetch responses can have immutable headers. Telemetry must
@@ -120,7 +144,7 @@ export function traceBackendHandler(
         if (response && (span || timing || retained)) response = new Response(response.body, { status: response.status, statusText: response.statusText, headers: response.headers });
         profile.status = response?.status ?? 404;
         if (response && span) response.headers.set("X-Oncobase-Trace-Id", span.spanContext().traceId);
-        if (response && retained) timingResponse(response, profile);
+        if (response && retained) timingResponse(response, profile, performance.now() - started, span);
         if (timing && response) {
           response.headers.append("Server-Timing", `backend;dur=${(performance.now() - started).toFixed(1)}, convex;dur=${profile.calls.reduce((sum, call) => sum + call.durationMs, 0).toFixed(1)};desc="summed RPC time", convex-count;desc="${profile.calls.length}"`);
           if (profilePublish) {
@@ -143,14 +167,28 @@ export function traceBackendHandler(
             response.headers.append("Server-Timing", `db-failures;dur=${profile.calls.filter(call => call.failed).length}`);
           }
         }
-        if (profile.status >= 500) span?.setStatus({ code: SpanStatusCode.ERROR });
+        if (profile.status >= 500) {
+          span?.setStatus({ code: SpanStatusCode.ERROR });
+          span?.setAttribute("error.type", String(profile.status));
+        }
         return response;
       } catch (error) {
         span?.setStatus({ code: SpanStatusCode.ERROR });
+        span?.setAttribute("error.type", errorType(error));
+        profile.attributes = { ...profile.attributes, "error.type": errorType(error) };
         throw error;
       } finally {
+        inflightRequests--;
         profile.durationMs = performance.now() - started;
-        span?.setAttributes({ "http.response.status_code": profile.status, "convex.calls": profile.calls.length, "convex.calls.pending": profile.calls.filter((call) => call.pending).length });
+        const elu = eluStarted && eventLoopUtilization(eluStarted);
+        // Bun reports a zero stub; only Node's measured value is meaningful.
+        if (elu && elu.active + elu.idle > 0) {
+          profile.attributes = { ...profile.attributes, "nodejs.eventloop.utilization": Math.round(elu.utilization * 1000) / 1000 };
+          span?.setAttribute("nodejs.eventloop.utilization", Math.round(elu.utilization * 1000) / 1000);
+        }
+        span?.setAttributes({ "http.response.status_code": profile.status, "convex.calls": profile.calls.length, "convex.calls.pending": profile.calls.filter((call) => call.pending).length,
+          "convex.calls.failed": profile.calls.filter((call) => call.failed).length,
+          "convex.rpc_sum_ms": Math.round(profile.calls.reduce((sum, call) => sum + call.durationMs, 0) * 10) / 10 });
         span?.end();
         if (retained) console.info("oncobase.backend", JSON.stringify({
           ...profile, calls: profile.calls.slice(0, 128), phases: profile.phases.slice(0, 128),
@@ -164,8 +202,12 @@ export function traceBackendHandler(
 
 // Wrap once per handler, not once per request: existing client-keyed caches
 // keep their identity. AsyncLocalStorage isolates overlapping requests.
+// Idempotent: the HTML shell and its nested API router share one client, and
+// a double proxy would record every RPC twice.
+const tracedClients = new WeakSet<ConvexHttpClient>();
 export function traceConvexClient(client: ConvexHttpClient, tracerOverride?: Tracer): ConvexHttpClient {
-  return new Proxy(client, {
+  if (!tracerOverride && tracedClients.has(client)) return client;
+  const traced = new Proxy(client, {
     get(target, property) {
       const value = Reflect.get(target, property, target);
       if (property !== "query" && property !== "mutation" && property !== "action") {
@@ -195,6 +237,7 @@ export function traceConvexClient(client: ConvexHttpClient, tracerOverride?: Tra
         catch (error) {
           call.failed = true;
           span?.setStatus({ code: SpanStatusCode.ERROR });
+          span?.setAttribute("error.type", errorType(error));
           throw error;
         } finally {
           call.durationMs = performance.now() - started;
@@ -204,21 +247,28 @@ export function traceConvexClient(client: ConvexHttpClient, tracerOverride?: Tra
       };
     },
   });
+  tracedClients.add(traced);
+  return traced;
 }
 
+export type BackendPhase = "search.corpus" | "search.prepare" | "search.match" | "manifest.snapshot-read"
+  | "publish.auth" | "publish.lock" | "publish.inventory.documents" | "publish.inventory.assets" | "publish.state" | "publish.reader" | "publish.document.prepare"
+  // HTML shell: every reader navigation that reaches the origin.
+  | "shell.init" | "shell.gate" | "shell.canonical" | "shell.document" | "shell.headers"
+  // API router preamble shared by every gated route.
+  | "api.gate"
+  // Outbound non-Convex dependencies, by peer. Never URLs or object keys.
+  | "external.blob" | "external.liveblocks" | "external.openai" | "external.ai-gateway";
+
 /** Fixed names only; record phase timing without recording user data. */
-export async function traceBackendPhase<T>(
-  name: "search.corpus" | "search.prepare" | "search.match" | "manifest.snapshot-read"
-    | "publish.auth" | "publish.lock" | "publish.inventory.documents" | "publish.inventory.assets" | "publish.state" | "publish.reader" | "publish.document.prepare",
-  run: () => T | Promise<T>,
-): Promise<T> {
+export async function traceBackendPhase<T>(name: BackendPhase, run: () => T | Promise<T>): Promise<T> {
   const current = requests.getStore();
   if (!current) return run();
   const started = performance.now();
   const span = current.tracer?.startSpan(name, { kind: SpanKind.INTERNAL, attributes: { "oncobase.safe": true } }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
   return requests.run({ ...current, span: span ?? current.span }, async () => {
     try { return await run(); }
-    catch (error) { span?.setStatus({ code: SpanStatusCode.ERROR }); throw error; }
+    catch (error) { span?.setStatus({ code: SpanStatusCode.ERROR }); span?.setAttribute("error.type", errorType(error)); throw error; }
     finally {
       current.profile.phases.push({ name, durationMs: performance.now() - started });
       span?.end();
@@ -226,8 +276,13 @@ export async function traceBackendPhase<T>(
   });
 }
 
-function timingResponse(response: Response, profile: BackendProfile) {
+function timingResponse(response: Response, profile: BackendProfile, handlerMs: number, span?: Span) {
   response.headers.append("Server-Timing", `convex-rpc;dur=${profile.calls.reduce((sum, call) => sum + call.durationMs, 0).toFixed(1)}`);
+  // Browsers subtract this from fetch/navigation time to separate network,
+  // CDN and cold-start overhead from origin work. The trace ID joins the
+  // browser's navigation entry to this server span (HTML has no request header).
+  response.headers.append("Server-Timing", `app;dur=${handlerMs.toFixed(1)}`);
+  if (span) response.headers.append("Server-Timing", `trace;desc="${span.spanContext().traceId}"`);
 }
 
 /** Fixed caller-owned attributes only. Never forward request bodies here. */
@@ -237,6 +292,23 @@ export function traceBackendAttributes(attributes: Record<string, string | numbe
     current.span?.setAttributes(attributes);
     current.profile.attributes = { ...current.profile.attributes, ...attributes };
   }
+}
+
+export type BackendCache = "site-host" | "canonical-slugs" | "pii-patterns" | "search-corpus"
+  // Not a cache yet: repeat reads of an already-fetched content hash.
+  | "manifest-snapshot.potential";
+
+/**
+ * Module caches are per instance; whether Fluid Compute reuse makes them
+ * effective is an empirical question. Counts land on the request span.
+ */
+export function traceBackendCache(name: BackendCache, hit: boolean) {
+  const current = requests.getStore();
+  if (!current) return;
+  const key = `cache.${name}.${hit ? "hits" : "misses"}`;
+  const count = Number(current.profile.attributes?.[key] ?? 0) + 1;
+  current.profile.attributes = { ...current.profile.attributes, [key]: count };
+  current.root?.setAttribute(key, count);
 }
 
 export function recordRemoteSpan(name: string, start: number, duration: number, attributes: Record<string, string | number | boolean>, failed = false) {
