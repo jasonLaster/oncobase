@@ -567,3 +567,78 @@
   pointer-events: auto;
   width: 100%;
 }
+
+/* ---- Mobile markdown tables (<=640px) ----
+   smart-table measures columns and writes `table-layout: fixed` plus pixel
+   <col> widths inline, which squeezes short columns (mid-word breaks like
+   "Guardant36/0") and stretches rows. On phones let the browser size columns
+   from content instead, keep rows compact, and show a scroll affordance
+   (edge shadows + sticky first column). Desktop is untouched. */
+@media (max-width: 640px) {
+  .wiki-markdown .smart-table-wrapper,
+  .wiki-markdown .table-scroll-wrapper {
+    border-radius: 0.75rem;
+    --wiki-table-bg: var(--smart-table-surface, var(--background, #fff));
+    --wiki-table-shade: color-mix(in srgb, var(--smart-table-foreground, #111) 22%, transparent);
+    background:
+      linear-gradient(to right, var(--wiki-table-bg) 30%, transparent) left center / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--wiki-table-bg) 30%, transparent) right center / 24px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, var(--wiki-table-shade), transparent) left center / 10px 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, var(--wiki-table-shade), transparent) right center / 10px 100% no-repeat scroll,
+      var(--wiki-table-bg);
+  }
+
+  .wiki-markdown .smart-table-wrapper::after,
+  .wiki-markdown .table-scroll-wrapper::after,
+  .wiki-markdown .smart-table-overflow-fade {
+    display: none;
+  }
+
+  .wiki-markdown .smart-table-wrapper table,
+  .wiki-markdown .table-scroll-wrapper table {
+    table-layout: auto !important;
+    width: auto !important;
+    min-width: 100%;
+    font-size: 0.875rem;
+  }
+
+  .wiki-markdown .smart-table-wrapper col,
+  .wiki-markdown .table-scroll-wrapper col {
+    width: auto !important;
+  }
+
+  .wiki-markdown .smart-table-wrapper th,
+  .wiki-markdown .smart-table-wrapper td,
+  .wiki-markdown .table-scroll-wrapper th,
+  .wiki-markdown .table-scroll-wrapper td {
+    height: auto;
+    min-width: 7.5rem;
+    padding: 0.5rem 0.65rem;
+    line-height: 1.4;
+    vertical-align: top;
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: manual;
+  }
+
+  .wiki-markdown .smart-table-wrapper th,
+  .wiki-markdown .table-scroll-wrapper th {
+    font-size: 0.7rem;
+    white-space: nowrap;
+  }
+
+  /* Sticky first column keeps row identity visible while scrolling. */
+  .wiki-markdown .smart-table-wrapper[data-scrollable] th:first-child,
+  .wiki-markdown .smart-table-wrapper[data-scrollable] td:first-child,
+  .wiki-markdown .table-scroll-wrapper[data-scrollable] th:first-child,
+  .wiki-markdown .table-scroll-wrapper[data-scrollable] td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 6rem;
+    max-width: 9rem;
+    background: var(--wiki-table-bg);
+    box-shadow: 1px 0 0 color-mix(in srgb, var(--smart-table-border-color, #e5e7eb) 80%, transparent);
+  }
+}
+/* ---- end mobile markdown tables ---- */
