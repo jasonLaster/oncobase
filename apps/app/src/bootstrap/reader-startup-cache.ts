@@ -21,7 +21,26 @@ export function sameStartupIdentity(a: WikiSessionIdentity, b: WikiSessionIdenti
     a.cacheVersion === b.cacheVersion && a.userHash === b.userHash && a.authenticated === b.authenticated;
 }
 
+// Boot decodes the stored snapshot; the cache writer's first rebuild after
+// validation reads the same stored string. Reuse that one decode (re-checking
+// only the clock-dependent bounds) instead of inflating and parsing it again.
+let lastDecoded: { raw: string; partition: string; snapshot: StartupSnapshot } | null = null;
+function withinAge(snapshot: StartupSnapshot, now: number) {
+  return [snapshot.validatedAt, ...snapshot.bodies.map(body => body.fetchedAt)].every(at => now >= at && now - at <= STARTUP_CACHE_MAX_AGE);
+}
+
 export function parseStartupSnapshot(raw: string | null, partition: string, now = Date.now()): StartupSnapshot | null {
+  if (raw && lastDecoded && lastDecoded.raw === raw && lastDecoded.partition === partition) {
+    const { snapshot } = lastDecoded;
+    lastDecoded = null;
+    return withinAge(snapshot, now) ? snapshot : null;
+  }
+  const snapshot = decodeStartupSnapshot(raw, partition, now);
+  lastDecoded = raw && snapshot ? { raw, partition, snapshot } : null;
+  return snapshot;
+}
+
+function decodeStartupSnapshot(raw: string | null, partition: string, now: number): StartupSnapshot | null {
   try {
     if (!raw || raw.length > STARTUP_CACHE_MAX_BYTES) return null;
     let json = raw;

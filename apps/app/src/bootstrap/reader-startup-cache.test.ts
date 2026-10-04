@@ -76,3 +76,15 @@ describe("remembered reader access and content", () => {
     expect(readerShellHint("wiki_reader_shell=bad", new URL("https://wiki.example/"))).toBe(false);
   });
 });
+
+test("the first re-read of the boot snapshot reuses its decode, still enforcing age", () => {
+  const raw = JSON.stringify(snapshot());
+  const first = parseStartupSnapshot(raw, partition, now)!;
+  expect(parseStartupSnapshot(raw, partition, now + 1)).toBe(first);
+  // Single use: a later read decodes again.
+  const again = parseStartupSnapshot(raw, partition, now + 1)!;
+  expect(again).not.toBe(first);
+  expect(again).toEqual(first);
+  expect(parseStartupSnapshot(raw, partition, now + STARTUP_CACHE_MAX_AGE + 1)).toBeNull();
+  expect(parseStartupSnapshot(raw, "https://other.example|https://other.example", now)).toBeNull();
+});
