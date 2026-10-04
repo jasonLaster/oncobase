@@ -271,6 +271,31 @@ export const getBySlug = query({
   },
 });
 
+// Each lookup still reads the stored row (body + embedding) inside the
+// transaction; 100 keeps a batch well under Convex's read budget.
+const SLUG_SENSITIVITY_BATCH_LIMIT = 100;
+
+/** Sensitivity flags for a bounded set of slugs. Callers that only need to
+ * know whether a slug is restricted (comment rooms, download assets) use this
+ * instead of `getBySlug`, so bodies and embeddings never leave the backend.
+ * Missing or deleted documents are omitted, matching `getBySlug` -> null. */
+export const getSensitivityBySlugs = query({
+  args: { slugs: v.array(v.string()), siteSlug: v.optional(v.string()) },
+  handler: async (ctx, { slugs, siteSlug }) => {
+    if (slugs.length > SLUG_SENSITIVITY_BATCH_LIMIT) {
+      throw new Error(`At most ${SLUG_SENSITIVITY_BATCH_LIMIT} slugs per call`);
+    }
+    const site = await requireSite(ctx, siteSlug);
+    const results: { slug: string; sensitive: boolean }[] = [];
+    for (const slug of new Set(slugs)) {
+      const doc = await findDocBySlug(ctx, site, slug);
+      if (!doc || doc.deletedAt) continue;
+      results.push({ slug, sensitive: doc.sensitive === true });
+    }
+    return results;
+  },
+});
+
 async function findReaderSite(ctx: QueryCtx, host: string, previewSiteSlug?: string) {
   const normalized = host.trim().toLowerCase().split(":")[0];
   const site = previewSiteSlug && normalized.endsWith(".vercel.app")
