@@ -5,6 +5,7 @@ import {
   createWikiApiHandler,
   isPasswordGateEnabled,
 } from "./wiki-api";
+import { traceBackendHandler, type BackendProfile } from "./backend-tracing";
 
 process.env.WIKI_GATE_SESSION_SECRET = "wiki-api-test-gate-secret";
 process.env.DIANA_WIKI_PASSWORD_HASH =
@@ -899,7 +900,11 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       }
       return originalQuery(ref, args);
     };
-    const handler = createWikiApiHandler(client as never);
+    const profiles: BackendProfile[] = [];
+    const handler = traceBackendHandler(
+      createWikiApiHandler(client as never),
+      { onProfile: profile => profiles.push(profile) },
+    );
     const previousWait = process.env.WIKI_SEARCH_CORPUS_WAIT_MS;
     process.env.WIKI_SEARCH_CORPUS_WAIT_MS = "1";
 
@@ -907,9 +912,11 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       const response = await handler(request("/api/search?q=public"));
       expect(response?.status).toBe(200);
       expect(response!.headers.get("x-wiki-search-completeness")).toBe("indexed");
+      // Interim results must not be replayed from a browser or CDN cache.
+      expect(response!.headers.get("cache-control")).toBe("no-store");
       expect(await response!.json()).toEqual({
         complete: false,
-        retryAfterMs: 5_000,
+        retryAfterMs: 1_000,
         results: [
           expect.objectContaining({
             excerpt: expect.stringContaining("Public wiki body"),
@@ -918,6 +925,25 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
         ],
       });
 
+      // The reader's retry waits for the load already in flight (no second
+      // corpus read) and receives the cacheable exhaustive response.
+      const retry = handler(request("/api/search?q=public", { headers: { "X-Wiki-Search-Wait": "exhaustive" } }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      release();
+      const exhaustive = await retry;
+      expect(exhaustive!.headers.get("x-wiki-search-completeness")).toBe("exhaustive");
+      expect(exhaustive!.headers.get("cache-control")).toContain("s-maxage=300");
+      expect((await exhaustive!.json()).results.map((result: { slug: string }) => result.slug)).toEqual(["wiki/public"]);
+      expect(corpusReads).toBe(1);
+
+      // Fixed modes and counts only: prod traces show which path answered.
+      expect(profiles.map(profile => profile.attributes)).toEqual([
+        expect.objectContaining({ "search.mode": "indexed", "search.wait": "short", "search.corpus.wait": "budget-exceeded", "search.corpus.wait_budget_ms": 1, "search.corpus.state": "miss", "search.results": 1 }),
+        expect.objectContaining({ "search.mode": "exhaustive", "search.wait": "exhaustive", "search.corpus.wait": "ready", "search.corpus.wait_budget_ms": 15_000, "search.corpus.state": "fresh",
+          "search.corpus.pages": 1, "search.corpus.ranges": 1, "search.corpus.rpcs": 2, "search.corpus.planned": true, "search.results": 1 }),
+      ]);
+      expect(profiles[0]!.phases.map(phase => phase.name)).toContain("search.indexed");
+      expect(profiles[1]!.phases.map(phase => phase.name)).toContain("search.match");
     } finally {
       release();
       if (previousWait == null) delete process.env.WIKI_SEARCH_CORPUS_WAIT_MS;

@@ -32,9 +32,18 @@ export const SEARCH_CORPUS_CACHE_TTL_MS = 60_000;
 export const SEARCH_CORPUS_MAX_STALE_MS = 300_000;
 // Authorized sensitive metadata page size (listAllowedSensitiveManifestPage max).
 export const SENSITIVE_SEARCH_PAGE_SIZE = 500;
-export const PUBLIC_SEARCH_CORPUS_WAIT_MS = 15_000;
-export const PUBLIC_SEARCH_RETRY_AFTER_MS = 5_000;
-export const INDEXED_SEARCH_FALLBACK_LIMIT = 100;
+// A cold public search waits this long for the exhaustive corpus, then answers
+// from the relevance index while the corpus keeps loading after the response.
+export const PUBLIC_SEARCH_CORPUS_WAIT_MS = 1_500;
+// The reader's background retry already shows indexed results, so it may wait
+// for the corpus to finish loading on whichever instance receives it.
+export const PUBLIC_SEARCH_EXHAUSTIVE_WAIT_MS = 15_000;
+export const SEARCH_WAIT_HEADER = "X-Wiki-Search-Wait";
+export const PUBLIC_SEARCH_RETRY_AFTER_MS = 1_000;
+// Every indexed result is a whole-row backend read (body, raw body,
+// embedding). The interim list only has to cover the first screen until the
+// exhaustive results replace it.
+export const INDEXED_SEARCH_FALLBACK_LIMIT = 30;
 
 // Vite development intentionally runs React effects twice. Keep concurrent
 // public searches from downloading the same complete corpus twice, and retain
@@ -157,7 +166,7 @@ export function getPublicSearchCorpus(
     background: task => runAfterResponse(task, "search corpus refresh"),
   });
   traceBackendCache("search-corpus", read.state !== "miss");
-  if (read.state === "stale") traceBackendAttributes({ "search.corpus.stale": true });
+  traceBackendAttributes({ "search.corpus.state": read.state });
   return read;
 }
 
@@ -241,10 +250,11 @@ export function publicSearchCorpusWaitMs() {
     : PUBLIC_SEARCH_CORPUS_WAIT_MS;
 }
 
-export async function waitForPublicSearchCorpus(pages: Promise<SearchablePage[]>) {
+/** The corpus, or null once `waitMs` passes first. */
+export async function waitForPublicSearchCorpus(pages: Promise<SearchablePage[]>, waitMs = publicSearchCorpusWaitMs()) {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<null>((resolve) => {
-    timeout = setTimeout(() => resolve(null), publicSearchCorpusWaitMs());
+    timeout = setTimeout(() => resolve(null), waitMs);
   });
   try {
     return await Promise.race([pages, deadline]);
@@ -366,27 +376,65 @@ export async function handleSearchRequest(
     includeSensitive ? sessionUser : null,
     patterns,
   );
+  // Session search never falls back to the public index: it waits for the
+  // reader's own corpus. Public search waits a short budget, or the long one
+  // when the reader is already showing indexed results and retries.
+  const waitKind = includeSensitive
+    ? "unbounded"
+    : request.headers.get(SEARCH_WAIT_HEADER) === "exhaustive" ? "exhaustive" : "short";
+  const waitMs = waitKind === "exhaustive" ? PUBLIC_SEARCH_EXHAUSTIVE_WAIT_MS : publicSearchCorpusWaitMs();
+  traceBackendAttributes({
+    "search.scope": scope,
+    "search.wait": waitKind,
+    ...(waitKind === "unbounded" ? {} : { "search.corpus.wait_budget_ms": waitMs }),
+  });
   const visiblePages = await traceBackendPhase("search.corpus", () => includeSensitive
     ? corpus.pages
-    : waitForPublicSearchCorpus(corpus.pages));
+    : waitForPublicSearchCorpus(corpus.pages, waitMs));
 
   if (!visiblePages) {
-    const indexedResults = await loadIndexedSearchResults(
+    // Keep the corpus load alive after the response (Vercel would otherwise
+    // freeze the instance), so this instance's next search is exhaustive.
+    runAfterResponse(corpus.pages, "search corpus warm");
+    traceBackendAttributes({ "search.mode": "indexed", "search.corpus.wait": "budget-exceeded" });
+    const indexedResults = await traceBackendPhase("search.indexed", () => loadIndexedSearchResults(
       client,
       siteSlug,
       query,
       limit,
       patterns,
-    );
+    ));
+    const results = educationOnly ? indexedResults.filter(page => isEducationSlug(page.slug)) : indexedResults;
+    traceBackendAttributes({ "search.results": results.length });
+    const headers = timedResponseHeaders("indexed");
+    // Interim results: never let a browser or CDN cache replay them to the
+    // reader's retry (or anyone else) in place of the exhaustive response.
+    headers.set("Cache-Control", "no-store");
     return Response.json(
       {
-        results: educationOnly ? indexedResults.filter(page => isEducationSlug(page.slug)) : indexedResults,
+        results,
         complete: false,
         retryAfterMs: PUBLIC_SEARCH_RETRY_AFTER_MS,
       },
-      { headers: timedResponseHeaders("indexed") },
+      { headers },
     );
   }
+
+  const stats = searchCorpusStats.get(visiblePages);
+  traceBackendAttributes({
+    "search.mode": corpus.state === "stale" ? "stale-exhaustive" : "exhaustive",
+    "search.corpus.wait": waitKind === "unbounded" ? "unbounded" : "ready",
+    "search.corpus.pages": visiblePages.length,
+    ...(stats ? {
+      "search.corpus.characters": stats.characters,
+      "search.corpus.load_ms": stats.loadMs,
+      "search.corpus.prepare_ms": stats.prepareMs,
+      "search.corpus.rpcs": stats.rpcs,
+      "search.corpus.ranges": stats.ranges,
+      "search.corpus.reused_ranges": stats.reusedRanges,
+      "search.corpus.planned": stats.planned,
+    } : {}),
+  });
 
   // One linear pass: a single non-global exec per line (no lastIndex state),
   // no per-line array allocation. Ranking is by match count over the whole
@@ -423,6 +471,7 @@ export async function handleSearchRequest(
 
   results.sort((a, b) => b.matches.length - a.matches.length);
   const limitedResults = Number.isFinite(limit) ? results.slice(0, limit) : results;
+  traceBackendAttributes({ "search.results": limitedResults.length });
 
   return Response.json(
     { results: limitedResults },
