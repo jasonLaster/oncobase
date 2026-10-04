@@ -40,6 +40,7 @@ import { resolveChatOwner } from "./chat-owner";
 import { traceBackendCache, traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
 import { fetchAccessibleSlugs, fetchSlugSensitivity } from "./slug-batch";
 import { fetchBlob } from "./blob-fetch";
+import { runAfterResponse } from "./background";
 import {
   loadSensitiveSearchPages,
   overlaySearchPages,
@@ -2624,7 +2625,7 @@ async function handleLiveblocksThreadsRequest(
 
       roomsToQuery = rooms;
       mode = "full-scan";
-      void seedCommentRoomsInBackground(liveblocks, roomsToQuery, client, siteSlug);
+      runAfterResponse(seedCommentRoomsInBackground(liveblocks, roomsToQuery, client, siteSlug), "liveblocks-threads seed");
     }
 
     timing.listRooms = Date.now() - startedAt;

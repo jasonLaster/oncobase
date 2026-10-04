@@ -12,6 +12,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { createConvexFlusher } from "../../../packages/chat/src/flusher.js";
 import { orderedMutations } from "./convex-mutations";
+import { runAfterResponse } from "./background";
 import { getCachedSystemPrompt } from "../../../packages/chat/src/system-prompt-cache.js";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import {
@@ -543,7 +544,9 @@ export async function handleChatRequest({
     return result.toUIMessageStreamResponse({
       originalMessages: messages,
       generateMessageId,
-      consumeSseStream: consumeStream,
+      // Drain the stream after a client disconnect so onFinish persists the
+      // reply; keep the function alive for it rather than racing a freeze.
+      consumeSseStream: ({ stream }) => runAfterResponse(consumeStream({ stream }), "chat stream drain"),
       headers: { "x-request-id": requestId },
     });
   } catch (error) {
