@@ -86,6 +86,15 @@ function fakeClient({ canAccessSensitive = true, passwordGate = true } = {}) {
             contentHash: `hash:${String(args.slug)}`,
             sensitive: false,
           };
+        case "documents:listByTagPage":
+          return {
+            page: Array.from({ length: 6 }, (_, index) => ({
+              slug: `wiki/tagged-${index}`,
+              title: `Tagged ${index}`,
+            })),
+            isDone: true,
+            continueCursor: "",
+          };
         case "users:getSessionUser":
           return { _id: "user-1" };
         case "access:canUserAccessSlug":
@@ -95,14 +104,7 @@ function fakeClient({ canAccessSensitive = true, passwordGate = true } = {}) {
       }
     },
     async action(ref: FunctionReference<"action">) {
-      switch (getFunctionName(ref)) {
-        case "documents:getByTag":
-          return Array.from({ length: 6 }, (_, index) => ({
-            slug: `wiki/tagged-${index}`,
-          }));
-        default:
-          throw new Error(`Unexpected action ${getFunctionName(ref)}`);
-      }
+      throw new Error(`Unexpected action ${getFunctionName(ref)}`);
     },
   };
 }

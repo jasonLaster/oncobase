@@ -63,7 +63,15 @@ async function embedBatch(texts: string[]): Promise<(number[] | null)[]> {
 
 async function main() {
   // Fetch embedding status to determine which docs need re-embedding
-  const status = await client.action(api.documents.embeddingStatus, {});
+  const status: Array<{ slug: string; contentHash?: string; embeddingHash?: string }> = [];
+  let cursor: string | null = null;
+  for (;;) {
+    const page: { page: typeof status; isDone: boolean; continueCursor: string } =
+      await client.query(api.documents.embeddingStatusPage, { cursor, numItems: 50, includeSensitive: true });
+    status.push(...page.page);
+    if (page.isDone) break;
+    cursor = page.continueCursor;
+  }
   console.log(`Found ${status.length} documents`);
 
   const toEmbed: Array<{ slug: string; contentHash: string | undefined }> = [];

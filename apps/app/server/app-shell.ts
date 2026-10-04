@@ -10,6 +10,7 @@ import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../convex/_generated/api.js";
+import { getDocumentsByTag } from "./document-listing";
 import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
 import { legacyRedirectResponse } from "./redirects.ts";
 import { internalReaderNotFound, isInternalReaderPath } from "./reader-cache-context";
@@ -401,12 +402,7 @@ async function staticIndexHtml(
       (config) => config.enabled,
     ),
     tag
-      ? client
-          .action(
-            api.documents.getByTag,
-            withSiteSlug(siteSlug, { tag }),
-          )
-          .catch(() => null)
+      ? getDocumentsByTag(client, withSiteSlug(siteSlug, { tag })).catch(() => null)
       : Promise.resolve(null),
   ]);
   let page = publicPage;

@@ -1,5 +1,6 @@
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api.js";
+import { getDocumentsByTag } from "../document-listing";
 import { slugFromRoutePathname } from "../../src/route-canonicalization.js";
 import {
   DEFAULT_SITE_DESCRIPTION,
@@ -46,12 +47,7 @@ export async function handleSharePreviewRequest(
     client.query(api.sites.getBySlug, { slug: siteSlug }).catch(() => null),
     linkedPage().catch(() => null),
     tag
-      ? client
-          .action(
-            api.documents.getByTag,
-            withSiteSlug(siteSlug, { tag }),
-          )
-          .catch(() => null)
+      ? getDocumentsByTag(client, withSiteSlug(siteSlug, { tag })).catch(() => null)
       : Promise.resolve(null),
   ]);
   const isDiana = siteSlug === DEFAULT_SITE_SLUG;

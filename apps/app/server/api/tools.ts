@@ -2,6 +2,7 @@ import type { ConvexHttpClient } from "convex/browser";
 import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import { applyPiiRedactions } from "@oncobase/wiki-content/pii";
 import { api } from "../../convex/_generated/api.js";
+import { getDocumentsByTag, listDocuments } from "../document-listing";
 import { type SessionUser, canUserAccessSlug, getPiiPatterns, getSessionUser, withSiteSlug } from "../reader-access";
 import { filterAccessiblePages, filterPotentiallySensitivePages } from "./documents";
 
@@ -87,10 +88,7 @@ export async function handleToolsRequest(
       });
     }
     case "list_pages": {
-      const pages = await client.action(
-        api.documents.list,
-        withSiteSlug(siteSlug, { includeSensitive }),
-      );
+      const pages = await listDocuments(client, withSiteSlug(siteSlug, { includeSensitive }));
       return Response.json(await filterAccessiblePages(client, siteSlug, sessionUser, pages), {
         headers: {
           "Cache-Control": "private, no-store",
@@ -99,13 +97,10 @@ export async function handleToolsRequest(
       });
     }
     case "get_pages_by_tag": {
-      const pages = await client.action(
-        api.documents.getByTag,
-        withSiteSlug(siteSlug, {
-          tag: String(args.tag ?? ""),
-          includeSensitive,
-        }),
-      );
+      const pages = await getDocumentsByTag(client, withSiteSlug(siteSlug, {
+        tag: String(args.tag ?? ""),
+        includeSensitive,
+      }));
       return Response.json(
         await filterAccessiblePages(client, siteSlug, sessionUser, pages),
         {
@@ -117,10 +112,7 @@ export async function handleToolsRequest(
       );
     }
     case "list_tags": {
-      const pages = await client.action(
-        api.documents.list,
-        withSiteSlug(siteSlug, { includeSensitive }),
-      );
+      const pages = await listDocuments(client, withSiteSlug(siteSlug, { includeSensitive }));
       const visiblePages = await filterAccessiblePages(client, siteSlug, sessionUser, pages);
       return Response.json(
         Array.from(new Set(visiblePages.flatMap((page) => page.tags))).sort(),

@@ -24,6 +24,7 @@ import {
 } from "@oncobase/wiki-content/chat-route";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { api } from "../convex/_generated/api.js";
+import { getDocumentsByTag, listDocuments } from "./document-listing";
 import type { Id } from "../convex/_generated/dataModel.js";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
@@ -148,19 +149,13 @@ function documentsGateway(
         )
         .then(filterPage),
     list: () =>
-      client
-        .action(api.documents.list, withSiteSlug(siteSlug, { includeSensitive }))
+      listDocuments(client, withSiteSlug(siteSlug, { includeSensitive }))
         .then(filterPages),
     getByTag: (args: { tag: string }) =>
-      client
-        .action(
-          api.documents.getByTag,
-          withSiteSlug(siteSlug, { ...args, includeSensitive }),
-        )
+      getDocumentsByTag(client, withSiteSlug(siteSlug, { ...args, includeSensitive }))
         .then(filterPages),
     listTags: async () => {
-      const pages = await client
-        .action(api.documents.list, withSiteSlug(siteSlug, { includeSensitive }))
+      const pages = await listDocuments(client, withSiteSlug(siteSlug, { includeSensitive }))
         .then(filterPages);
       return Array.from(new Set(pages.flatMap((page) => page.tags))).sort();
     },

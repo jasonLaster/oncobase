@@ -24,6 +24,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { api } from "../convex/_generated/api";
+import { getDocumentsByTag, listDocumentTags, listDocuments } from "../server/document-listing";
 import dotenv from "dotenv";
 import path from "path";
 
@@ -139,7 +140,7 @@ function createTools(events: ToolEvent[]) {
       inputSchema: z.object({}),
       execute: async () => {
         const start = Date.now();
-        const results = await convex.action(api.documents.list, {});
+        const results = await listDocuments(convex, {});
         events.push({ tool: "list_pages", input: {}, output: `${results.length} pages`, durationMs: Date.now() - start, resultCount: results.length });
         return results;
       },
@@ -149,7 +150,7 @@ function createTools(events: ToolEvent[]) {
       inputSchema: z.object({ tag: z.string() }),
       execute: async ({ tag }: { tag: string }) => {
         const start = Date.now();
-        const results = await convex.action(api.documents.getByTag, { tag });
+        const results = await getDocumentsByTag(convex, { tag });
         events.push({ tool: "get_pages_by_tag", input: { tag }, output: results, durationMs: Date.now() - start, resultCount: results.length });
         return results;
       },
@@ -159,7 +160,7 @@ function createTools(events: ToolEvent[]) {
       inputSchema: z.object({}),
       execute: async () => {
         const start = Date.now();
-        const results = await convex.action(api.documents.listTags, {});
+        const results = await listDocumentTags(convex, {});
         events.push({ tool: "list_tags", input: {}, output: `${results.length} tags`, durationMs: Date.now() - start, resultCount: results.length });
         return results;
       },

@@ -1,7 +1,7 @@
 import { internalQuery } from "./_generated/server";
 import { internalQueryFor } from "./lib/serviceFunctions";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   action,
@@ -474,6 +474,34 @@ export const listManifestPage = query({
   },
 });
 
+/** One page of documents carrying `tag`, for server-driven tag listings
+ * (server/document-listing.ts). Filtering happens here so only matching
+ * {slug,title,sensitive} rows cross the network; each call reads one bounded
+ * page instead of an action fanning out over the whole corpus. */
+export const listByTagPage = query({
+  args: {
+    tag: v.string(),
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.number(),
+    includeSensitive: v.optional(v.boolean()),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { tag, cursor, numItems, includeSensitive, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const result = await paginatedMetadata(ctx, site, cursor, numItems);
+    return {
+      page: result.page
+        .filter((doc) => rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive) && doc.tags.includes(tag))
+        .map(({ slug, title, sensitive }) => ({ slug, title, sensitive })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
+  },
+});
+
+// Deprecated: superseded by server-driven paging over listPage/listByTagPage.
+// Kept for one deploy so an older app server keeps working; remove after the
+// app no longer calls them.
 export const list = action({
   args: {
     includeSensitive: v.optional(v.boolean()),
@@ -707,17 +735,23 @@ export const deleteBySlug = mutation({
   },
 });
 
-export const getById = query({
+// Vector hits are ids; resolve them in one transaction instead of one
+// runQuery per hit. Internal: only vectorSearch calls it.
+export const searchHitsByIds = internalQuery({
   args: {
-    id: v.id("documents"),
+    ids: v.array(v.id("documents")),
     includeSensitive: v.optional(v.boolean()),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { id, includeSensitive, siteSlug }) => {
+  handler: async (ctx, { ids, includeSensitive, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
-    const doc = await findDocumentMetadataById(ctx, site, id);
-    if (!doc || !rowBelongsToSite(doc, site) || !canReadDocument(doc, includeSensitive)) return null;
-    return { slug: doc.slug, title: doc.title, tags: doc.tags };
+    // Metadata only: never reads bodies or embeddings once documentMeta is ready.
+    const docs = await Promise.all(ids.map((id) => findDocumentMetadataById(ctx, site, id)));
+    return docs.map((doc) =>
+      doc && rowBelongsToSite(doc, site) && canReadDocument(doc, includeSensitive)
+        ? { slug: doc.slug, title: doc.title, tags: doc.tags }
+        : null,
+    );
   },
 });
 
@@ -747,28 +781,22 @@ export const vectorSearch = action({
       limit: take,
       ...(siteId ? { filter: (q) => q.eq("siteId", siteId) } : {}),
     });
+    if (results.length === 0) return [];
 
-    const docs = await Promise.all(
-      results.map(async (r) => {
-        const doc = await ctx.runQuery(api.documents.getById, {
-          id: r._id,
-          includeSensitive,
-          siteSlug,
-        });
-        if (!doc) return null;
-        return {
-          slug: doc.slug,
-          title: doc.title,
-          tags: doc.tags,
-          score: r._score,
-        };
-      }),
-    );
-
-    return docs.filter((d): d is NonNullable<typeof d> => d !== null);
+    const docs = await ctx.runQuery(internal.documents.searchHitsByIds, {
+      ids: results.map((r) => r._id),
+      includeSensitive,
+      siteSlug,
+    });
+    return results.flatMap((r, i) => {
+      const doc = docs[i];
+      return doc ? [{ slug: doc.slug, title: doc.title, tags: doc.tags, score: r._score }] : [];
+    });
   },
 });
 
+// Deprecated: scripts/ingest-embeddings.ts now pages embeddingStatusPage
+// itself. Kept for one deploy; remove with list/getByTag/listTags.
 export const embeddingStatus = action({
   args: { siteSlug: v.optional(v.string()) },
   handler: async (

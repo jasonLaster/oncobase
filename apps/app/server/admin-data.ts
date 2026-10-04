@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
+import { listDocuments } from "./document-listing";
 import type { Id } from "../convex/_generated/dataModel.js";
 import { isAdminSessionUser } from "./epic-fhir.js";
 import { withSiteSlug } from "./reader-access.js";
@@ -113,10 +114,7 @@ export async function getAccessPagesData(
   const [users, rawRoles, rawPreviewPages] = (await Promise.all([
     client.query(api.access.listUsersWithRoles, withSiteSlug(siteSlug, {})),
     client.query(api.access.listRoles, withSiteSlug(siteSlug, {})),
-    client.action(
-      api.documents.list,
-      withSiteSlug(siteSlug, { includeSensitive: true }),
-    ),
+    listDocuments(client, withSiteSlug(siteSlug, { includeSensitive: true })),
   ])) as [AccessUser[], AccessRole[], AccessPreviewPage[]];
 
   const sourceSensitiveSlugs = readSourceSensitiveSlugs();
