@@ -181,7 +181,8 @@ type PendingTextSearch = {
 };
 
 // Identical queries share one request. It is aborted once every subscriber
-// has moved on (a newer query, navigation or unmount).
+// has moved on (a newer query, navigation or unmount). The abort waits one
+// task so an immediate remount (StrictMode, a re-keyed effect) can reuse it.
 const pendingTextSearchRequests = new Map<string, PendingTextSearch>();
 
 function requestTextSearch(searchParams: URLSearchParams, signal: AbortSignal) {
@@ -192,9 +193,11 @@ function requestTextSearch(searchParams: URLSearchParams, signal: AbortSignal) {
   current.subscribers += 1;
   signal.addEventListener("abort", () => {
     current.subscribers -= 1;
-    if (current.subscribers > 0 || pendingTextSearchRequests.get(key) !== current) return;
-    pendingTextSearchRequests.delete(key);
-    current.controller.abort();
+    window.setTimeout(() => {
+      if (current.subscribers > 0 || pendingTextSearchRequests.get(key) !== current) return;
+      pendingTextSearchRequests.delete(key);
+      current.controller.abort();
+    }, 0);
   }, { once: true });
   return current.promise;
 }
