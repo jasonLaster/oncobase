@@ -23,6 +23,14 @@ bun scripts/query-traces.ts --env-file /path/to/.env.local --since 7d \
   --query "['oncobase-traces'] | summarize count() by name"
 ```
 
+For a full-window bottleneck summary (latency by span, Convex RPCs by route, untraced self time, cold starts/concurrency/event-loop use, cache hit rates, failure classes, browser time vs server time), run:
+
+```sh
+bun scripts/query-traces.ts --env-file /path/to/.env.local --since 7d --report
+```
+
+The report reads the dataset schema first, because Axiom hoists some semantic-convention attributes into columns and keeps the rest in `attributes.custom`. Findings from the first run are in [architecture-performance-audit-2026-10-03.md](architecture-performance-audit-2026-10-03.md).
+
 The default output is a bounded sample, **not** an exhaustive population. Use aggregate APL queries over the full window for reports and explicit trace IDs for individual trajectories. Ingestion acceptance alone is insufficient: verify query read-back of API, browser, and scheduled-builder spans. Client and server clocks remain separate.
 
 References: [Axiom OTLP ingestion](https://axiom.co/docs/send-data/opentelemetry), [API queries](https://axiom.co/docs/restapi/query), [plan limits](https://axiom.co/docs/reference/limits).
@@ -33,6 +41,8 @@ References: [Axiom OTLP ingestion](https://axiom.co/docs/send-data/opentelemetry
 | --- | --- | --- |
 | Browser | Identity, storage, LiveStore boot/handoff, first ready render, sync transitions, session/manifest/page fetch-to-headers durations, provisional/304 flags, summed server RPC time | Random per-page `traceId` / `oncobase.client.trace_id` |
 | API | Fixed route, HTTP status, Convex RPC spans, existing publisher phases, manifest fallback phases, snapshot hit, readiness reason, revision, queue age, active writer, mismatch counts | OTel API trace; browser ID retained as `clientTraceId`; external mode adopts CLI traceparent |
+| HTML shell / every API request | Shell phases and Convex RPCs; `faas.coldstart`, `faas.init_ms`, `process.inflight_requests`, `nodejs.eventloop.utilization`; `error.type` (class name only); `cache.<name>.hits/misses`; `external.*` dependency phases; `Server-Timing: app;dur` and `trace;desc` | The `trace` Server-Timing entry joins a browser `nav-document` span (`oncobase.server.trace_id`) to the HTML request. Publicly cached HTML repeats the trace ID of the request that filled the cache |
+| Browser vitals | `nav-document` (TTFB, `server.duration_ms`), `vital-lcp`, `vital-tbt` (long-task blocking until first input/hide), `vital-inp` (worst interaction, which equals INP below 50 interactions), `route-render` (in-app navigation; `reader.cached`), `search-text`/`search-ai` (duration and outcome only) | Random per-page `traceId` |
 | Scheduled Convex builder | Queue delay, build duration, incremental/full mode, phase durations, install outcome, failure stage | Finish API's trace ID propagated as `clientTraceId`; revision and queue timestamp |
 
 Browser and Convex measurements are relayed through small Vercel API requests. Vercel request-trace retrieval omitted historical spans preceding the receiving request in a live test, even though the SDK exported them. In native Vercel fallback mode only, remote measurements appear as `observation.reader.*` and `observation.manifest.*` receipt-time spans, with the real start timestamp and duration in `measurement.start_unix_ms` and `measurement.duration_ms`, and in the JSON logs. The native span duration is relay processing, **not browser/build latency**. Their parent in Vercel is the **relay request**, not a fabricated continuous browser-to-job trace. Search the shared correlation ID to assemble the trajectory. Client clocks can differ from the server: compare local durations; do not infer network latency by subtracting timestamps from different machines.
