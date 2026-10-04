@@ -46,7 +46,9 @@ const budgets: Budget[] = [
   // Aggregate eager limits remain unchanged.
   // Allow 1 KiB more for slow-transfer controls and network-aware boot deadlines
   // in this reader chunk. Keep the entry and aggregate eager limits unchanged.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 20_096 },
+  // Scoped route/article/comments error boundaries and the external transfer
+  // progress store add <384 bytes; aggregate eager limits remain unchanged.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 20_480 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
