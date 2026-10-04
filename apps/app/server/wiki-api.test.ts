@@ -68,6 +68,15 @@ type FakeAsset = {
   sizeBytes?: number;
 };
 
+// A cold public search answers from the index at once; tests that expect the
+// exhaustive corpus on a cold handler ask to wait for it, as the reader's
+// retry does.
+function searchRequest(path: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("X-Wiki-Search-Wait", "exhaustive");
+  return request(path, { ...init, headers });
+}
+
 function request(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("Host", "127.0.0.1");
@@ -836,7 +845,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
   test("returns redacted line-level text search matches with source locations", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
-    const response = await handler(request("/api/search?q=public"));
+    const response = await handler(searchRequest("/api/search?q=public"));
 
     expect(response?.status).toBe(200);
     expect(response!.headers.get("x-wiki-cache-scope")).toBe("public");
@@ -887,17 +896,19 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(corpusLoads).toBe(1);
   });
 
-  test("returns indexed results while a slow public corpus finishes warming", async () => {
+  test("a cold search answers from the index at once; later searches wait only for a load in flight", async () => {
     const client = createFakeConvexClient();
     const originalQuery = client.query.bind(client);
     let release = () => {};
     const corpusRead = new Promise<void>((resolve) => { release = resolve; });
     let corpusReads = 0;
+    let indexedQueries = 0;
     client.query = async (ref, args) => {
       if (getFunctionName(ref) === "documents:listSearchPages") {
         corpusReads += 1;
         await corpusRead;
       }
+      if (getFunctionName(ref) === "documents:search") indexedQueries += 1;
       return originalQuery(ref, args);
     };
     const profiles: BackendProfile[] = [];
@@ -906,10 +917,14 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       { onProfile: profile => profiles.push(profile) },
     );
     const previousWait = process.env.WIKI_SEARCH_CORPUS_WAIT_MS;
-    process.env.WIKI_SEARCH_CORPUS_WAIT_MS = "1";
+    process.env.WIKI_SEARCH_CORPUS_WAIT_MS = "30";
 
     try {
+      // This request starts the cold load: waiting cannot help, so the
+      // indexed answer comes without spending the budget.
+      const started = performance.now();
       const response = await handler(request("/api/search?q=public"));
+      expect(performance.now() - started).toBeLessThan(30);
       expect(response?.status).toBe(200);
       expect(response!.headers.get("x-wiki-search-completeness")).toBe("indexed");
       // Interim results must not be replayed from a browser or CDN cache.
@@ -925,25 +940,39 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
         ],
       });
 
-      // The reader's retry waits for the load already in flight (no second
-      // corpus read) and receives the cacheable exhaustive response.
-      const retry = handler(request("/api/search?q=public", { headers: { "X-Wiki-Search-Wait": "exhaustive" } }));
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // An earlier request's load is in flight: wait up to the budget, with
+      // the indexed query already running (budget is the ceiling).
+      const timedOut = await handler(request("/api/search?q=wiki"));
+      expect(timedOut!.headers.get("x-wiki-search-completeness")).toBe("indexed");
+
+      // ...and when that load lands within the budget, answer exhaustively.
+      const pending = handler(request("/api/search?q=body"));
+      await new Promise((resolve) => setTimeout(resolve, 5));
       release();
-      const exhaustive = await retry;
+      const inTime = await pending;
+      expect(inTime!.headers.get("x-wiki-search-completeness")).toBe("exhaustive");
+      expect(indexedQueries).toBe(3);
+
+      // The reader's retry waits the long budget and gets the cacheable answer.
+      const exhaustive = await handler(request("/api/search?q=public", { headers: { "X-Wiki-Search-Wait": "exhaustive" } }));
       expect(exhaustive!.headers.get("x-wiki-search-completeness")).toBe("exhaustive");
       expect(exhaustive!.headers.get("cache-control")).toContain("s-maxage=300");
       expect((await exhaustive!.json()).results.map((result: { slug: string }) => result.slug)).toEqual(["wiki/public"]);
       expect(corpusReads).toBe(1);
+      // A settled corpus never starts an indexed query.
+      expect(indexedQueries).toBe(3);
 
       // Fixed modes and counts only: prod traces show which path answered.
       expect(profiles.map(profile => profile.attributes)).toEqual([
-        expect.objectContaining({ "search.mode": "indexed", "search.wait": "short", "search.corpus.wait": "budget-exceeded", "search.corpus.wait_budget_ms": 1, "search.corpus.state": "miss", "search.results": 1 }),
+        expect.objectContaining({ "search.mode": "indexed", "search.wait": "short", "search.corpus.wait": "skipped-cold", "search.corpus.state": "miss", "search.results": 1 }),
+        expect.objectContaining({ "search.mode": "indexed", "search.wait": "short", "search.corpus.wait": "budget-exceeded", "search.corpus.wait_budget_ms": 30, "search.corpus.state": "fresh" }),
+        expect.objectContaining({ "search.mode": "exhaustive", "search.wait": "short", "search.corpus.wait": "ready", "search.corpus.state": "fresh" }),
         expect.objectContaining({ "search.mode": "exhaustive", "search.wait": "exhaustive", "search.corpus.wait": "ready", "search.corpus.wait_budget_ms": 15_000, "search.corpus.state": "fresh",
           "search.corpus.pages": 1, "search.corpus.ranges": 1, "search.corpus.rpcs": 2, "search.corpus.planned": true, "search.results": 1 }),
       ]);
+      expect(profiles[0]!.phases.map(phase => phase.name)).not.toContain("search.corpus");
       expect(profiles[0]!.phases.map(phase => phase.name)).toContain("search.indexed");
-      expect(profiles[1]!.phases.map(phase => phase.name)).toContain("search.match");
+      expect(profiles[3]!.phases.map(phase => phase.name)).toContain("search.match");
     } finally {
       release();
       if (previousWait == null) delete process.env.WIKI_SEARCH_CORPUS_WAIT_MS;
@@ -959,7 +988,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     );
 
     const publicText = await handler(
-      request("/api/search?q=sensitive&scope=public", {
+      searchRequest("/api/search?q=sensitive&scope=public", {
         headers: { Cookie: cookie },
       }),
     );
@@ -970,7 +999,7 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(await publicText!.json()).toEqual({ results: [] });
 
     const defaultText = await handler(
-      request("/api/search?q=sensitive", {
+      searchRequest("/api/search?q=sensitive", {
         headers: { Cookie: cookie },
       }),
     );
@@ -1786,11 +1815,11 @@ test("search reads planned corpus ranges concurrently, follows continuations, an
       return fake.query(ref, args);
     },
   } as never);
-  await expect(handler(request("/api/search?q=fixture"))).rejects.toThrow("range unavailable");
+  await expect(handler(searchRequest("/api/search?q=fixture"))).rejects.toThrow("range unavailable");
   expect(maxInFlight).toBe(3);
   failRange = false;
   reads.length = 0;
-  const response = await handler(request("/api/search?q=fixture"));
+  const response = await handler(searchRequest("/api/search?q=fixture"));
   // Plan order is kept for equal-score ties, across ranges and continuations.
   expect((await response!.json()).results.map((result: { slug: string }) => result.slug)).toEqual(["a", "b", "c", "d"]);
   expect(reads.sort()).toEqual(["b:null", "c:next", "c:null", "null:null"]);
@@ -1816,7 +1845,7 @@ test("prepared public search data is reused, but redaction changes and corpus ex
     },
   } as never);
   const search = async (q: string) => {
-    const response = await handler(request(`/api/search?q=${q}`));
+    const response = await handler(searchRequest(`/api/search?q=${q}`));
     expect(response!.status).toBe(200);
     return (await response!.json()).results;
   };
@@ -1919,9 +1948,9 @@ test("an expired public corpus is served immediately while it reloads", async ()
     },
   } as never);
   try {
-    expect((await handler(request("/api/search?q=public")))!.status).toBe(200);
+    expect((await handler(searchRequest("/api/search?q=public")))!.status).toBe(200);
     offset = 61_000;
-    const response = await handler(request("/api/search?q=public"));
+    const response = await handler(searchRequest("/api/search?q=public"));
     expect(response!.headers.get("x-wiki-search-completeness")).toBe("exhaustive");
     expect((await response!.json()).results.map((result: { slug: string }) => result.slug)).toEqual(["wiki/public"]);
     expect(corpusLoads).toBe(2);
@@ -1954,7 +1983,7 @@ test("a public corpus refresh re-reads only ranges whose fingerprint changed", a
     },
   } as never);
   const lines = async () => {
-    const response = await handler(request("/api/search?q=needle"));
+    const response = await handler(searchRequest("/api/search?q=needle"));
     return (await response!.json()).results.map((result: { matches: Array<{ lineContent: string }> }) => result.matches[0]!.lineContent);
   };
   try {

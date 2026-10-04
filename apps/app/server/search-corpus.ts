@@ -31,6 +31,8 @@ export type PublicCorpusCache = Map<string, PublicCorpusEntry>;
 export type PublicCorpusRead = {
   pages: Promise<SearchablePage[]>;
   state: "fresh" | "stale" | "miss";
+  // `pages` is already resolved (a fresh entry may still be loading).
+  settled: boolean;
 };
 
 /**
@@ -62,7 +64,7 @@ export function readPublicSearchCorpus({
   const cached = cache.get(key);
   const usable = cached?.redactionKey === redactionKey ? cached : undefined;
   const age = usable ? now - usable.loadedAt : Number.POSITIVE_INFINITY;
-  if (usable && age <= freshMs) return { pages: usable.pages, state: "fresh" };
+  if (usable && age <= freshMs) return { pages: usable.pages, state: "fresh", settled: usable.value !== undefined };
 
   if (usable?.value && age <= maxStaleMs) {
     if (!usable.refresh) {
@@ -74,14 +76,14 @@ export function readPublicSearchCorpus({
       );
       background(usable.refresh);
     }
-    return { pages: Promise.resolve(usable.value), state: "stale" };
+    return { pages: Promise.resolve(usable.value), state: "stale", settled: true };
   }
 
   const entry = start();
   cache.set(key, entry);
   // A failed cold read is not retained; the next search retries it.
   entry.pages.catch(() => { if (cache.get(key) === entry) cache.delete(key); });
-  return { pages: entry.pages, state: "miss" };
+  return { pages: entry.pages, state: "miss", settled: false };
 }
 
 export type AllowedSensitivePage = { slug: string; contentHash?: string | null };

@@ -46,13 +46,16 @@ test("public corpus is fresh, then served stale while one background reload repl
 
   const cold = read(0);
   expect(cold.state).toBe("miss");
+  expect(cold.settled).toBe(false);
+  // A second reader finds the same load still in flight.
+  expect(read(1)).toMatchObject({ state: "fresh", settled: false });
   expect((await cold.pages)[0]!.slug).toBe("v1");
-  expect(read(50).state).toBe("fresh");
+  expect(read(50)).toMatchObject({ state: "fresh", settled: true });
   expect(loads).toBe(1);
 
   // Expired: the previous corpus is returned at once while the reload is slow.
   const stale = read(200);
-  expect(stale.state).toBe("stale");
+  expect(stale).toMatchObject({ state: "stale", settled: true });
   expect((await stale.pages)[0]!.slug).toBe("v1");
   expect(read(210).state).toBe("stale");
   expect(loads).toBe(2);

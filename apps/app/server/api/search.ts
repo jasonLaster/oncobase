@@ -255,7 +255,7 @@ export function getSearchCorpus(
     if (stats) searchCorpusStats.set(overlaid, stats);
     return overlaid;
   });
-  return { pages, state: publicCorpus.state };
+  return { pages, state: publicCorpus.state, settled: false };
 }
 
 export function publicSearchCorpusWaitMs() {
@@ -392,18 +392,32 @@ export async function handleSearchRequest(
     patterns,
   );
   // Session search never falls back to the public index: it waits for the
-  // reader's own corpus. Public search waits a short budget, or the long one
-  // when the reader is already showing indexed results and retries.
+  // reader's own corpus. A public search that has just started a cold load
+  // (state miss, seconds long) answers from the index at once; one that finds
+  // an earlier request's load in flight waits up to the short budget, with
+  // the indexed query running alongside so the two never add up. The
+  // reader's retry (indexed results already on screen) waits the long budget.
   const waitKind = includeSensitive
     ? "unbounded"
     : request.headers.get(SEARCH_WAIT_HEADER) === "exhaustive" ? "exhaustive" : "short";
   const waitMs = waitKind === "exhaustive" ? PUBLIC_SEARCH_EXHAUSTIVE_WAIT_MS : publicSearchCorpusWaitMs();
+  const skipWait = waitKind === "short" && corpus.state === "miss";
   traceBackendAttributes({
     "search.scope": scope,
     "search.wait": waitKind,
     ...(waitKind === "unbounded" ? {} : { "search.corpus.wait_budget_ms": waitMs }),
   });
-  const visiblePages = await traceBackendPhase("search.corpus", () => includeSensitive
+  const loadIndexed = () => traceBackendPhase("search.indexed", () => loadIndexedSearchResults(
+    client,
+    siteSlug,
+    query,
+    limit,
+    patterns,
+  ));
+  const indexedEarly = waitKind === "short" && !corpus.settled ? loadIndexed() : undefined;
+  // Unused when the corpus arrives in time; never an unhandled rejection.
+  indexedEarly?.catch(() => undefined);
+  const visiblePages = skipWait ? null : await traceBackendPhase("search.corpus", () => includeSensitive
     ? corpus.pages
     : waitForPublicSearchCorpus(corpus.pages, waitMs));
 
@@ -411,14 +425,8 @@ export async function handleSearchRequest(
     // Keep the corpus load alive after the response (Vercel would otherwise
     // freeze the instance), so this instance's next search is exhaustive.
     runAfterResponse(corpus.pages, "search corpus warm");
-    traceBackendAttributes({ "search.mode": "indexed", "search.corpus.wait": "budget-exceeded" });
-    const indexedResults = await traceBackendPhase("search.indexed", () => loadIndexedSearchResults(
-      client,
-      siteSlug,
-      query,
-      limit,
-      patterns,
-    ));
+    traceBackendAttributes({ "search.mode": "indexed", "search.corpus.wait": skipWait ? "skipped-cold" : "budget-exceeded" });
+    const indexedResults = await (indexedEarly ?? loadIndexed());
     const results = educationOnly ? indexedResults.filter(page => isEducationSlug(page.slug)) : indexedResults;
     traceBackendAttributes({ "search.results": results.length });
     const headers = timedResponseHeaders("indexed");
