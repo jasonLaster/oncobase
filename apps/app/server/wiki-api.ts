@@ -38,7 +38,18 @@ import { loadAllowedSensitivePages } from "./allowed-sensitive-slugs";
 import { browserConversationToken } from "./backend-client";
 import { resolveChatOwner } from "./chat-owner";
 import { traceBackendCache, traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
-import { prepareSearchPage, redactionConfigurationKey, type SearchablePage } from "./search-corpus";
+import {
+  loadSensitiveSearchPages,
+  overlaySearchPages,
+  prepareSearchPage,
+  readPublicSearchCorpus,
+  redactionConfigurationKey,
+  type AllowedSensitivePage,
+  type PublicCorpusCache,
+  type SearchablePage,
+  type SensitivePageCache,
+} from "./search-corpus";
+import { waitUntil } from "@vercel/functions";
 import {
   USER_SESSION_COOKIE,
   USER_SESSION_TTL_MS,
@@ -137,6 +148,11 @@ const MAX_SEARCH_LIMIT = 5000;
 // trips as practical; Diana's current reader set fits in one page.
 const SEARCH_DOCUMENT_PAGE_SIZE = 500;
 const SEARCH_CORPUS_CACHE_TTL_MS = 60_000;
+// A settled public corpus is served while it reloads in the background, up to
+// the public response's own CDN freshness (s-maxage=300).
+const SEARCH_CORPUS_MAX_STALE_MS = 300_000;
+// Authorized sensitive metadata page size (listAllowedSensitiveManifestPage max).
+const SENSITIVE_SEARCH_PAGE_SIZE = 500;
 const PUBLIC_SEARCH_CORPUS_WAIT_MS = 15_000;
 const PUBLIC_SEARCH_RETRY_AFTER_MS = 5_000;
 const INDEXED_SEARCH_FALLBACK_LIMIT = 100;
@@ -162,19 +178,14 @@ type PageDownloadResult = {
   continueCursor: string | null;
 };
 
-type SearchCorpusPage = PageDownloadResult["page"][number];
-
-type SearchCorpusCacheEntry = {
-  expires: number;
-  pages: Promise<SearchablePage[]>;
-  redactionKey: string;
-};
-
 // Vite development intentionally runs React effects twice. Keep concurrent
 // public searches from downloading the same complete corpus twice, and retain
 // the corpus for the same interval as the public search response. The client
 // key keeps unit-test handlers and independently configured sites isolated.
-const publicSearchCorpusCache = new WeakMap<object, Map<string, SearchCorpusCacheEntry>>();
+const publicSearchCorpusCache = new WeakMap<object, PublicCorpusCache>();
+// Redacted sensitive page content keyed by site, slug and content hash. It is
+// shared between readers only after their own fresh authorization of a slug.
+const sensitiveSearchPageCache = new WeakMap<object, Map<string, SensitivePageCache>>();
 const recentSnapshotHashes = new Set<string>();
 
 type DownloadAsset = {
@@ -1903,17 +1914,15 @@ async function handleDownloadRequest(
   });
 }
 
-async function loadSearchCorpus(
+async function loadPublicSearchCorpus(
   client: ConvexHttpClient,
   siteSlug: string,
-  includeSensitive: boolean,
-  sessionUser: SessionUser | null,
   patterns: PiiPattern[] | undefined,
 ) {
   const pages: SearchablePage[] = [];
   const fetchPage = (cursor: string | null): Promise<PageDownloadResult> => client.query(
     api.documents.listPageWithContent,
-    withSiteSlug(siteSlug, { cursor, numItems: SEARCH_DOCUMENT_PAGE_SIZE, ...(includeSensitive ? { includeSensitive: true } : {}) }),
+    withSiteSlug(siteSlug, { cursor, numItems: SEARCH_DOCUMENT_PAGE_SIZE }),
   );
   let pending: Promise<PageDownloadResult> | null = fetchPage(null);
   while (pending) {
@@ -1923,49 +1932,104 @@ async function loadSearchCorpus(
     // preparation. Register rejection handling even if preparation fails.
     pending = pageResult.isDone ? null : fetchPage(pageResult.continueCursor);
     void pending?.catch(() => undefined);
-    const visible = await filterAccessiblePages(client, siteSlug, sessionUser, pageResult.page);
+    // The public read excludes sensitive documents in the backend.
+    const visible = pageResult.page.filter(page => page.sensitive !== true);
     pages.push(...await traceBackendPhase("search.prepare", () => visible.map(page => prepareSearchPage(page, patterns))));
   }
 
   return pages;
 }
 
-async function getSearchCorpus(
+function getPublicSearchCorpus(
   client: ConvexHttpClient,
   siteSlug: string,
-  includeSensitive: boolean,
-  sessionUser: SessionUser | null,
   patterns: PiiPattern[] | undefined,
 ) {
-  if (includeSensitive) {
-    // Session corpora can differ by user grants and must never share a cache.
-    return loadSearchCorpus(client, siteSlug, true, sessionUser, patterns);
-  }
-
-  const now = Date.now();
-  const redactionKey = redactionConfigurationKey(patterns);
   let clientCache = publicSearchCorpusCache.get(client);
   if (!clientCache) {
     clientCache = new Map();
     publicSearchCorpusCache.set(client, clientCache);
   }
-
-  const cached = clientCache.get(siteSlug);
-  traceBackendCache("search-corpus", Boolean(cached && cached.expires > now && cached.redactionKey === redactionKey));
-  if (cached && cached.expires > now && cached.redactionKey === redactionKey) return cached.pages;
-
-  const pages = loadSearchCorpus(client, siteSlug, false, null, patterns);
-  clientCache.set(siteSlug, {
-    expires: now + SEARCH_CORPUS_CACHE_TTL_MS,
-    pages,
-    redactionKey,
+  const { pages, state } = readPublicSearchCorpus({
+    cache: clientCache,
+    key: siteSlug,
+    redactionKey: redactionConfigurationKey(patterns),
+    load: () => loadPublicSearchCorpus(client, siteSlug, patterns),
+    now: Date.now(),
+    freshMs: SEARCH_CORPUS_CACHE_TTL_MS,
+    maxStaleMs: SEARCH_CORPUS_MAX_STALE_MS,
+    background: waitUntil,
   });
-  try {
-    return await pages;
-  } catch (error) {
-    if (clientCache.get(siteSlug)?.pages === pages) clientCache.delete(siteSlug);
-    throw error;
+  traceBackendCache("search-corpus", state !== "miss");
+  if (state === "stale") traceBackendAttributes({ "search.corpus.stale": true });
+  return pages;
+}
+
+// Authorization comes from one backend evaluation per metadata page, read
+// afresh for every request; it is never cached.
+async function listAllowedSensitiveSearchPages(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  sessionUser: SessionUser,
+) {
+  const allowed: AllowedSensitivePage[] = [];
+  const cursors = new Set<string>();
+  let cursor: string | null = null;
+  for (;;) {
+    const result: { page: AllowedSensitivePage[]; isDone: boolean; continueCursor: string | null } = await client.query(
+      api.access.listAllowedSensitiveManifestPage,
+      withSiteSlug(siteSlug, { userId: sessionUser._id as Id<"users">, cursor, numItems: SENSITIVE_SEARCH_PAGE_SIZE }),
+    );
+    allowed.push(...result.page.map(({ slug, contentHash }) => ({ slug, contentHash })));
+    if (result.isDone) return allowed;
+    if (!result.continueCursor || cursors.has(result.continueCursor)) throw new Error("Search access pagination failed");
+    cursor = result.continueCursor;
+    cursors.add(cursor);
   }
+}
+
+async function loadSessionSensitiveSearchPages(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  sessionUser: SessionUser,
+  patterns: PiiPattern[] | undefined,
+) {
+  const allowed = await listAllowedSensitiveSearchPages(client, siteSlug, sessionUser);
+  let clientCache = sensitiveSearchPageCache.get(client);
+  if (!clientCache) {
+    clientCache = new Map();
+    sensitiveSearchPageCache.set(client, clientCache);
+  }
+  let cache = clientCache.get(siteSlug);
+  if (!cache) {
+    cache = new Map();
+    clientCache.set(siteSlug, cache);
+  }
+  const { pages, hits, fetched } = await loadSensitiveSearchPages({
+    allowed,
+    // Only slugs the backend has just authorized for this reader.
+    fetchPage: slug => client.query(api.documents.getBySlug, withSiteSlug(siteSlug, { slug, includeSensitive: true })),
+    patterns,
+    cache,
+  });
+  traceBackendAttributes({ "search.sensitive.allowed": allowed.length, "search.sensitive.cached": hits, "search.sensitive.fetched": fetched });
+  return pages;
+}
+
+async function getSearchCorpus(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  sessionUser: SessionUser | null,
+  patterns: PiiPattern[] | undefined,
+) {
+  if (!sessionUser) return getPublicSearchCorpus(client, siteSlug, patterns);
+  // Session corpus = shared public corpus + this reader's authorized sensitive
+  // pages. Sensitive bodies the reader cannot read are never downloaded.
+  const [publicPages, sensitivePages] = await Promise.all([
+    getPublicSearchCorpus(client, siteSlug, patterns),
+    loadSessionSensitiveSearchPages(client, siteSlug, sessionUser, patterns),
+  ]);
+  return overlaySearchPages(publicPages, sensitivePages);
 }
 
 function publicSearchCorpusWaitMs() {
@@ -2082,7 +2146,7 @@ async function handleSearchRequest(
 
   const includeSensitive = scope === "session" && Boolean(sessionUser);
   const patterns = await getPiiPatterns(client, siteSlug);
-  const regex = new RegExp(escapeSearchRegex(query), "gi");
+  const regex = new RegExp(escapeSearchRegex(query), "i");
   const results: Array<{
     filePath: string;
     slug: string;
@@ -2097,8 +2161,7 @@ async function handleSearchRequest(
   const corpusPromise = traceBackendPhase("search.corpus", () => getSearchCorpus(
     client,
     siteSlug,
-    includeSensitive,
-    sessionUser,
+    includeSensitive ? sessionUser : null,
     patterns,
   ));
   const visiblePages = includeSensitive ? await corpusPromise : await waitForPublicSearchCorpus(corpusPromise);
@@ -2121,28 +2184,33 @@ async function handleSearchRequest(
     );
   }
 
+  // One linear pass: a single non-global exec per line (no lastIndex state),
+  // no per-line array allocation. Ranking is by match count over the whole
+  // visible corpus, so a limit cannot stop the scan early without changing
+  // which pages are returned; it is applied after the sort.
   await traceBackendPhase("search.match", () => {
     for (const page of visiblePages) {
       if (educationOnly && !isEducationSlug(page.slug)) continue;
-      const title = page.title;
-      const matches = page.lines.flatMap((lineContent, index) => {
-        regex.lastIndex = 0;
+      const matches: (typeof results)[number]["matches"] = [];
+      const { lines } = page;
+      for (let index = 0; index < lines.length; index++) {
+        const lineContent = lines[index]!;
         const match = regex.exec(lineContent);
-        return match
-          ? [{
-              lineNumber: index + 1,
-              lineContent,
-              matchStart: match.index,
-              matchEnd: match.index + match[0].length,
-            }]
-          : [];
-      });
+        if (match) {
+          matches.push({
+            lineNumber: index + 1,
+            lineContent,
+            matchStart: match.index,
+            matchEnd: match.index + match[0].length,
+          });
+        }
+      }
 
       if (matches.length > 0) {
         results.push({
           filePath: page.slug,
           slug: page.slug,
-          title,
+          title: page.title,
           matches,
         });
       }

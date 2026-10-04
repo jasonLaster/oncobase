@@ -358,6 +358,13 @@ function createFakeConvexClient({
         }
         case "access:canUserAccessSlug":
           return !deniedSlugSet.has(String(args.slug));
+        case "access:listAllowedSensitiveManifestPage":
+          return {
+            page: pages.filter(page => page.sensitive === true && !deniedSlugSet.has(page.slug))
+              .map(page => ({ slug: page.slug, title: page.title, tags: page.tags, description: null, contentHash: page.slug, sensitive: true, size: page.content.length })),
+            isDone: true,
+            continueCursor: null,
+          };
         case "access:listAllowedSensitivePage":
           return { slugs: pages.filter(page => page.sensitive === true && !deniedSlugSet.has(page.slug)).map(page => page.slug), isDone: true, continueCursor: null };
         case "access:filterAccessibleSlugs":
@@ -1708,6 +1715,99 @@ test("prepared public search data is reused, but redaction changes and corpus ex
     offset += 60_001;
     await search("ALPHA");
     expect(corpusLoads).toBe(3);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test("session search reuses the public corpus and reads only authorized sensitive bodies", async () => {
+  const fake = createFakeConvexClient({
+    deniedSlugs: ["private/plan"],
+    extraPages: [{ slug: "private/allowed", title: "Allowed", tags: [], content: "Sensitive allowed note", sensitive: true }],
+  });
+  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const client = {
+    ...fake,
+    async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      calls.push({ name: getFunctionName(ref), args });
+      return fake.query(ref, args);
+    },
+  };
+  const handler = createWikiApiHandler(client as never);
+  const cookie = await signupCookie(handler, "overlay-reader@example.com");
+  const search = async (path: string, headers: HeadersInit = {}) => {
+    const response = await handler(request(path, { headers }));
+    expect(response?.status).toBe(200);
+    return (await response!.json()).results.map((result: { slug: string }) => result.slug);
+  };
+
+  expect(await search("/api/search?q=public")).toEqual(["wiki/public"]);
+  calls.length = 0;
+  expect(await search("/api/search?q=note&scope=session", { Cookie: cookie })).toEqual(["private/allowed"]);
+  expect(await search("/api/search?q=wiki&scope=session", { Cookie: cookie })).toEqual(["wiki/public"]);
+
+  const bodyReads = calls.filter(call => call.name === "documents:listPageWithContent" || call.name === "documents:getBySlug");
+  // The public corpus came from the instance cache; no combined sensitive
+  // corpus read, no body read of the denied page, and each allowed body once.
+  expect(bodyReads.map(call => [call.name, call.args.slug ?? null])).toEqual([
+    ["documents:getBySlug", "private/allowed"],
+    ["documents:getBySlug", "private/shared"],
+  ]);
+  expect(calls.some(call => call.name === "access:canUserAccessSlug")).toBe(false);
+  expect(calls.filter(call => call.name === "access:listAllowedSensitiveManifestPage")).toHaveLength(2);
+});
+
+test("session search redacts sensitive pages and never reuses one reader's grants for another", async () => {
+  const fake = createFakeConvexClient();
+  const denied = new Set<string>();
+  const handler = createWikiApiHandler({
+    ...fake,
+    async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "access:listAllowedSensitiveManifestPage") {
+        const result = await fake.query(ref, args) as { page: Array<{ slug: string }> };
+        return { ...result, page: result.page.filter(page => !denied.has(`${String(args.userId)}:${page.slug}`)) };
+      }
+      return fake.query(ref, args);
+    },
+  } as never);
+  const first = await signupCookie(handler, "grant-one@example.com");
+  const second = await signupCookie(handler, "grant-two@example.com");
+  denied.add("user_2:private/plan");
+  const search = async (cookie: string) => {
+    const response = await handler(request("/api/search?q=sensitive%20note&scope=session", { headers: { Cookie: cookie } }));
+    return (await response!.json()).results as Array<{ slug: string; matches: Array<{ lineContent: string }> }>;
+  };
+
+  const allowed = await search(first);
+  expect(allowed.map(result => result.slug)).toEqual(["private/plan"]);
+  expect(allowed[0]!.matches[0]!.lineContent).not.toContain("88855655");
+  expect(await search(second)).toEqual([]);
+});
+
+test("an expired public corpus is served immediately while it reloads", async () => {
+  const fake = createFakeConvexClient();
+  let corpusLoads = 0;
+  let release: (() => void) | undefined;
+  let offset = 0;
+  const originalNow = Date.now;
+  Date.now = () => originalNow() + offset;
+  const handler = createWikiApiHandler({
+    ...fake,
+    async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+      if (getFunctionName(ref) === "documents:listPageWithContent" && ++corpusLoads === 2) {
+        await new Promise<void>(resolve => { release = resolve; });
+      }
+      return fake.query(ref, args);
+    },
+  } as never);
+  try {
+    expect((await handler(request("/api/search?q=public")))!.status).toBe(200);
+    offset = 61_000;
+    const response = await handler(request("/api/search?q=public"));
+    expect(response!.headers.get("x-wiki-search-completeness")).toBe("exhaustive");
+    expect((await response!.json()).results.map((result: { slug: string }) => result.slug)).toEqual(["wiki/public"]);
+    expect(corpusLoads).toBe(2);
+    release!();
   } finally {
     Date.now = originalNow;
   }
