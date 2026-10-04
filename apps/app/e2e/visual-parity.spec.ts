@@ -269,7 +269,12 @@ test.describe("Visual parity", () => {
       "transform",
       "matrix(1, 0, 0, 1, 0, 0)",
     );
-    await expect(sheet.getByText("Pages", { exact: true })).toHaveCount(0);
+    // The sheet has no "Pages" heading. The only "Pages" text is the label of
+    // the navigation freshness status above the tree.
+    await expect(sheet.getByText("Pages", { exact: true })).toHaveCount(1);
+    await expect(
+      sheet.getByTestId("navigation-status").getByText("Pages", { exact: true }),
+    ).toHaveCount(1);
     await expect(sheet.getByText("Outline", { exact: true })).toHaveCount(1);
     await expect(sheet.getByRole("button", { name: "Page nav" })).toHaveCSS(
       "font-size",
