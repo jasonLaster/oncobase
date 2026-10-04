@@ -52,7 +52,11 @@ const budgets: Budget[] = [
   // Boot sub-phase telemetry (worker factory marks, LiveStore measure
   // observers, timeout classification) and the worker-script warm-up add
   // ~650 bytes (20,278 -> 20,925 gzip). Allow 1 KiB; aggregate eager limits unchanged.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 21_504 },
+  // The guarded OPFS fast-path reader (pool-header decode, SQLite header checks,
+  // two-read comparison) must run before the adapter returns, so it stays in
+  // this chunk: +1,148 bytes (20,929 -> 22,077 gzip). Allow 22 KiB; aggregate
+  // eager limits unchanged.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 22_528 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },

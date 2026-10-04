@@ -35,6 +35,8 @@ import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devto
 import LiveStoreWorker from "./livestore.worker?worker";
 import liveStoreWorkerUrl from "./livestore.worker?worker&url";
 import { schema } from "./schema";
+import { makeFastPathSnapshotReader } from "./fast-path-snapshot";
+import { setStoreBootPath } from "./store-boot-path";
 import { dismissFirstFrameSnapshot } from "./first-frame-snapshot";
 import { StoreStartupLoading } from "./StoreStartup";
 import { resolveReaderStorage, isDiagnosticMemoryStorageRequest, readerBootDeadline, networkAwareBootDeadline,
@@ -95,16 +97,31 @@ const persistedAdapter = makePersistedAdapter({
     markVisualPhase("store-shared-worker-created");
     return new LiveStoreSharedWorker(options);
   },
-  // Rapid route reloads can overlap the optimistic client-side OPFS snapshot
-  // read with the previous leader's final write. Ask the leader for a recreated
-  // snapshot so a partially observed SQLite image never reaches React queries.
-  experimental: { disableFastPath: true },
+  // Rapid route reloads (and other tabs) can overlap the client-side OPFS
+  // snapshot read with the leader's writes, or leave a killed leader's hot
+  // journal. The patched adapter calls fastPathSnapshot instead of LiveStore's
+  // unguarded read: it returns only a committed image (no journal, valid
+  // header, identical across two reads) and otherwise asks the leader for a
+  // recreated snapshot, so a partially observed SQLite image never reaches
+  // React queries. disableFastPath keeps the unguarded read off if the patch
+  // is ever lost (every boot then uses the leader snapshot, as before).
+  experimental: {
+    disableFastPath: true,
+    fastPathSnapshot: makeFastPathSnapshotReader(rootHandlePromise, (path, start, duration) => {
+      setStoreBootPath(path);
+      recordReaderSpan("store-fast-path", start, duration);
+    }),
+  },
 });
 // This store is a server-backed reader cache, not the source of user writes.
 // When OPFS is unavailable, keep the online reader working in a tab-local cache.
 // Consume the library's eager OPFS probe too, so a denied handle cannot become
 // an unhandled rejection even when the temporary adapter is selected.
-const temporaryAdapter = makeInMemoryAdapter();
+const inMemoryAdapter = makeInMemoryAdapter();
+const temporaryAdapter: typeof inMemoryAdapter = (args) => {
+  setStoreBootPath("memory");
+  return inMemoryAdapter(args);
+};
 const storageMode = isDiagnosticMemoryStorageRequest(new URL(location.href))
   ? Promise.resolve("memory" as const)
   : resolveReaderStorage({ getDirectory: () => rootHandlePromise });
