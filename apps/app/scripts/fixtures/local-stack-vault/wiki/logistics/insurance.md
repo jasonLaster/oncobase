@@ -1,0 +1,17 @@
+---
+title: Insurance
+description: Insurance logistics and the member card
+tags:
+  - logistics
+---
+
+# Insurance
+
+Keep a copy of the [insurance card](/wiki/logistics/insurance-card.pdf) handy
+for infusion appointments.
+
+## Prior authorization
+
+1. Oncology office submits the request.
+2. Plan responds within 3 business days.
+3. Appeals go through the patient advocate.
