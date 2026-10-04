@@ -40,8 +40,12 @@ export function createBackendClient(url = resolveServerConvexUrl(), options: Con
   return new ConvexHttpClient(url, { ...options, fetch: authenticatedFetch });
 }
 
-/** Issued only after the HTTP route has verified the current wiki gate. */
-export async function browserConversationToken(site: Parameters<typeof conversationGateVersion>[0] & { slug: string }) {
+/**
+ * Issued only after the HTTP route has verified the current wiki gate.
+ * `ownerKey` is the hashed per-viewer owner (server/chat-owner.ts); Convex
+ * limits the token to that owner's conversations.
+ */
+export async function browserConversationToken(site: Parameters<typeof conversationGateVersion>[0] & { slug: string }, ownerKey: string) {
   const source = process.env.WIKI_BACKEND_SIGNING_KEY;
   if (!source) throw new Error("Backend authentication is not configured");
   const jwk = JSON.parse(source) as JsonWebKey & { kid: string };
@@ -49,7 +53,7 @@ export async function browserConversationToken(site: Parameters<typeof conversat
   const issued = Math.floor(Date.now() / 1000);
   const payload = encode({ alg: "RS256", typ: "JWT", kid: jwk.kid }) + "." + encode({
     iss: SERVICE_ISSUER, aud: SERVICE_AUDIENCE, sub: "wiki-browser:" + site.slug,
-    role: "wiki-conversations", siteSlug: site.slug, gateVersion: conversationGateVersion(site), iat: issued, exp: issued + 60,
+    role: "wiki-conversations", siteSlug: site.slug, gateVersion: conversationGateVersion(site), ownerKey, iat: issued, exp: issued + 60,
   });
   const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, encoder.encode(payload)));
   return payload + "." + btoa(String.fromCharCode(...signature)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

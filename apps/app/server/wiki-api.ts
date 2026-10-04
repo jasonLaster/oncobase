@@ -36,6 +36,7 @@ export {
 } from "./reader-access";
 import { loadAllowedSensitivePages } from "./allowed-sensitive-slugs";
 import { browserConversationToken } from "./backend-client";
+import { resolveChatOwner } from "./chat-owner";
 import { traceBackendCache, traceBackendHandler, traceConvexClient, traceBackendPhase } from "./backend-tracing";
 import { prepareSearchPage, redactionConfigurationKey, type SearchablePage } from "./search-corpus";
 import {
@@ -3223,9 +3224,16 @@ export function createWikiApiHandler(client = createClient()) {
     if (pathname === "/api/wiki/convex-token") {
       const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Host" };
       if (request.method !== "GET") return new Response(null, { status: 405, headers });
-      const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
-      if (!site) return new Response(null, { status: 404, headers });
-      return Response.json({ token: await browserConversationToken(site) }, { headers });
+      const [site, sessionUser] = await Promise.all([
+        client.query(api.sites.getBySlug, { slug: siteSlug }),
+        getSessionUser(request, client, siteSlug),
+      ]);
+      // Conversation tokens exist only for chat; a site with chat disabled
+      // never hands browsers a Convex credential.
+      if (!site || !site.config.enableChat) return new Response(null, { status: 404, headers });
+      const owner = resolveChatOwner(request, siteSlug, sessionUser, { issue: true });
+      const token = await browserConversationToken(site, owner.ownerKey);
+      return Response.json({ token }, { headers: owner.setCookie ? { ...headers, "Set-Cookie": owner.setCookie } : headers });
     }
 
     if (pathname === "/api/wiki/manifest") {
@@ -3360,6 +3368,7 @@ export function createWikiApiHandler(client = createClient()) {
         request,
         client,
         siteSlug,
+        ownerKey: resolveChatOwner(request, siteSlug, sessionUser).ownerKey,
         includeSensitive: Boolean(sessionUser),
         canAccessSlug: (slug) => canUserAccessSlug(client, siteSlug, sessionUser, slug),
         accessCacheKey: sessionUser ? String(sessionUser._id) : "public",

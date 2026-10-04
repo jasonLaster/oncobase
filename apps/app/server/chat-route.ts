@@ -68,6 +68,11 @@ function withSiteSlug<TArgs extends object>(siteSlug: string, args: TArgs): TArg
   return { ...args, siteSlug };
 }
 
+/** Conversation calls act for one viewer: Convex rejects other owners' rows. */
+function asOwner<TArgs extends object>(siteSlug: string, ownerKey: string, args: TArgs) {
+  return { ...args, siteSlug, ownerKey };
+}
+
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -227,6 +232,7 @@ export async function handleChatRequest({
   request,
   client,
   siteSlug,
+  ownerKey,
   includeSensitive,
   canAccessSlug,
   accessCacheKey,
@@ -234,6 +240,9 @@ export async function handleChatRequest({
   request: Request;
   client: ConvexHttpClient;
   siteSlug: string;
+  /** Hashed conversation owner (server/chat-owner.ts). Required: omitting it
+   * would make Convex treat the call as a legacy unrestricted server write. */
+  ownerKey: string;
   includeSensitive: boolean;
   canAccessSlug?: (slug: string) => Promise<boolean>;
   accessCacheKey?: string;
@@ -281,13 +290,13 @@ export async function handleChatRequest({
     if (!parsedBody.cancelResetHandled) await client
       .mutation(
         api.conversations.clearCancel,
-        withSiteSlug(siteSlug, { conversationId: convId }),
+        asOwner(siteSlug, ownerKey, { conversationId: convId }),
       )
       .catch(() => {});
     await client
       .mutation(
         api.conversations.beginRun,
-        withSiteSlug(siteSlug, { conversationId: convId, runId }),
+        asOwner(siteSlug, ownerKey, { conversationId: convId, runId }),
       )
       .catch(() => {});
 
@@ -298,7 +307,7 @@ export async function handleChatRequest({
       await client
         .mutation(
           api.conversations.cancelStream,
-          withSiteSlug(siteSlug, { conversationId: convId }),
+          asOwner(siteSlug, ownerKey, { conversationId: convId }),
         )
         .catch(() => {});
     }
@@ -318,7 +327,7 @@ export async function handleChatRequest({
     try {
       const state = await client.query(
         api.conversations.getCancelState,
-        withSiteSlug(siteSlug, { conversationId: convId }),
+        asOwner(siteSlug, ownerKey, { conversationId: convId }),
       );
       if (state?.canceledAt) userStopSignal.abort();
     } catch {
@@ -330,12 +339,14 @@ export async function handleChatRequest({
   await maybeAbortOnCancel();
   if (composedAbortSignal.aborted) {
     if (convId) await client.mutation(api.conversations.clearStreaming,
-      withSiteSlug(siteSlug, { conversationId: convId, runId })).catch(() => {});
+      asOwner(siteSlug, ownerKey, { conversationId: convId, runId })).catch(() => {});
     return new Response(null, { status: 204 });
   }
 
   const flusher = createConvexFlusher({
-    convex: client,
+    // Every streamed/persisted write is bound to the requesting owner so a
+    // caller cannot append (possibly sensitive) answers to someone else's row.
+    convex: { mutation: (ref, args) => client.mutation(ref, { ...args, ownerKey }) },
     conversations: api.conversations,
     conversationId: convId,
     runId,
