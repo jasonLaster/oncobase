@@ -204,17 +204,22 @@ function preserveMarkdownLinkDestinations(
     return token;
   };
 
-  const protectedMarkdown = markdown
-    .replace(
-      /^([ \t]{0,3}\[[^\]\n]+\]:[ \t]*)(<[^>\n]*>|[^ \t\n]+)([^\n]*)$/gm,
-      (_match, prefix: string, destination: string, suffix: string) =>
-        `${prefix}${stash(destination)}${suffix}`,
-    )
-    .replace(
-      /(!?\[[^\]\n]+\]\()([^)\s]+)((?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\))/g,
-      (_match, prefix: string, destination: string, suffix: string) =>
-        `${prefix}${stash(destination)}${suffix}`,
-    );
+  // Reference definitions contain "]:" and inline links "](": skip each
+  // full-text scan when its marker is absent.
+  const withoutReferences = markdown.includes("]:")
+    ? markdown.replace(
+        /^([ \t]{0,3}\[[^\]\n]+\]:[ \t]*)(<[^>\n]*>|[^ \t\n]+)([^\n]*)$/gm,
+        (_match, prefix: string, destination: string, suffix: string) =>
+          `${prefix}${stash(destination)}${suffix}`,
+      )
+    : markdown;
+  const protectedMarkdown = withoutReferences.includes("](")
+    ? withoutReferences.replace(
+        /(!?\[[^\]\n]+\]\()([^)\s]+)((?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\))/g,
+        (_match, prefix: string, destination: string, suffix: string) =>
+          `${prefix}${stash(destination)}${suffix}`,
+      )
+    : withoutReferences;
 
   const transformed = transform(protectedMarkdown);
   if (destinations.length === 0) return transformed;
@@ -260,11 +265,15 @@ export function applyPiiRedactions(
     return normalizeReplacement(attrs.fallback ?? "", isBlock);
   };
 
-  const withoutBlocks = markdown.replace(
-    BLOCK_REDACTION_RE,
-    (_match, attrs: string | undefined, content: string) =>
-      redact(content, parseBlockRedactionAttributes(attrs), true)
-  );
+  // Every block tag contains ":::redact"; skip the line-anchored scan when
+  // the text has none (most pages). Search preparation redacts every page.
+  const withoutBlocks = markdown.includes(":::redact")
+    ? markdown.replace(
+        BLOCK_REDACTION_RE,
+        (_match, attrs: string | undefined, content: string) =>
+          redact(content, parseBlockRedactionAttributes(attrs), true)
+      )
+    : markdown;
 
   const withoutInline = withoutBlocks.replace(
     INLINE_REDACTION_RE,
