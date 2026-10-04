@@ -5,7 +5,7 @@ The reader now renders through React from startup. Initial documents contain an 
 ## Runtime changes
 
 - The deployed root handler always selects the client-rendered app. `WIKI_HTML_FIRST`, `WIKI_HTML_FIRST_EXPERIMENT`, and `WIKI_HTML_CDN` cannot re-enable the handoff.
-- Edge middleware no longer rewrites document requests into the old HTML CDN namespace. It strips internal reader headers and rejects the retired namespace; the application handler continues to enforce the password gate.
+- Edge middleware no longer rewrites document requests into the old HTML CDN namespace. It strips internal reader headers and rejects the retired namespace; the application handler continues to enforce the password gate. (2026-10-03: the edge middleware was removed entirely. Both Vercel functions and the standalone server now return a private 404 for `/__reader/` themselves, and no code reads the internal reader headers any more.)
 - The entry document no longer restores saved HTML, disables cloned controls, or hides React behind a snapshot. Startup retires old HTML cache entries. Structured content caches and their identity boundaries remain active.
 - Removed the component that cloned and saved rendered HTML. Cache retirement now depends on validated reader data, without waiting for DOM capture.
 - Removed the HTML-specific temporary-store shortcut and sidebar presentation-cookie writes. The normal client storage fallback, saved folder preferences, immediate mounted palette, and queued startup shortcuts remain.

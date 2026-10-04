@@ -6,6 +6,7 @@ import {
   requestFromIncoming,
   sendWebResponse,
 } from "../server/wiki-api.js";
+import { internalReaderNotFound, isInternalReaderPath } from "../server/reader-cache-context";
 
 const handleWikiApiRequest = createWikiApiHandler(createClient());
 
@@ -29,6 +30,10 @@ function restoreRewrittenPath(request: Request) {
 export default async function wikiViteApi(req: IncomingMessage, res: ServerResponse) {
   try {
     const request = restoreRewrittenPath(await requestFromIncoming(req));
+    if (isInternalReaderPath(new URL(request.url).pathname)) {
+      await sendWebResponse(res, internalReaderNotFound());
+      return;
+    }
     const response = await handleWikiApiRequest(request);
     await sendWebResponse(
       res,

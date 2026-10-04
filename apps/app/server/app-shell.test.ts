@@ -330,6 +330,15 @@ describe("wiki Vite app-shell password gate", () => {
     } finally { clock.mockRestore(); }
   });
 
+  test("the retired /__reader/ namespace is always a private 404", async () => {
+    const handler = createWikiViteHandler({ client: fakeClient() as never, distDir });
+    for (const pathname of ["/__reader/html/abc/def", "/__READER/x", "/%5f%5freader/x"]) {
+      const response = await handler(request(pathname, { headers: await authenticatedHeaders() }));
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    }
+  });
+
   test("gates anonymous root and deep links with private redirect responses", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,

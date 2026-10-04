@@ -12,6 +12,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "../convex/_generated/api.js";
 import { isLinkPreviewBotUserAgent } from "@oncobase/wiki-content/link-preview";
 import { legacyRedirectResponse } from "./redirects.ts";
+import { internalReaderNotFound, isInternalReaderPath } from "./reader-cache-context";
 import {
   canonicalSlugMap,
   canonicalSlugPathname,
@@ -617,7 +618,9 @@ export function createWikiViteHandler({
 
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
     const started = performance.now();
-    if (new URL(request.url).pathname.startsWith("/api/")) {
+    const { pathname } = new URL(request.url);
+    if (isInternalReaderPath(pathname)) return internalReaderNotFound();
+    if (pathname.startsWith("/api/")) {
       apiHandler ??= import("./wiki-api.js").then(({ createWikiApiHandler }) => createWikiApiHandler(client));
       const apiResponse = await (await apiHandler)(request);
       if (apiResponse) return apiResponse;

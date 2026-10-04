@@ -2,7 +2,7 @@ import { flushBackendTraces, traceBackendHandler, traceBackendPhase } from "../s
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { requestFromIncoming, sendWebResponse } from "../server/http-adapter";
-import { isInternalReaderPath } from "../server/reader-cache-context";
+import { internalReaderNotFound, isInternalReaderPath } from "../server/reader-cache-context";
 
 declare const __WIKI_VITE_INDEX_HTML__: string;
 const distDir = path.join(process.cwd(), "apps/app/dist");
@@ -46,7 +46,7 @@ export default async function wikiViteRootAppShell(
   try {
     const request = restoreRewrittenPath(await requestFromIncoming(req));
     if (isInternalReaderPath(new URL(request.url).pathname)) {
-      await sendWebResponse(res, new Response(null, { status: 404, headers: { "Cache-Control": "private, no-store" } }));
+      await sendWebResponse(res, internalReaderNotFound());
       return;
     }
     await sendWebResponse(res, (await tracedShell(request))!);
