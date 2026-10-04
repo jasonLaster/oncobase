@@ -1,6 +1,7 @@
 import { makeInMemoryAdapter, makePersistedAdapter } from "@livestore/adapter-web";
 import { rootHandlePromise } from "@livestore/adapter-web/opfs-utils";
 import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
+import liveStoreSharedWorkerUrl from "@livestore/adapter-web/shared-worker?sharedworker&url";
 import { LiveStoreContext, LiveStoreProvider } from "@livestore/react";
 import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@oncobase/wiki-content";
 import {
@@ -28,6 +29,7 @@ import { WikiScopeProvider, WikiSessionProvider } from "../wiki-context";
 import { ReaderCacheRetirement } from "./ReaderCacheRetirement";
 import { readDevtoolsFooterVisible, readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
+import liveStoreWorkerUrl from "./livestore.worker?worker&url";
 import { schema } from "./schema";
 import { dismissFirstFrameSnapshot } from "./first-frame-snapshot";
 import { StoreStartupLoading } from "./StoreStartup";
@@ -103,10 +105,25 @@ const storageMode = isDiagnosticMemoryStorageRequest(new URL(location.href))
   : resolveReaderStorage({ getDirectory: () => rootHandlePromise });
 const adapterPromise = storageMode.then((mode) => {
   markVisualPhase("storage-ready", { mode });
-  if (mode === "opfs") return persistedAdapter;
+  if (mode === "opfs") {
+    prefetchWorkerScripts();
+    return persistedAdapter;
+  }
   console.warn("[wiki-vite] Persistent cache unavailable; using temporary reader storage");
   return temporaryAdapter;
 });
+
+// The adapter constructs its workers only after this module's SQLite wasm has
+// loaded, so a cold load downloaded wasm, then worker scripts, in series. Warm
+// the HTTP cache (immutable assets) now so both download in parallel; worker
+// construction then reads them from cache. Nothing is executed here.
+function prefetchWorkerScripts() {
+  for (const url of [liveStoreSharedWorkerUrl, liveStoreWorkerUrl]) {
+    try {
+      void fetch(url, { credentials: "same-origin" }).then(response => response.ok ? response.arrayBuffer() : null).catch(() => {});
+    } catch { /* Optional warm-up only. */ }
+  }
+}
 
 function BootRetryPending() {
   return <ReaderPending stage="retry" />;
