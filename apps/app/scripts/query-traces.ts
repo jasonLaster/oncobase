@@ -81,6 +81,12 @@ const sections: Array<[string, string]> = [
   // last response end, offset = fetch start since navigation, bytes = transfer.
   ["Browser boot: critical path (ms since navigation; resources: offset + fetch span, bytes, cache-hit share)",
     `${ds} | where name matches regex '^(observation[.])?reader[.](boot-|store-|resource-|identity-|storage-ready|reader-ready|reader-live-handoff|vital-lcp)' | extend span = extract('(reader[.].*)$', 1, name) | extend ms = coalesce(${num("measurement.duration_ms")}, duration / 1ms), offset = ${num("reader.offset_ms")}, bytes = ${num("reader.transfer_bytes")}, cached = tostring(${attr("reader.cached")}) == 'true' | summarize n=count(), p50=percentile(ms, 50), p75=percentile(ms, 75), p95=percentile(ms, 95), offset_p50=percentile(offset, 50), end_p50=percentile(offset + ms, 50), bytes_p50=percentile(bytes, 50), cached_pct=100.0 * countif(cached) / count() by span | order by p50 asc | take 60`],
+  // fast = guarded local OPFS image; leader = no local state; fallback-* = the
+  // guard rejected the local image (journal, changed between reads, invalid
+  // header, storage error); memory = temporary store. store-fast-path is the
+  // guard's own read cost (directory scans + two full reads).
+  ["Browser boot: store snapshot path (share and boot timings by path)",
+    `${ds} | where name matches regex '^(observation[.])?reader[.](store-adapter|store-boot-complete|store-fast-path)$' | extend span = extract('(reader[.].*)$', 1, name), path = tostring(${attr("reader.store_path")}) | extend ms = coalesce(${num("measurement.duration_ms")}, duration / 1ms) | summarize n=count(), p50=percentile(ms, 50), p75=percentile(ms, 75), p95=percentile(ms, 95) by span, path | order by span asc, n desc | take 40`],
   ["Browser boot: store-timeout and sync-error reasons",
     `${ds} | where name matches regex '^(observation[.])?reader[.](store-timeout|sync-error)$' | extend span = extract('(reader[.].*)$', 1, name) | summarize n=count() by span, reason=tostring(${attr("reader.reason")}) | order by n desc | take 30`],
   // Cached public page meets a verified session: kept-mounted swaps once the

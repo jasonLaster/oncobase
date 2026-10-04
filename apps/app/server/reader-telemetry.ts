@@ -47,6 +47,8 @@ export async function handleReaderTelemetry(request: Request) {
       ...(span.partial === undefined ? {} : { "manifest.partial": span.partial }), ...(span.cached === undefined ? {} : { "reader.cached": span.cached }),
       ...(span.reason === undefined ? {} : { "reader.reason": span.reason }),
       ...(span.outcome === undefined ? {} : { "reader.handoff_outcome": span.outcome }),
+      // Store boot: initial SQLite image via the guarded fast path, the leader, or a fallback.
+      ...(span.path === undefined ? {} : { "reader.store_path": span.path }),
       // Boot spans: start since navigation (client clock), transfer bytes, resource count.
       ...(span.offsetMs === undefined ? {} : { "reader.offset_ms": span.offsetMs }),
       ...(span.bytes === undefined ? {} : { "reader.transfer_bytes": span.bytes }), ...(span.count === undefined ? {} : { "reader.count": span.count }),

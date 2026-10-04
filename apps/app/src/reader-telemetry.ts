@@ -1,4 +1,5 @@
 import { READER_PHASES, READER_REASONS, type ReaderHandoffOutcome, type ReaderPhase, type ReaderReason, type ReaderSpan } from "../shared/reader-telemetry";
+import { storeBootPath } from "./livestore/store-boot-path";
 
 // Per-page random identity, never persisted or derived from a user or page.
 let id: string | undefined;
@@ -49,8 +50,10 @@ export function recordReaderPhase(name: string, data?: Record<string, unknown>, 
   if (!READER_PHASES.includes(phase as ReaderPhase)) return;
   if (at > 300_000 || at < 0) return;
   const reason = READER_REASONS.includes(data?.reason as ReaderReason) ? data!.reason as ReaderReason : undefined;
+  // The store's snapshot path (fast, leader, guard fallback, memory) splits boot timings.
+  const path = phase === "store-boot-complete" ? storeBootPath() : undefined;
   enqueue({ name: phase as ReaderPhase, start: performance.timeOrigin, duration: at, status: phase.endsWith("error") || phase === "store-timeout" ? 500 : 200,
-    ...(reason ? { reason } : {}) });
+    ...(reason ? { reason } : {}), ...(path ? { path } : {}) });
   // Resource timing is complete once the store booted (or gave up).
   if (phase === "store-boot-complete" || phase === "store-timeout") setTimeout(recordBootResources, 0);
 }
@@ -66,9 +69,10 @@ export function syncErrorReason(source: "manifest" | "body", error: unknown): Re
 }
 
 /** A boot sub-span with a real duration, starting `offsetMs` after navigation. */
-export function recordReaderSpan(name: "store-worker-db-open" | "store-worker-recreate" | "store-adapter", offsetMs: number, duration: number) {
+export function recordReaderSpan(name: "store-worker-db-open" | "store-worker-recreate" | "store-adapter" | "store-fast-path", offsetMs: number, duration: number) {
   if (typeof window === "undefined" || !Number.isFinite(offsetMs) || offsetMs < 0 || offsetMs > 300_000 || !Number.isFinite(duration) || duration < 0) return;
-  enqueue({ name, start: performance.timeOrigin + offsetMs, duration, status: 200, offsetMs });
+  const path = name === "store-adapter" || name === "store-fast-path" ? storeBootPath() : undefined;
+  enqueue({ name, start: performance.timeOrigin + offsetMs, duration, status: 200, offsetMs, ...(path ? { path } : {}) });
 }
 
 // Entry-graph URLs as the HTML declared them, captured before any lazy preload.

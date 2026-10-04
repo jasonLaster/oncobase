@@ -14,6 +14,8 @@ export const READER_PHASES = ["identity-start", "identity-ready", "identity-erro
   // recreate, and the main thread's whole adapter boot through snapshot import
   // (the last three with real durations, from the library's own measures).
   "store-shared-worker-created", "store-worker-created", "store-worker-script", "store-worker-db-open", "store-worker-recreate", "store-adapter",
+  // The guarded OPFS fast-path read (directory scans + two full reads), with its path.
+  "store-fast-path",
   // Resource timing per fixed boot category (never URLs): offsetMs = fetch start
   // since navigation, duration = first start to last response end, bytes = transfer size.
   "resource-entry", "resource-reader", "resource-css", "resource-worker", "resource-shared-worker", "resource-wasm",
@@ -29,9 +31,14 @@ export type ReaderReason = typeof READER_REASONS[number];
  * the wait hit its deadline, sync failed first, or the identity change required a remount. */
 export const READER_HANDOFF_OUTCOMES = ["kept-mounted", "timeout", "sync-error", "remount-required"] as const;
 export type ReaderHandoffOutcome = typeof READER_HANDOFF_OUTCOMES[number];
+/** How the store got its initial SQLite image: read locally (fast), from the
+ * leader because no local state exists (leader), from the leader because the
+ * guard rejected the local image (fallback-*), or a tab-local temporary store. */
+export const READER_STORE_PATHS = ["fast", "leader", "fallback-journal", "fallback-changed", "fallback-invalid", "fallback-error", "memory"] as const;
+export type ReaderStorePath = typeof READER_STORE_PATHS[number];
 /** serverMs/serverTraceId come from the response's Server-Timing `app` and `trace` entries. */
 export type ReaderSpan = { name: ReaderPhase; start: number; duration: number; status: number; rpcMs?: number; serverMs?: number; serverTraceId?: string; partial?: boolean; cached?: boolean;
-  reason?: ReaderReason; outcome?: ReaderHandoffOutcome; offsetMs?: number; bytes?: number; count?: number };
+  reason?: ReaderReason; outcome?: ReaderHandoffOutcome; offsetMs?: number; bytes?: number; count?: number; path?: ReaderStorePath };
 const bounded = (value: unknown, max: number) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= max;
 export type ReaderBatch = { version: 1; traceId: string; spans: ReaderSpan[]; dropped: number };
 
@@ -51,6 +58,7 @@ export function parseReaderBatch(value: unknown, now = Date.now()): ReaderBatch 
       ...(typeof item.cached === "boolean" ? { cached: item.cached } : {}),
       ...(READER_REASONS.includes(item.reason as ReaderReason) ? { reason: item.reason } : {}),
       ...(READER_HANDOFF_OUTCOMES.includes(item.outcome as ReaderHandoffOutcome) ? { outcome: item.outcome } : {}),
+      ...(READER_STORE_PATHS.includes(item.path as ReaderStorePath) ? { path: item.path } : {}),
       ...(bounded(item.offsetMs, 300_000) ? { offsetMs: item.offsetMs } : {}),
       ...(Number.isInteger(item.bytes) && bounded(item.bytes, 1e9) ? { bytes: item.bytes } : {}),
       ...(Number.isInteger(item.count) && bounded(item.count, 1000) ? { count: item.count } : {}),

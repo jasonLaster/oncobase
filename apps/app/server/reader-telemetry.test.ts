@@ -123,3 +123,23 @@ test("session handoff spans keep only a fixed outcome and relay it as an attribu
   expect(relayed.attributes).toMatchObject({ "reader.handoff_outcome": "timeout", "reader.offset_ms": 1400 });
   await provider.shutdown();
 });
+
+test("store boot spans keep only the fixed snapshot path enum and relay it", async () => {
+  const span = { name: "store-adapter", start: Date.now() - 100, duration: 42, status: 200, offsetMs: 300, path: "fallback-changed" };
+  expect(parseReaderBatch({ ...fixture(), spans: [span] })!.spans[0]!.path).toBe("fallback-changed");
+  for (const path of ["PRIVATE", 1, null, "Fast"]) {
+    const parsed = parseReaderBatch({ ...fixture(), spans: [{ ...span, path }] })!.spans[0]!;
+    expect(parsed.path).toBeUndefined();
+    expect(JSON.stringify(parsed)).not.toContain("PRIVATE");
+  }
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const handle = traceBackendHandler(handleReaderTelemetry, { tracer: provider.getTracer("test") });
+  await handle(new Request("https://wiki.example/api/wiki/telemetry", { method: "POST", headers: { origin: "https://wiki.example", "Content-Type": "application/json" },
+    body: JSON.stringify({ ...fixture(), spans: [span, { name: "store-fast-path", start: Date.now() - 10, duration: 3, status: 200, offsetMs: 120, path: "fast" }] }) }));
+  const finished = exporter.getFinishedSpans();
+  expect(finished.find(s => s.name === "observation.reader.store-adapter")!.attributes["reader.store_path"]).toBe("fallback-changed");
+  expect(finished.find(s => s.name === "observation.reader.store-fast-path")!.attributes["reader.store_path"]).toBe("fast");
+  expect(finished.find(s => s.name === "observation.reader.request-manifest")).toBeUndefined();
+  await provider.shutdown();
+});
