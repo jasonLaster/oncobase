@@ -102,9 +102,16 @@ function sameBytes(a: Uint8Array, b: Uint8Array) {
 
 type Scan = { db: PoolFileHandle | undefined; busy: boolean };
 
-async function scan(directory: PoolDirectory, fileName: string): Promise<Scan> {
+// The pool's file set is fixed while a leader runs: SQLite files (db, journal)
+// are associated with existing pool files, and the VFS only adds files when a
+// brand-new directory has none (no database yet). List it once.
+async function listPool(directory: PoolDirectory) {
   const files: PoolFileHandle[] = [];
   for await (const entry of directory.values()) if (entry.kind === "file") files.push(entry as PoolFileHandle);
+  return files;
+}
+
+async function scan(files: PoolFileHandle[], fileName: string): Promise<Scan> {
   const entries = await Promise.all(files.map(async handle => {
     const file = await handle.getFile();
     return { handle, entry: decodePoolHeader(new Uint8Array(await file.slice(0, HEADER_CORPUS_SIZE + HEADER_DIGEST_SIZE).arrayBuffer())) };
@@ -130,19 +137,20 @@ async function readImage(handle: PoolFileHandle) {
 export async function readGuardedSnapshot(directory: PoolDirectory, fileName: string): Promise<FastPathResult> {
   const fallback = (path: ReaderStorePath): FastPathResult => ({ snapshot: undefined, path });
   try {
-    const before = await scan(directory, fileName);
+    const files = await listPool(directory);
+    const before = await scan(files, fileName);
     if (before.busy) return fallback("fallback-journal");
     // No local state yet (first visit, new schema hash): the leader builds it.
     if (!before.db) return fallback("leader");
     const first = await readImage(before.db);
     if (first.byteLength === 0) return fallback("leader");
     if (!isCompleteSqliteImage(first)) return fallback("fallback-invalid");
-    const between = await scan(directory, fileName);
+    const between = await scan(files, fileName);
     if (between.busy) return fallback("fallback-journal");
     if (!between.db) return fallback("fallback-changed");
     const second = await readImage(between.db);
     if (!sameBytes(first, second)) return fallback("fallback-changed");
-    const after = await scan(directory, fileName);
+    const after = await scan(files, fileName);
     if (after.busy) return fallback("fallback-journal");
     if (!after.db) return fallback("fallback-changed");
     return { snapshot: first, path: "fast" };
