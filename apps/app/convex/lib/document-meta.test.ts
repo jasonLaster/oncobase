@@ -243,7 +243,7 @@ test("every documents write keeps documentMeta in sync", async () => {
   expect(await meta("legacy")).toHaveLength(0);
   let cursor: string | undefined;
   for (;;) {
-    const result = await t.mutation(api.migrations.backfillSiteIdsBatch, { table: "documents", cursor });
+    const result = await t.mutation(internal.migrations.backfillSiteIdsBatch, { table: "documents", cursor });
     if (!result.hasMore) break;
     cursor = result.cursor ?? undefined;
   }

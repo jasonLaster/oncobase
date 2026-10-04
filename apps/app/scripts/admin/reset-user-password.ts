@@ -1,22 +1,16 @@
-import { createBackendClient } from "../../server/backend-client";
 /**
  * Generate a user-account password salt/hash, optionally applying it to Convex.
  *
  * Usage:
  *   bun scripts/admin/reset-user-password.ts --password <password>
- *   bun scripts/admin/reset-user-password.ts --email <email> --password <password> [--site <slug>] [--keep-sessions]
+ *   bun scripts/admin/reset-user-password.ts --email <email> --password <password> [--site <slug>] [--keep-sessions] [--prod]
  *
- * Reads NEXT_PUBLIC_CONVEX_URL (or CONVEX_URL) from apps/app/.env.local when --email is provided.
+ * With --email, calls the internal `users:resetPassword` through
+ * `bunx convex run` (only the salt and hash leave this process).
  */
-import path from "node:path";
-import dotenv from "dotenv";
-import { api } from "../../convex/_generated/api";
+import { internal } from "../../convex/_generated/api";
 import { createPasswordSalt, hashPassword, normalizeEmail } from "../../server/user-auth";
-
-dotenv.config({
-  path: path.join(__dirname, "..", "..", ".env.local"),
-  quiet: true,
-});
+import { DEPLOYMENT_FLAGS_USAGE, convexRun, splitDeploymentFlags } from "./convex-run";
 
 function readFlag(args: string[], name: string) {
   const i = args.indexOf(name);
@@ -27,7 +21,7 @@ function hasFlag(args: string[], name: string) {
   return args.includes(name);
 }
 
-const args = process.argv.slice(2);
+const { deployment, rest: args } = splitDeploymentFlags(process.argv.slice(2));
 const email = readFlag(args, "--email");
 const password = readFlag(args, "--password") ?? args[0];
 const siteSlug = readFlag(args, "--site");
@@ -35,7 +29,7 @@ const keepSessions = hasFlag(args, "--keep-sessions");
 
 if (!password) {
   console.error(
-    "Usage: bun scripts/admin/reset-user-password.ts [--email <email>] --password <password> [--site <slug>] [--keep-sessions]",
+    `Usage: bun scripts/admin/reset-user-password.ts [--email <email>] --password <password> [--site <slug>] [--keep-sessions] ${DEPLOYMENT_FLAGS_USAGE}`,
   );
   process.exit(1);
 }
@@ -49,20 +43,13 @@ console.log({
 });
 
 if (email) {
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL;
-  if (!convexUrl) {
-    console.error("NEXT_PUBLIC_CONVEX_URL is not set in apps/app/.env.local");
-    process.exit(1);
-  }
-
-  const convex = createBackendClient(convexUrl);
-  const result = await convex.mutation(api.users.resetPassword, {
+  const result = convexRun(internal.users.resetPassword, {
     email: normalizeEmail(email),
     passwordHash,
     passwordSalt,
     siteSlug,
     revokeSessions: !keepSessions,
-  });
+  }, deployment);
 
   console.log("");
   console.log(`Updated password for ${result.email}.`);

@@ -1,18 +1,19 @@
-import { createBackendClient } from "../../server/backend-client";
 /**
  * Create a new site row in Convex and print its publish token once.
  *
  * Usage:
- *   bun scripts/admin/create-site.ts <slug> --owner <email> --domain <host> [--title <t>] [--password-hash <h>]
+ *   bun scripts/admin/create-site.ts <slug> --owner <email> --domain <host> [--title <t>] [--password-hash <h>] [--prod]
  *
- * Reads NEXT_PUBLIC_CONVEX_URL (or CONVEX_URL) from apps/app/.env.local.
+ * Calls the internal `sites:create` through `bunx convex run`; pass Convex
+ * deployment flags (--prod, --deployment-name, --env-file) to choose the target.
  * The publish token is generated, hashed, and stored — only the
  * plaintext printed once is usable by the publisher.
  */
 import crypto from "node:crypto";
 import path from "node:path";
 import dotenv from "dotenv";
-import { api } from "../../convex/_generated/api";
+import { internal } from "../../convex/_generated/api";
+import { DEPLOYMENT_FLAGS_USAGE, convexRun, splitDeploymentFlags } from "./convex-run";
 
 dotenv.config({
   path: path.join(__dirname, "..", "..", ".env.local"),
@@ -25,7 +26,7 @@ function readFlag(args: string[], name: string) {
   return args[i + 1];
 }
 
-const args = process.argv.slice(2);
+const { deployment, rest: args } = splitDeploymentFlags(process.argv.slice(2));
 const slug = args[0];
 const ownerEmail = readFlag(args, "--owner");
 const title = readFlag(args, "--title");
@@ -34,18 +35,12 @@ const passwordHash = readFlag(args, "--password-hash");
 
 if (!slug || !ownerEmail) {
   console.error(
-    "Usage: bun scripts/admin/create-site.ts <slug> --owner <email> [--title <t>] [--domain <host>] [--password-hash <h>]",
+    `Usage: bun scripts/admin/create-site.ts <slug> --owner <email> [--title <t>] [--domain <host>] [--password-hash <h>] ${DEPLOYMENT_FLAGS_USAGE}`,
   );
   process.exit(1);
 }
 if (!/^[a-z0-9-]{1,32}$/.test(slug)) {
   console.error("Slug must match /^[a-z0-9-]{1,32}$/");
-  process.exit(1);
-}
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL;
-if (!convexUrl) {
-  console.error("NEXT_PUBLIC_CONVEX_URL is not set in apps/app/.env.local");
   process.exit(1);
 }
 
@@ -57,8 +52,7 @@ const publishTokenHash = `sha256:${crypto
   .update(publishToken)
   .digest("hex")}`;
 
-const convex = createBackendClient(convexUrl);
-const siteId = await convex.mutation(api.sites.create, {
+const siteId = convexRun(internal.sites.create, {
   slug,
   name: title ?? slug,
   ownerEmail,
@@ -66,7 +60,7 @@ const siteId = await convex.mutation(api.sites.create, {
   publishTokenHash,
   passwordHash,
   title: title ?? slug,
-});
+}, deployment);
 
 const starterUrl = process.env.WIKI_STARTER_URL ?? "https://diana-tnbc.com/wiki-vault-starter.zip";
 

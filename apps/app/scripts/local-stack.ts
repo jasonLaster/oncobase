@@ -30,6 +30,7 @@ import crypto from "node:crypto";
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import {
   APP_DIR, LOCAL_CARE_USER, LOCAL_GATE_PASSWORD, LOCAL_READER_USER, LOCAL_SITE_SLUG, PORTS, REPO_DIR,
   STACK_DIR, STACK_ENV_FILE, formatEnvFile, parseEnvFile,
@@ -400,12 +401,19 @@ function startServer(env: Record<string, string>, port: number, logName: string)
 async function seed(secrets: Secrets, env: Record<string, string>) {
   Object.assign(process.env, env);
   const { createBackendClient } = await import("../server/backend-client");
-  const { api } = await import("../convex/_generated/api");
+  const { api, internal } = await import("../convex/_generated/api");
   const { createPasswordSalt, hashPassword } = await import("../server/user-auth");
   const client = createBackendClient(convexUrl);
+  // sites:ensureDiana is an internal operator function; the local admin key
+  // may call it (the service JWT cannot).
+  const operator = createBackendClient(convexUrl) as unknown as {
+    setAdminAuth(key: string): void;
+    mutation<M extends FunctionReference<"mutation", "internal">>(fn: M, args: FunctionArgs<M>): Promise<FunctionReturnType<M>>;
+  };
+  operator.setAdminAuth(secrets.adminKey);
 
   log(`Ensuring site "${LOCAL_SITE_SLUG}" (gate password: ${LOCAL_GATE_PASSWORD})`);
-  await client.mutation(api.sites.ensureDiana, {
+  await operator.mutation(internal.sites.ensureDiana, {
     ownerEmail: "owner@local.test",
     domain: "localhost",
     publishTokenHash: `sha256:${sha256(secrets.publishToken)}`,

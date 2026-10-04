@@ -1,17 +1,15 @@
-import { createBackendClient } from "../../server/backend-client";
 /**
  * Add a new publish token for a site without invalidating existing tokens.
  *
  * Usage:
- *   bun scripts/admin/add-publish-token.ts --site <slug> [--name <label>] [--write-local]
+ *   bun scripts/admin/add-publish-token.ts --site <slug> [--name <label>] [--write-local] [--prod]
+ *
+ * Calls the internal `sites:addPublishToken` through `bunx convex run`.
  */
 import crypto from "node:crypto";
-import path from "node:path";
-import dotenv from "dotenv";
-import { api } from "../../convex/_generated/api";
+import { internal } from "../../convex/_generated/api";
 import { writePublishToken } from "@oncobase/oncobase";
-
-dotenv.config({ path: path.join(__dirname, "..", "..", ".env.local"), quiet: true });
+import { DEPLOYMENT_FLAGS_USAGE, convexRun, splitDeploymentFlags } from "./convex-run";
 
 function readFlag(args: string[], name: string) {
   const i = args.indexOf(name);
@@ -26,27 +24,20 @@ function hashToken(token: string) {
   return `sha256:${crypto.createHash("sha256").update(token).digest("hex")}`;
 }
 
-const args = process.argv.slice(2);
+const { deployment, rest: args } = splitDeploymentFlags(process.argv.slice(2));
 const slug = readFlag(args, "--site");
 const name = readFlag(args, "--name") ?? "publisher";
 if (!slug) {
-  console.error("Usage: bun scripts/admin/add-publish-token.ts --site <slug> [--name <label>] [--write-local]");
-  process.exit(1);
-}
-
-const url = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL;
-if (!url) {
-  console.error("NEXT_PUBLIC_CONVEX_URL is not set in apps/app/.env.local");
+  console.error(`Usage: bun scripts/admin/add-publish-token.ts --site <slug> [--name <label>] [--write-local] ${DEPLOYMENT_FLAGS_USAGE}`);
   process.exit(1);
 }
 
 const token = `wpt_${crypto.randomBytes(32).toString("base64url")}`;
-const client = createBackendClient(url);
-const result = await client.mutation(api.sites.addPublishToken, {
+const result = convexRun(internal.sites.addPublishToken, {
   slug,
   publishTokenHash: hashToken(token),
   name,
-});
+}, deployment);
 
 console.log(`Added publish token "${name}" for ${slug}.`);
 console.log(`Active token hashes: ${result.publishTokenHashes}`);

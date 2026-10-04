@@ -1,4 +1,3 @@
-import { createBackendClient } from "../server/backend-client";
 /**
  * Drives the 0007_native_parts migration end-to-end.
  *
@@ -6,55 +5,21 @@ import { createBackendClient } from "../server/backend-client";
  *   bun scripts/migrate-native-parts.ts --apply         # actually migrate
  *   bun scripts/migrate-native-parts.ts --apply --yes   # skip prompt
  *
+ * Drives the internal `migrations:*` functions through `bunx convex run`;
+ * pass --prod / --deployment-name / --env-file to choose the deployment.
+ *
  * See apps/app/specs/chat-performance-plan.md Phase 2.
  */
 
-import { api } from "../convex/_generated/api";
-import dotenv from "dotenv";
-import { join } from "node:path";
+import { internal } from "../convex/_generated/api";
 import * as readline from "node:readline";
+import type { FunctionReturnType } from "convex/server";
+import { convexRun, splitDeploymentFlags } from "./admin/convex-run";
 
-dotenv.config({ path: join(import.meta.dir, "..", ".env.local") });
-dotenv.config({ path: join(import.meta.dir, "..", ".env") });
-
-const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-if (!url) {
-  console.error("NEXT_PUBLIC_CONVEX_URL not set");
-  process.exit(1);
-}
-const convex = createBackendClient(url);
-
-interface DryRunResult {
-  totalMessages: number;
-  messagesNeedingMigration: number;
-  malformedMessages: number;
-  totalConversations: number;
-  conversationsNeedingMigration: number;
-  malformedConversations: number;
-}
-
-interface BatchResult {
-  scanned: number;
-  migrated: number;
-  malformed: number;
-  hasMore: boolean;
-  cursor: string | null;
-}
-
-// `api.migrations` is added to the generated api by Convex codegen the first
-// time `bunx convex dev` runs after this commit. Until then this script
-// accesses it dynamically and casts to the FunctionReference shape.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const migrations = (api as any).migrations as {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  nativePartsDryRun: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  nativePartsMessagesBatch: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  nativePartsConversationsBatch: any;
-};
-
-const args = new Set(process.argv.slice(2));
+const { deployment, rest } = splitDeploymentFlags(process.argv.slice(2));
+const args = new Set(rest);
+const migrations = internal.migrations;
+type BatchResult = FunctionReturnType<typeof migrations.nativePartsMessagesBatch>;
 const APPLY = args.has("--apply");
 const YES = args.has("--yes");
 
@@ -73,8 +38,8 @@ async function confirm(prompt: string): Promise<boolean> {
 }
 
 async function main() {
-  console.log(`[migrate-native-parts] connecting to ${url}`);
-  const dry = (await convex.query(migrations.nativePartsDryRun, {})) as DryRunResult;
+  console.log(`[migrate-native-parts] convex run ${deployment.join(" ") || "(default deployment)"}`);
+  const dry = convexRun(migrations.nativePartsDryRun, {}, deployment);
   console.log("\n[dry run]");
   console.log(`  messages:      ${dry.totalMessages} total`);
   console.log(`                 ${dry.messagesNeedingMigration} to migrate`);
@@ -101,9 +66,9 @@ async function main() {
   let cursor: string | null = null;
   let totalMigrated = 0;
   while (true) {
-    const result = (await convex.mutation(migrations.nativePartsMessagesBatch, {
+    const result: BatchResult = convexRun(migrations.nativePartsMessagesBatch, {
       cursor: cursor ?? undefined,
-    })) as BatchResult;
+    }, deployment);
     totalMigrated += result.migrated;
     console.log(
       `[messages] scanned=${result.scanned} migrated=${result.migrated} malformed=${result.malformed} hasMore=${result.hasMore}`
@@ -115,10 +80,11 @@ async function main() {
   cursor = null;
   let totalConv = 0;
   while (true) {
-    const result = (await convex.mutation(
+    const result: BatchResult = convexRun(
       migrations.nativePartsConversationsBatch,
-      { cursor: cursor ?? undefined }
-    )) as BatchResult;
+      { cursor: cursor ?? undefined },
+      deployment,
+    );
     totalConv += result.migrated;
     console.log(
       `[conversations] scanned=${result.scanned} migrated=${result.migrated} malformed=${result.malformed} hasMore=${result.hasMore}`
@@ -131,10 +97,7 @@ async function main() {
   console.log(`  messages migrated:      ${totalMigrated}`);
   console.log(`  conversations migrated: ${totalConv}`);
 
-  const verify = (await convex.query(
-    migrations.nativePartsDryRun,
-    {}
-  )) as DryRunResult;
+  const verify = convexRun(migrations.nativePartsDryRun, {}, deployment);
   if (
     verify.messagesNeedingMigration === 0 &&
     verify.conversationsNeedingMigration === 0

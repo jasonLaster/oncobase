@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./lib/serviceFunctions";
 import { requireSite, rowBelongsToSite } from "./lib/site";
+import { internalMutation } from "./_generated/server";
 
 export const getByEmailForAuth = query({
   args: { email: v.string(), siteSlug: v.optional(v.string()) },
@@ -59,7 +60,8 @@ export const create = mutation({
   },
 });
 
-export const resetPassword = mutation({
+// Operator-only (scripts/admin/reset-user-password.ts via `convex run`).
+export const resetPassword = internalMutation({
   args: {
     email: v.string(),
     passwordHash: v.string(),

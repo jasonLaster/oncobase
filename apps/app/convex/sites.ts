@@ -120,7 +120,9 @@ export const getByLiveblocksWorkspace = query({
   },
 });
 
-export const ensureDiana = mutation({
+// Operator-only functions below are internal: run them with `bunx convex run`
+// (scripts/admin/* wrap that). The application server never calls them.
+export const ensureDiana = internalMutation({
   args: {
     ownerEmail: v.optional(v.string()),
     domain: v.optional(v.string()),
@@ -188,7 +190,7 @@ export const ensureDiana = mutation({
   },
 });
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     slug: v.string(),
     name: v.string(),
@@ -234,7 +236,7 @@ export const create = mutation({
   },
 });
 
-export const addPublishToken = mutation({
+export const addPublishToken = internalMutation({
   args: {
     slug: v.string(),
     publishTokenHash: v.string(),
@@ -408,7 +410,7 @@ export const failPublish = mutation({
   },
 });
 
-export const archive = mutation({
+export const archive = internalMutation({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
     assertSiteSlug(slug);
@@ -432,7 +434,7 @@ export const archive = mutation({
   },
 });
 
-export const restore = mutation({
+export const restore = internalMutation({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
     assertSiteSlug(slug);

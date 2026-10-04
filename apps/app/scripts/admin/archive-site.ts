@@ -1,34 +1,26 @@
-import { createBackendClient } from "../../server/backend-client";
 /**
  * Archive a site. Reversible (use restore-site.ts to undo).
  *
- * Usage: bun scripts/admin/archive-site.ts --site <slug>
+ * Usage: bun scripts/admin/archive-site.ts --site <slug> [--prod]
+ *
+ * Calls the internal `sites:archive` through `bunx convex run`.
  */
-import path from "node:path";
-import dotenv from "dotenv";
-import { api } from "../../convex/_generated/api";
-
-dotenv.config({ path: path.join(__dirname, "..", "..", ".env.local"), quiet: true });
+import { internal } from "../../convex/_generated/api";
+import { DEPLOYMENT_FLAGS_USAGE, convexRun, splitDeploymentFlags } from "./convex-run";
 
 function readFlag(args: string[], name: string) {
   const i = args.indexOf(name);
   return i === -1 ? undefined : args[i + 1];
 }
 
-const slug = readFlag(process.argv.slice(2), "--site");
+const { deployment, rest } = splitDeploymentFlags(process.argv.slice(2));
+const slug = readFlag(rest, "--site");
 if (!slug) {
-  console.error("Usage: bun scripts/admin/archive-site.ts --site <slug>");
+  console.error(`Usage: bun scripts/admin/archive-site.ts --site <slug> ${DEPLOYMENT_FLAGS_USAGE}`);
   process.exit(1);
 }
 
-const url = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL;
-if (!url) {
-  console.error("NEXT_PUBLIC_CONVEX_URL is not set in apps/app/.env.local");
-  process.exit(1);
-}
-
-const client = createBackendClient(url);
-const result = await client.mutation(api.sites.archive, { slug });
+const result = convexRun(internal.sites.archive, { slug }, deployment);
 if (!result.archived) {
   console.error(`Site ${slug} not found.`);
   process.exit(1);

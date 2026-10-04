@@ -1,11 +1,11 @@
-import { createBackendClient } from "../../server/backend-client";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { api } from "../../convex/_generated/api";
+import { internal } from "../../convex/_generated/api";
+import { convexRun, splitDeploymentFlags } from "../admin/convex-run";
 import {
   readFlag,
   siteTokenEnvName,
@@ -18,14 +18,6 @@ const SLUG_RE = /^[a-z0-9-]{1,32}$/;
 
 function rootDir() {
   return path.resolve(__dirname, "..", "..", "..", "..");
-}
-
-function convexUrl() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL;
-  if (!url) {
-    throw new Error("NEXT_PUBLIC_CONVEX_URL or CONVEX_URL is required.");
-  }
-  return url;
 }
 
 async function prompt(question: string, fallback?: string) {
@@ -93,7 +85,9 @@ function run(
 }
 
 async function main() {
-  const args = process.argv.slice(2);
+  // Convex deployment flags (--prod, --deployment-name, --env-file) select
+  // where the internal sites:create runs.
+  const { deployment, rest: args } = splitDeploymentFlags(process.argv.slice(2));
   const slug = args[0];
   if (!slug || !SLUG_RE.test(slug)) {
     console.error("Usage: bun scripts/publish/bootstrap.ts <slug>");
@@ -113,8 +107,7 @@ async function main() {
   }
 
   const publishToken = `wpt_${crypto.randomBytes(32).toString("base64url")}`;
-  const client = createBackendClient(convexUrl());
-  const siteId = await client.mutation(api.sites.create, {
+  const siteId = convexRun(internal.sites.create, {
     slug,
     name: title,
     ownerEmail,
@@ -122,7 +115,7 @@ async function main() {
     publishTokenHash: hashToken(publishToken),
     passwordHash: hashPassword(password),
     title,
-  });
+  }, deployment);
 
   const vaultPath = scaffoldVault(slug);
   const tokenFile = writePublishToken(slug, publishToken);

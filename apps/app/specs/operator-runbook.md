@@ -20,9 +20,18 @@ bun run wiki:check    --site <slug>
 bun run wiki:publish  --site <slug> [--dry-run] [--force]
 ```
 
-All scripts read `apps/app/.env.local` for `NEXT_PUBLIC_CONVEX_URL` and,
-for publish operations, the per-site
-`WIKI_PUBLISH_TOKEN_<UPPERSLUG>` env var.
+Operator functions (`sites:create`, `sites:addPublishToken`,
+`sites:archive`, `sites:restore`, `sites:ensureDiana`,
+`users:resetPassword`, `migrations:*`) are internal Convex functions:
+the application's service credential cannot call them. The
+`wiki:site:*`, `wiki:site:token:add`, `wiki:user:password:reset` and
+`wiki:site:backfill` scripts run them through `bunx convex run` from
+`apps/app`, authenticated by your own Convex CLI credentials. They target
+the deployment the CLI selects for `apps/app` (normally your dev
+deployment); append `--prod` (or `--deployment-name <name>` /
+`--env-file <path>`) to choose another. `wiki:site:lock-clear` still uses
+`NEXT_PUBLIC_CONVEX_URL` and the backend signing key. Publish operations
+read the per-site `WIKI_PUBLISH_TOKEN_<UPPERSLUG>` env var.
 
 ## Create A New Site
 
@@ -43,7 +52,7 @@ for publish operations, the per-site
 
 1. Confirm the request is from the site owner.
 2. Append the host to the site's `domains` array via
-   `bunx convex run sites:create` is wrong here — that mutation
+   `bunx convex run sites:create` is wrong here — that internal mutation
    creates a fresh row. For an existing site, use the Convex
    dashboard (or write a one-line `bunx convex run` against a new
    `sites:addDomain` mutation when this happens for the second

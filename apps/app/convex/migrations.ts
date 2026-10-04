@@ -1,15 +1,16 @@
 /**
  * Migrations for the chat performance plan + multi-tenant backfill.
  *
+ * Every function here is internal: operators run them with `bunx convex run`
+ * (or the wrapper scripts, which shell out to it). None is reachable through
+ * the public API.
+ *
  * 0007_native_parts: convert `messages.parts` and `conversations.streamingParts`
  * from JSON-encoded strings to native arrays. Forward-compatible: the schema
  * accepts either form, so this can run online without downtime.
  *
  *   bunx convex run migrations:nativePartsDryRun
- *   bunx convex run migrations:nativeParts
- *
- * Or via apps/app/scripts/migrate-native-parts.ts which adds confirmation +
- * progress logging.
+ *   bun scripts/migrate-native-parts.ts --apply   # loops the *Batch mutations
  *
  * 0008_backfill_site_id: stamp `siteId` onto every legacy row that pre-dates
  * the multi-tenant migration. Rows without `siteId` are currently treated
@@ -21,15 +22,15 @@
  * site.
  *
  *   bunx convex run migrations:backfillSiteIdDryRun
- *   bunx convex run migrations:backfillSiteIdsAll
+ *   bun scripts/admin/backfill-site-ids.ts        # loops backfillSiteIdsBatch
  */
 
 import {
-  mutation,
-  query,
+  internalMutation,
+  internalQuery,
   type MutationCtx,
   type QueryCtx,
-} from "./lib/serviceFunctions";
+} from "./_generated/server";
 import { v } from "convex/values";
 import { invalidateManifest } from "./lib/manifestRevision";
 import { DEFAULT_SITE_SLUG } from "./lib/site";
@@ -74,7 +75,7 @@ function tryParseParts(value: unknown): unknown[] | null {
   }
 }
 
-export const nativePartsDryRun = query({
+export const nativePartsDryRun = internalQuery({
   args: {},
   handler: async (ctx): Promise<DryRunResult> => {
     let totalMessages = 0;
@@ -130,7 +131,7 @@ interface BatchResult {
   cursor: string | null;
 }
 
-export const nativePartsMessagesBatch = mutation({
+export const nativePartsMessagesBatch = internalMutation({
   args: { cursor: v.optional(v.string()) },
   handler: async (ctx, { cursor }): Promise<BatchResult> => {
     const page = await ctx.db
@@ -160,7 +161,7 @@ export const nativePartsMessagesBatch = mutation({
   },
 });
 
-export const nativePartsConversationsBatch = mutation({
+export const nativePartsConversationsBatch = internalMutation({
   args: { cursor: v.optional(v.string()) },
   handler: async (ctx, { cursor }): Promise<BatchResult> => {
     const page = await ctx.db
@@ -224,7 +225,7 @@ async function countTable(
   return { total, needsBackfill };
 }
 
-export const backfillSiteIdDryRun = query({
+export const backfillSiteIdDryRun = internalQuery({
   args: {},
   handler: async (ctx): Promise<BackfillDryRunResult[]> => {
     const results: BackfillDryRunResult[] = [];
@@ -250,7 +251,7 @@ export interface BackfillBatchResult {
  * script `scripts/admin/backfill-site-ids.ts` drives all tables to
  * completion.
  */
-export const backfillSiteIdsBatch = mutation({
+export const backfillSiteIdsBatch = internalMutation({
   args: {
     table: v.union(
       v.literal("documents"),

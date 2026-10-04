@@ -1,4 +1,3 @@
-import { createBackendClient } from "../../server/backend-client";
 /**
  * Stamp `siteId` onto every legacy row that pre-dates the multi-tenant
  * migration. Without this, the legacy fallback in `findDocBySlug`,
@@ -8,17 +7,13 @@ import { createBackendClient } from "../../server/backend-client";
  *
  * Run BEFORE onboarding any non-Diana site.
  *
- *   bun scripts/admin/backfill-site-ids.ts --dry-run
- *   bun scripts/admin/backfill-site-ids.ts
+ *   bun scripts/admin/backfill-site-ids.ts --dry-run [--prod]
+ *   bun scripts/admin/backfill-site-ids.ts [--prod]
+ *
+ * Drives the internal `migrations:*` functions through `bunx convex run`.
  */
-import path from "node:path";
-import dotenv from "dotenv";
-import { api } from "../../convex/_generated/api";
-
-dotenv.config({
-  path: path.join(__dirname, "..", "..", ".env.local"),
-  quiet: true,
-});
+import { internal } from "../../convex/_generated/api";
+import { convexRun, splitDeploymentFlags } from "./convex-run";
 
 const TABLES = [
   "documents",
@@ -34,18 +29,11 @@ const TABLES = [
 ] as const;
 type Table = (typeof TABLES)[number];
 
-const url = process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL;
-if (!url) {
-  console.error("NEXT_PUBLIC_CONVEX_URL is not set in apps/app/.env.local");
-  process.exit(1);
-}
-
-const args = process.argv.slice(2);
+const { deployment, rest: args } = splitDeploymentFlags(process.argv.slice(2));
 const dryRun = args.includes("--dry-run");
-const client = createBackendClient(url);
 
 if (dryRun) {
-  const rows = await client.query(api.migrations.backfillSiteIdDryRun, {});
+  const rows = convexRun(internal.migrations.backfillSiteIdDryRun, {}, deployment);
   let totalNeedsBackfill = 0;
   console.log("Table              total      needs-backfill");
   console.log("-----              -----      ---------------");
@@ -78,10 +66,10 @@ for (const table of TABLES) {
   let scanned = 0;
   let patched = 0;
   for (;;) {
-    const result = (await client.mutation(api.migrations.backfillSiteIdsBatch, {
+    const result: BatchResult = convexRun(internal.migrations.backfillSiteIdsBatch, {
       table,
       cursor: cursor ?? undefined,
-    })) as BatchResult;
+    }, deployment);
     scanned += result.scanned;
     patched += result.patched;
     if (!result.hasMore) break;
