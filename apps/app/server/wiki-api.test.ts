@@ -14,7 +14,11 @@ let fallbackBlobPath: string | null = null;
 let fallbackBlobUrl: string | null = null;
 let blobListCalls: Array<{ prefix: string; token: string }> = [];
 
+// Route handlers load lazily, after this mock is installed; keep the rest of
+// the real module (the publisher's blob helpers) available to them.
+const realBlob = { ...await import("@vercel/blob") };
 mock.module("@vercel/blob", () => ({
+  ...realBlob,
   list: async ({
     prefix,
     token,

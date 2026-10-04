@@ -5,6 +5,7 @@ import type { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
 import { getFunctionName } from "convex/server";
 import type { ConvexHttpClient } from "convex/browser";
 import { externalTraceConfig } from "./otlp-config";
+import { PUBLISH_API_ROUTES, TRACED_API_ROUTES } from "./api-routes";
 
 export type BackendProfile = {
   attributes?: Record<string, string | number | boolean>;
@@ -78,12 +79,9 @@ export async function flushBackendTraces() {
 
 // Paths can contain document slugs and IDs. Only fixed route families leave
 // the process; never record URLs, query strings, headers, bodies, or errors.
-const TRACED_ROUTES = new Set(["/api/admin/access", "/api/admin/roles", "/api/admin/session", "/api/admin/users", "/api/admin/users/role", "/api/ai-search", "/api/auth/session", "/api/auth/signin", "/api/auth/signout", "/api/auth/signup", "/api/chat", "/api/diagnostic-studies", "/api/dicom/annotations", "/api/dicom/comparisons", "/api/dicom/file", "/api/dicom/series", "/api/dicom/studies", "/api/download", "/api/file", "/api/integrations/epic/authorize", "/api/integrations/epic/callback", "/api/integrations/epic/sync", "/api/liveblocks-add-comment", "/api/liveblocks-auth", "/api/liveblocks-delete-thread", "/api/liveblocks-guest", "/api/liveblocks-threads", "/api/liveblocks-users", "/api/liveblocks-webhook", "/api/login", "/api/page-copy", "/api/search", "/api/share-preview", "/api/test/diagnostic-studies", "/api/test/dicom-comparisons", "/api/timeline", "/api/tools", "/api/wiki/manifest", "/api/wiki/pages", "/api/wiki/prefetch", "/api/wiki/session", "/api/wiki/telemetry", "/api/telemetry/manifest"]);
-
-const PUBLISH_ROUTES = new Set([
-  "begin", "document", "asset", "asset-hashes", "document-hashes", "finish", "abort",
-  "sync/plan", "sync/documents", "sync/assets", "state", "scoped/begin", "scoped/abort", "scoped/finish", "scoped/complete", "status",
-].map(step => `/api/publish/${step}`));
+// Both sets are derived from the API route table's fixed strings.
+const TRACED_ROUTES = TRACED_API_ROUTES;
+const PUBLISH_ROUTES = PUBLISH_API_ROUTES;
 
 function publishParent(request: Request) {
   // Correlate only the fixed publisher API. No baggage, URLs or arbitrary headers.
