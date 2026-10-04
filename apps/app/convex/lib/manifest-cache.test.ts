@@ -2,6 +2,7 @@ import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { expect, test } from "bun:test";
 import { current, install, requestBuild, status, deltaBase, failed } from "../manifestCache";
 import { invalidateManifest, queueManifestBuild } from "./manifestRevision";
+import { finishPublish } from "../sites";
 import { upsert, setContentHash, bulkSetContentHash, setDescription, deleteBySlug, upsertPdfAsset, upsertFileAsset, deletePdfAssetByPath, deleteFileAssetByPath, backfillAssetHashes } from "../documents";
 
 function handler(fn: unknown) {
@@ -200,4 +201,32 @@ test("legacy jobs cannot erase generation-owned leases, and active writers defer
   await handler(failed)(ctx, jobs[0]);
   expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
   expect(jobs).toHaveLength(1);
+});
+
+test("reader build requests defer to an active scoped writer; finish still queues the build", async () => {
+  const saved = process.env.WIKI_PREFETCH_SECRET;
+  const secret = "synthetic-manifest-test-00000000000000000";
+  process.env.WIKI_PREFETCH_SECRET = secret;
+  try {
+    for (const changed of [false, true]) {
+      const { ctx, rows, jobs } = fixture();
+      Object.assign(rows.sites[0], { publishRunId: "scoped:run", publishRunChanged: changed, publishScope: { documents: ["one"], assets: [] }, publishLockUntil: Date.now() + 60_000 });
+      for (let i = 0; i < 3; i++) await handler(requestBuild)(ctx, { siteSlug: "alpha", serverSecret: secret });
+      expect(jobs).toHaveLength(0); // Each would have been discarded as active-writer.
+      expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
+      await handler(finishPublish)(ctx, { slug: "alpha", runId: "scoped:run" });
+      expect(jobs).toHaveLength(1);
+      expect(rows.sites[0].publishRunId).toBeUndefined();
+    }
+    // Legacy (unscoped) runs and expired scoped leases keep the existing behavior.
+    for (const lease of [{ publishRunId: "legacy", publishLockUntil: Date.now() + 60_000 }, { publishRunId: "scoped:run", publishLockUntil: Date.now() - 1 }]) {
+      const { ctx, rows, jobs } = fixture();
+      Object.assign(rows.sites[0], lease);
+      await handler(requestBuild)(ctx, { siteSlug: "alpha", serverSecret: secret });
+      expect(jobs).toHaveLength(1);
+    }
+  } finally {
+    if (saved === undefined) delete process.env.WIKI_PREFETCH_SECRET;
+    else process.env.WIKI_PREFETCH_SECRET = saved;
+  }
 });

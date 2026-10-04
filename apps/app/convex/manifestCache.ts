@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { requireSite } from "./lib/site";
 import { requirePrefetchSecret } from "./lib/prefetchPriority";
-import { MANIFEST_SNAPSHOT_VERSION, queueManifestBuild } from "./lib/manifestRevision";
+import { hasActiveScopedWriter, MANIFEST_SNAPSHOT_VERSION, queueManifestBuild } from "./lib/manifestRevision";
 
 // Generations survive lease release, so a delayed failure cannot erase a successor.
 // Legacy jobs only own legacy leases; manual builds can install when no job owns it.
@@ -55,8 +55,11 @@ export const requestBuild = mutation({
   args: serviceArgs,
   handler: async (ctx, { siteSlug, serverSecret }): Promise<null> => {
     requirePrefetchSecret(serverSecret, process.env.WIKI_PREFETCH_SECRET);
-    const { siteId } = await requireSite(ctx, siteSlug);
-    if (siteId) await queueManifestBuild(ctx, siteId);
+    const { site, siteId } = await requireSite(ctx, siteSlug);
+    // Readers request builds while `current` is null, which includes the whole
+    // scoped publish window. A build started now would only be discarded as
+    // `active-writer`, so defer: the writer's finish/fail/expiry queues one.
+    if (site && siteId && !hasActiveScopedWriter(site)) await queueManifestBuild(ctx, siteId);
     return null;
   },
 });
@@ -91,7 +94,7 @@ export const install = internalMutation({
     }
     // Never install a projection assembled across an active writer's mutations.
     // Finish/abort/expiry will invalidate and schedule after ownership ends.
-    if (site.publishRunId?.startsWith("scoped:") && (site.publishLockUntil ?? 0) > Date.now()) {
+    if (hasActiveScopedWriter(site)) {
       await ctx.storage.delete(args.storageId);
       await ctx.db.patch(siteId, { manifestBuildQueuedAt: undefined });
       return "active-writer";
@@ -120,7 +123,7 @@ export const failed = internalMutation({
     // Two durable retries for transient read/storage failures. Bounded backoff
     // prevents an unavailable dependency from creating an unbounded job loop.
     // A live writer's finish owns scheduling after its mutations are complete.
-    if (attempt < 2 && !(site.publishRunId?.startsWith("scoped:") && (site.publishLockUntil ?? 0) > Date.now())) {
+    if (attempt < 2 && !hasActiveScopedWriter(site)) {
       await queueManifestBuild(ctx, siteId, attempt === 0 ? 250 : 1000, delta, clientTraceId, attempt + 1);
     }
     return null;

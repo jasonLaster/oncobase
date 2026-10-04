@@ -6,6 +6,12 @@ export const MANIFEST_SNAPSHOT_VERSION = 1;
 const BUILD_LEASE_MS = 120_000;
 export type ManifestDelta = { baseRevision: number; slugs: string[] };
 
+/** A scoped publisher's live lease. Builds assembled under it are discarded at
+ * install, and its finish/fail/expiry path owns queueing the next build. */
+export function hasActiveScopedWriter(site: { publishRunId?: string; publishLockUntil?: number }, now = Date.now()) {
+  return Boolean(site.publishRunId?.startsWith("scoped:")) && (site.publishLockUntil ?? 0) > now;
+}
+
 export async function queueManifestBuild(ctx: MutationCtx, siteId: Id<"sites">, delayMs = 1000, delta?: ManifestDelta, clientTraceId?: string, attempt = 0) {
   const site = await ctx.db.get(siteId);
   if (!site || site.status !== "active") return;
