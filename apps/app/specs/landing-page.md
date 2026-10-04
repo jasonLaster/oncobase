@@ -1,6 +1,6 @@
 # Public landing page
 
-`/login` introduces Diana TNBC, the knowledge base, and then Oncobase, the platform behind it. The page is Diana's plum throughout; one green band introduces Oncobase. Sections run in this order:
+The landing page introduces Diana TNBC, the knowledge base, and then Oncobase, the platform behind it. Signed-out visitors see it at `/`, and `/login` shows it too for existing links. The page is Diana's plum throughout; one green band introduces Oncobase. Sections run in this order:
 
 1. **Hero.** “It takes a village.” stays on one line, with type scaled to fit phone widths. The description names the diagnosis once (triple-negative breast cancer) and says what the knowledge base is for. The primary action browses educational content, which anyone can open; the secondary action opens the sign-in page. Real screenshots of the reader on a laptop and a phone follow, in the visitor's theme.
 2. **Our story.** Jason's account of why the knowledge base exists, signed “Jason · Diana's husband”, ending with “Today, we're cautiously optimistic.”
@@ -23,15 +23,25 @@ Neither page loads wiki documents, clinical APIs, or permission records for an a
 
 `/sign-in` holds the shared-password form. The left half carries the plum texture, the Diana brand (linking back to the landing page), the village cartoon, and “It takes a village.”; the right half holds the theme toggle, “Open Diana's knowledge base.”, the form, “Need access? Ask Jason.”, and links back to the landing page and to educational content. Below 900px the art becomes a compact band above the form, and the password and its button fit on the first screen of a phone.
 
-Private pages still redirect signed-out visitors to `/login?redirect=<path>`. When that redirect names a particular page, `/login` shows the sign-in page directly; a bare `/login`, or a redirect to `/`, shows the landing page. The server treats `/sign-in` like `/login`: it is outside the password gate, signed-in visitors are redirected to the requested page, and it never resolves to a wiki slug. After sign-in the visitor continues to the requested page, keeping a deep link's own fragment; unsafe redirect targets fall back to `/`. The error messages, retry behavior, and startup-cache reset match `/login`.
+## Signed-out routing
+
+A signed-out GET of exactly `/` returns the landing page in place, with no redirect. The response carries only the landing share card and `wiki-reader-access=landing`, stays `private, no-store` with `Vary: Cookie`, and contains no wiki page data. The client renders the landing page for that marker, clears any cached reader snapshot, and never requests the reader session. Signed-in readers get the wiki home at the same URL. With a `token` query, `/` redirects like any private page.
+
+Private pages redirect signed-out visitors to `/sign-in?redirect=<path>`, and so do `GET /api/login`, the reader's sign-in links, the comments panel, and the pathology viewer. `/login` keeps working for existing links: when its redirect names a particular page it shows the sign-in page directly, and otherwise it shows the landing page.
+
+The Vite dev server serves HTML without the gate, so locally `/` renders the reader. Gate behavior is covered by `server/app-shell.test.ts`, `scripts/verify-standalone.ts`, `scripts/local-smoke.ts`, and the deployed `e2e/auth-gate-security.spec.ts`.
+
+## Sign-in behavior
+
+The server treats `/sign-in` like `/login`: it is outside the password gate, signed-in visitors are redirected to the requested page, and it never resolves to a wiki slug. After sign-in the visitor continues to the requested page, keeping a deep link's own fragment; unsafe redirect targets fall back to `/`. The error messages, retry behavior, and startup-cache reset match `/login`.
 
 ## Private links
 
-A plain link to a private page would reopen the landing page through the gate. Links to private pages point to `/sign-in?redirect=<path>` and show a lock; their accessible names end with “Sign in required”. A signed-in visitor following one is redirected to the page by the server. Educational content links open directly.
+Links to private pages point straight to `/sign-in?redirect=<path>` rather than through the gate's redirect, and show a lock; their accessible names end with “Sign in required”. A signed-in visitor following one is redirected to the page by the server. Educational content links open directly.
 
 ## Link previews
 
-`/login` and `/sign-in`, and the bare domain when a link-preview bot requests it, share the landing card. `/sign-in` is titled “Sign in — Diana TNBC Knowledge Base”; the others use “Diana TNBC Knowledge Base”. All use the Open Graph and Twitter title “It takes a village”, the hero description, and `/landing/og-image.jpg` (1200×630) as an absolute URL with a large-image Twitter card. Other pages keep their own titles and summary cards. All of them remain `noindex`.
+The signed-out `/`, `/login`, `/sign-in`, and the bare domain when a link-preview bot requests it share the landing card. `/sign-in` is titled “Sign in — Diana TNBC Knowledge Base”; the others use “Diana TNBC Knowledge Base”. All use the Open Graph and Twitter title “It takes a village”, the hero description, and `/landing/og-image.jpg` (1200×630) as an absolute URL with a large-image Twitter card. Other pages keep their own titles and summary cards. All of them remain `noindex`.
 
 ## Diana content snapshot
 
@@ -63,4 +73,4 @@ The described capabilities follow `packages/wiki-content/src/pii.ts` and `apps/a
 
 ## Verification
 
-`e2e/landing-page.spec.ts` covers landing reflow at eight widths, a minimum text size, no reader or clinical data requests, section navigation, sticky-header color and anchor clearance on desktop and phone, the phone header, the sign-in page at five widths and in dark mode, `/login` choosing the landing or sign-in page, sign-in retry errors, private links continuing after sign-in, the redaction example, example role visibility, themed images and the theme toggle, and the dark palette. `e2e/standalone-routes.spec.ts` checks that both pages load without the reader session or database; `server/app-shell.test.ts` covers `/sign-in` outside the gate; `src/pages/sign-in.test.ts` covers redirect targets. `server/share-preview.test.ts` and `server/app-shell.test.ts` cover the link-preview card; `e2e/metadata.spec.ts` checks it against a deployed server. `e2e/public-theme.spec.ts` covers the shared theme toggle on deployed public pages.
+`e2e/landing-page.spec.ts` covers landing reflow at eight widths, a minimum text size, no reader or clinical data requests, section navigation, sticky-header color and anchor clearance on desktop and phone, the phone header, the sign-in page at five widths and in dark mode, `/login` choosing the landing or sign-in page, sign-in retry errors, private links continuing after sign-in, the redaction example, example role visibility, themed images and the theme toggle, and the dark palette. `e2e/standalone-routes.spec.ts` checks that both pages load without the reader session or database; `server/app-shell.test.ts` covers `/sign-in` outside the gate, the signed-out landing page at `/` without wiki data, and redirects of private pages to `/sign-in`; `src/root-route.test.ts` covers rendering the landing page for the marker; `src/pages/sign-in.test.ts` covers redirect targets. `server/share-preview.test.ts` and `server/app-shell.test.ts` cover the link-preview card; `e2e/metadata.spec.ts` checks it against a deployed server. `e2e/public-theme.spec.ts` covers the shared theme toggle on deployed public pages.
