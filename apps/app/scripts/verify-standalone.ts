@@ -124,10 +124,22 @@ try {
     throw new Error("Standalone bot metadata smoke did not use share-preview cache headers");
   }
 
+  // Anonymous reads on the default site fall back to the public education
+  // library; they must never include care-wiki pages and stay uncacheable.
+  for (const pathname of ["/api/wiki/manifest", "/api/search?q=diagnosis&limit=3"]) {
+    const response = await fetch(`${origin}${pathname}`);
+    if (response.status !== 200) throw new Error(`Standalone education fallback failed for ${pathname}: ${response.status}`);
+    if (response.headers.get("cache-control") !== "private, no-store" || !response.headers.get("vary")?.includes("Cookie")) {
+      throw new Error(`Standalone education fallback used unsafe cache headers for ${pathname}`);
+    }
+    const body = await response.json() as { pages?: Array<{ slug: string }>; results?: Array<{ slug: string }> };
+    const slugs = [...(body.pages ?? []), ...(body.results ?? [])].map(page => page.slug);
+    const leaked = slugs.filter(slug => !slug.toLowerCase().startsWith("wiki/education/"));
+    if (leaked.length) throw new Error(`Standalone education fallback exposed care-wiki pages for ${pathname}: ${leaked.join(", ")}`);
+  }
+
   for (const pathname of [
-    "/api/wiki/manifest",
     "/api/wiki/pages?slugs=wiki/logistics/insurance",
-    "/api/search?q=diagnosis&limit=3",
     "/api/download?type=markdown",
     "/api/file?path=sources/example.pdf",
   ]) {

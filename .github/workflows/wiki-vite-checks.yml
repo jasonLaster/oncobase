@@ -79,8 +79,21 @@ jobs:
         working-directory: apps/app
         run: bunx playwright install --with-deps chromium
 
+      # Server routes need a Convex backend that trusts the app's service JWT.
+      # Production keys never reach CI: run a local backend with a generated
+      # key and a fixture site seeded through the real publish path.
+      - name: Start local Convex stack
+        working-directory: apps/app
+        run: bun run local:stack
+
       - name: Verify standalone server
-        run: bun run verify:wiki-vite:server
+        working-directory: apps/app
+        run: bun run local:stack exec -- bun run verify:standalone
+
+      - name: Stop local Convex stack
+        if: always()
+        working-directory: apps/app
+        run: bun run local:stack stop
 
   preview-url:
     name: Resolve Vite Deployment URL
