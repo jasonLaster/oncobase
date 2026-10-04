@@ -1,7 +1,7 @@
 import { flushBackendTraces, traceBackendHandler, traceBackendPhase } from "../server/backend-tracing";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
-import { requestFromIncoming, sendWebResponse } from "../server/http-adapter";
+import { requestFromIncoming, restoreRewrittenPath, sendWebResponse } from "../server/http-adapter";
 import { internalReaderNotFound, isInternalReaderPath } from "../server/reader-cache-context";
 
 declare const __WIKI_VITE_INDEX_HTML__: string;
@@ -21,23 +21,6 @@ async function handleWikiViteRequest(request: Request) {
 }
 
 const tracedShell = traceBackendHandler(handleWikiViteRequest, { route: "/reader/shell" });
-
-function restoreRewrittenPath(request: Request) {
-  const url = new URL(request.url);
-  const rewrittenPath = url.searchParams.get("__path");
-  if (rewrittenPath == null) return request;
-
-  url.pathname = rewrittenPath ? `/${rewrittenPath.replace(/^\/+/, "")}` : "/";
-  url.searchParams.delete("__path");
-
-  return new Request(url, {
-    method: request.method,
-    headers: request.headers,
-    body: request.body,
-    signal: request.signal,
-    duplex: "half",
-  } as RequestInit);
-}
 
 export default async function wikiViteRootAppShell(
   req: IncomingMessage,

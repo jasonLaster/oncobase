@@ -56,3 +56,25 @@ export async function sendWebResponse(res: ServerResponse, response: Response) {
   res.end();
 }
 
+
+/**
+ * vercel.json rewrites every route to a function with the original path in
+ * `?__path=`. Put it back so handlers see the URL the client requested. An
+ * empty value (the rewrite of `/`) is the site root.
+ */
+export function restoreRewrittenPath(request: Request) {
+  const url = new URL(request.url);
+  const rewrittenPath = url.searchParams.get("__path");
+  if (rewrittenPath == null) return request;
+
+  url.pathname = `/${rewrittenPath.replace(/^\/+/, "")}`;
+  url.searchParams.delete("__path");
+
+  return new Request(url, {
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+    signal: request.signal,
+    duplex: "half",
+  } as RequestInit);
+}

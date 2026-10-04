@@ -3,7 +3,7 @@ import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { parseWikiManifest } from "@oncobase/wiki-content";
-import { withSiteSlug } from "./wiki-api.js";
+import { withSiteSlug } from "./reader-access.js";
 import { siteBlobKey } from "./blob";
 import { traceBackendPhase, traceBackendAttributes, backendClientTraceId } from "./backend-tracing";
 import { assertPublishRun, OWNED_RUN_PREFIX } from "../convex/lib/publishRun";

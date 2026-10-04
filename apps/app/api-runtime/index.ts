@@ -1,31 +1,10 @@
 import { flushBackendTraces } from "../server/backend-tracing";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import {
-  createClient,
-  createWikiApiHandler,
-  requestFromIncoming,
-  sendWebResponse,
-} from "../server/wiki-api.js";
+import { createClient, createWikiApiHandler } from "../server/wiki-api.js";
+import { requestFromIncoming, restoreRewrittenPath, sendWebResponse } from "../server/http-adapter";
 import { internalReaderNotFound, isInternalReaderPath } from "../server/reader-cache-context";
 
 const handleWikiApiRequest = createWikiApiHandler(createClient());
-
-function restoreRewrittenPath(request: Request) {
-  const url = new URL(request.url);
-  const rewrittenPath = url.searchParams.get("__path");
-  if (rewrittenPath == null) return request;
-
-  url.pathname = `/${rewrittenPath.replace(/^\/+/, "")}`;
-  url.searchParams.delete("__path");
-
-  return new Request(url, {
-    method: request.method,
-    headers: request.headers,
-    body: request.body,
-    signal: request.signal,
-    duplex: "half",
-  } as RequestInit);
-}
 
 export default async function wikiViteApi(req: IncomingMessage, res: ServerResponse) {
   try {
