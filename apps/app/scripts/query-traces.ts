@@ -56,7 +56,7 @@ const columns = new Set((await query(`['${dataset}'] | getschema`)).tables[0]!.c
 const attr = (name: string) => columns.has(`attributes.${name}`) ? `['attributes.${name}']` : `['attributes.custom']['${name}']`;
 const num = (name: string) => `todouble(${attr(name)})`;
 const ds = `['${dataset}']`;
-const caches = ["site-host", "canonical-slugs", "pii-patterns", "search-corpus", "manifest-snapshot"];
+const caches = ["site-host", "canonical-slugs", "pii-patterns", "search-corpus", "manifest-snapshot", "manifest-derived"];
 const sections: Array<[string, string]> = [
   ["Span latency by name (ms; total = serial-equivalent seconds)",
     `${ds} | extend ms = duration / 1ms | summarize n=count(), p50=percentile(ms, 50), p95=percentile(ms, 95), p99=percentile(ms, 99), total_s=sum(ms) / 1000 by name | order by total_s desc | take 40`],
@@ -68,6 +68,12 @@ const sections: Array<[string, string]> = [
     `${ds} | where kind == 'server' | extend ms = duration / 1ms, cold = tostring(${attr("faas.coldstart")}) == 'true' | summarize n=count(), cold=countif(cold), warm_p50=percentileif(ms, 50, not(cold)), cold_p50=percentileif(ms, 50, cold), init_p50=percentile(${num("faas.init_ms")}, 50), inflight_p95=percentile(${num("process.inflight_requests")}, 95), elu_p95=percentile(${num("nodejs.eventloop.utilization")}, 95) by name | order by n desc | take 20`],
   ["Per-instance cache effectiveness",
     `${ds} | where kind == 'server' | summarize ${caches.flatMap((cache, index) => [`h${index}=sum(${num(`cache.${cache}.hits`)})`, `m${index}=sum(${num(`cache.${cache}.misses`)})`]).join(", ")} | project ${caches.map((cache, index) => `['${cache}']=strcat(tostring(h${index}), ' hit / ', tostring(m${index}), ' miss')`).join(", ")}`],
+  // manifest.strategy: snapshot (public), snapshot-education[-cached], snapshot-overlay[-cached]
+  // (signed-in), manifest (live fallback). Phases are the manifest.* spans below.
+  ["Manifest: latency by strategy, scope and validator (-cached = memoized derivation)",
+    `${ds} | where kind == 'server' and isnotempty(${attr("manifest.strategy")}) | extend ms = duration / 1ms | summarize n=count(), p50=percentile(ms, 50), p95=percentile(ms, 95), p99=percentile(ms, 99) by strategy=tostring(${attr("manifest.strategy")}), scope=tostring(${attr("manifest.scope")}), validator=tostring(${attr("manifest.validator")}) | order by n desc | take 30`],
+  ["Manifest: phase cost (overlay vs assets = the two parallel reads; snapshot-derive/tree/hash/serialize = recompute on a derivation miss)",
+    `${ds} | where name startswith 'manifest.' and name !startswith 'manifest.snapshot-read' | extend ms = duration / 1ms | summarize n=count(), p50=percentile(ms, 50), p95=percentile(ms, 95), total_s=sum(ms) / 1000 by name | order by total_s desc | take 20`],
   ["Failures by span and error class",
     `${ds} | where ['status.code'] == 'ERROR' or error == true | summarize n=count() by name, error_type=tostring(${attr("error.type")}) | order by n desc | take 20`],
   // Text search requests (both /api/search and the education alias) carry search.mode.

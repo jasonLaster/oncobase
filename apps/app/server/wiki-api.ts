@@ -50,7 +50,7 @@ export { requestFromIncoming, sendWebResponse } from "./http-adapter";
 export function createWikiApiHandler(client = createClient()) {
   client = traceConvexClient(client);
   // Per-instance: snapshot bytes are content-addressed, build requests throttled.
-  const manifestSnapshotCache = createManifestSnapshotCache({ onLookup: hit => traceBackendCache("manifest-snapshot", hit) });
+  const manifestSnapshotCache = createManifestSnapshotCache({ onLookup: (hit, kind) => traceBackendCache(kind === "derived" ? "manifest-derived" : "manifest-snapshot", hit) });
   const requestManifestBuild = createManifestBuildRequester();
   return traceBackendHandler(async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     let pathname = new URL(request.url).pathname;
