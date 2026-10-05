@@ -1122,7 +1122,7 @@ function Footer() {
     <footer className="lp-footer-shell">
       <div className="ft-footer lp-container">
         <div className="ft-footer-row">
-          <a className="lp-brand" href="/features" aria-label="Oncobase features">
+          <a className="lp-brand" href="/" aria-label="Oncobase home">
             <OncobaseBrand />
           </a>
           <nav aria-label="Footer">

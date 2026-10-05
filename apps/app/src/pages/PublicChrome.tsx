@@ -87,7 +87,7 @@ export function PublicHeader({
             <DianaBrand />
           </a>
         ) : (
-          <a className="lp-brand" href="/features" aria-label="Oncobase features">
+          <a className="lp-brand" href="/" aria-label="Oncobase home">
             <OncobaseBrand />
           </a>
         )}

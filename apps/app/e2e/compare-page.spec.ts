@@ -64,6 +64,19 @@ test("the primary header is the same on features and compare, with a sub header 
   expect((await page.locator(".ft-header").boundingBox())!.height).toBeLessThanOrEqual(112);
 });
 
+test("the logo goes to the home page from the header and the footer", async ({ page }) => {
+  for (const path of ["/features", "/compare"]) {
+    await page.goto(path);
+    await expect(page.locator("h1").first()).toBeVisible();
+    for (const scope of [page.locator("header"), page.locator("footer")]) {
+      await expect(scope.getByRole("link", { name: "Oncobase home" })).toHaveAttribute("href", "/");
+    }
+  }
+  await page.goto("/compare");
+  await page.locator("header").getByRole("link", { name: "Oncobase home" }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test("the table covers every product and keeps the Oncobase column in view", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await openCompare(page);

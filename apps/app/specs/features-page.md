@@ -15,7 +15,7 @@
 
 ## Header
 
-The shared header (`PublicChrome.tsx`, also used by `/compare` and the landing page) has two rows. The **primary row** never changes between pages: the Oncobase brand, Features and Compare (the current page has `aria-current="page"`), the theme toggle, and a GitHub button. The **sub header** below it lists this page's sections, shows which one is in view (scroll-spy, `aria-current="location"`, an underline), and keeps the current one scrolled into view. On phones the primary links move into the sub header's single scrolling row, pinned at its left edge, so the header stays two rows (110px) tall. Section anchors clear both rows (`scroll-margin-top`). There is no sidebar.
+The shared header (`PublicChrome.tsx`, also used by `/compare` and the landing page) has two rows. The **primary row** never changes between pages: the brand (a link to `/`, here and in the footer), Features and Compare (the current page has `aria-current="page"`), the theme toggle, and a GitHub button. The **sub header** below it lists this page's sections, shows which one is in view (scroll-spy, `aria-current="location"`, an underline), and keeps the current one scrolled into view. On phones the primary links move into the sub header's single scrolling row, pinned at its left edge, so the header stays two rows (110px) tall. Section anchors clear both rows (`scroll-margin-top`). There is no sidebar.
 
 ## Sections
 
