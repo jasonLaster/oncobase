@@ -112,6 +112,12 @@ const json = <T,>(body: string) => JSON.parse(body) as T;
 type Manifest = { pages?: Array<{ slug: string }>; assets?: unknown[] };
 type Pages = { pages: Array<{ slug: string; title: string; content?: string }>; unavailable?: Array<{ slug: string }> };
 
+const ownerKeys = new Map<string, string>();
+function tokenOwnerKey(token: string) {
+  const claims = JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString("utf8")) as { ownerKey?: string };
+  if (!claims.ownerKey) throw new Error("chat token has no owner claim");
+  return claims.ownerKey;
+}
 let failed = false;
 try {
   const deadline = Date.now() + 20_000;
@@ -215,7 +221,24 @@ try {
     await check(`GET /api/file sensitive (${user.email})`, "/api/file?path=private/lab-report.pdf", { cookie }, (response) => {
       expect(response.status === (canSee ? 200 : 404), `expected ${canSee ? 200 : 404}, got ${response.status}`);
     });
+    // Session-scoped search sees sensitive pages only for the care team.
+    await check(`GET /api/search?scope=session (${user.email})`, "/api/search?q=who%20only%20passed&scope=session", { cookie }, (response, body) => {
+      expect(response.status === 200, `expected 200, got ${response.status}`);
+      const results = (json<{ results?: Array<{ slug: string }> }>(body).results ?? []).map((page) => page.slug);
+      expect(results.includes("private/care-team-notes") === canSee, canSee ? "care-team search misses the sensitive page" : "unassigned search leaked the sensitive page");
+      return `${results.length} results`;
+    });
+    // Chat tokens bind to the viewer: one owner per account, never the raw id.
+    const token = await check(`GET /api/wiki/convex-token (${user.email})`, "/api/wiki/convex-token", { cookie }, (response, body) => {
+      expect(response.status === 200, `expected 200, got ${response.status}`);
+      ownerKeys.set(user.email, tokenOwnerKey(json<{ token: string }>(body).token));
+    });
+    void token;
   }
+  const [firstOwner, secondOwner] = [...ownerKeys.values()];
+  await check("chat owner keys differ per account", "/api/wiki/session", { cookie: gate }, () => {
+    expect(Boolean(firstOwner && secondOwner && firstOwner !== secondOwner && /^[a-f0-9]{16,}$/.test(firstOwner)), "chat owner keys are missing or shared between accounts");
+  });
 } catch (error) {
   failed = true;
   console.error(`[local-smoke] ${error instanceof Error ? error.message : String(error)}`);
