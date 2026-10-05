@@ -121,4 +121,22 @@ test.describe("chat (real backend, fake model)", () => {
     await page.goto(`/chat/${id}`, { waitUntil: "domcontentloaded" });
     await expect(lastReply(page)).toContainText(`fake-reply: ${prompt}`);
   });
+
+  test("a failed reply shows an error that can be retried to recovery or dismissed", async ({ page }) => {
+    await openChat(page);
+    const prompt = `flaky [fail-once] ${Date.now()}`;
+    await send(page, prompt);
+    const error = page.getByTestId("chat-error");
+    await expect(error).toBeVisible();
+
+    await page.getByTestId("chat-error-retry").click();
+    await expect(lastReply(page)).toContainText("fake-reply: flaky");
+    await expect(error).toHaveCount(0);
+
+    await openChat(page);
+    await send(page, `broken [fail] ${Date.now()}`);
+    await expect(error).toBeVisible();
+    await page.getByTestId("chat-error-dismiss").click();
+    await expect(error).toHaveCount(0);
+  });
 });

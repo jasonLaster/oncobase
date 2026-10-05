@@ -4,6 +4,8 @@
 //
 // Reply: "fake-reply: <last user text>". A prompt containing "[slow]" is followed
 // by a long tail (about six seconds) so tests can Stop or queue mid-stream.
+// "[fail]" always errors; "[fail-once]" errors on the first attempt per prompt
+// text, so a test can prove that Retry recovers.
 
 type PromptPart = { type?: string; text?: string };
 type PromptMessage = { role: string; content: string | PromptPart[] };
@@ -26,6 +28,8 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     signal?.addEventListener("abort", () => { clearTimeout(timer); resolve(); }, { once: true });
   });
 
+const failedOnce = new Set<string>();
+
 const usage = {
   inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
   outputTokens: { total: 1, text: 1, reasoning: 0 },
@@ -43,6 +47,11 @@ export function createFakeChatModel() {
     async doStream(options: { prompt: PromptMessage[]; abortSignal?: AbortSignal }) {
       const prompt = lastUserText(options.prompt);
       const signal = options.abortSignal;
+      if (prompt.includes("[fail]")) throw new Error("The fake chat model failed on request.");
+      if (prompt.includes("[fail-once]") && !failedOnce.has(prompt)) {
+        failedOnce.add(prompt);
+        throw new Error("The fake chat model failed once on request.");
+      }
       const words = `fake-reply: ${prompt}`.split(/\s+/);
       if (prompt.includes("[slow]")) {
         for (let index = 1; index <= SLOW_TAIL_WORDS; index += 1) words.push(String(index));

@@ -92,3 +92,16 @@ test("the raw-markdown route is not available to the gate, or to a signed-in non
   expect(signIn.ok(), await signIn.text()).toBeTruthy();
   await expectUnavailable("care team");
 });
+
+test("the raw-markdown route shows identifiers to the site admin", async ({ page }) => {
+  const signIn = await page.request.post("/api/auth/signin", {
+    data: {
+      email: process.env.LOCAL_STACK_ADMIN_EMAIL ?? "owner@local.test",
+      password: process.env.LOCAL_STACK_ADMIN_PASSWORD ?? "local-admin-password",
+    },
+  });
+  expect(signIn.ok(), await signIn.text()).toBeTruthy();
+  await page.goto(`/pii-view/${pii.slug}`);
+  await expect(page.locator("article").filter({ visible: true }).first()).not.toContainText("Page not found");
+  await expect(page.locator("body")).toContainText(RAW_IDENTIFIERS);
+});

@@ -69,4 +69,15 @@ test.describe("finding things (real backend)", () => {
     await input.press("Enter");
     await expect(page.getByTestId("search-text-empty")).toBeVisible();
   });
+
+  test("a text-search result can be opened from the keyboard", async ({ page }) => {
+    await page.goto("/search?q=pembrolizumab");
+    await page.getByRole("button", { name: "Text Search" }).click();
+    const first = page.getByTestId("search-text-result").first();
+    await expect(first).toBeVisible();
+    await first.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).not.toHaveURL(/\/search/);
+    await expect(article(page)).toBeVisible();
+  });
 });
