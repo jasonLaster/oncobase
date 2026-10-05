@@ -126,6 +126,12 @@ export function createWikiApiHandler(client = createClient()) {
       return new Response(null, { status: 204 });
     }
 
+    // The session lookup is memoized per request (reader-access), so starting it
+    // beside the gate overlaps the two round trips without changing any rule:
+    // the handler still awaits it, and a denied gate simply discards it.
+    if (!dedicatedEducation && request.method !== "OPTIONS" && new URL(request.url).searchParams.get("scope") === "session") {
+      void getSessionUser(request, client, siteSlug).catch(() => undefined);
+    }
     const gated = route.gate === "required" || (route.gate === "default-site" && siteSlug === DEFAULT_SITE_SLUG);
     if (!dedicatedEducation && gated) {
       const gate = await traceBackendPhase("api.gate", () => enforceApiPasswordGate(

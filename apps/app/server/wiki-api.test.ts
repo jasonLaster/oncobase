@@ -2104,6 +2104,25 @@ test("a snapshot miss serves the live manifest without awaiting the build reques
   }
 });
 
+test("session manifests look the session up once and deny without a cookie", async () => {
+  const base = createFakeConvexClient();
+  let sessionLookups = 0;
+  const client = { ...base, query: async (ref: FunctionReference<"query">, args: Record<string, unknown>) => {
+    if (getFunctionName(ref) === "users:getSessionUser") sessionLookups++;
+    return base.query(ref, args);
+  } };
+  const handler = createWikiApiHandler(client as never);
+  const cookie = await signupCookie(handler, "overlap@example.com");
+  sessionLookups = 0;
+  const response = await handler(request("/api/wiki/manifest?scope=session", { headers: { Cookie: cookie } }));
+  expect(response?.status).toBe(200);
+  expect(sessionLookups).toBe(1);
+  // No cookie: nothing to look up, and the session scope stays denied.
+  sessionLookups = 0;
+  expect((await handler(request("/api/wiki/manifest?scope=session")))?.status).toBe(401);
+  expect(sessionLookups).toBe(0);
+});
+
 test("education manifests are served from the public snapshot and match the live path", async () => {
   const saved = process.env.WIKI_PREFETCH_SECRET;
   const originalFetch = globalThis.fetch;
