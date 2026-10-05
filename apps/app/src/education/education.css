@@ -1,39 +1,16 @@
 .education-app {
-  --edu-paper: #fbfcf8;
-  --edu-panel: #f4f6ee;
-  --edu-ink: #263b30;
-  --edu-muted: #667360;
-  --edu-line: #e1e6da;
-  --edu-green: #396b4d;
-  --edu-soft: #e7eee1;
-  --background: var(--edu-paper);
-  --foreground: var(--edu-ink);
-  --brand: var(--edu-green);
-  --text-muted: var(--edu-muted);
-  --accent-light: var(--edu-soft);
-  --accent: var(--edu-soft);
-  --accent-foreground: var(--edu-ink);
-  --primary: var(--edu-green);
-  --primary-foreground: var(--edu-paper);
-  --ring: var(--edu-green);
-  --border: var(--edu-line);
-  --sidebar-bg: var(--edu-panel);
-  --muted: var(--edu-panel);
-  --muted-foreground: var(--edu-muted);
-  --surface-muted: var(--edu-panel);
-  --panel: var(--edu-panel);
-  --panel-alt: var(--edu-paper);
-  --card: var(--edu-panel);
-  --card-foreground: var(--edu-ink);
-  --popover: var(--edu-paper);
-  --popover-foreground: var(--edu-ink);
+  --edu-paper: var(--background);
+  --edu-panel: var(--sidebar-bg);
+  --edu-ink: var(--foreground);
+  --edu-muted: var(--text-muted);
+  --edu-line: var(--sidebar-border);
+  --edu-brand: var(--brand);
+  --edu-soft: var(--accent-light);
   --pdf-chip-bg: var(--edu-soft);
-  --pdf-chip-fg: var(--edu-green);
+  --pdf-chip-fg: var(--edu-brand);
   --pdf-chip-border: var(--edu-line);
   --pdf-chip-bg-hover: var(--edu-soft);
-  --pdf-chip-border-hover: var(--edu-green);
-  color-scheme: light;
-  --sidebar-border: var(--edu-line);
+  --pdf-chip-border-hover: var(--edu-brand);
   color: var(--edu-ink);
   background: var(--edu-paper);
   height: 100dvh;
@@ -43,16 +20,6 @@
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-}
-.dark .education-app {
-  color-scheme: dark;
-  --edu-paper: #16231c;
-  --edu-panel: #1b2a21;
-  --edu-ink: #e2eadc;
-  --edu-muted: #a3b29c;
-  --edu-line: #314436;
-  --edu-green: #b0cba4;
-  --edu-soft: #2a3e2d;
 }
 .education-app *,
 .education-app *::before,
@@ -71,7 +38,7 @@
   cursor: pointer;
 }
 .education-app :is(a, button, input, summary):focus-visible {
-  outline: 2px solid var(--edu-green);
+  outline: 2px solid var(--edu-brand);
   outline-offset: 3px;
 }
 .edu-skip {
@@ -81,7 +48,7 @@
   z-index: 100;
   background: var(--edu-paper);
   padding: 12px 20px;
-  border: 1px solid var(--edu-green);
+  border: 1px solid var(--edu-brand);
   border-radius: 8px;
 }
 .edu-skip:focus {
@@ -112,7 +79,7 @@
   height: 34px;
   border-radius: 9px;
   background: var(--edu-soft);
-  color: var(--edu-green);
+  color: var(--edu-brand);
 }
 .edu-brand-section {
   margin-left: 10px;
@@ -156,8 +123,8 @@
   border-radius: 5px;
 }
 .edu-search:focus-within {
-  border-color: var(--edu-green);
-  box-shadow: 0 0 0 1px var(--edu-green);
+  border-color: var(--edu-brand);
+  box-shadow: 0 0 0 1px var(--edu-brand);
 }
 .education-app ::selection {
   background: var(--edu-soft);
@@ -168,7 +135,7 @@
 }
 .edu-wiki-link:hover,
 .edu-article-footer a:hover {
-  color: var(--edu-green) !important;
+  color: var(--edu-brand) !important;
 }
 .edu-search button:hover {
   background: var(--edu-soft);
@@ -217,7 +184,7 @@
   font-weight: 550;
 }
 .edu-all-topics[aria-current] {
-  color: var(--edu-green);
+  color: var(--edu-brand);
   background: var(--edu-soft);
 }
 .edu-sidebar-label {
@@ -273,7 +240,7 @@
 }
 .edu-nav-lessons a[aria-current] {
   background: var(--edu-soft);
-  color: var(--edu-green);
+  color: var(--edu-brand);
   font-weight: 600;
 }
 .edu-sidebar-footer {
@@ -311,7 +278,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--edu-green);
+  background: var(--edu-brand);
 }
 .edu-hero {
   position: relative;
@@ -329,7 +296,7 @@
 }
 .edu-hero h1 em {
   font-family: Georgia, serif;
-  color: var(--edu-green);
+  color: var(--edu-brand);
   font-weight: 400;
 }
 .edu-lead {
@@ -376,7 +343,7 @@
   position: absolute;
   right: 3%;
   top: 25px;
-  color: var(--edu-green);
+  color: var(--edu-brand);
 }
 .edu-art-orbit {
   position: absolute;
@@ -423,7 +390,7 @@
   position: absolute;
   width: 9px;
   height: 9px;
-  background: var(--edu-green);
+  background: var(--edu-brand);
   border-radius: 50%;
   bottom: 22px;
   left: 57px;
@@ -469,7 +436,7 @@
 }
 .edu-topic-card:hover {
   background: var(--edu-panel);
-  border-color: var(--edu-green);
+  border-color: var(--edu-brand);
 }
 .edu-topic-top {
   display: flex;
@@ -489,7 +456,7 @@
   height: 42px;
   border-radius: 10px;
   background: var(--edu-soft);
-  color: var(--edu-green);
+  color: var(--edu-brand);
 }
 .edu-topic-card h3 {
   font-size: 17px;
@@ -520,7 +487,7 @@
   color: var(--edu-muted);
 }
 .edu-topic-bottom svg {
-  color: var(--edu-green);
+  color: var(--edu-brand);
 }
 .edu-home-footer {
   display: flex;
@@ -587,7 +554,7 @@
   line-height: 1.8;
 }
 .edu-article .wiki-markdown a {
-  color: var(--edu-green);
+  color: var(--edu-brand);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -624,7 +591,7 @@
   position: relative;
 }
 .edu-result:hover h2 {
-  color: var(--edu-green);
+  color: var(--edu-brand);
 }
 .edu-result-path {
   font-size: 12px;
@@ -646,7 +613,7 @@
   position: absolute;
   top: 50%;
   right: 0;
-  color: var(--edu-green);
+  color: var(--edu-brand);
 }
 @media (min-width: 1650px) {
   .edu-sidebar {

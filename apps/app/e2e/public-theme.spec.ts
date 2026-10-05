@@ -62,8 +62,8 @@ for (const width of [320, 393, 1440]) {
     const channels = (await link.evaluate((el) => getComputedStyle(el).color))
       .match(/\d+/g)!
       .map(Number);
-    expect(channels[1]).toBeGreaterThan(channels[2]!);
-    expect(channels[1]).toBeGreaterThan(channels[0]!);
+    expect(channels[2]).toBeGreaterThan(channels[1]!);
+    expect(channels[2]).toBeGreaterThan(channels[0]!);
     await page.screenshot({
       path: `.playwright/education/article-dark-${width}.png`,
       fullPage: true,
