@@ -130,6 +130,13 @@ try {
     expect(response.status === 200 && body.includes('name="wiki-reader-access" content="landing"'), `expected the landing page, got ${response.status}`);
     expect(response.headers.get("cache-control") === "private, no-store", "expected the landing page to stay private");
   });
+  await check("GET /features without gate cookie", "/features", {}, (response, body) => {
+    expect(response.status === 200 && body.includes("Everything Oncobase can do"), `expected the public features page, got ${response.status}`);
+    expect(!body.includes("noindex"), "expected the features page to be indexable");
+  });
+  await check("GET /llms.txt without gate cookie", "/llms.txt", {}, (response, body) => {
+    expect(response.status === 200 && body.includes("llms-full.txt"), `expected the agent index, got ${response.status}`);
+  });
   await check("GET private page without gate cookie", "/wiki/index", {}, (response) => {
     expect(response.status === 302 && response.headers.get("location")?.includes("/sign-in?redirect=%2Fwiki%2Findex"), `expected 302 to /sign-in, got ${response.status}`);
   });

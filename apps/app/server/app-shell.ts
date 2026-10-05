@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 import { readerShellHint } from "../src/bootstrap/reader-shell-hint";
-import { landingRouteMetadata, specialRouteMetadata } from "../src/special-route-metadata";
+import { featuresRouteMetadata, landingRouteMetadata, specialRouteMetadata } from "../src/special-route-metadata";
 import { LANDING_READER_ACCESS } from "../src/root-route";
 import { injectPageBootstrap } from "./page-bootstrap";
 import { injectHeadMetadata } from "./html-head";
 import { traceBackendCache, traceBackendPhase, traceConvexClient } from "./backend-tracing";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
@@ -50,7 +50,7 @@ const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
 const CANONICAL_SLUG_PAGE_SIZE = 512;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
 const MARKDOWN_ALIAS_PATH_RE = /\.(?:md|mdx)$/i;
-const PUBLIC_PAGES = new Set(["/terms-and-conditions"]);
+const PUBLIC_PAGES = new Set(["/terms-and-conditions", "/features"]);
 const educationRequests = new WeakSet<Request>();
 // Signed-out visitors to "/" see the landing page in place of the wiki home.
 const landingRequests = new WeakSet<Request>();
@@ -396,6 +396,17 @@ async function staticIndexHtml(
     });
   }
 
+  // The features page is public marketing content: indexable, no wiki data.
+  if (url.pathname === "/features") {
+    const features = featuresRouteMetadata();
+    return injectHeadMetadata(html, {
+      ...features,
+      openGraphImage: new URL(features.openGraphImage!, request.url).toString(),
+      canonicalUrl: new URL("/features", request.url).toString(),
+      noIndex: false,
+    });
+  }
+
   if (isEducationHubPathname(url.pathname)) {
     const page = slug ? await publicPageForRequest(request, client, siteSlug, slug) : null;
     const safePage = isPublicEducationPage(page) && page
@@ -492,6 +503,10 @@ async function staticIndexHtml(
 }
 
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
+  if (new URL(request.url).pathname === "/features") {
+    return { ...staticHeaders(filePath), "X-Wiki-Reader-Access": "public", "X-Wiki-Reader-Account": "public",
+      "Cache-Control": "private, no-store", Vary: "Accept, Cookie, Host, User-Agent" };
+  }
   if (isEducationHubPathname(new URL(request.url).pathname)) {
     return { ...staticHeaders(filePath), "X-Wiki-Reader-Access": "education", "X-Wiki-Reader-Account": "public",
       "Cache-Control": "private, no-store", Vary: "Accept, Cookie, Host, User-Agent" };
@@ -562,7 +577,7 @@ async function robotsPolicyResponse(
   }
 
   return new Response(
-    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n${!allowIndexing && allowEducation ? "Allow: /education\n" : ""}`,
+    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n${!allowIndexing && allowEducation ? "Allow: /education\nAllow: /features\n" : ""}`,
     {
       headers: {
         "Cache-Control": "no-cache",
@@ -597,7 +612,8 @@ export function createAppShellHandler({
     }
     const hasExtension = path.extname(url.pathname) !== "";
     const isMarkdownAlias = MARKDOWN_ALIAS_PATH_RE.test(url.pathname);
-    const directFileExists = existsSync(directPath) && !directPath.endsWith(path.sep);
+    // A directory that shares a route name (a /features folder) is not a file.
+    const directFileExists = existsSync(directPath) && !directPath.endsWith(path.sep) && statSync(directPath).isFile();
     const filePath = directFileExists ? directPath : path.join(distDir, "index.html");
 
     const servesIndex = path.basename(filePath) === "index.html";

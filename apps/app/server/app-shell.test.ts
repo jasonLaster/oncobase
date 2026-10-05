@@ -449,6 +449,37 @@ describe("wiki Vite app-shell password gate", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  test("serves the features page publicly, indexable, with its own share card", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    const response = await handler(request("/features"));
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(html).toContain("<title>Oncobase features");
+    expect(html).toContain('<meta property="og:title" content="Everything Oncobase can do" />');
+    expect(html).toContain('<link rel="canonical" href="http://127.0.0.1/features" />');
+    expect(html).not.toContain("noindex");
+    // No wiki page data rides along on a public marketing page.
+    expect(html).not.toContain('id="wiki-page-bootstrap"');
+  });
+
+  test("serves a public route whose name matches a directory in the build output", async () => {
+    await mkdir(path.join(distDir, "features"), { recursive: true });
+    await writeFile(path.join(distDir, "features", "shot.jpg"), "jpg");
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+    const response = await handler(request("/features"));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("Oncobase features");
+  });
+
   test("rejects the unsigned legacy gate cookie", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,
@@ -593,7 +624,7 @@ describe("wiki Vite app-shell password gate", () => {
     expect(robots.headers.get("content-type")).toBe("text/plain; charset=utf-8");
     expect(robots.headers.get("cache-control")).toBe("no-cache");
     expect(robots.headers.get("vary")).toBe("Host");
-    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\nAllow: /education\n");
+    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\nAllow: /education\nAllow: /features\n");
 
     const publicHandler = createWikiViteHandler({
       client: fakeClient({ passwordGate: false }) as never,

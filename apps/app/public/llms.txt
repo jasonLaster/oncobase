@@ -1,0 +1,27 @@
+# Oncobase
+
+> Oncobase is an open-source (MIT) knowledge base for taking control of your care. Publish a vault of markdown notes, papers, and results to a searchable reader with AI search and chat, role-based privacy, inline redaction, and clinical viewers.
+
+It was inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
+
+## Start here
+
+- [Everything Oncobase can do](https://diana-tnbc.com/features): the public features page.
+- [Full feature and interface list for agents](https://diana-tnbc.com/llms-full.txt): every feature, where it lives, and how to call it.
+- [Source code and README](https://github.com/jasonLaster/oncobase): MIT licensed.
+- [Diana's knowledge base](https://diana-tnbc.com/): the first site built on Oncobase.
+
+## What it does
+
+- Read: Find your way around and read comfortably, on any screen.
+- Ask: Search by meaning, or talk to the knowledge base.
+- Protect: Share the science without sharing the patient.
+- See the data: Timelines, scans, and slides next to the notes.
+- Share: Bring family, doctors, and researchers in.
+- Build: Publish from plain files. Extend it with code or agents.
+
+## Notes for agents
+
+- The reader is a client-rendered web app; most content needs a signed-in session or the site password.
+- The public guides at https://diana-tnbc.com/education and the features page need no password.
+- To publish, use the `oncobase` CLI (`oncobase check`, then `oncobase publish`) and the bundled skills (`oncobase skills`).

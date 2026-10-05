@@ -325,15 +325,20 @@ function Platform({ ref }: { ref: RefObject<HTMLElement | null> }) {
             system to the diagnostics viewer and the agentic chatbot, is open
             source and free to build on.
           </p>
-          <a
-            className="lp-button"
-            href="https://github.com/jasonLaster/oncobase"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <GitBranch size={17} /> View Oncobase on GitHub{" "}
-            <ArrowRight size={15} />
-          </a>
+          <div className="lp-platform-actions">
+            <a
+              className="lp-button"
+              href="https://github.com/jasonLaster/oncobase"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <GitBranch size={17} /> View Oncobase on GitHub{" "}
+              <ArrowRight size={15} />
+            </a>
+            <a className="lp-text-link" href="/features">
+              See everything it can do <ArrowRight size={15} />
+            </a>
+          </div>
         </div>
       </div>
     </section>

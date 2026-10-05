@@ -68,6 +68,14 @@ try {
     throw new Error("Standalone deep route gate did not use auth-safe cache headers");
   }
 
+  // The features page and agent-readable lists are public.
+  for (const publicPath of ["/features", "/llms.txt", "/llms-full.txt"]) {
+    const publicResponse = await fetch(`${origin}${publicPath}`, { redirect: "manual" });
+    if (publicResponse.status !== 200) {
+      throw new Error(`Standalone ${publicPath} should be public, got ${publicResponse.status}`);
+    }
+  }
+
   // Signed-out visitors see the landing page at "/" instead of a redirect.
   const gatedRootResponse = await fetch(`${origin}/`, {
     redirect: "manual",

@@ -6,7 +6,7 @@ import type { Plugin } from "vite";
  * light, and follow only static imports so optional features stay optional. */
 function preloadReaderModules(urls: string[]) {
   if (location.pathname === "/education" || location.pathname.startsWith("/education/")) return;
-  if (["/login", "/sign-in", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare", "/tools/pathology-viewer"].includes(location.pathname)) return;
+  if (["/login", "/sign-in", "/features", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare", "/tools/pathology-viewer"].includes(location.pathname)) return;
   if (!document.createElement("link").relList.supports("modulepreload")) return;
   for (const href of urls) {
     const link = document.createElement("link");

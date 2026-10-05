@@ -29,6 +29,23 @@ export function landingRouteMetadata(): SpecialRouteMetadata {
   };
 }
 
+const FEATURES_DESCRIPTION =
+  "Everything Oncobase can do: a searchable reader with an outline and file palette, smart tables, an AI chat and semantic search over your own records, role-based privacy with inline redaction, clinical viewers, and an open-source publishing pipeline built for people and agents.";
+
+/** What a shared link to the features page shows in chats and social apps. */
+export function featuresRouteMetadata(): SpecialRouteMetadata {
+  return {
+    description: FEATURES_DESCRIPTION,
+    openGraphDescription: FEATURES_DESCRIPTION,
+    openGraphImage: "/landing/og-image.jpg",
+    openGraphTitle: "Everything Oncobase can do",
+    openGraphType: "website",
+    title: "Oncobase features — open-source tools for taking control of your care",
+    twitterDescription: FEATURES_DESCRIPTION,
+    twitterTitle: "Everything Oncobase can do",
+  };
+}
+
 type RouteDefinition = {
   description?: string;
   openGraphTitle?: string;
@@ -100,6 +117,7 @@ export function specialRouteMetadata({
   siteName: string;
 }): SpecialRouteMetadata | null {
   if (pathname === "/login") return landingRouteMetadata();
+  if (pathname === "/features") return featuresRouteMetadata();
   if (pathname === "/sign-in") {
     return { ...landingRouteMetadata(), title: SIGN_IN_TITLE };
   }

@@ -916,7 +916,11 @@
 .lp-platform-copy p a:hover {
   color: var(--lp-accent);
 }
-.lp-platform-copy .lp-button {
+.lp-platform-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 24px;
   margin-top: 26px;
 }
 

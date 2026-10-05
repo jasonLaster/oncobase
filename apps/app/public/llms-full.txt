@@ -1,0 +1,121 @@
+# Oncobase: every feature
+
+Oncobase is an open-source (MIT) knowledge base for taking control of your care. Source: https://github.com/jasonLaster/oncobase. Live example: https://diana-tnbc.com/. Inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
+
+Auth key: Gate = the site's shared-password cookie; Session = an account cookie; Publish token = `Authorization: Bearer wpt_…`; Public = none.
+
+## Read
+
+Find your way around and read comfortably, on any screen.
+
+- **Page tree** — Every page in a folders-first tree that remembers what you opened, resizes, collapses to a rail, and stays fast on large vaults. Where: Sidebar. Interface: `GET /api/wiki/manifest`.
+- **Outline** — A page's headings with the current section highlighted as you scroll; a tab in the phone sheet and a mode in the palette. Where: Right rail, phone sheet, palette (⌘⇧O).
+- **Heading links** — Every heading is linkable. Hover for a # that copies the URL, and deep links land clear of the fixed header. Where: Every page.
+- **Smart tables** — Column widths come from measured text, drag to resize, expand to the full workspace on desktop, with a phone layout and a sticky first column. Where: Any markdown table.
+- **File palette** — ⌘K jumps to any page with fuzzy matching and recents, works offline, and also finds headings, source PDFs, tags, and actions. Where: ⌘K / Ctrl+K.
+- **Mobile reader** — A phone header, a bottom sheet with Page nav and Outline tabs, focus trapping, and a floating Ask wiki button. Where: Below 768px.
+- **Light, dark, or system** — Three theme modes applied before first paint, so there is no flash. Diagrams follow the theme. Where: Actions menu, palette, theme button.
+- **Image lightbox and slides** — Open any image full screen with download, and step through a slide set with the arrow keys. Where: Every page with images.
+- **Rich markdown** — Wikilinks, GFM tables, task lists and footnotes, KaTeX math, Mermaid diagrams, citation links, and PDF chips. Where: Every page.
+- **Tags and note bundles** — Tag pages list their pages as a tree; Overview, Formatted, and Raw versions of one note share a switcher. Where: /tags/:tag, page header.
+- **Saved pages and offline** — Pages are stored on your device, paint before the database opens, and say plainly when you are offline or retrying. Where: Automatic.
+- **Copy and download** — Copy a page as markdown in one click, or download the whole wiki as a zip. Where: Page header, actions menu. Interface: `GET /api/page-copy, GET /api/download`.
+
+## Ask
+
+Search by meaning, or talk to the knowledge base.
+
+- **Chat with the knowledge base** — An agent searches, reads the best pages, follows links, and answers with inline citations. Conversations are saved, and you can stop, queue, and resume. Where: Ask wiki, /chat. Interface: `POST /api/chat`.
+- **AI search** — Semantic search that returns the most relevant pages, each scored out of 10 with a one-line reason. Where: /search (AI Mode). Interface: `POST /api/ai-search`.
+- **Text search** — Exact matches with line numbers and highlighted snippets, grouped by page, with an interim answer while the full scan finishes. Where: /search (Text Search). Interface: `GET /api/search`.
+- **Agent tools** — The same search and read tools the chat agent uses, as a JSON endpoint: search_wiki, read_page, get_pages_by_tag, list_tags, list_pages. Where: API only. Interface: `POST /api/tools`.
+
+## Protect
+
+Share the science without sharing the patient.
+
+- **Password gate** — A shared password in front of the whole site, with a signed cookie and no-store responses. Where: Sign-in page. Interface: `POST /api/login`.
+- **Accounts and roles** — Give each person a role and choose which folders and tags they can open. A sensitive page that no role matches is visible to nobody. Where: Admin, Roles. Interface: `/api/admin/roles`.
+- **Sensitive pages** — Mark a page sensitive in its frontmatter and it drops out of guest manifests, search, AI search, chat, tags, downloads, link previews, and comments. Where: Frontmatter. Interface: `oncobase check`.
+- **Inline redaction** — Wrap a span in <redact> or a block in :::redact and readers without access see the label, not the text. Where: Markdown.
+- **Redaction patterns** — Per-site patterns catch identifiers that slip through, applied on page reads, search, AI search, chat, copy, and downloads. Where: Site config.
+- **Admin screens** — Filter pages by who can see them, assign roles in bulk, and preview what a role includes before saving. Where: /admin/pages, /admin/users, /admin/roles.
+- **Agent skills for redaction** — Written rules teach agents what to redact, what to leave visible, and what to mark sensitive, with a linter that checks. Where: Vault skills (Diana’s vault).
+
+## See the data
+
+Timelines, scans, and slides next to the notes.
+
+- **Diagnostics timeline** — Swim-lanes for imaging, pathology, ctDNA, and blood counts, with a draggable overview, zoom, filter, and source links. Where: /diagnostics. Interface: `GET /api/timeline`.
+- **Imaging list** — Every study with its reports, images, comparisons, and download, as a table or a phone list. Where: /diagnostics/imaging. Interface: `GET /api/diagnostic-studies`.
+- **DICOM viewer** — Stack and series browsing, window/level, pan, zoom, cine, touch gestures, deep links, and saved annotations with a calibrated ruler. Where: /tools/dicom-viewer. Interface: `/api/dicom/*`.
+- **DICOM compare** — Two synced viewports with presets such as subtraction, z-matched, and projection, and a clear match state. Where: /tools/dicom-compare.
+- **Pathology slides** — Whole-slide viewing with a navigator, magnification, scale bar, rulers, side-by-side compare, and saved region notes. Where: /tools/pathology-viewer. Interface: `/api/pathology/*`.
+- **Lab ingestion** — An hourly import of lab results from Epic MyChart over SMART on FHIR, with encrypted tokens. Where: Admin. Interface: `/api/integrations/epic/*`.
+
+## Share
+
+Bring family, doctors, and researchers in.
+
+- **Comments** — Page-level and selection-anchored threads with replies, reactions, resolve, and shareable links; guests get a stable name. Where: Right rail, /comments. Interface: `/api/liveblocks-*`.
+- **Link previews** — Pages get their own preview card in chats and social apps. Sensitive pages fall back to a generic card. Where: Automatic. Interface: `GET /api/share-preview`.
+- **Education hub** — A public, password-free reader for the guides you choose to share, with its own search. Where: /education. Interface: `GET /api/education/*`.
+- **Multi-site** — One deployment can serve several sites, each with its own domain, password, roles, and data. Where: Site config.
+
+## Build
+
+Publish from plain files. Extend it with code or agents.
+
+- **Publish from a vault** — Write in an Obsidian-style folder of markdown and publish with one command. Only changed files upload. Where: Terminal. Interface: `oncobase publish`.
+- **Dry runs and safety rails** — check shows what would change, tombstones need an explicit flag, dirty trees are refused, and uploads are verified by reading them back. Where: Terminal. Interface: `oncobase check`.
+- **Sync** — Pull remote content into the vault without overwriting your edits; differences are set aside for review. Where: Terminal. Interface: `oncobase sync`.
+- **Embeddings** — Publishing computes search embeddings so semantic search works the moment a page goes live. Where: Terminal. Interface: `oncobase publish --embeddings`.
+- **Research helpers** — Literature and clinical-trial search with provenance, and audio-to-note transcription. Where: Terminal. Interface: `oncobase elicit, oncobase transcription`.
+- **Agent skills** — Skills for first-time setup and safe pre-publish checks ship with the CLI and copy into your vault. Where: Terminal. Interface: `oncobase skills`.
+- **Local stack** — A self-hosted backend, seeded site, and smoke test on your machine, with no cloud account. Where: Terminal. Interface: `bun run local:stack`.
+- **Open source** — MIT licensed. Run it on Vercel and Convex or with the standalone Bun server. Where: GitHub.
+
+## Interfaces
+
+| Name | Kind | What it does | Auth |
+| --- | --- | --- | --- |
+| `GET /api/wiki/manifest` | API | File tree, page index, and asset index with ETag | Gate |
+| `GET /api/wiki/pages?slugs=` | API | Page bodies, redacted for the viewer | Gate |
+| `GET /api/search?q=` | API | Exact-text search with line hits | Gate |
+| `POST /api/ai-search` | API | Semantic search with relevance scores and summaries | Gate |
+| `POST /api/chat` | API | Streaming agent chat with citations | Gate |
+| `POST /api/tools` | API | Run search_wiki, read_page, get_pages_by_tag, list_tags, list_pages | Gate |
+| `GET /api/page-copy?slug=` | API | A page as a markdown download | Gate |
+| `GET /api/download?type=` | API | The whole wiki as a zip | Gate |
+| `GET /api/file?path=` | API | A PDF, image, or data file, with range requests | Gate |
+| `GET /api/timeline` | API | The diagnostics timeline data | Gate |
+| `/api/dicom/*, /api/pathology/*` | API | Imaging catalogs, bytes, annotations, and slide tiles | Gate |
+| `GET /api/education/*` | API | The public guides: manifest, pages, search, files | Public |
+| `POST /api/publish/*` | API | The publish protocol the CLI speaks | Publish token |
+| `oncobase init | sync | check | publish` | CLI | Set up a vault and run the publish loop | Publish token |
+| `oncobase skills` | CLI | Copy the bundled agent skills into your vault | None |
+| `oncobase elicit | transcription` | CLI | Literature, trials, and audio-to-note helpers | Service keys |
+| `bun run local:stack` | Script | A complete local backend with seeded data | Local |
+
+## Details
+
+- **No flash of the wrong theme.** Your theme is applied before the first paint, so dark mode never starts light.
+- **Links land where you meant.** Heading links and outline taps scroll clear of the fixed header, even after a reload, on phones and tablets.
+- **Background refreshes don't move you.** New content replaces old without resetting your scroll or your place in the navigation.
+- **Pages paint before the database opens.** A compressed snapshot paints the page and tree first, and is discarded if the account or access changed.
+- **Honest about slow and offline.** You see “Saved page · offline”, “N KB received” while bytes arrive, and a Retry that cancels the stalled request.
+- **Quiet loading.** Launch and “still loading” cues wait before appearing, and reduced-motion turns the pulse off.
+- **Layout that holds still.** A paint observer checks that content doesn’t jump while it loads, in CI, and images reserve their frame.
+- **Shortcuts work before the app loads.** ⌘K pressed during startup is queued and handed to the palette once it’s ready.
+- **Your layout is remembered.** Sidebar and rail widths, open folders, and recent files persist, and table column widths last for the session.
+- **One-tap markdown handoff.** Copy a page as markdown with a single click and a check-mark to confirm. What you copy is already redacted.
+- **Real focus management.** Sheets trap Tab and restore focus, the lightbox is a native dialog, and the palette announces its result count.
+- **Accessibility checked by machine.** axe-core runs over the shell, search, comments, and viewers in light and dark; serious violations fail the build.
+- **Long pages stay fast.** Everything below the first screen is skipped until needed, while find-in-page, selection, anchors, and print still work.
+- **Search can’t go stale.** A late answer for an old query never replaces the current one, and interim results stay visible while the full scan finishes.
+- **Careful with files.** Only allowed file types are served, path tricks are rejected, large PDFs support range requests, and HTML is sandboxed.
+- **Private by default.** Gated and signed-in responses are never cached, sensitive pages are never indexed, and crawlers are told to stay out.
+- **Publishing you can trust.** Dry runs first, explicit flags for deletions, and success reported only after the reader confirms the pages.
+- **Size budgets in CI.** The build fails if the entry or vendor bundles grow past their gzip limits.
+
+Not available today: sorting or filtering inside tables, an MCP server, and automatic dark-theme swapping of illustration pairs inside the reader (illustrations are authored as light and dark pairs; pages like the landing and features pages pick the matching one).

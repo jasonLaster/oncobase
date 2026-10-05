@@ -46,6 +46,8 @@ type MockOptions = {
   pageFailures?: Partial<Record<string, number | true>>;
   pageOverrides?: Partial<Record<string, Partial<FixturePage>>>;
   piiPatterns?: string[] | null;
+  /** Serve only `pageOverrides`, for captures of an authored sample vault. */
+  omitBasePages?: boolean;
 };
 
 const generatedAt = "2026-05-09T12:00:00.000Z";
@@ -248,7 +250,7 @@ function hash(value: string) {
 }
 
 function pagesForOptions(options: MockOptions) {
-  const pages: Record<string, FixturePage> = { ...basePages };
+  const pages: Record<string, FixturePage> = options.omitBasePages ? {} : { ...basePages };
 
   for (const [slug, override] of Object.entries(options.pageOverrides ?? {})) {
     if (!override) continue;

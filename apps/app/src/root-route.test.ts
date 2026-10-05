@@ -8,6 +8,7 @@ describe("rootRouteFor", () => {
     expect(rootRouteFor("/search", true)).toBe("reader");
     expect(rootRouteFor("/login", false)).toBe("login");
     expect(rootRouteFor("/sign-in", false)).toBe("sign-in");
+    expect(rootRouteFor("/features", false)).toBe("features");
     expect(rootRouteFor("/terms-and-conditions", false)).toBe("terms");
     expect(rootRouteFor("/education", false)).toBe("education");
     expect(rootRouteFor("/education/topic", false)).toBe("education");
@@ -21,6 +22,7 @@ describe("rootRouteFor", () => {
     expect(rootRouteFor("/wiki/education/topic", true)).toBe("reader");
     expect(rootRouteFor("/login", true)).toBe("login");
     expect(rootRouteFor("/sign-in", true)).toBe("sign-in");
+    expect(rootRouteFor("/features", true)).toBe("features");
   });
 
   test("a signed-out landing response renders the landing page only at the root", () => {
