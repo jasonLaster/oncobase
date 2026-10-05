@@ -23,8 +23,9 @@ test("only the owner-checked conversations module and internal migrations read t
 test("server code reaches conversations only through the chat route, which binds every call to an owner", async () => {
   const users = [...(await sources("server")), ...(await sources("scripts"))]
     .filter(({ text }) => /api\.conversations|internal\.conversations/.test(text)).map(({ path }) => path).sort();
-  // (The production gate probe only asserts that anonymous/foreign callers are denied.)
-  expect(users).toEqual(["scripts/verify-production-backend-gate.ts", "server/chat-route.ts"]);
+  // (The production gate probe only asserts that anonymous/foreign callers are denied;
+  // the local chat audit drives the same calls against the local stack only.)
+  expect(users).toEqual(["scripts/local-chat-audit.ts", "scripts/verify-production-backend-gate.ts", "server/chat-route.ts"]);
   const route = await Bun.file("server/chat-route.ts").text();
   const calls = route.match(/api\.conversations\.\w+/g) ?? [];
   expect(calls.length).toBeGreaterThan(0);
