@@ -62,7 +62,8 @@ test.describe("finding things (real backend)", () => {
     await input.fill("pembrolizumab");
     await input.press("Enter");
     await expect(page).toHaveURL(/q=pembrolizumab/);
-    await expect(page.getByTestId("search-text-summary")).toBeVisible();
+    // The previous query's summary is still on screen: wait for the new results.
+    await expect(page.getByTestId("search-text-result").first()).toContainText(/pembrolizumab/i);
 
     await input.fill("zzzzqqqq");
     await input.press("Enter");
