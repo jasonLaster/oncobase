@@ -32,7 +32,7 @@ import os from "node:os";
 import path from "node:path";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import {
-  APP_DIR, LOCAL_CARE_USER, LOCAL_GATE_PASSWORD, LOCAL_READER_USER, LOCAL_SITE_SLUG, PORTS, REPO_DIR,
+  APP_DIR, LOCAL_ADMIN_USER, LOCAL_CARE_USER, LOCAL_GATE_PASSWORD, LOCAL_READER_USER, LOCAL_SITE_SLUG, PORTS, REPO_DIR,
   STACK_DIR, STACK_ENV_FILE, formatEnvFile, parseEnvFile,
 } from "./local-stack-env";
 
@@ -245,11 +245,15 @@ function stackEnv(secrets: Secrets): Record<string, string> {
     // Comments and AI stay disabled unless the developer adds keys.
     NEXT_PUBLIC_ENABLE_COMMENTS: "false",
     VITE_ENABLE_COMMENTS: "false",
+    // Chat answers come from a deterministic fake model (server/fake-chat-model.ts).
+    WIKI_CHAT_FAKE_MODEL: "1",
     LOCAL_STACK_GATE_PASSWORD: LOCAL_GATE_PASSWORD,
     LOCAL_STACK_CARE_EMAIL: LOCAL_CARE_USER.email,
     LOCAL_STACK_CARE_PASSWORD: LOCAL_CARE_USER.password,
     LOCAL_STACK_READER_EMAIL: LOCAL_READER_USER.email,
     LOCAL_STACK_READER_PASSWORD: LOCAL_READER_USER.password,
+    LOCAL_STACK_ADMIN_EMAIL: LOCAL_ADMIN_USER.email,
+    LOCAL_STACK_ADMIN_PASSWORD: LOCAL_ADMIN_USER.password,
   };
 }
 
@@ -447,7 +451,7 @@ async function seed(secrets: Secrets, env: Record<string, string>) {
     const roleId = roles.find((role) => role.name === "care-team")?._id ?? await client.mutation(api.access.createRole, {
       name: "care-team", description: "Local stack: may read pages tagged sensitive", includeTags: ["sensitive"], siteSlug: LOCAL_SITE_SLUG,
     });
-    for (const user of [LOCAL_CARE_USER, LOCAL_READER_USER]) {
+    for (const user of [LOCAL_CARE_USER, LOCAL_READER_USER, LOCAL_ADMIN_USER]) {
       let existing = await client.query(api.users.getByEmailForAuth, { email: user.email, siteSlug: LOCAL_SITE_SLUG });
       if (!existing) {
         const passwordSalt = createPasswordSalt();
@@ -544,6 +548,7 @@ Local stack is up (Convex ${convexUrl}, Blob ${blobOrigin}). From apps/app:
 Gate password: ${LOCAL_GATE_PASSWORD}
 Users: ${LOCAL_CARE_USER.email} / ${LOCAL_CARE_USER.password} (care-team, sees sensitive)
        ${LOCAL_READER_USER.email} / ${LOCAL_READER_USER.password} (no role)
+       ${LOCAL_ADMIN_USER.email} / ${LOCAL_ADMIN_USER.password} (site owner, admin)
 Stop with: bun run local:stack stop   Reset with: bun run local:stack --reset`);
 }
 

@@ -26,6 +26,7 @@ import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@onco
 import { api } from "../convex/_generated/api.js";
 import { getDocumentsByTag, listDocuments } from "./document-listing";
 import type { Id } from "../convex/_generated/dataModel.js";
+import { createFakeChatModel, isFakeChatModelEnabled } from "./fake-chat-model";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
@@ -286,7 +287,7 @@ export async function handleChatRequest({
     );
   }
 
-  if (!process.env.AI_GATEWAY_API_KEY) {
+  if (!isFakeChatModelEnabled() && !process.env.AI_GATEWAY_API_KEY) {
     return Response.json(
       { error: "AI_GATEWAY_API_KEY is not configured. Add it to the deployment environment to enable chat." },
       { status: 500, headers: { "x-request-id": requestId } },
@@ -389,7 +390,7 @@ export async function handleChatRequest({
   });
 
   const result = streamText({
-    model: chatTextModel(),
+    model: isFakeChatModelEnabled() ? (createFakeChatModel() as never) : chatTextModel(),
     // OpenAI summaries are opt-in; the provider's raw reasoning stays private.
     providerOptions: { openai: { reasoningSummary: "auto" } },
     maxOutputTokens: 50000,

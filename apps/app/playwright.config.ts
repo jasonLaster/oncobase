@@ -49,7 +49,7 @@ export default defineConfig({
   testDir: "./e2e",
   // Real comment writes require private traces and verified teardown. Run them
   // through the local live-backend setup, never the public CI artifact pipeline.
-  testIgnore: ["**/comments-live.spec.ts"],
+  testIgnore: ["**/live/comments-live.spec.ts", "**/live/chat-live.spec.ts"],
   globalSetup: previewAuthState ? "./playwright.global-setup.ts" : undefined,
   timeout: 45_000,
   expect: { timeout: 15_000 },

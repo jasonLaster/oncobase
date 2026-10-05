@@ -23,6 +23,8 @@ export const LOCAL_SITE_SLUG = "diana";
 export const LOCAL_GATE_PASSWORD = "diana";
 export const LOCAL_CARE_USER = { email: "care@local.test", password: "local-care-password", name: "Care Team" };
 export const LOCAL_READER_USER = { email: "reader@local.test", password: "local-reader-password", name: "Reader" };
+/** The site owner (`sites.ensureDiana` ownerEmail), who is an admin. */
+export const LOCAL_ADMIN_USER = { email: "owner@local.test", password: "local-admin-password", name: "Site Owner" };
 
 /** Parse the generated KEY='value' env file. */
 export function parseEnvFile(file = STACK_ENV_FILE): Record<string, string> {

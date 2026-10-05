@@ -160,10 +160,10 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:62003 WIKI_VITE_PREVIEW_LOGIN_PASSWORD=dian
 bun run local:stack status | stop | --reset | --build
 ```
 
-- The gate password is `diana`. The seeded users are `care@local.test` / `local-care-password` (care-team) and `reader@local.test` / `local-reader-password` (no role).
+- The gate password is `diana`. The seeded users are `care@local.test` / `local-care-password` (care-team) `reader@local.test` / `local-reader-password` (no role) and `owner@local.test` / `local-admin-password` (the site owner, an admin).
 - Re-runs reuse keys, data and the running backend, and only republish changed fixture files. `--reset` wipes data and keys. `--build` rebuilds the stack's reader build in `.local-stack/dist`, which the server uses through `WIKI_DIST_DIR`.
 - The backend's `"use node"` actions need Node 20, 22 or 24. If the system `node` is a different version, the script downloads Node 22 from nodejs.org into `.local-stack/tools` and checks its checksum. It reuses the Convex CLI's cached backend binary when one exists.
-- Embeddings, AI search, chat and Liveblocks comments are not configured locally.
+- Embeddings, AI search and Liveblocks comments are not configured locally. Chat runs against a deterministic fake model: the stack sets `WIKI_CHAT_FAKE_MODEL=1`, and `server/fake-chat-model.ts` then answers `fake-reply: <prompt>` (a prompt containing `[slow]` streams for about six seconds so Stop and queueing can be tested) while auth, persistence and streaming stay real. Never set it in a deployment. `e2e/journeys/chat.spec.ts` relies on it; the real-model check is the opt-in `e2e/live/chat-live.spec.ts`.
 
 ### documentMeta projection rollout
 
