@@ -327,8 +327,12 @@ function createFakeConvexClient({
         }
         case "documents:listFileAssetVisibilityPage":
           return {
-            page: extraAssets.filter(asset => args.includeSensitive || asset.sensitive === false)
-              .map(({ path, ownerSlugs, sensitive }) => ({ path, ownerSlugs, sensitive })),
+            // Every file asset of documents:listFileAssetsPage has a visibility row, as in Convex.
+            page: [
+              { path: "biopsy/raw/dicom.zip", ownerSlugs: [], sensitive: false },
+              { path: "private/plan.zip", ownerSlugs: ["private/plan"], sensitive: true },
+              ...extraAssets.map(({ path, ownerSlugs, sensitive }) => ({ path, ownerSlugs, sensitive })),
+            ].filter(asset => args.includeSensitive || asset.sensitive === false),
             isDone: true,
             continueCursor: null,
           };
