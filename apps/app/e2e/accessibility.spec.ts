@@ -91,6 +91,68 @@ test.describe("cross-surface accessibility smoke", () => {
     await expect(trigger).toBeFocused();
   });
 
+  test("a keyboard-only pass reaches the palette, search, and sign-in dialog with visible, contained focus", async ({
+    page,
+  }) => {
+    await page.route("**/api/auth/session", (route) => route.fulfill({ json: { user: null } }));
+    const focusIsVisible = () =>
+      page.evaluate(() => document.activeElement?.matches(":focus-visible") ?? false);
+
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await expect(page.getByTestId("document-article")).toBeVisible();
+
+    // Reader -> palette: focus lands in the combobox, stays inside on Tab, and returns on Escape.
+    const trigger = page.getByTestId("sidebar-search");
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const palette = page.getByRole("dialog", { name: "Go to page" });
+    await expect(palette.getByRole("combobox", { name: "Search pages" })).toBeFocused();
+    expect(await focusIsVisible()).toBe(true);
+    for (let i = 0; i < 4; i++) {
+      await page.keyboard.press("Tab");
+      expect(await palette.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    }
+    await page.keyboard.press("Escape");
+    await expect(palette).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    expect(await focusIsVisible()).toBe(true);
+
+    // Palette -> search: the workspace menu opens with the keyboard and leads to the search box.
+    const workspace = page.getByRole("button", { name: "Workspace menu" });
+    await workspace.focus();
+    await page.keyboard.press("Enter");
+    const menu = page.getByRole("menu", { name: "Actions" });
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitem", { name: "Text Search" }).focus();
+    expect(await focusIsVisible()).toBe(true);
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/search(?:\?|$)/);
+    const searchBox = page.getByRole("textbox", { name: "Search the wiki" });
+    await searchBox.focus();
+    await page.keyboard.type("insurance");
+    await expect(searchBox).toHaveValue("insurance");
+    expect(await focusIsVisible()).toBe(true);
+
+    // Search -> sign-in dialog: focus is trapped inside and restored to the prompt on Escape.
+    await page.goto("/");
+    await expect(page.getByTestId("document-article")).toBeVisible();
+    const prompt = page.getByTestId("sidebar-sign-in").filter({ visible: true });
+    await prompt.focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("dialog", { name: "Sign in", exact: true });
+    await expect(dialog.getByLabel("Email", { exact: true })).toBeFocused();
+    expect(await focusIsVisible()).toBe(true);
+    await page.keyboard.press("Shift+Tab");
+    expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    for (let i = 0; i < 6; i++) {
+      await page.keyboard.press("Tab");
+      expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    }
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("wiki-auth-dialog")).toHaveCount(0);
+    await expect(prompt).toBeFocused();
+  });
+
   test("search, comments, diagnostics, and calculator avoid serious violations", async ({
     page,
   }) => {
