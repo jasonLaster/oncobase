@@ -24,7 +24,7 @@ four deterministic tests passed on both Chromium and WebKit (eight total).
 
 ## Regression contract
 
-`apps/app/e2e/additive-paint.spec.ts` uses a synthetic static meeting note at the
+`apps/app/e2e/resilience/identity-cache.spec.ts` (test "cold load and cached reload paint additively") uses a synthetic static meeting note at the
 reported route. It covers desktop defaults, saved left/right pane widths, and
 mobile, each with a cold load, a cached reload, and delayed manifest refreshes.
 The cached phase holds application scripts until the saved HTML is visibly on
@@ -36,9 +36,7 @@ checks the title, markdown body, navigation, Comments and Diagnostics links, and
 right rail. Once a region appears it must remain visible, and visible rails must
 retain their width and horizontal position. The monitor checks CSS visibility as
 well as DOM presence and chooses the visible copy when saved/live trees coexist.
-Failures attach a compact frame history. A control test deliberately hides the
-article for frames and shrinks the sidebar, then restores the article; it proves
-the monitor catches a regression that final-state assertions miss.
+Failures attach a compact frame history. The monitor also fails if a region was never seen, so a selector drift cannot pass vacuously.
 
 The contract is scoped to a static route without user interaction. It does not
 forbid removal after logout, permission revocation, deleted content, explicit
@@ -50,21 +48,10 @@ every pixel or every browser/network schedule.
 From `apps/app`:
 
 ```sh
-PLAYWRIGHT_PORT=61040 bun run test:e2e e2e/additive-paint.spec.ts
+PLAYWRIGHT_PORT=61040 bunx playwright test e2e/resilience/identity-cache.spec.ts -g additively
 ```
 
-For a production bundle, run `bun run build`, serve it with
-`bunx vite preview --host 127.0.0.1 --port 61041`, then:
-
-```sh
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:61041 bun run test:e2e e2e/additive-paint.spec.ts
-```
-
-Set `PLAYWRIGHT_BROWSER=webkit` for the persistent-profile WebKit check. The live
-probe is opt-in and signs in through the existing Diana gate login flow:
-
-```sh
-ADDITIVE_PAINT_LIVE=1 PLAYWRIGHT_BASE_URL=https://diana-tnbc.com bun run test:e2e e2e/additive-paint.spec.ts --grep 'live reported'
-```
+Set `PLAYWRIGHT_BROWSER=webkit` for the persistent-profile WebKit check. The old
+opt-in live probe was removed with the e2e consolidation.
 
 For the broader follow-up, see [Page flashing and layout stability](visual-stability-strategy.md), including root-cause fixes, the shared observer, and cross-browser release gates.

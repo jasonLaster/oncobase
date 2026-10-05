@@ -102,7 +102,7 @@ Additional release obligations for changes in their respective areas:
 
 - Markdown/rendering: run image theater, table expansion, heading-anchor and
   renderer-parity tests; inspect portrait and landscape figure previews.
-- Reader lifecycle: run manifest-cache, cache-retirement, session-recovery,
+- Reader lifecycle: run the resilience suite (e2e/resilience), cache-retirement unit tests,
   access/revocation, navigation, and storage/startup suites. Visual continuity
   must not weaken authorization or make failures wait forever.
 - Comments/chat/diagnostic viewers: exercise their own lazy loading, failure,
@@ -125,24 +125,21 @@ tie it to a lifecycle/resource event.
 
 ## Commands and automation
 
-From `apps/app`, build once and run the dedicated synthetic suite:
+The dedicated `playwright.stability.config.ts` suite and the
+`visual-stability.yml` matrix workflow were retired in the 2026-10-04 e2e
+consolidation. Continuity is now asserted by
+`apps/app/e2e/resilience/identity-cache.spec.ts` (additive cold/cached paint via
+`e2e/paint-monitor.ts`, and the late-identity handoff outcome via the shared
+observer), which runs under the normal Playwright config and CI. The in-app
+observer (`?paintDebug=1`) is unchanged.
 
 ```sh
-bun run build
-bunx playwright test --config playwright.stability.config.ts
-PLAYWRIGHT_BROWSER=webkit bunx playwright test --config playwright.stability.config.ts
-PLAYWRIGHT_BROWSER=firefox bunx playwright test --config playwright.stability.config.ts
-VISUAL_CPU_RATE=4 bunx playwright test --config playwright.stability.config.ts
-bunx playwright test --config playwright.stability.config.ts --repeat-each=3
+cd apps/app
+PLAYWRIGHT_PORT=61101 bunx playwright test e2e/resilience/identity-cache.spec.ts
 ```
 
-Use a fresh `PLAYWRIGHT_PORT` and distinct `--output` directories for concurrent
-runs. `VISUAL_SCREENSHOTS=1` retains final synthetic screenshots for manual review.
-The suite attaches compact JSON histories. `.github/workflows/visual-stability.yml`
-runs the production bundle on pull requests/main across the three engines plus
-4x CPU Chromium, with zero retries. It uses synthetic API fixtures and requires
-no production credentials. Live probes remain explicitly opt-in and outside
-the public artifact workflow.
+Use a fresh `PLAYWRIGHT_PORT` for concurrent runs. Deployed-site live probes are
+no longer shipped as specs; use `?paintDebug=1` and the report above.
 
 For an unexplained report: record the deployed SHA, route and approximate time
 outside the redacted diagnostic JSON; identify cold/cached/session state; reproduce
