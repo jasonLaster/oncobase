@@ -25,10 +25,10 @@ import { requestFromIncoming, sendWebResponse } from "./http-adapter";
 import type { Plugin } from "vite";
 import { legacyRedirectResponse } from "./redirects.ts";
 import { createManifestBuildRequester } from "./manifest-build-requests";
-import { createManifestSnapshotCache } from "@oncobase/wiki-content/server";
+import { createManifestSnapshotCache, type WikiApiContext } from "@oncobase/wiki-content/server";
 import { api } from "../convex/_generated/api.js";
 import { makePublicWikiSessionIdentity, type WikiSessionIdentity } from "@oncobase/wiki-content";
-import { educationDocumentsGateway } from "./education-access";
+import { educationDocumentsGateway, educationManifestSubset } from "./education-access";
 import { EDUCATION_ACCESS_PARTITION } from "../src/education-access";
 import { decorateViteHeaders, enforceApiPasswordGate, privatePasswordGateHeaders, privatizePasswordGatedResponse } from "./api/gate";
 import { createAccessAdapter, createDocumentsGateway } from "./api/documents";
@@ -96,10 +96,10 @@ export function createWikiApiHandler(client = createClient()) {
       access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
       onManifestFallback: (reason: string) => traceBackendAttributes({ "manifest.fallback_reason": reason }),
-      onManifestPhase: (name: "read" | "filter" | "tree" | "hash" | "serialize" | "snapshot-encode", ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
+      onManifestPhase: (name: Parameters<NonNullable<WikiApiContext["onManifestPhase"]>>[0], ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
       manifestSnapshotCache,
+      publicSubset: undefined as WikiApiContext["publicSubset"],
       getManifestSnapshot: process.env.WIKI_PREFETCH_SECRET ? async () => {
-        if (educationOnly) return null;
         // Authenticated by the service JWT; WIKI_PREFETCH_SECRET only gates the feature.
         const args = { siteSlug };
         const snapshot = await client.query(api.manifestCache.current, args);
@@ -146,6 +146,7 @@ export function createWikiApiHandler(client = createClient()) {
     if (educationOnly) {
       context.documents = educationDocumentsGateway(context.documents);
       context.publicIdentity = makePublicWikiSessionIdentity(siteSlug, EDUCATION_ACCESS_PARTITION);
+      context.publicSubset = educationManifestSubset;
     }
 
     if (!route.load) return null;

@@ -3,7 +3,7 @@
 // bytes (the encoded public response, the validated public base used by session
 // overlays) can be reused until the hash changes. Never store per-user data here.
 
-export type ManifestSnapshotCacheKind = "response" | "base";
+export type ManifestSnapshotCacheKind = "response" | "base" | "derived";
 
 export type ManifestSnapshotCacheOptions = {
   /** Most recent entries kept; older ones are evicted first. */
@@ -27,7 +27,7 @@ export type ManifestSnapshotCache = {
 type Entry = { promise: Promise<unknown>; bytes: number };
 
 export function createManifestSnapshotCache({
-  maxEntries = 4,
+  maxEntries = 16,
   maxBytes = 32 * 1024 * 1024,
   onLookup,
 }: ManifestSnapshotCacheOptions = {}): ManifestSnapshotCache {

@@ -2104,6 +2104,48 @@ test("a snapshot miss serves the live manifest without awaiting the build reques
   }
 });
 
+test("education manifests are served from the public snapshot and match the live path", async () => {
+  const saved = process.env.WIKI_PREFETCH_SECRET;
+  const originalFetch = globalThis.fetch;
+  process.env.WIKI_PREFETCH_SECRET = "synthetic-manifest-http-key-00000000000000";
+  const lesson = "wiki/education/oncology-101/index";
+  const base = createFakeConvexClient({ passwordGate: true,
+    extraPages: [{ slug: lesson, title: "Oncology 101", content: "Lesson", tags: [] },
+      { slug: "wiki/updates/week-13", title: "Updates", content: "Update", tags: [] }],
+    extraAssets: [{ path: "wiki/education/oncology-101/handout.pdf", ownerSlugs: [lesson], sensitive: false, blobUrl: "data:application/pdf;base64,AA==" }] });
+  let storageReads = 0;
+  try {
+    const strip = (json: string) => JSON.stringify({ ...JSON.parse(json), generatedAt: undefined });
+    const live = await (await createWikiApiHandler(base as never)(request("/api/education/manifest")))!;
+    expect(live.headers.get("x-wiki-manifest-source")).toBe("manifest");
+    const liveJson = await live.text();
+    const publicJson = await (await createWikiApiHandler(base as never)(request("/api/wiki/manifest?scope=public", { headers: { Cookie: await gateCookie(createWikiApiHandler(base as never)) } })))!.text();
+    const hash = JSON.parse(publicJson).manifestHash as string;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      if (String(input) !== "https://storage.invalid/snapshot") return originalFetch(input);
+      storageReads++;
+      return new Response(publicJson);
+    }) as typeof fetch;
+    const client = { ...base, query: async (ref: FunctionReference<"query">, args: Record<string, unknown>) =>
+      getFunctionName(ref) === "manifestCache:current" ? { hash, revision: 0, url: "https://storage.invalid/snapshot" } : base.query(ref, args) };
+    const handler = createWikiApiHandler(client as never);
+    for (const path of ["/api/education/manifest", "/api/education/manifest?format=full"]) {
+      const response = await handler(request(path));
+      expect(response?.headers.get("x-wiki-manifest-source")).toMatch(/^snapshot-education/);
+      expect(response?.headers.get("cache-control")).toBe("private, no-store");
+      expect(strip(await response!.text())).toBe(strip(liveJson));
+    }
+    expect(storageReads).toBe(1);
+    const validated = await handler(request("/api/education/manifest", { headers: { "if-none-match": live.headers.get("etag")! } }));
+    expect(validated?.status).toBe(304);
+    expect(storageReads).toBe(1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (saved === undefined) delete process.env.WIKI_PREFETCH_SECRET;
+    else process.env.WIKI_PREFETCH_SECRET = saved;
+  }
+});
+
 test("repeat snapshot hits read storage once per hash and representation", async () => {
   const saved = process.env.WIKI_PREFETCH_SECRET;
   const originalFetch = globalThis.fetch;

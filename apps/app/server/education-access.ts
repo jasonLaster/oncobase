@@ -1,4 +1,4 @@
-import type { WikiApiDocumentsGateway } from "@oncobase/wiki-content/server";
+import type { WikiApiDocumentsGateway, WikiPublicSubset } from "@oncobase/wiki-content/server";
 import { isEducationSlug } from "../src/education-access";
 
 export { isEducationSlug } from "../src/education-access";
@@ -74,3 +74,15 @@ export function educationDocumentsGateway(documents: WikiApiDocumentsGateway): W
     },
   };
 }
+
+/** The education manifest as a filter of the public snapshot. Snapshot pages
+ * are all explicitly non-sensitive and snapshot assets are complete,
+ * non-sensitive PDFs, so the live gateway's page and slug/path rules reduce to
+ * these. The one rule a snapshot cannot express is asset ownership (an
+ * education-path asset needs an education owner); the file route still
+ * enforces it with canReadEducationAsset. Pinned by education-manifest.test.ts. */
+export const educationManifestSubset: WikiPublicSubset = {
+  name: "education",
+  includePage: isPublicEducationPage,
+  includeAsset: asset => asset.kind === "pdf" && isEducationSlug(asset.path),
+};

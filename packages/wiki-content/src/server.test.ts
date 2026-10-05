@@ -492,7 +492,7 @@ test("indexed manifest trees preserve file/directory collisions and report fixed
     ["d", "nested", [["d", "item", [["f", "child"]]], ["p", "item"]]],
     ["d", "same", [["p", "child"]]], ["d", "tree", [["f", "leaf"], ["p", "tree", "tree.pdf"]]], ["p", "same"],
   ]);
-  expect(phases).toEqual(["read", "filter", "tree", "hash", "serialize"]);
+  expect(phases).toEqual(["overlay", "assets", "read", "filter", "tree", "hash", "serialize"]);
   context.onManifestPhase = () => { throw new Error("observer failed"); };
   expect((await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context)).status).toBe(200);
 });
@@ -657,10 +657,123 @@ describe("manifest snapshot byte cache", () => {
     context.getManifestSnapshot = async () => { fences++; return { hash: base.manifestHash, revision: 1, read: async () => { reads++; return publicJson; } }; };
     for (let i = 0; i < 3; i++) {
       const response = await createWikiManifestResponse(new Request("https://test/api/wiki/manifest?scope=session"), context);
-      expect(response.headers.get("x-wiki-manifest-source")).toBe("snapshot-overlay");
+      // The first response derives; identical fresh inputs reuse it.
+      expect(response.headers.get("x-wiki-manifest-source")).toBe(i === 0 ? "snapshot-overlay" : "snapshot-overlay-cached");
     }
     expect(reads).toBe(1);
     expect(fences).toBe(6);
+  });
+
+  describe("memoized session responses", () => {
+    async function sessionFixture() {
+      const { context } = manifestContext();
+      const publicJson = await (await createWikiManifestResponse(new Request("https://test/api/wiki/manifest"), context)).text();
+      const base = JSON.parse(publicJson);
+      const row = (slug: string, title: string) => ({ ...base.pages[0], slug, title, sensitive: true });
+      // Per-user fresh grants; a fresh read per request, as in production.
+      const grants = new Map<string, ReturnType<typeof row>[]>();
+      let user = "alice", fences = 0, overlayReads = 0;
+      const extraAssets: Array<{ path: string; ownerSlugs: string[]; sensitive: boolean }> = [];
+      context.getSessionUser = async () => ({ _id: user });
+      context.access = {
+        canUserAccessSlug: async () => true,
+        filterAccessibleSlugs: async (who, slugs) => slugs.map(slug => ({ slug, allowed: (grants.get(who._id) ?? []).some(r => r.slug === slug), hasDocument: true })),
+        getAllowedSlugs: async who => (grants.get(who._id) ?? []).map(r => r.slug),
+        listAllowedManifestPage: async who => { overlayReads++; return { page: grants.get(who._id) ?? [], isDone: true, continueCursor: null }; },
+      };
+      const baseAssets = context.documents.listPdfAssetVisibilityPage;
+      context.documents.listPdfAssetVisibilityPage = async args => {
+        const result = await baseAssets(args);
+        return { ...result, page: [...result.page, ...(args.includeSensitive ? extraAssets : [])] };
+      };
+      context.manifestSnapshotCache = createManifestSnapshotCache();
+      context.getManifestSnapshot = async () => { fences++; return { hash: base.manifestHash, revision: 1, read: async () => publicJson }; };
+      const get = (query = "", headers: Record<string, string> = {}) => createWikiManifestResponse(new Request(`https://test/api/wiki/manifest?scope=session${query}`, { headers }), context);
+      // Oracle: the same request with no memo and no snapshot (the live path).
+      const oracle = async (query = "", headers: Record<string, string> = {}) => {
+        const { manifestSnapshotCache, getManifestSnapshot } = context;
+        context.manifestSnapshotCache = undefined; context.getManifestSnapshot = undefined;
+        const response = await get(query, headers);
+        Object.assign(context, { manifestSnapshotCache, getManifestSnapshot });
+        return response;
+      };
+      context.documents.listManifestPage = async ({ includeSensitive }) => ({
+        page: includeSensitive ? [...base.pages, ...(grants.get(user) ?? [])].sort((a, b) => a.slug < b.slug ? -1 : 1) : base.pages, isDone: true, continueCursor: null });
+      return { get, oracle, grants, row, extraAssets, setUser: (next: string) => { user = next; }, fences: () => fences, overlayReads: () => overlayReads };
+    }
+    const strip = (value: Record<string, unknown>) => JSON.stringify({ ...value, generatedAt: undefined });
+
+    test("cached bytes equal the live path for every format and encoding", async () => {
+      const f = await sessionFixture();
+      f.grants.set("alice", [f.row("private/one", `One ${"x".repeat(800)}`), f.row("private/two", `Two ${"y".repeat(800)}`)]);
+      for (const [query, headers] of [["", {}], ["&format=compact-v1", {}], ["&format=compact-v1", { "Accept-Encoding": "gzip" }]] as const) {
+        const oracle = await f.oracle(query, { ...headers });
+        // The derivation is shared by formats; only the very first request computes it.
+        for (const again of [false, true]) {
+          const response = await f.get(query, { ...headers });
+          expect(response.headers.get("x-wiki-manifest-source")).toBe(query === "" && !again ? "snapshot-overlay" : "snapshot-overlay-cached");
+          expect(response.headers.get("etag")).toBe(oracle.headers.get("etag"));
+          expect(response.headers.get("cache-control")).toBe(oracle.headers.get("cache-control"));
+          const decode = async (r: Response) => r.headers.get("content-encoding") === "gzip" ? gunzipSync(Buffer.from(await r.arrayBuffer())).toString() : await r.text();
+          expect(response.headers.get("content-encoding")).toBe("Accept-Encoding" in headers ? "gzip" : null);
+          expect(strip(JSON.parse(await decode(response)))).toBe(strip(JSON.parse(await decode(oracle.clone()))));
+        }
+      }
+    });
+
+    test("responses are keyed by fresh inputs: never shared across different grants, titles or assets", async () => {
+      const f = await sessionFixture();
+      const secret = f.row("private/one", "ALICE-ONLY-TITLE");
+      f.grants.set("alice", [secret]);
+      const alice = await (await f.get()).text();
+      expect(alice).toContain("ALICE-ONLY-TITLE");
+      // Another user at the same base hash, with no grants, must not receive it.
+      f.setUser("bob");
+      const bob = await f.get();
+      expect(bob.headers.get("x-wiki-manifest-source")).toBe("snapshot-overlay");
+      expect(await bob.text()).not.toContain("ALICE-ONLY-TITLE");
+      // Same slug, edited metadata: a different input, so a fresh derivation.
+      f.setUser("alice");
+      f.grants.set("alice", [{ ...secret, title: "ALICE-EDITED-TITLE" }]);
+      const edited = await f.get();
+      expect(edited.headers.get("x-wiki-manifest-source")).toBe("snapshot-overlay");
+      const editedText = await edited.text();
+      expect(editedText).toContain("ALICE-EDITED-TITLE");
+      expect(editedText).not.toContain("ALICE-ONLY-TITLE");
+      // A newly visible sensitive asset changes the key too.
+      f.extraAssets.push({ path: "private/one.pdf", ownerSlugs: ["private/one"], sensitive: true });
+      const withAsset = await f.get();
+      expect(withAsset.headers.get("x-wiki-manifest-source")).toBe("snapshot-overlay");
+      expect(await withAsset.text()).toContain("private/one.pdf");
+    });
+
+    test("revocation applies on the very next request even when the old response is cached", async () => {
+      const f = await sessionFixture();
+      f.grants.set("alice", [f.row("private/one", "REVOCABLE-TITLE")]);
+      expect(await (await f.get()).text()).toContain("REVOCABLE-TITLE");
+      expect((await f.get()).headers.get("x-wiki-manifest-source")).toBe("snapshot-overlay-cached");
+      const reads = f.overlayReads();
+      f.grants.set("alice", []);
+      const revoked = await f.get();
+      expect(f.overlayReads()).toBe(reads + 1);
+      expect(await revoked.text()).not.toContain("REVOCABLE-TITLE");
+      expect(revoked.headers.get("etag")).toBe((await f.oracle()).headers.get("etag"));
+      // A stale validator from before the revocation never yields a 304.
+      f.grants.set("alice", [f.row("private/one", "REVOCABLE-TITLE")]);
+      const before = (await f.get()).headers.get("etag")!;
+      f.grants.set("alice", []);
+      expect((await f.get("", { "If-None-Match": before })).status).toBe(200);
+    });
+
+    test("every request still reads fresh access and fences the public revision", async () => {
+      const f = await sessionFixture();
+      f.grants.set("alice", [f.row("private/one", "One")]);
+      const first = await f.get();
+      const etag = first.headers.get("etag")!;
+      for (let i = 0; i < 3; i++) expect((await f.get("", { "If-None-Match": etag })).status).toBe(304);
+      expect(f.overlayReads()).toBe(4);
+      expect(f.fences()).toBe(8);
+    });
   });
 
   test("the cache is bounded by entry count and bytes", async () => {
