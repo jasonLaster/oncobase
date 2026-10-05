@@ -42,7 +42,8 @@
     "dicom-comparisons:seed": "bun scripts/seed-dicom-comparisons.ts",
     "diagnostic-studies:seed": "bun scripts/seed-diagnostic-studies.ts",
     "timeline:seed": "bun scripts/seed-diagnostic-timeline.ts",
-    "check:bundle-cache": "bun scripts/check-bundle-cache.ts"
+    "check:bundle-cache": "bun scripts/check-bundle-cache.ts",
+    "local:chat-audit": "bun scripts/local-chat-audit.ts"
   },
   "dependencies": {
     "@liveblocks/client": "^3.18.1",

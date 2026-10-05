@@ -93,7 +93,7 @@ async function embedQuery(query: string) {
   return response.data[0]?.embedding ?? null;
 }
 
-function documentsGateway(
+export function documentsGateway(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
@@ -363,6 +363,12 @@ export async function handleChatRequest({
   );
   const piiPatterns = await getPiiPatterns(client, siteSlug);
   const redact = (value: string) => applyPiiRedactions(value, { patterns: piiPatterns });
+  // search_wiki and read_page already redact titles; the listing tools match.
+  const redactListing = <T extends { title?: string; description?: string | null }>(row: T): T => ({
+    ...row,
+    ...(typeof row.title === "string" ? { title: redact(row.title) } : {}),
+    ...(typeof row.description === "string" ? { description: redact(row.description) } : {}),
+  });
 
   const result = streamText({
     model: chatTextModel(),
@@ -445,12 +451,12 @@ export async function handleChatRequest({
       list_pages: {
         description: "List all available wiki pages.",
         inputSchema: z.object({}),
-        execute: () => documents.list(),
+        execute: async () => (await documents.list()).map(redactListing),
       },
       get_pages_by_tag: {
         description: "Find all pages that have a specific tag.",
         inputSchema: z.object({ tag: z.string().describe("The tag to search for") }),
-        execute: ({ tag }: { tag: string }) => documents.getByTag({ tag }),
+        execute: async ({ tag }: { tag: string }) => (await documents.getByTag({ tag })).map(redactListing),
       },
       list_tags: {
         description: "List all tags used across the wiki.",
