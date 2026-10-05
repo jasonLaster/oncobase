@@ -319,9 +319,11 @@ export const getSensitivityBySlugs = query({
       throw new Error(`At most ${SLUG_SENSITIVITY_BATCH_LIMIT} slugs per call`);
     }
     const site = await requireSite(ctx, siteSlug);
+    // Independent indexed reads: issue them together instead of one round of
+    // storage latency per slug (a 100-slug comment batch took ~1.4 s serially).
+    const docs = await Promise.all(Array.from(new Set(slugs), async (slug) => ({ slug, doc: await findDocumentMetadata(ctx, site, slug) })));
     const results: { slug: string; sensitive: boolean }[] = [];
-    for (const slug of new Set(slugs)) {
-      const doc = await findDocumentMetadata(ctx, site, slug);
+    for (const { slug, doc } of docs) {
       if (!doc || doc.deletedAt) continue;
       results.push({ slug, sensitive: doc.sensitive === true });
     }
