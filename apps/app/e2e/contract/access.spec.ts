@@ -8,8 +8,9 @@ import {
   USER_PASSWORD,
 } from "./helpers";
 
-// Role access on the real Convex stack: path, tag and email-domain roles grant;
-// exclusions and a missing role deny. Replaces role-based-access and
+// Role access on the real Convex stack: path and tag roles grant; exclusions, a
+// missing role and email-pattern roles on a new signup deny (signup does not
+// verify the mailbox, so patterns only apply to accounts that predate the cutoff). Replaces role-based-access and
 // tag-page-access, which created a whole site and so only ran against a cloud
 // deployment. Fixtures here live under per-run slugs on the seeded site.
 requireLocalStack();
@@ -66,7 +67,7 @@ test.beforeAll(async ({ baseURL }) => {
     fixtures.role({ name: "meeting", includePathPatterns: ["sources/meeting-notes/*"], includeTags: [TAG] }),
     fixtures.role({ name: "private", includePathPatterns: [slugs.tagDenied] }),
   ]);
-  // Granted by email domain alone: no assignment.
+  // Email-pattern role: must NOT apply to the fresh signup below (audit V-2).
   await fixtures.role({ name: "domain", includeTags: ["serova-sensitive"], emailPatterns: ["serova.bio"] });
   await Promise.all([
     fixtures.assign(emails.assigned, pathRole),
@@ -90,7 +91,7 @@ const outcome = async (context: APIRequestContext, slug: string, scope: "public"
   return "unavailable";
 };
 
-test("roles grant by path, tag and email domain; exclusions and a missing role are denied", async () => {
+test("roles grant by path and tag; exclusions, a missing role and an email-pattern role on a new signup are denied", async () => {
   // user -> slug -> outcome. Every denial must be the explicit sensitive-unavailable
   // answer (never a 404 or an empty page that a blank response would also satisfy).
   const matrix: Array<[keyof typeof sessions, string, Outcome]> = [
@@ -102,7 +103,7 @@ test("roles grant by path, tag and email domain; exclusions and a missing role a
     ["assigned", slugs.pathExcluded, "unavailable"],
     ["assigned", slugs.tagExcluded, "unavailable"],
     ["assigned", slugs.domain, "unavailable"],
-    ["domain", slugs.domain, "reads"],
+    ["domain", slugs.domain, "unavailable"],
     ["domain", slugs.protected, "unavailable"],
   ];
   const actual = await Promise.all(matrix.map(async ([user, slug]) => outcome(sessions[user], slug)));
