@@ -305,15 +305,27 @@ function Platform({ ref }: { ref: RefObject<HTMLElement | null> }) {
         <div>
           <OncobaseBrand />
           <h2 id="platform-title">
-            Turn records and research into a shared knowledge base.
+            Open source, so everyone can take control of their care.
           </h2>
         </div>
         <div className="lp-platform-copy">
           <p>
-            We built Oncobase while organizing Diana’s care. Everything on this
-            page runs on it, from the reader to the imaging viewer to the
-            privacy controls. The code is open source, so you can see how it’s
-            built or build your own.
+            We built Oncobase while organizing Diana’s care, and everything on
+            this page runs on it, from the reader to the imaging viewer to the
+            privacy controls. It’s free and open source. Anyone can use it to
+            gather their own records, make sense of the research, and bring
+            family and doctors into the conversation.
+          </p>
+          <p>
+            It was inspired by{" "}
+            <a
+              href="https://osteosarc.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Sid Sijbrandij’s osteosarc.com
+            </a>
+            , where he openly shares the data from his own cancer journey.
           </p>
           <a
             className="lp-button"
@@ -377,7 +389,7 @@ function Footer() {
           <DianaBrand />
         </a>
         <div className="lp-footer-platform lp-oncobase">
-          <span>Powered by</span>
+          <span>Open source, powered by</span>
           <a
             href="https://github.com/jasonLaster/oncobase"
             target="_blank"

@@ -905,6 +905,17 @@
   font-size: 18px;
   line-height: 1.7;
 }
+.landing-page .lp-platform-copy p + p {
+  margin-top: 14px;
+}
+.lp-platform-copy p a {
+  color: var(--lp-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lp-platform-copy p a:hover {
+  color: var(--lp-accent);
+}
 .lp-platform-copy .lp-button {
   margin-top: 26px;
 }

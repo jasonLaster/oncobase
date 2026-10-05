@@ -170,17 +170,25 @@ test("Oncobase and its GitHub link come before the feature sections", async ({
   await expect(page.locator("#landing-title")).toBeVisible();
   const order = await page.evaluate(() =>
     ["story", "platform", "inside", "privacy", "education"].map(
-      (id) => document.getElementById(id)!.getBoundingClientRect().top + scrollY,
+      (id) =>
+        document.getElementById(id)!.getBoundingClientRect().top + scrollY,
     ),
   );
   expect([...order].sort((a, b) => a - b)).toEqual(order);
   await expect(
-    page.locator("#platform").getByRole("link", { name: /View Oncobase on GitHub/ }),
+    page
+      .locator("#platform")
+      .getByRole("link", { name: /View Oncobase on GitHub/ }),
   ).toHaveAttribute("href", "https://github.com/jasonLaster/oncobase");
-  // The hero's primary action opens Diana's knowledge base.
+  // The band says the code is open source and credits its inspiration.
+  await expect(page.locator("#platform-title")).toContainText("Open source");
   await expect(
-    page.locator(".lp-hero .lp-button"),
-  ).toHaveText(/View Diana’s knowledge base/);
+    page.locator("#platform").getByRole("link", { name: /osteosarc\.com/ }),
+  ).toHaveAttribute("href", "https://osteosarc.com/");
+  // The hero's primary action opens Diana's knowledge base.
+  await expect(page.locator(".lp-hero .lp-button")).toHaveText(
+    /View Diana’s knowledge base/,
+  );
 });
 
 for (const width of [393, 1440]) {
@@ -328,10 +336,14 @@ test("private links ask for the password and continue to the page", async ({
   for (const link of await page
     .locator(".landing-page a[href^='http']")
     .all()) {
-    // Only source repositories and the MRI image credit leave the site.
-    expect(["github.com", "doi.org", "creativecommons.org"]).toContain(
-      new URL((await link.getAttribute("href"))!).hostname,
-    );
+    // Only source repositories, the MRI image credit, and the osteosarc.com
+    // credit leave the site.
+    expect([
+      "github.com",
+      "doi.org",
+      "creativecommons.org",
+      "osteosarc.com",
+    ]).toContain(new URL((await link.getAttribute("href"))!).hostname);
   }
   await currentCare.click();
   await expect(page).toHaveURL(/\/sign-in\?redirect=%2Fwiki%2Fcare%2Findex$/);
