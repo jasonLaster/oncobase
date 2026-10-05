@@ -94,7 +94,10 @@ jobs:
       # route mocks and no secrets. See apps/app/specs/e2e-audit-2026-10-04.md.
       - name: Run authenticated journeys
         working-directory: apps/app
-        run: bun run local:stack exec -- bunx playwright test e2e/journeys --reporter=line
+        # Only the real-backend journeys: the mocked journeys (comments, search,
+        # tables, ...) run in the deployed shards, and the local stack turns
+        # comments off.
+        run: bun run local:stack exec -- bunx playwright test e2e/journeys/access.spec.ts e2e/journeys/read.spec.ts e2e/journeys/find.spec.ts e2e/journeys/admin.spec.ts e2e/journeys/chat.spec.ts --reporter=line
 
       - name: Stop local Convex stack
         if: always()
@@ -255,7 +258,7 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           TEST_ENV: prod
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
-        run: bun run test:e2e e2e/accessibility.spec.ts e2e/journeys/markdown.spec.ts e2e/medical-deduction.spec.ts e2e/journeys/search.spec.ts e2e/storage-availability.spec.ts --reporter=json > playwright-runner.log 2>&1
+        run: bun run test:e2e e2e/accessibility.spec.ts e2e/journeys/markdown.spec.ts e2e/journeys/clinical-tools.spec.ts e2e/journeys/search.spec.ts e2e/storage-availability.spec.ts --reporter=json > playwright-runner.log 2>&1
       - name: Publish content-free test outcomes
         if: always()
         working-directory: apps/app
