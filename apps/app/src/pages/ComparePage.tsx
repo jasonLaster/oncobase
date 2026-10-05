@@ -39,7 +39,7 @@ const nav = [
 const external = { rel: "noopener noreferrer", target: "_blank" } as const;
 
 function productLink(id: ProductId) {
-  return products.find((product) => product.id === id)!.url;
+  return products.find((product) => product.id === id)?.url ?? REPO_URL;
 }
 
 /** A product's name as a link to its own site. Oncobase is "us", so it is marked rather than linked out. */
