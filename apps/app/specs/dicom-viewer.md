@@ -1,8 +1,8 @@
 # DICOM Viewer Feature Spec
 
 This document describes the shared viewer behavior verified by
-`apps/app/e2e/dicom-viewer.spec.ts` and
-`apps/app/e2e/dicom-viewer.spec.ts`. Diagnostics route/sidebar
+`apps/app/e2e/journeys/imaging.spec.ts` (synthetic DICOM, see
+`imaging-helpers.ts`) and `apps/app/e2e/journeys/pathology.spec.ts`. Diagnostics route/sidebar
 regressions are also covered in both applications' regression suites.
 
 ## Routes

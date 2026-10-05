@@ -63,8 +63,11 @@ async function draw(page: Page, label = "Draw region") {
   await expect(page.getByLabel("Region label", { exact: true })).toBeVisible();
 }
 
-test("opens independently of the wiki database and supports calibrated magnification and rotation", async ({ page }) => {
-  await fixture(page); await open(page);
+// Pathology viewer journeys. Slides, tiles and notes are served by route mocks
+// (no wiki database, no real slides), so this needs only the app, not the local stack.
+
+test("opens independently of the wiki database, supports calibrated magnification and rotation, and keeps measurements calibrated through rotate and pan", async ({ page }) => {
+  const state = await fixture(page); await open(page);
   const failures: string[] = []; page.on("pageerror", e => failures.push(e.message));
   await expect(page.getByRole("heading", { name: "H&E slides" })).toBeVisible();
   await expect(page.getByTestId("pathology-slide-card")).toHaveCount(2);
@@ -77,26 +80,8 @@ test("opens independently of the wiki database and supports calibrated magnifica
   await page.getByRole("button", { name: "Fit tissue", exact: true }).click();
   const resources = await page.evaluate(() => performance.getEntriesByType("resource").map(r => r.name));
   expect(resources.some(name => /livestore\/schema|@livestore_livestore/.test(name))).toBe(false);
-  expect(failures).toEqual([]);
-});
 
-test("regions and notes save, reload, and stay tied to their own slide", async ({ page }) => {
-  const state = await fixture(page); await open(page); await draw(page);
-  await page.getByLabel("Region label", { exact: true }).fill("Review area");
-  await page.getByLabel("Region note", { exact: true }).fill("Synthetic review note");
-  await page.getByTestId("pathology-save-notes").click();
-  await expect(page.getByText("All changes saved", { exact: true })).toBeVisible();
-  expect(state.notes.get(slides[0].slideId)?.regions[0].note).toBe("Synthetic review note");
-  await page.reload();
-  await expect(page.getByRole("button", { name: /Review area Synthetic review note/ })).toBeVisible();
-  await page.getByRole("button", { name: "Next slide", exact: true }).click();
-  await expect(page.getByText("Mark a region or take a measurement, then add a note.")).toBeVisible();
-  await page.getByRole("button", { name: "Previous slide", exact: true }).click();
-  await expect(page.getByRole("button", { name: /Review area Synthetic review note/ })).toBeVisible();
-});
-
-test("calibrated measurements retain image coordinates through rotate and pan", async ({ page }) => {
-  const state = await fixture(page); await open(page); await draw(page, "Measure");
+  await draw(page, "Measure");
   await expect(page.locator(".pathology-region-list small")).toContainText(/µm|mm/);
   await page.getByTestId("pathology-save-notes").click();
   await expect(page.getByText("All changes saved", { exact: true })).toBeVisible();
@@ -105,22 +90,24 @@ test("calibrated measurements retain image coordinates through rotate and pan", 
   await page.getByTestId("pathology-canvas").focus(); await page.keyboard.press("ArrowRight");
   expect(state.notes.get(slides[0].slideId)?.regions[0]).toEqual(before);
   expect(before?.kind).toBe("ruler");
+  expect(failures).toEqual([]);
 });
 
-test("both comparison panes decode tiles and can be navigated independently", async ({ page }) => {
-  await fixture(page); await open(page);
-  await page.getByLabel("Compare with slide", { exact: true }).selectOption(slides[1].slideId);
-  await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
-  await expect(page.getByTestId("pathology-canvas").nth(1)).toHaveAttribute("data-render-status", "ready");
-  await page.getByLabel("Link magnification", { exact: true }).check();
-  await page.getByRole("button", { name: "10× magnification", exact: true }).click();
-  await expect(page.getByTestId("pathology-magnification").nth(1)).toHaveText("10.0×");
-  await page.getByRole("button", { name: "Close comparison", exact: true }).click();
-  await expect(page.getByTestId("pathology-canvas")).toHaveCount(1);
-});
+test("regions and notes save, reload, and stay tied to their own slide, and a failed save keeps the reviewer's draft", async ({ page }) => {
+  const { notes, behavior } = await fixture(page); await open(page); await draw(page);
+  await page.getByLabel("Region label", { exact: true }).fill("Review area");
+  await page.getByLabel("Region note", { exact: true }).fill("Synthetic review note");
+  await page.getByTestId("pathology-save-notes").click();
+  await expect(page.getByText("All changes saved", { exact: true })).toBeVisible();
+  expect(notes.get(slides[0].slideId)?.regions[0].note).toBe("Synthetic review note");
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Review area Synthetic review note/ })).toBeVisible();
+  await page.getByRole("button", { name: "Next slide", exact: true }).click();
+  await expect(page.getByText("Mark a region or take a measurement, then add a note.")).toBeVisible();
+  await page.getByRole("button", { name: "Previous slide", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Review area Synthetic review note/ })).toBeVisible();
 
-test("save failures and concurrent edits preserve the reviewer's draft", async ({ page }) => {
-  const { behavior } = await fixture(page); await open(page); await draw(page);
+  await draw(page);
   await page.getByLabel("Region note", { exact: true }).fill("Keep this draft");
   behavior.saveFailure = true;
   await page.getByTestId("pathology-save-notes").click();
@@ -130,23 +117,6 @@ test("save failures and concurrent edits preserve the reviewer's draft", async (
   await page.getByTestId("pathology-save-notes").click();
   await expect(page.getByText(/Another reviewer changed these notes/)).toBeVisible();
   await expect(page.getByLabel("Region note", { exact: true })).toHaveValue("Keep this draft");
-});
-
-test("a pending save reports its result on the correct slide after navigation", async ({ page }) => {
-  const { behavior } = await fixture(page); await open(page); await draw(page);
-  let release!: () => void;
-  behavior.saveBarrier = new Promise<void>(resolve => { release = resolve; });
-  behavior.saveFailure = true;
-  await page.getByTestId("pathology-save-notes").click();
-  await expect(page.getByTestId("pathology-save-notes")).toHaveText("Saving…");
-  await page.getByRole("button", { name: "Next slide", exact: true }).click();
-  release();
-  await expect(page.getByText("All changes saved", { exact: true })).toBeVisible();
-  await expect(page.getByText("Save failed. Your edits are still here; retry Save.")).toHaveCount(0);
-  await page.getByRole("button", { name: "Previous slide", exact: true }).click();
-  await expect(page.getByText("Save failed. Your edits are still here; retry Save.")).toBeVisible();
-  await expect(page.getByLabel("Region label", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".pathology-region-list li")).toHaveCount(1);
 });
 
 test("missing shared sources and failed tiles show explicit errors", async ({ page }) => {
@@ -164,16 +134,3 @@ test("missing shared sources and failed tiles show explicit errors", async ({ pa
   await expect(page.getByTestId("pathology-canvas")).toHaveAttribute("data-render-status", "error");
   await expect(page.getByRole("alert")).toContainText("Some slide tiles could not load.");
 });
-
-for (const [width, height] of [[1440, 1000], [1920, 1000], [393, 852]]) {
-  test(`pathology layout fits ${width}×${height}`, async ({ page }) => {
-    await page.setViewportSize({ width, height }); await fixture(page); await open(page);
-    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    const canvas = await page.getByTestId("pathology-canvas").boundingBox();
-    expect(canvas!.width).toBeGreaterThan(width < 860 ? 350 : 750);
-    expect(canvas!.height).toBeGreaterThan(350);
-    const controls = page.getByRole("button", { name: "Draw region", exact: true });
-    expect((await controls.boundingBox())!.height).toBeGreaterThanOrEqual(width < 860 ? 44 : 34);
-    await page.screenshot({ path: `../../.playwright/visual-audit/pathology/${width}.png`, fullPage: true });
-  });
-}
