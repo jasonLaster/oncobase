@@ -90,6 +90,12 @@ jobs:
         working-directory: apps/app
         run: bun run local:stack exec -- bun run verify:standalone
 
+      # Real sign-in, roles and private content against the seeded stack: no
+      # route mocks and no secrets. See apps/app/specs/e2e-audit-2026-10-04.md.
+      - name: Run authenticated journeys
+        working-directory: apps/app
+        run: bun run local:stack exec -- bunx playwright test e2e/journeys --reporter=line
+
       - name: Stop local Convex stack
         if: always()
         working-directory: apps/app

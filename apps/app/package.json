@@ -15,8 +15,6 @@
     "typecheck": "bun --cwd ../../packages/oncobase build && tsc --noEmit",
     "test:unit": "bun scripts/test-unit.ts",
     "test:e2e": "playwright test",
-    "test:e2e:parity": "playwright test --config playwright.parity.config.ts",
-    "report:e2e:parity": "bun scripts/compare-parity.ts",
     "test:e2e:endform": "endform test",
     "test:e2e:preview": "playwright test --config playwright.preview.config.ts",
     "dev:app": "vite --host",

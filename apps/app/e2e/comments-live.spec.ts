@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { type APIRequestContext, type Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
-import { expect, test, signIn, checkpoint, article as documentArticle } from "../parity-e2e/fixtures";
+import { expect, test, signIn, checkpoint, article as documentArticle } from "./live/fixtures";
 import { ConvexHttpClient } from "convex/browser";
 
 const { api } = createRequire(import.meta.url)(

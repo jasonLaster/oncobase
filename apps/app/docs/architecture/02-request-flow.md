@@ -20,4 +20,4 @@ Public and session manifests use separate cache identities. Sensitive source dat
 
 Password-gated and signed-in responses are private and non-cacheable. Public login/terms routes and signed service integrations have their own explicit boundaries; they are not permission to bypass content API gates. In particular, `/api/file` validates gate, ownership and visibility before fetching bytes.
 
-See [security regression cases](../../parity-e2e/security.spec.ts) and [backend tests](../../server/wiki-api.test.ts).
+See [security regression cases](../../e2e/backend-api.spec.ts) and [backend tests](../../server/wiki-api.test.ts).

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { emptyOwnedRowIds } from "./parity-annotation-cleanup";
+import { emptyOwnedRowIds } from "./annotation-cleanup";
 
 const seriesKey = "playwright-parity-00000000-0000-4000-8000-000000000001";
 const row = { id: "owned-row", tableName: "imageAnnotations", seriesKey, imageKey: `${seriesKey}/fixture.dcm`, annotationCount: 0 };

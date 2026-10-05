@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import type { Request } from "@playwright/test";
 import { test as base, expect, signIn } from "./fixtures";
-import { annotationRowCleanup } from "../scripts/parity-annotation-cleanup";
+import { annotationRowCleanup } from "../../scripts/annotation-cleanup";
 
 type SavedImage = { imageKey: string; imagePath: string; annotations: Array<{ text?: string }> };
 

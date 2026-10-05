@@ -16,4 +16,4 @@ Convex persists message parts so reloads retain responses. Each active run has a
 
 Shared content helpers apply site-specific PII policy before retrieved text is sent to the model. Keep account permissions, authored sensitivity and PII redaction distinct. Publishing and later retrieval must both honor the relevant boundaries.
 
-See the [real chat regression](../../parity-e2e/chat-live.spec.ts), [search regressions](../../parity-e2e/search.spec.ts), and [PII specification](../../specs/pii-redaction.md).
+See the [chat regressions](../../e2e/chat.spec.ts), [search regressions](../../e2e/search.spec.ts), and [PII specification](../../specs/pii-redaction.md).

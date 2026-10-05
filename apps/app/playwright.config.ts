@@ -48,7 +48,7 @@ if (!["chromium", "firefox", "webkit"].includes(browser)) {
 export default defineConfig({
   testDir: "./e2e",
   // Real comment writes require private traces and verified teardown. Run them
-  // through playwright.parity.config.ts, never the public CI artifact pipeline.
+  // through the local live-backend setup, never the public CI artifact pipeline.
   testIgnore: ["**/comments-live.spec.ts"],
   globalSetup: previewAuthState ? "./playwright.global-setup.ts" : undefined,
   timeout: 45_000,
