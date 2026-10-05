@@ -210,3 +210,14 @@ test("sensitive conversation and chat endpoints sit behind the password gate", a
     expect(response === null || response.status === 404).toBe(true);
   }
 });
+
+test("revoking a role takes effect on the very next chat: the cached system prompt is not served past the revocation", async () => {
+  const fixture = await createFixture({ sensitiveDiagnosis: true });
+  await fixture.t.run((ctx) => ctx.db.insert("rolePermissions", { siteId: fixture.ids.siteId, roleId: fixture.ids.role, includePathPatterns: ["wiki/diagnostics/"], createdAt: 2 }));
+  const granted = await chat(fixture, "care", [{ name: "list_tags", input: {} }]);
+  expect(granted.shown.system).toContain("DIAGNOSIS_SENSITIVE_CONTEXT");
+  await fixture.t.run((ctx) => ctx.db.delete(fixture.ids.assignment));
+  const revoked = await chat(fixture, "care", [{ name: "list_tags", input: {} }]);
+  expect(revoked.shown.system).not.toContain("DIAGNOSIS_SENSITIVE_CONTEXT");
+  expect(revoked.shown.system).not.toContain(SECRET_BODY);
+});

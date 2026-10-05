@@ -188,12 +188,18 @@ async function getPiiPatterns(client: ConvexHttpClient, siteSlug: string) {
   return patterns;
 }
 
+type SystemPromptEntry = {
+  prompt: string;
+  /** Sensitive pages whose content is in `prompt`; each hit re-checks access. */
+  sensitiveSlugs: string[];
+};
+
 async function loadSystemPrompt(
   client: ConvexHttpClient,
   siteSlug: string,
   includeSensitive: boolean,
   canAccessSlug?: (slug: string) => Promise<boolean>,
-) {
+): Promise<SystemPromptEntry> {
   const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
   const piiPatterns = await getPiiPatterns(client, siteSlug);
   const redact = (value: string) => applyPiiRedactions(value, { patterns: piiPatterns });
@@ -209,7 +215,10 @@ async function loadSystemPrompt(
   if (indexDoc) {
     prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${redact(indexDoc.content)}`;
   }
-  return prompt;
+  const sensitiveSlugs = [indexDoc, diagnosisDoc]
+    .filter((doc): doc is NonNullable<typeof doc> => doc?.sensitive === true)
+    .map((doc) => doc.slug);
+  return { prompt, sensitiveSlugs };
 }
 
 async function buildSystemPrompt(
@@ -220,9 +229,18 @@ async function buildSystemPrompt(
   accessCacheKey = "public",
 ) {
   const cacheKey = `${siteSlug}:${includeSensitive ? "session" : "public"}:${accessCacheKey}`;
-  return getCachedSystemPrompt(cacheKey, () =>
-    loadSystemPrompt(client, siteSlug, includeSensitive, canAccessSlug),
-  );
+  const load = () => loadSystemPrompt(client, siteSlug, includeSensitive, canAccessSlug);
+  const entry = await getCachedSystemPrompt(cacheKey, load);
+  // The cache outlives a role revocation. A prompt that embeds sensitive page
+  // content is reused only while the viewer can still read every such page;
+  // otherwise rebuild it under the viewer's current access (and don't cache).
+  if (entry.sensitiveSlugs.length > 0) {
+    const allowed = canAccessSlug
+      ? await Promise.all(entry.sensitiveSlugs.map((slug) => canAccessSlug(slug)))
+      : [];
+    if (allowed.length !== entry.sensitiveSlugs.length || allowed.some((ok) => !ok)) return (await load()).prompt;
+  }
+  return entry.prompt;
 }
 
 export async function handleChatRequest({
