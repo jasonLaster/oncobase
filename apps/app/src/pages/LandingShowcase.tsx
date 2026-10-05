@@ -81,25 +81,30 @@ const contents = [
     entries: [
       ["Current care", "/wiki/care/index"],
       ["Decisions", "/wiki/questions/index"],
+      ["Diagnostic tests", "/wiki/diagnostics/index"],
+      ["Treatments", "/wiki/treatment/index"],
       ["Prognosis", "/wiki/prognosis/index"],
       ["Projects and next steps", "/project-management/index"],
     ],
   },
   {
+    // Open to everyone: these link to published education guides.
     title: "Understand the science",
     entries: [
-      ["Educational content", "/education"],
-      ["Diagnostic tests", "/wiki/diagnostics/index"],
-      ["Treatments", "/wiki/treatment/index"],
-      ["Research reviews", "/wiki/research/index"],
-      ["Omics", "/wiki/omics/index"],
+      ["Designing a vaccine", "/education/designing-a-vaccine/index"],
+      ["Targeted therapies", "/education/targeted-therapy-modalities/index"],
+      ["Cellular therapies", "/education/cellular-therapies/index"],
+      ["Reading a tumor report", "/education/reading-a-tumor/index"],
+      ["Modeling tumor response", "/education/modeling-tumor-response/index"],
+      ["All educational content", "/education"],
     ],
   },
   {
-    title: "People, support, and records",
+    title: "People, research, and records",
     entries: [
       ["Care team and referrals", "/wiki/people/medical-team"],
       ["Companies and research partners", "/wiki/companies/index"],
+      ["Research reviews and omics", "/wiki/research/index"],
       ["Practical guides and support", "/wiki/logistics/index"],
       ["Papers, trials, and providers", "/catalogs/index"],
       ["Original reports and sources", "/sources/index"],
@@ -124,7 +129,7 @@ export function KnowledgeBaseContents() {
             <ul>
               {group.entries.map(([label, path]) => (
                 <li key={path}>
-                  {path === "/education" ? (
+                  {path.startsWith("/education") ? (
                     <a href={path}>
                       <FileText size={14} />
                       <span>{label}</span>

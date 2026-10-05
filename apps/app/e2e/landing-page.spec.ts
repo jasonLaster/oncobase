@@ -139,16 +139,14 @@ test("landing navigation reaches every section and the sign-in page", async ({
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   for (const [link, heading] of [
     ["Our story", "#story-title"],
+    ["Oncobase", "#platform-title"],
     ["Features", "#inside-title"],
     ["Privacy", "#privacy-title"],
-    ["Oncobase", "#platform-title"],
+    ["Education", "#education-title"],
   ]) {
     await navigation.getByRole("link", { name: link, exact: true }).click();
     await expect(page.locator(heading)).toBeInViewport();
   }
-  await expect(
-    navigation.getByRole("link", { name: "Education", exact: true }),
-  ).toHaveAttribute("href", "/education");
   // The password form lives on its own page.
   await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
@@ -163,6 +161,26 @@ test("landing navigation reaches every section and the sign-in page", async ({
     .getByRole("link", { name: "View Diana’s knowledge base", exact: true })
     .click();
   await expect(page).toHaveURL(/\/sign-in$/);
+});
+
+test("Oncobase and its GitHub link come before the feature sections", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await expect(page.locator("#landing-title")).toBeVisible();
+  const order = await page.evaluate(() =>
+    ["story", "platform", "inside", "privacy", "education"].map(
+      (id) => document.getElementById(id)!.getBoundingClientRect().top + scrollY,
+    ),
+  );
+  expect([...order].sort((a, b) => a - b)).toEqual(order);
+  await expect(
+    page.locator("#platform").getByRole("link", { name: /View Oncobase on GitHub/ }),
+  ).toHaveAttribute("href", "https://github.com/jasonLaster/oncobase");
+  // The hero's primary action opens Diana's knowledge base.
+  await expect(
+    page.locator(".lp-hero .lp-button"),
+  ).toHaveText(/View Diana’s knowledge base/);
 });
 
 for (const width of [393, 1440]) {
@@ -289,9 +307,16 @@ test("private links ask for the password and continue to the page", async ({
   );
   await page.goto("/login");
   const contents = page.locator(".lp-contents");
+  // The science group links to published guides, so it needs no password.
   await expect(
-    contents.getByRole("link", { name: "Educational content" }),
+    contents.getByRole("link", { name: "All educational content" }),
   ).toHaveAttribute("href", "/education");
+  await expect(
+    contents.getByRole("link", { name: "Designing a vaccine" }),
+  ).toHaveAttribute("href", "/education/designing-a-vaccine/index");
+  await expect(
+    contents.getByRole("link", { name: "Diagnostic tests" }),
+  ).toHaveAttribute("href", /^\/sign-in\?redirect=/);
   const currentCare = contents.getByRole("link", { name: /^Current care/ });
   await expect(currentCare).toHaveAccessibleName(
     "Current care Sign in required",

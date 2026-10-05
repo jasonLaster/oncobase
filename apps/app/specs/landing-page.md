@@ -2,12 +2,12 @@
 
 The landing page introduces Diana TNBC, the knowledge base, and then Oncobase, the platform behind it. Signed-out visitors see it at `/`, and `/login` shows it too for existing links. The page is Diana's plum throughout; one green band introduces Oncobase. Sections run in this order:
 
-1. **Hero.** “It takes a village.” stays on one line, with type scaled to fit phone widths. The description names the diagnosis once (triple-negative breast cancer) and says what the knowledge base is for. The primary action browses educational content, which anyone can open; the secondary action opens the sign-in page. Real screenshots of the reader on a laptop and a phone follow, in the visitor's theme.
+1. **Hero.** “It takes a village.” stays on one line, with type scaled to fit phone widths. The description names the diagnosis once (triple-negative breast cancer) and says what the knowledge base is for. The primary action opens Diana's knowledge base (the sign-in page); the secondary text link browses educational content, which anyone can open. Real screenshots of the reader on a laptop and a phone follow, in the visitor's theme.
 2. **Our story.** Jason's account of why the knowledge base exists, signed “Jason · Diana's husband”, ending with “Today, we're cautiously optimistic.”
-3. **What's inside the knowledge base.** Records and research with the table of contents, the diagnostics timeline, the imaging viewer, and molecular analysis with the companion Oncoomics repository.
-4. **Choose what each person can see.** The example role picker and the redaction switch, side by side.
-5. **Oncobase.** The open-source platform and a link to its GitHub repository.
-6. **Educational content.** Two cartoons from the curriculum and a link to `/education`.
+3. **Oncobase.** The open-source platform behind the knowledge base and a link to its GitHub repository, placed early so anyone can see how it is built. It is the one green band; the plum feature sections follow it without interruption.
+4. **What's inside the knowledge base.** Records and research with the table of contents, the diagnostics timeline, the imaging viewer, and molecular analysis with the companion Oncoomics repository. The table of contents groups care material first (current care, decisions, diagnostic tests, treatments, prognosis, next steps); “Understand the science” links to published education guides (vaccine design, targeted and cellular therapies, reading a tumor report, modeling tumor response) that need no password; people, research, and records follow.
+5. **Choose what each person can see.** The example role picker and the redaction switch, side by side.
+6. **Educational content.** “What does that term mean?” with two cartoons from the curriculum and a link to `/education`. It sits directly below the privacy controls as one more thing Oncobase does.
 
 The landing page has no password form; Sign in opens the sign-in page.
 

@@ -74,10 +74,10 @@ function Header({
         </a>
         <nav aria-label="Main navigation">
           <a href="#story">Our story</a>
+          <a href="#platform">Oncobase</a>
           <a href="#inside">Features</a>
           <a href="#privacy">Privacy</a>
-          <a href="#platform">Oncobase</a>
-          <a href="/education">Education</a>
+          <a href="#education">Education</a>
         </nav>
         <div className="lp-header-actions">
           <PublicThemeControl />
@@ -104,11 +104,11 @@ function Hero() {
           helping her can work from the same page.
         </p>
         <div className="lp-hero-actions">
-          <a className="lp-button" href="/education">
-            Browse educational content <ArrowRight size={16} />
-          </a>
-          <a className="lp-text-link" href="/sign-in">
+          <a className="lp-button" href="/sign-in">
             View Diana’s knowledge base <ArrowRight size={16} />
+          </a>
+          <a className="lp-text-link" href="/education">
+            Browse educational content <ArrowRight size={16} />
           </a>
         </div>
         <ProductShots />
@@ -312,8 +312,8 @@ function Platform({ ref }: { ref: RefObject<HTMLElement | null> }) {
           <p>
             We built Oncobase while organizing Diana’s care. Everything on this
             page runs on it, from the reader to the imaging viewer to the
-            privacy controls. The code is open source if you want to build your
-            own.
+            privacy controls. The code is open source, so you can see how it’s
+            built or build your own.
           </p>
           <a
             className="lp-button"
@@ -434,9 +434,9 @@ export function LandingPage() {
       <main id="landing-main">
         <Hero />
         <Story />
+        <Platform ref={platform} />
         <Inside />
         <Privacy />
-        <Platform ref={platform} />
         <Education />
       </main>
       <Footer />
