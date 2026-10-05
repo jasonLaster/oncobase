@@ -597,7 +597,9 @@
   .wiki-markdown .smart-table-wrapper table,
   .wiki-markdown .table-scroll-wrapper table {
     table-layout: auto !important;
-    width: auto !important;
+    /* max-content lets long prose columns grow to their cap below instead of
+       being squeezed into the wrapper width (which made 9-line rows). */
+    width: max-content !important;
     min-width: 100%;
     font-size: 0.875rem;
   }
@@ -613,6 +615,7 @@
   .wiki-markdown .table-scroll-wrapper td {
     height: auto;
     min-width: 7.5rem;
+    max-width: 18rem;
     padding: 0.5rem 0.65rem;
     line-height: 1.4;
     vertical-align: top;
