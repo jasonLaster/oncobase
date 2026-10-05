@@ -116,17 +116,41 @@ export async function listDownloadAssets(
       if (!isDone && !cursor) break;
     }
   }
+  // Same rule as /api/file: a sensitive (or visibility-less legacy) asset is
+  // included only when the viewer can read EVERY page that owns it. The asset
+  // listing above carries no ownership, so read it from the visibility listing.
+  const visibility = new Map<string, { sensitive: boolean; ownerSlugs: string[] }>();
+  for (const queryRef of [api.documents.listPdfAssetVisibilityPage, api.documents.listFileAssetVisibilityPage]) {
+    let cursor: string | null = null;
+    for (;;) {
+      const result = (await client.query(queryRef, { ...args, cursor, numItems: 500 })) as {
+        page: Array<{ path: string; sensitive: boolean; ownerSlugs: string[] }>;
+        isDone: boolean;
+        continueCursor: string | null;
+      };
+      for (const row of result.page) visibility.set(row.path, row);
+      if (result.isDone) break;
+      if (!result.continueCursor) throw new Error("Download asset visibility pagination failed");
+      cursor = result.continueCursor;
+    }
+  }
+  // A same-named sensitive page also owns the asset, whatever its own flags say.
   const siblingSlug = (asset: DownloadAsset) => asset.path.replace(/\.[^/.]+$/, "");
-  const sensitivity = await fetchSlugSensitivity(client, siteSlug, collected.map(siblingSlug));
-  const allowed = await fetchAccessibleSlugs(
-    client,
-    siteSlug,
-    sessionUser,
-    collected.map(siblingSlug).filter((slug) => sensitivity.get(slug) === true),
-  );
+  const siblingSensitivity = await fetchSlugSensitivity(client, siteSlug, collected.map(siblingSlug));
+  const ownersOf = (asset: DownloadAsset) => {
+    const row = visibility.get(asset.path);
+    if (!row) return null; // no visibility record: fail closed
+    const sibling = siblingSlug(asset);
+    const siblingIsSensitive = siblingSensitivity.get(sibling) === true;
+    if (!row.sensitive && !siblingIsSensitive) return [];
+    return [...new Set([...row.ownerSlugs, ...(siblingIsSensitive ? [sibling] : [])])];
+  };
+  const allowed = await fetchAccessibleSlugs(client, siteSlug, sessionUser, collected.flatMap((asset) => ownersOf(asset) ?? []));
   return collected.filter((asset) => {
-    const slug = siblingSlug(asset);
-    return sensitivity.get(slug) !== true || allowed.has(slug);
+    const owners = ownersOf(asset);
+    if (owners === null) return false;
+    if (owners.length === 0) return !visibility.get(asset.path)!.sensitive && siblingSensitivity.get(siblingSlug(asset)) !== true;
+    return owners.every((slug) => allowed.has(slug));
   }).slice(0, maxAssets);
 }
 
