@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import {
   Activity,
   ArrowRight,
@@ -8,6 +8,7 @@ import {
   Download,
   Eye,
   FileText,
+  Gauge,
   GitBranch,
   Keyboard,
   Layers,
@@ -27,12 +28,15 @@ import {
   Users,
   WifiOff,
 } from "lucide-react";
-import { PublicThemeControl } from "../PublicThemeControl";
 import { featuresRouteMetadata } from "../special-route-metadata";
 import { updateClientRouteMetadata } from "../document-title";
 import { OncobaseBrand } from "./LandingBrands";
+import { PublicHeader } from "./PublicChrome";
 import { RedactionDemo, RoleDemo, ThemedImage } from "./LandingShowcase";
+import { CallDemo } from "./CallDemo";
+import { CommentsDemo } from "./CommentsDemo";
 import {
+  AccordionGroup,
   ChatDemo,
   FeatureCard,
   FeatureGrid,
@@ -41,51 +45,57 @@ import {
 } from "./FeaturesShowcase";
 import {
   REPO_URL,
+  detailGroups,
   detailItems,
   features,
   groups,
+  heroLede,
+  interfaceCategories,
   interfaces,
+  sectionCopy,
+  type SectionId,
 } from "./features-data";
 import "./landing.css";
 import "./features.css";
+
+/** The first few names, then a count of the rest. */
+function previewOf(names: string[]) {
+  const shown = names.slice(0, 3).join(" · ");
+  return names.length > 3 ? `${shown} · +${names.length - 3} more` : shown;
+}
+
+const TableDemo = lazy(() => import("./TableDemo"));
+const DiagramDemo = lazy(() => import("./DiagramDemo"));
 
 const nav = [
   ["read", "Read"],
   ["ask", "Ask"],
   ["protect", "Protect"],
   ["data", "See the data"],
+  ["collaborate", "Collaborate"],
+  ["speed", "Speed"],
+  ["details", "Details"],
   ["build", "Build"],
 ] as const;
 
-function Header() {
+function SectionHeading({ id, icon, note }: { id: SectionId; icon: ReactNode; note?: string }) {
+  const copy = sectionCopy[id];
   return (
-    <header className="lp-header-shell" data-tone="oncobase">
-      <div className="lp-header lp-container">
-        <a className="lp-brand" href="/features" aria-label="Oncobase features">
-          <OncobaseBrand />
-        </a>
-        <nav aria-label="Feature groups">
-          {nav.map(([id, label]) => (
-            <a href={`#${id}`} key={id}>
-              {label}
-            </a>
-          ))}
-          <a href="#details">Details</a>
-        </nav>
-        <div className="lp-header-actions">
-          <PublicThemeControl />
-          <a
-            className="lp-button lp-button-small"
-            href={REPO_URL}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            <GitBranch size={15} /> GitHub
-          </a>
-        </div>
-      </div>
-    </header>
+    <div className="lp-section-heading">
+      <p className="ft-kicker">
+        {icon} {copy.kicker}
+      </p>
+      <h2 id={`${id}-title`}>{copy.heading}</h2>
+      <p>
+        {copy.intro}
+        {note ? ` ${note}` : ""}
+      </p>
+    </div>
   );
+}
+
+function Header() {
+  return <PublicHeader brandHref="/features" brandLabel="Oncobase features" items={nav} navLabel="Feature groups" />;
 }
 
 function Hero() {
@@ -97,11 +107,7 @@ function Hero() {
       <h1 id="features-title">
         Everything <span>Oncobase</span> can do.
       </h1>
-      <p className="ft-hero-lede">
-        A knowledge base for taking control of your care, built with attention
-        to detail: the way a table fits your screen, where a link lands, what a
-        stranger can and can’t see.
-      </p>
+      <p className="ft-hero-lede">{heroLede}</p>
       <div className="ft-hero-actions">
         <a className="lp-button" href="#read">
           Tour the features <ArrowRight size={16} />
@@ -184,16 +190,7 @@ function Bullets({ items }: { items: string[] }) {
 function Read() {
   return (
     <section className="ft-group lp-container" id="read" aria-labelledby="read-title">
-      <div className="lp-section-heading">
-        <p className="ft-kicker">
-          <BookOpen size={15} aria-hidden="true" /> Read
-        </p>
-        <h2 id="read-title">Find your way, then read in peace.</h2>
-        <p>
-          Hundreds of pages should feel as easy as one. Everything below works
-          on a laptop, a tablet, and a phone.
-        </p>
-      </div>
+      <SectionHeading icon={<BookOpen size={15} aria-hidden="true" />} id="read" />
 
       <div className="ft-block">
         <div>
@@ -227,14 +224,14 @@ function Read() {
         </div>
       </div>
 
-      <div className="ft-block ft-block-wide">
-        <div>
+      <div className="ft-block ft-block-wide" id="read-tables">
+        <div className="ft-block-intro">
           <h3>Tables that fit their content.</h3>
           <p>
             Column widths come from measuring the real text, so a long
-            paragraph and a short label each get the room they need. Narrow the
-            window and the table scrolls with a soft edge instead of
-            squeezing.
+            paragraph and a short label each get the room they need. Try it:
+            this is the real table, with sample data. Drag a header edge, pick
+            different data, and change the width.
           </p>
           <Bullets
             items={[
@@ -245,36 +242,9 @@ function Read() {
             ]}
           />
         </div>
-        <div className="ft-tables">
-          <figure>
-            <div className="ft-block-shot">
-              <ThemedImage
-                alt="A comparison table at a wide width, with every column fully visible"
-                base="/feature-shots/table-wide"
-                decoding="async"
-                extension="jpg"
-                height={732}
-                loading="lazy"
-                width={1400}
-              />
-            </div>
-            <figcaption>Wide: every column fits.</figcaption>
-          </figure>
-          <figure>
-            <div className="ft-block-shot">
-              <ThemedImage
-                alt="The same table at a narrow width, scrolling sideways with a faded right edge"
-                base="/feature-shots/table-narrow"
-                decoding="async"
-                extension="jpg"
-                height={731}
-                loading="lazy"
-                width={800}
-              />
-            </div>
-            <figcaption>Narrow: columns keep their size and it scrolls.</figcaption>
-          </figure>
-        </div>
+        <Suspense fallback={<div aria-busy="true" className="ft-demo ft-demo-loading" />}>
+          <TableDemo />
+        </Suspense>
       </div>
 
       <div className="ft-block ft-block-reverse">
@@ -317,6 +287,61 @@ function Read() {
               <figcaption>{label}</figcaption>
             </figure>
           ))}
+        </div>
+      </div>
+
+      <div className="ft-block ft-block-wide" id="read-diagrams">
+        <div className="ft-block-intro">
+          <h3>Diagrams from plain text.</h3>
+          <p>
+            Write a flowchart, a decision tree, or a Gantt timeline as text in
+            your notes and it draws itself right on the page. Switch themes and
+            the diagram follows. Pages without a diagram never download the
+            drawing code.
+          </p>
+          <Bullets
+            items={[
+              "Flowcharts, timelines, and Gantt charts from a few lines of text",
+              "Light and dark versions, tuned to match the reader",
+              "Loaded only on pages that contain one",
+              "A readable outline and the source if a diagram can’t draw",
+            ]}
+          />
+        </div>
+        <div className="ft-visual">
+          <Suspense fallback={<div aria-busy="true" className="ft-demo ft-demo-loading" />}>
+            <DiagramDemo />
+          </Suspense>
+        </div>
+      </div>
+
+      <div className="ft-block" id="read-calls">
+        <div>
+          <h3>Calls, three ways, linked.</h3>
+          <p>
+            A call becomes three pages: the raw speaker transcript, formatted
+            notes you can read, and a short overview. Name them
+            <code> -raw</code>, <code>-formatted</code>, and
+            <code> -overview</code> and the reader adds a switcher. Notes link
+            to the exact moment in the transcript, so every claim is one click
+            from its source.
+          </p>
+          <Bullets
+            items={[
+              "Raw transcript with speakers and timestamps, kept as recorded",
+              "Formatted notes organized by topic",
+              "An overview with decisions, open questions, and next steps",
+              "The file palette collapses a complete set into one entry",
+              "Redact once; the same rules apply to all three pages",
+            ]}
+          />
+          <p className="ft-sample">
+            Record a call or transcribe a file with
+            <code> oncobase transcription</code> and it drafts the note.
+          </p>
+        </div>
+        <div className="ft-visual">
+          <CallDemo />
         </div>
       </div>
 
@@ -390,16 +415,7 @@ const searchTools = [
 function Ask() {
   return (
     <section className="ft-group lp-container" id="ask" aria-labelledby="ask-title">
-      <div className="lp-section-heading">
-        <p className="ft-kicker">
-          <Sparkles size={15} aria-hidden="true" /> Ask
-        </p>
-        <h2 id="ask-title">Talk to the knowledge base.</h2>
-        <p>
-          Three ways to find things: exact words, meaning, and a conversation.
-          Each one only ever sees what you’re allowed to see.
-        </p>
-      </div>
+      <SectionHeading icon={<Sparkles size={15} aria-hidden="true" />} id="ask" />
 
       <div className="ft-block">
         <div>
@@ -511,17 +527,11 @@ function Ask() {
 function Protect() {
   return (
     <section className="ft-group lp-container" id="protect" aria-labelledby="protect-title">
-      <div className="lp-section-heading">
-        <p className="ft-kicker">
-          <ShieldCheck size={15} aria-hidden="true" /> Protect
-        </p>
-        <h2 id="protect-title">Share the science without sharing the patient.</h2>
-        <p>
-          Privacy is built in layers, so a mistake in one doesn’t expose
-          everything. Try the two controls below; the people and details are
-          fictional.
-        </p>
-      </div>
+      <SectionHeading
+        icon={<ShieldCheck size={15} aria-hidden="true" />}
+        id="protect"
+        note="Try the two controls below; the people and details are fictional."
+      />
 
       <ol className="ft-flow" style={{ ["--steps" as string]: 5 }}>
         <li>
@@ -642,16 +652,7 @@ function Protect() {
 function Data() {
   return (
     <section className="ft-group lp-container" id="data" aria-labelledby="data-title">
-      <div className="lp-section-heading">
-        <p className="ft-kicker">
-          <Activity size={15} aria-hidden="true" /> See the data
-        </p>
-        <h2 id="data-title">Results and scans, right beside the notes.</h2>
-        <p>
-          Clinical data is easier to understand next to the conversation about
-          it. These viewers run in the browser, with nothing to install.
-        </p>
-      </div>
+      <SectionHeading icon={<Activity size={15} aria-hidden="true" />} id="data" />
 
       <div className="lp-card-pair">
         <article className="lp-card">
@@ -676,7 +677,7 @@ function Data() {
           <h3>Open the scan in the browser.</h3>
           <p>
             Scroll through MRI and CT series, adjust window and level, play cine,
-            and draw arrows, boxes, and a calibrated ruler that are saved with the study.
+            and annotate right on the image with arrows, boxes, and a calibrated ruler.
           </p>
           <div className="lp-screenshot">
             <img
@@ -708,15 +709,142 @@ function Data() {
           An hourly import of lab results from Epic MyChart, stored with
           encrypted tokens.
         </FeatureCard>
-        <FeatureCard icon={<MessageSquare size={18} />} title="Comments in context">
-          Threads on a page or on selected text, with replies, reactions, and
-          links that jump straight to the thread.
+        <FeatureCard icon={<Layers size={18} />} title="Annotate right on the image">
+          Draw arrows, boxes, and a calibrated ruler on a scan, or save a note
+          on a region of a slide. Annotations are saved with the study.
         </FeatureCard>
-        <FeatureCard icon={<Search size={18} />} title="Previews that behave">
-          Each page gets a preview card in chats and social apps. Sensitive
-          pages fall back to a generic one.
+        <FeatureCard icon={<Search size={18} />} title="Leads from the tumor’s own data">
+          Our companion pipeline, Oncoomics, analyzes DNA, RNA, and protein data
+          and flags drugs worth raising with the care team.{" "}
+          <a href="https://github.com/jasonLaster/oncoomics" rel="noopener noreferrer" target="_blank">
+            Oncoomics on GitHub
+          </a>
         </FeatureCard>
       </FeatureGrid>
+    </section>
+  );
+}
+
+function Collaborate() {
+  return (
+    <section className="ft-group lp-container" id="collaborate" aria-labelledby="collaborate-title">
+      <SectionHeading icon={<MessageSquare size={15} aria-hidden="true" />} id="collaborate" />
+
+      <div className="ft-block" id="collaborate-comments">
+        <div>
+          <h3>Comment right where you’re reading.</h3>
+          <p>
+            Select any passage and start a thread on exactly that text, or
+            comment on the page as a whole. Threads appear in a pane beside the
+            page, so a question is never far from the sentence that prompted
+            it. Try the sample.
+          </p>
+          <Bullets
+            items={[
+              "Highlight text to comment on that exact passage",
+              "Replies, reactions, edit, and resolve, with an unresolved count",
+              "A link to any thread, so you can point someone straight to it",
+              "Guests get a steady name; sensitive pages stay locked to people with access",
+              "Every thread in one timeline at /comments",
+            ]}
+          />
+        </div>
+        <div className="ft-visual">
+          <CommentsDemo />
+        </div>
+      </div>
+
+      <FeatureGrid>
+        <FeatureCard icon={<Link2 size={18} />} title="Previews that behave">
+          Each page gets its own preview card in chats and social apps.
+          Sensitive pages fall back to a generic one.
+        </FeatureCard>
+        <FeatureCard icon={<BookOpen size={18} />} title="A public guide library">
+          Share the explainers you choose, with their own search and no
+          password, while everything else stays private.
+        </FeatureCard>
+        <FeatureCard icon={<Layers size={18} />} title="Several sites, one install">
+          Each site gets its own domain, password, roles, and data, from one
+          deployment.
+        </FeatureCard>
+      </FeatureGrid>
+    </section>
+  );
+}
+
+function Speed() {
+  const rows = features.filter((feature) => feature.group === "speed");
+  return (
+    <section className="ft-group lp-container" id="speed" aria-labelledby="speed-title">
+      <SectionHeading icon={<Gauge size={15} aria-hidden="true" />} id="speed" />
+
+      <ol className="ft-flow" style={{ ["--steps" as string]: 3 }}>
+        <li>
+          <b>1 · PAGES YOU’VE OPENED</b>
+          <strong>No network at all</strong>
+          <span>
+            They live in a local database on your device. Reopen one, or go back, and it
+            appears from there. They open offline too.
+          </span>
+        </li>
+        <li>
+          <b>2 · PAGES YOU HAVEN’T</b>
+          <strong>One small request</strong>
+          <span>
+            The page tree and palette are already local, so the title and its place in the
+            tree show at once while the text arrives. Popular pages are fetched ahead of time.
+          </span>
+        </li>
+        <li>
+          <b>3 · THE FIRST VISIT</b>
+          <strong>A paint in about a quarter second</strong>
+          <span>
+            A compressed snapshot of your last page paints before the database opens, and
+            code loads only when a page needs it.
+          </span>
+        </li>
+      </ol>
+
+      <dl className="ft-stats">
+        <div>
+          <dt>~230 ms</dt>
+          <dd>to first paint on a cold start</dd>
+        </div>
+        <div>
+          <dt>0 requests</dt>
+          <dd>to reopen a page you have read</dd>
+        </div>
+        <div>
+          <dt>20 ms</dt>
+          <dd>to open a folder of 500 pages</dd>
+        </div>
+      </dl>
+      <p className="ft-caption">
+        Measured in September 2026 in a controlled test: 6,000 pages and a throttled laptop CPU.
+      </p>
+
+      <div className="ft-table-wrap" style={{ marginTop: 56 }}>
+        <table className="ft-table ft-checks">
+          <caption className="ft-sr-only">How Oncobase stays fast</caption>
+          <thead className="ft-sr-only">
+            <tr>
+              <th>Technique</th>
+              <th>What it does for you</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((feature) => (
+              <tr key={feature.name}>
+                <td>
+                  <Check aria-hidden="true" size={16} />
+                  {feature.name}
+                </td>
+                <td>{feature.summary}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -724,29 +852,41 @@ function Data() {
 function Details() {
   return (
     <section className="ft-group lp-container" id="details" aria-labelledby="details-title">
-      <div className="lp-section-heading">
-        <p className="ft-kicker">
-          <Check size={15} aria-hidden="true" /> The details
-        </p>
-        <h2 id="details-title">Built with attention to detail.</h2>
-        <p>
-          Caring for someone is full of small moments where software either
-          helps or gets in the way. These are the small things we sweated, and
-          most are covered by automated tests.
-        </p>
-      </div>
-      <div className="ft-grid">
-        {detailItems.map((item) => (
-          <article className="ft-card" key={item.title}>
-            <h4 style={{ marginTop: 0 }}>{item.title}</h4>
-            <p>{item.text}</p>
-            {item.proof ? (
-              <p style={{ marginTop: 12 }}>
-                <span className="ft-tag">{item.proof}</span>
-              </p>
-            ) : null}
-          </article>
-        ))}
+      <SectionHeading icon={<Check size={15} aria-hidden="true" />} id="details" />
+      <div className="ft-acc-list">
+        {detailGroups.map((group) => {
+          const items = detailItems.filter((item) => item.group === group.id);
+          return (
+            <AccordionGroup
+              count={items.length}
+              key={group.id}
+              preview={previewOf(items.map((item) => item.title))}
+              summary={group.summary}
+              title={group.title}
+            >
+              <table className="ft-table ft-checks">
+                <caption className="ft-sr-only">{group.title}</caption>
+                <thead className="ft-sr-only">
+                  <tr>
+                    <th>Detail</th>
+                    <th>What it means for you</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.title}>
+                      <td>
+                        <Check aria-hidden="true" size={16} />
+                        {item.title}
+                      </td>
+                      <td>{item.text}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </AccordionGroup>
+          );
+        })}
       </div>
     </section>
   );
@@ -755,16 +895,34 @@ function Details() {
 function Build() {
   return (
     <section className="ft-group lp-container" id="build" aria-labelledby="build-title">
-      <div className="lp-section-heading">
-        <p className="ft-kicker">
-          <Terminal size={15} aria-hidden="true" /> Build
-        </p>
-        <h2 id="build-title">Publish from plain files. Built for people and agents.</h2>
-        <p>
-          Write in a folder of markdown, the way you would in Obsidian. One
-          command publishes it. Everything is open source, and every feature
-          has an interface a script or an agent can use.
-        </p>
+      <SectionHeading icon={<Terminal size={15} aria-hidden="true" />} id="build" />
+
+      <div className="ft-grid ft-grid-two" style={{ marginBottom: 56, marginTop: 0 }}>
+        <article className="ft-card">
+          <span aria-hidden="true" className="ft-card-icon">
+            <Terminal size={18} />
+          </span>
+          <h4>Have your agent build with Oncobase</h4>
+          <p>
+            Point your agent at the CLI. Guided by the bundled skills, it sets
+            up a vault, shows you a dry run, and publishes your own knowledge
+            base.
+          </p>
+        </article>
+        <article className="ft-card">
+          <span aria-hidden="true" className="ft-card-icon">
+            <GitBranch size={18} />
+          </span>
+          <h4>Or have it borrow from Oncobase</h4>
+          <p>
+            The code is MIT licensed. While it builds yours, your agent can read
+            any part of Oncobase, such as the table viewer, redaction, search, or
+            the scan viewers, and use it any way you like.{" "}
+            <a href={REPO_URL} rel="noopener noreferrer" target="_blank">
+              Browse the code
+            </a>
+          </p>
+        </article>
       </div>
 
       <ol className="ft-flow" style={{ ["--steps" as string]: 4 }}>
@@ -830,35 +988,48 @@ bun run local:stack        # a full local backend`}
           If you’re building on Oncobase, or you are an agent trying to use it,
           this is the surface. The same lists are published as plain text at{" "}
           <a href="/llms.txt">/llms.txt</a> and{" "}
-          <a href="/llms-full.txt">/llms-full.txt</a>.
+          <a href="/features.md">/features.md</a>.
         </p>
       </div>
-      <div className="ft-table-wrap">
-        <table className="ft-table">
-          <caption>Interfaces. Gate means the site’s shared-password cookie.</caption>
-          <thead>
-            <tr>
-              <th>Interface</th>
-              <th>Kind</th>
-              <th>What it does</th>
-              <th>Auth</th>
-            </tr>
-          </thead>
-          <tbody>
-            {interfaces.map((item) => (
-              <tr key={item.name}>
-                <td>
-                  <code>{item.name}</code>
-                </td>
-                <td>
-                  <span className="ft-tag">{item.kind}</span>
-                </td>
-                <td>{item.does}</td>
-                <td>{item.auth}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="ft-acc-list">
+        {interfaceCategories.map((category) => {
+          const items = interfaces.filter((item) => item.category === category.id);
+          return (
+            <AccordionGroup
+              count={items.length}
+              key={category.id}
+              preview={previewOf(items.map((item) => item.name.replace(/^(GET|POST) /, "")))}
+              summary={category.summary}
+              title={category.title}
+            >
+              <table className="ft-table">
+                <caption>{category.title}. Gate means the site’s shared-password cookie.</caption>
+                <thead>
+                  <tr>
+                    <th>Interface</th>
+                    <th>Kind</th>
+                    <th>What it does</th>
+                    <th>Auth</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.name}>
+                      <td>
+                        <code>{item.name}</code>
+                      </td>
+                      <td>
+                        <span className="ft-tag">{item.kind}</span>
+                      </td>
+                      <td>{item.does}</td>
+                      <td>{item.auth}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </AccordionGroup>
+          );
+        })}
       </div>
     </section>
   );
@@ -934,6 +1105,9 @@ function Cta() {
           <a className="lp-text-link" href="/">
             See Diana’s knowledge base <ArrowRight size={15} />
           </a>
+          <a className="lp-text-link" href="/compare">
+            How it compares <ArrowRight size={15} />
+          </a>
         </div>
       </div>
     </section>
@@ -943,32 +1117,32 @@ function Cta() {
 function Footer() {
   return (
     <footer className="lp-footer-shell">
-      <div className="lp-footer lp-container">
-        <a className="lp-brand" href="/features" aria-label="Oncobase features">
-          <OncobaseBrand />
-        </a>
-        <div className="lp-footer-note">
-          <p>Sample content, not medical advice.</p>
-          <a href="/">Diana’s knowledge base</a>
-          <a href="/terms-and-conditions">Terms & conditions</a>
-          <a href="/llms.txt">For agents</a>
-        </div>
-        <p className="lp-footer-credit">
-          Oncobase was inspired by{" "}
-          <a href="https://osteosarc.com/" rel="noopener noreferrer" target="_blank">
-            Sid Sijbrandij’s osteosarc.com
+      <div className="ft-footer lp-container">
+        <div className="ft-footer-row">
+          <a className="lp-brand" href="/features" aria-label="Oncobase features">
+            <OncobaseBrand />
           </a>
-          . MRI image: Daniels et al. (2024), Advanced-MRI-Breast-Lesions, The
-          Cancer Imaging Archive,{" "}
+          <nav aria-label="Footer">
+            <a href={REPO_URL} rel="noopener noreferrer" target="_blank">
+              GitHub
+            </a>
+            <a href="/">Diana’s knowledge base</a>
+            <a href="/compare">Compare</a>
+            <a href="/features.md">For agents</a>
+            <a href="/terms-and-conditions">Terms</a>
+          </nav>
+        </div>
+        <p className="ft-footer-credit">
+          Sample content, not medical advice. Inspired by{" "}
+          <a href="https://osteosarc.com/" rel="noopener noreferrer" target="_blank">
+            osteosarc.com
+          </a>
+          . MRI image: Daniels et al. (2024), The Cancer Imaging Archive,{" "}
           <a href="https://doi.org/10.7937/C7X1-YN57" rel="noopener noreferrer" target="_blank">
             doi:10.7937/C7X1-YN57
           </a>
           ,{" "}
-          <a
-            href="https://creativecommons.org/licenses/by/4.0/"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
+          <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener noreferrer" target="_blank">
             CC BY 4.0
           </a>
           , adapted.
@@ -985,7 +1159,7 @@ export function FeaturesPage() {
 
   return (
     <div className="landing-page ft-page" data-test-id="features-page">
-      <div className="lp-oncobase ft-root">
+      <div className="ft-root">
         <a className="lp-skip-link" href="#features-main">
           Skip to content
         </a>
@@ -996,6 +1170,8 @@ export function FeaturesPage() {
           <Ask />
           <Protect />
           <Data />
+          <Collaborate />
+          <Speed />
           <Details />
           <Build />
           <AllFeatures />

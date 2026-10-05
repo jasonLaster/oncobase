@@ -468,6 +468,25 @@ describe("wiki Vite app-shell password gate", () => {
     expect(html).not.toContain('id="wiki-page-bootstrap"');
   });
 
+  test("serves the comparison page publicly, indexable, with its own share card", async () => {
+    const handler = createWikiViteHandler({
+      client: fakeClient() as never,
+      distDir,
+    });
+
+    const response = await handler(request("/compare"));
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(html).toContain('<meta name="wiki-reader-access" content="public" />');
+    expect(html).toContain("<title>How Oncobase compares");
+    expect(html).toContain('<meta property="og:title" content="How Oncobase compares" />');
+    expect(html).toContain('<link rel="canonical" href="http://127.0.0.1/compare" />');
+    expect(html).not.toContain("noindex");
+    expect(html).not.toContain('id="wiki-page-bootstrap"');
+  });
+
   test("serves a public route whose name matches a directory in the build output", async () => {
     await mkdir(path.join(distDir, "features"), { recursive: true });
     await writeFile(path.join(distDir, "features", "shot.jpg"), "jpg");
@@ -624,7 +643,7 @@ describe("wiki Vite app-shell password gate", () => {
     expect(robots.headers.get("content-type")).toBe("text/plain; charset=utf-8");
     expect(robots.headers.get("cache-control")).toBe("no-cache");
     expect(robots.headers.get("vary")).toBe("Host");
-    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\nAllow: /education\nAllow: /features\n");
+    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\nAllow: /education\nAllow: /features\nAllow: /compare\n");
 
     const publicHandler = createWikiViteHandler({
       client: fakeClient({ passwordGate: false }) as never,

@@ -134,8 +134,15 @@ try {
     expect(response.status === 200 && body.includes("Everything Oncobase can do"), `expected the public features page, got ${response.status}`);
     expect(!body.includes("noindex"), "expected the features page to be indexable");
   });
+  await check("GET /compare without gate cookie", "/compare", {}, (response, body) => {
+    expect(response.status === 200 && body.includes("How Oncobase compares"), `expected the public comparison page, got ${response.status}`);
+    expect(!body.includes("noindex"), "expected the comparison page to be indexable");
+  });
+  await check("GET /compare.md without gate cookie", "/compare.md", {}, (response, body) => {
+    expect(response.status === 200 && body.includes("Which should I use?"), `expected the comparison markdown, got ${response.status}`);
+  });
   await check("GET /llms.txt without gate cookie", "/llms.txt", {}, (response, body) => {
-    expect(response.status === 200 && body.includes("llms-full.txt"), `expected the agent index, got ${response.status}`);
+    expect(response.status === 200 && body.includes("features.md"), `expected the agent index, got ${response.status}`);
   });
   await check("GET private page without gate cookie", "/wiki/index", {}, (response) => {
     expect(response.status === 302 && response.headers.get("location")?.includes("/sign-in?redirect=%2Fwiki%2Findex"), `expected 302 to /sign-in, got ${response.status}`);

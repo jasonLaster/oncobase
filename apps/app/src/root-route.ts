@@ -9,17 +9,18 @@ export function landingResponse(): boolean {
   return document.querySelector<HTMLMetaElement>('meta[name="wiki-reader-access"]')?.content === LANDING_READER_ACCESS;
 }
 
-export type RootRoute = "password" | "education" | "login" | "sign-in" | "features" | "terms" | "pathology" | "dicom" | "reader";
+export type RootRoute = "password" | "education" | "login" | "sign-in" | "features" | "compare" | "terms" | "pathology" | "dicom" | "reader";
 
 /** Which top-level app a pathname renders. Only "reader" needs a wiki session or database. */
 export function rootRouteFor(pathname: string, educationOnly: boolean, landing = false): RootRoute {
   if (landing && pathname === "/") return "login";
   if (educationOnly && !isEducationPathname(pathname) && !isEducationHubPathname(pathname) &&
-    !["/search", "/login", "/sign-in", "/features", "/terms-and-conditions"].includes(pathname)) return "password";
+    !["/search", "/login", "/sign-in", "/features", "/compare", "/terms-and-conditions"].includes(pathname)) return "password";
   if (isEducationHubPathname(pathname)) return "education";
   if (pathname === "/login") return "login";
   if (pathname === "/sign-in") return "sign-in";
   if (pathname === "/features") return "features";
+  if (pathname === "/compare") return "compare";
   if (pathname === "/terms-and-conditions") return "terms";
   if (pathname === "/tools/pathology-viewer") return "pathology";
   if (pathname === "/tools/dicom-viewer" || pathname === "/tools/dicom-compare") return "dicom";

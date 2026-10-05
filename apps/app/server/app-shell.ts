@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readerShellHint } from "../src/bootstrap/reader-shell-hint";
-import { featuresRouteMetadata, landingRouteMetadata, specialRouteMetadata } from "../src/special-route-metadata";
+import { compareRouteMetadata, featuresRouteMetadata, landingRouteMetadata, specialRouteMetadata } from "../src/special-route-metadata";
 import { LANDING_READER_ACCESS } from "../src/root-route";
 import { injectPageBootstrap } from "./page-bootstrap";
 import { injectHeadMetadata } from "./html-head";
@@ -50,7 +50,8 @@ const CANONICAL_SLUG_CACHE_TTL_MS = 60_000;
 const CANONICAL_SLUG_PAGE_SIZE = 512;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
 const MARKDOWN_ALIAS_PATH_RE = /\.(?:md|mdx)$/i;
-const PUBLIC_PAGES = new Set(["/terms-and-conditions", "/features"]);
+// Exact paths only. Never exempt a pattern such as every .md: those are wiki pages.
+const PUBLIC_PAGES = new Set(["/terms-and-conditions", "/features", "/features.md", "/compare", "/compare.md"]);
 const educationRequests = new WeakSet<Request>();
 // Signed-out visitors to "/" see the landing page in place of the wiki home.
 const landingRequests = new WeakSet<Request>();
@@ -89,6 +90,7 @@ const STATIC_MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".md": "text/markdown; charset=utf-8",
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".txt": "text/plain; charset=utf-8",
@@ -219,7 +221,7 @@ async function canonicalSlugRedirectResponse(
 ) {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   const url = new URL(request.url);
-  if (isSignInPathname(url.pathname) || url.pathname.startsWith("/api/") || isAppAssetRequest(url.pathname)) {
+  if (isSignInPathname(url.pathname) || url.pathname.startsWith("/api/") || isAppAssetRequest(url.pathname) || PUBLIC_PAGES.has(url.pathname)) {
     return null;
   }
 
@@ -407,6 +409,16 @@ async function staticIndexHtml(
     });
   }
 
+  if (url.pathname === "/compare") {
+    const compare = compareRouteMetadata();
+    return injectHeadMetadata(html, {
+      ...compare,
+      openGraphImage: new URL(compare.openGraphImage!, request.url).toString(),
+      canonicalUrl: new URL("/compare", request.url).toString(),
+      noIndex: false,
+    });
+  }
+
   if (isEducationHubPathname(url.pathname)) {
     const page = slug ? await publicPageForRequest(request, client, siteSlug, slug) : null;
     const safePage = isPublicEducationPage(page) && page
@@ -503,7 +515,7 @@ async function staticIndexHtml(
 }
 
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
-  if (new URL(request.url).pathname === "/features") {
+  if (["/features", "/compare"].includes(new URL(request.url).pathname)) {
     return { ...staticHeaders(filePath), "X-Wiki-Reader-Access": "public", "X-Wiki-Reader-Account": "public",
       "Cache-Control": "private, no-store", Vary: "Accept, Cookie, Host, User-Agent" };
   }
@@ -577,7 +589,7 @@ async function robotsPolicyResponse(
   }
 
   return new Response(
-    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n${!allowIndexing && allowEducation ? "Allow: /education\nAllow: /features\n" : ""}`,
+    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n${!allowIndexing && allowEducation ? "Allow: /education\nAllow: /features\nAllow: /compare\n" : ""}`,
     {
       headers: {
         "Cache-Control": "no-cache",

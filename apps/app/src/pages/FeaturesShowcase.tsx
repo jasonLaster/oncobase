@@ -1,5 +1,5 @@
-import { ArrowUp, BookOpen, FileSearch, Search, Sparkles } from "lucide-react";
-import { useId, useState, type CSSProperties, type ReactNode } from "react";
+import { ArrowUp, BookOpen, ChevronsLeftRight, FileSearch, Search, Sparkles } from "lucide-react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ThemedImage } from "./LandingShowcase";
 
 /** A screenshot with numbered pins at percentage positions, plus a key. */
@@ -53,7 +53,7 @@ export function PinnedScreenshot({
   );
 }
 
-/** One image in both themes, split by a draggable divider. */
+/** One image in both themes, split by a divider you drag on the image itself. */
 export function ThemeCompare({
   base,
   extension,
@@ -67,17 +67,41 @@ export function ThemeCompare({
   width: number;
   height: number;
 }) {
-  const id = useId();
   const [split, setSplit] = useState(50);
+  const stage = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+
+  const moveTo = (clientX: number) => {
+    const rect = stage.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return;
+    setSplit(Math.round(Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100))));
+  };
+
   return (
     <figure className="ft-compare">
       <div
         className="ft-compare-stage"
+        onPointerCancel={() => {
+          dragging.current = false;
+        }}
+        onPointerDown={(event) => {
+          dragging.current = true;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          moveTo(event.clientX);
+        }}
+        onPointerMove={(event) => {
+          if (dragging.current) moveTo(event.clientX);
+        }}
+        onPointerUp={() => {
+          dragging.current = false;
+        }}
+        ref={stage}
         style={{ "--split": `${split}%` } as CSSProperties}
       >
         <img
           alt={alt}
           decoding="async"
+          draggable={false}
           height={height}
           loading="lazy"
           src={`${base}-light.${extension}`}
@@ -88,30 +112,44 @@ export function ThemeCompare({
           aria-hidden="true"
           className="ft-compare-dark"
           decoding="async"
+          draggable={false}
           height={height}
           loading="lazy"
           src={`${base}-dark.${extension}`}
           width={width}
         />
-        <span aria-hidden="true" className="ft-compare-handle" />
         <span aria-hidden="true" className="ft-compare-tag ft-compare-tag-light">
           Light
         </span>
         <span aria-hidden="true" className="ft-compare-tag ft-compare-tag-dark">
           Dark
         </span>
+        <div
+          aria-label="Compare light and dark"
+          aria-orientation="horizontal"
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={split}
+          aria-valuetext={`${split}% light`}
+          className="ft-compare-handle"
+          onKeyDown={(event) => {
+            const step = event.shiftKey ? 20 : 5;
+            if (event.key === "ArrowLeft" || event.key === "ArrowDown") setSplit((value) => Math.max(0, value - step));
+            else if (event.key === "ArrowRight" || event.key === "ArrowUp") setSplit((value) => Math.min(100, value + step));
+            else if (event.key === "Home") setSplit(0);
+            else if (event.key === "End") setSplit(100);
+            else return;
+            event.preventDefault();
+          }}
+          role="slider"
+          tabIndex={0}
+        >
+          <span className="ft-compare-grip">
+            <ChevronsLeftRight size={20} aria-hidden="true" />
+          </span>
+        </div>
       </div>
-      <label className="ft-compare-control" htmlFor={id}>
-        <span>Compare light and dark</span>
-        <input
-          id={id}
-          max={100}
-          min={0}
-          onChange={(event) => setSplit(Number(event.target.value))}
-          type="range"
-          value={split}
-        />
-      </label>
+      <figcaption className="ft-caption">Drag the handle to compare light and dark.</figcaption>
     </figure>
   );
 }
@@ -204,5 +242,34 @@ export function FeatureCard({
       <h4>{title}</h4>
       <p>{children}</p>
     </article>
+  );
+}
+
+/** A section header that is always visible and opens to show its rows. */
+export function AccordionGroup({
+  title,
+  summary,
+  preview,
+  count,
+  children,
+}: {
+  title: string;
+  summary: string;
+  preview: string;
+  count: number;
+  children: ReactNode;
+}) {
+  return (
+    <details className="ft-acc">
+      <summary>
+        <span className="ft-acc-title">
+          <strong>{title}</strong>
+          <span>{summary}</span>
+        </span>
+        <span className="ft-acc-preview">{preview}</span>
+        <span className="ft-acc-count">{count}</span>
+      </summary>
+      <div className="ft-acc-body">{children}</div>
+    </details>
   );
 }

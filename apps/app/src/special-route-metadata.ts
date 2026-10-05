@@ -46,6 +46,23 @@ export function featuresRouteMetadata(): SpecialRouteMetadata {
   };
 }
 
+const COMPARE_DESCRIPTION =
+  "An honest comparison of Oncobase with Notion, Obsidian, Yuga Bio, Citizen Health, Mere Medical, and Medplum: which to use for your family, and what you can reuse if you’re building your own.";
+
+/** What a shared link to the comparison page shows in chats and social apps. */
+export function compareRouteMetadata(): SpecialRouteMetadata {
+  return {
+    description: COMPARE_DESCRIPTION,
+    openGraphDescription: COMPARE_DESCRIPTION,
+    openGraphImage: "/landing/og-image.jpg",
+    openGraphTitle: "How Oncobase compares",
+    openGraphType: "website",
+    title: "How Oncobase compares with Notion, Obsidian, and other health tools",
+    twitterDescription: COMPARE_DESCRIPTION,
+    twitterTitle: "How Oncobase compares",
+  };
+}
+
 type RouteDefinition = {
   description?: string;
   openGraphTitle?: string;
@@ -118,6 +135,7 @@ export function specialRouteMetadata({
 }): SpecialRouteMetadata | null {
   if (pathname === "/login") return landingRouteMetadata();
   if (pathname === "/features") return featuresRouteMetadata();
+  if (pathname === "/compare") return compareRouteMetadata();
   if (pathname === "/sign-in") {
     return { ...landingRouteMetadata(), title: SIGN_IN_TITLE };
   }

@@ -43,7 +43,7 @@ test("the features page tours every area and links to each from the header", asy
   }
   // The brief asks for attention to detail to be called out by name.
   await expect(page.locator("#details-title")).toHaveText("Built with attention to detail.");
-  await expect(page.locator("#details .ft-card")).toHaveCount(detailItems.length);
+  await expect(page.locator("#details tbody tr")).toHaveCount(detailItems.length);
 });
 
 test("every feature and interface is in the page's tables", async ({ page }) => {
@@ -55,7 +55,7 @@ test("every feature and interface is in the page's tables", async ({ page }) => 
   for (const group of groups) {
     await expect(all.getByRole("cell", { name: group.title, exact: true })).toBeVisible();
   }
-  const rows = page.locator("#build table tbody tr");
+  const rows = page.locator("#build details tbody tr");
   await expect(rows).toHaveCount(interfaces.length);
 });
 
@@ -70,7 +70,7 @@ test("images load in the visitor's theme and follow the theme toggle", async ({ 
   await openFeatures(page);
   await loadAllImages(page);
   const themed = page.locator("#features-main img[src*='/feature-shots/'][src*='-light.'], #features-main img[src*='/feature-shots/'][src*='-dark.']");
-  expect(await themed.count()).toBe(8);
+  expect(await themed.count()).toBe(6);
   expect(await themed.evaluateAll((images) => images.every((image) => image.getAttribute("src")!.includes("-light.")))).toBe(true);
 
   await page.getByRole("button", { name: "Dark theme" }).click();
@@ -82,14 +82,27 @@ test("images load in the visitor's theme and follow the theme toggle", async ({ 
   expect(failed).toEqual([]);
 });
 
-test("the light and dark compare slider moves the divider", async ({ page }) => {
+test("the light and dark compare handle moves by drag and by keyboard", async ({ page }) => {
   await openFeatures(page);
-  const slider = page.getByRole("slider", { name: "Compare light and dark" });
-  await slider.scrollIntoViewIfNeeded();
+  const handle = page.getByRole("slider", { name: "Compare light and dark" });
+  await handle.scrollIntoViewIfNeeded();
   const stage = page.locator(".ft-compare-stage");
-  await expect(stage).toHaveCSS("--split", "50%");
-  await slider.fill("20");
-  await expect(stage).toHaveAttribute("style", /--split: 20%/);
+  await expect(handle).toHaveAttribute("aria-valuenow", "50");
+  // The handle sits on the image itself, not in a control below it.
+  const stageBox = (await stage.boundingBox())!;
+  const handleBox = (await handle.boundingBox())!;
+  expect(handleBox.y).toBeGreaterThanOrEqual(stageBox.y - 1);
+  expect(handleBox.y + handleBox.height).toBeLessThanOrEqual(stageBox.y + stageBox.height + 1);
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(stageBox.x + stageBox.width * 0.2, handleBox.y + handleBox.height / 2, { steps: 6 });
+  await page.mouse.up();
+  await expect(handle).toHaveAttribute("aria-valuenow", /^(1[89]|2[0-2])$/);
+  await handle.focus();
+  await page.keyboard.press("End");
+  await expect(handle).toHaveAttribute("aria-valuenow", "100");
+  await page.keyboard.press("Home");
+  await expect(handle).toHaveAttribute("aria-valuenow", "0");
 });
 
 for (const width of [360, 390, 1440]) {
@@ -108,7 +121,7 @@ test("outbound links go only to the repository and credited sources", async ({ p
       new URL((await link.getAttribute("href"))!).hostname,
     );
   }
-  await expect(page.getByRole("link", { name: /Sid Sijbrandij’s osteosarc\.com/ })).toHaveAttribute("href", "https://osteosarc.com/");
+  await expect(page.getByRole("link", { name: "osteosarc.com" })).toHaveAttribute("href", "https://osteosarc.com/");
   // The MRI image on this page keeps its CC BY credit.
   await expect(page.locator("footer")).toContainText("CC BY 4.0");
 });
@@ -116,8 +129,9 @@ test("outbound links go only to the repository and credited sources", async ({ p
 test("agents can read the feature lists as plain text", async ({ request }) => {
   const index = await request.get("/llms.txt");
   expect(index.status()).toBe(200);
-  expect(await index.text()).toContain("llms-full.txt");
-  const full = await request.get("/llms-full.txt");
+  expect(await index.text()).toContain("features.md");
+  const full = await request.get("/features.md");
+  expect(full.headers()["content-type"]).toContain("markdown");
   expect(full.status()).toBe(200);
   const text = await full.text();
   for (const feature of features) expect(text).toContain(feature.name);

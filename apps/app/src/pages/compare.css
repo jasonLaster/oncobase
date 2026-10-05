@@ -1,0 +1,331 @@
+/* The /compare page. It reuses the features page's header, sections, tables, and footer (features.css). */
+
+/* Hero extras */
+.ft-root .cp-not-sure {
+  max-width: 640px;
+  margin: 28px auto 0;
+  padding: 16px 20px;
+  border: 1px solid var(--lp-line);
+  border-left: 4px solid var(--lp-accent);
+  border-radius: 12px;
+  background: var(--lp-card);
+  color: var(--lp-ink);
+  font-size: 16px;
+  line-height: 1.6;
+  text-align: left;
+  text-wrap: pretty;
+}
+.ft-root .cp-disclosure {
+  max-width: 640px;
+  margin: 28px auto 0;
+  color: var(--lp-muted);
+  font-size: 14.5px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+/* Which should I use? */
+.cp-goals {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--lp-line);
+  border-radius: 14px;
+  background: var(--lp-card);
+  list-style: none;
+}
+.cp-goal {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+  gap: 8px 32px;
+  padding: 22px 24px;
+}
+.cp-goal + .cp-goal {
+  border-top: 1px solid var(--lp-line);
+}
+.ft-root .cp-goal h3 {
+  font-size: 18px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.ft-root .cp-goal p {
+  margin: 0 0 6px;
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+.ft-root .cp-goal .cp-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-bottom: 8px;
+}
+.ft-root .cp-goal .cp-move {
+  margin: 8px 0 0;
+  color: var(--lp-muted);
+  font-size: 14.5px;
+}
+.cp-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 12px;
+  border: 1px solid var(--lp-line);
+  border-radius: 99px;
+  background: var(--lp-panel);
+  color: var(--lp-ink);
+  font-size: 15px;
+  font-weight: 650;
+}
+.cp-chip[data-lead] {
+  border-color: transparent;
+  background: var(--lp-soft);
+  color: var(--lp-accent);
+}
+.cp-chip:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cp-also {
+  color: var(--lp-muted);
+  font-size: 14.5px;
+}
+.cp-also a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Side by side. The first column stays put while the rest scroll. */
+.cp-matrix .ft-table {
+  min-width: 1040px;
+}
+.cp-matrix:focus-visible {
+  outline: 2px solid var(--lp-accent);
+  outline-offset: 2px;
+}
+.cp-matrix th[scope="row"] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 160px;
+  padding: 14px 20px;
+  border-right: 1px solid var(--lp-line);
+  border-bottom: 1px solid var(--lp-line);
+  background: var(--lp-card);
+  color: var(--lp-ink);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.cp-matrix thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-right: 1px solid var(--lp-line);
+  background: var(--lp-card);
+}
+.cp-matrix tbody tr:last-child th,
+.cp-matrix tbody tr:last-child td {
+  border-bottom: 0;
+}
+.cp-matrix td {
+  min-width: 124px;
+  padding-inline: 12px;
+  font-size: 14.5px;
+}
+.cp-matrix thead th {
+  padding-inline: 14px;
+}
+.cp-matrix td:first-child {
+  white-space: normal;
+  font-weight: 400;
+}
+.cp-matrix [data-us] {
+  background: var(--lp-soft);
+}
+.cp-matrix thead th[data-us] {
+  color: var(--lp-accent);
+}
+.cp-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+.cp-cell > svg,
+.cp-cell-gap {
+  flex: none;
+  width: 15px;
+  margin-top: 3px;
+}
+.cp-cell[data-tone="yes"] > svg {
+  color: var(--lp-accent);
+}
+.cp-cell[data-tone="no"] > svg,
+.cp-cell[data-tone="unknown"] > svg {
+  color: var(--lp-muted);
+}
+.cp-cell[data-tone="unknown"] > span {
+  color: var(--lp-muted);
+}
+
+/* Each option */
+.cp-prod summary {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.8fr) 20px;
+}
+.cp-prod-body {
+  display: grid;
+  gap: 12px;
+  padding: 4px 20px 20px;
+}
+.ft-root .cp-prod-body p {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+.cp-prod-body b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--lp-muted);
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cp-prod-body .lp-text-link {
+  justify-self: start;
+}
+
+/* Building your own */
+.cp-build-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 28px;
+}
+.cp-build-cards article {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 22px 24px;
+  border: 1px solid var(--lp-line);
+  border-radius: 14px;
+  background: var(--lp-card);
+}
+.ft-root .cp-build-cards h3 {
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.ft-root .cp-build-cards p {
+  flex: 1;
+  color: var(--lp-muted);
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+.cp-build-cards a:not(.lp-text-link) {
+  color: var(--lp-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cp-pieces {
+  min-width: 640px;
+}
+.cp-pieces td:first-child {
+  white-space: nowrap;
+}
+.cp-pieces a {
+  color: var(--lp-accent);
+}
+.cp-pieces a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cp-build-cards + .ft-table-wrap,
+.ft-table-wrap + .ft-table-wrap {
+  margin-top: 24px;
+}
+.ft-root .cp-also-title {
+  margin: 44px 0 14px;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+.cp-also-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cp-also-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 0.45fr) minmax(0, 1.55fr);
+  gap: 4px 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--lp-line);
+}
+.cp-also-list a {
+  color: var(--lp-accent);
+  font-weight: 650;
+}
+.cp-also-list a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cp-also-list span {
+  color: var(--lp-muted);
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+.cp-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cp-sources a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--lp-accent);
+  font-weight: 600;
+}
+.cp-sources a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .cp-goal {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 18px 18px;
+  }
+  .ft-root .cp-goal h3 {
+    font-size: 17px;
+  }
+  .cp-prod summary {
+    grid-template-columns: minmax(0, 1fr) 20px;
+  }
+  .cp-prod .ft-acc-preview {
+    display: none;
+  }
+  .cp-prod-body {
+    padding: 4px 16px 18px;
+  }
+  .cp-build-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cp-also-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cp-matrix th[scope="row"] {
+    min-width: 132px;
+    padding: 12px 14px;
+  }
+}

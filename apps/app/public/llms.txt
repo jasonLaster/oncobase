@@ -6,22 +6,17 @@ It was inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
 
 ## Start here
 
-- [Everything Oncobase can do](https://diana-tnbc.com/features): the public features page.
-- [Full feature and interface list for agents](https://diana-tnbc.com/llms-full.txt): every feature, where it lives, and how to call it.
+- [Everything Oncobase can do](https://diana-tnbc.com/features.md): every feature, where it lives, and how to call it, in markdown. The same content as the [features page](https://diana-tnbc.com/features).
+- [How Oncobase compares](https://diana-tnbc.com/compare.md): when to use Notion, Obsidian, Yuga Bio, and others instead, and what to reuse if you are building your own. The same content as the [comparison page](https://diana-tnbc.com/compare).
 - [Source code and README](https://github.com/jasonLaster/oncobase): MIT licensed.
 - [Diana's knowledge base](https://diana-tnbc.com/): the first site built on Oncobase.
 
-## What it does
+## Two ways to use it with an agent
 
-- Read: Find your way around and read comfortably, on any screen.
-- Ask: Search by meaning, or talk to the knowledge base.
-- Protect: Share the science without sharing the patient.
-- See the data: Timelines, scans, and slides next to the notes.
-- Share: Bring family, doctors, and researchers in.
-- Build: Publish from plain files. Extend it with code or agents.
+- Have your agent build your own knowledge base with the `oncobase` CLI (`oncobase check`, then `oncobase publish`) and the bundled skills (`oncobase skills`).
+- Or have your agent reference Oncobase while it builds yours: the code is MIT licensed, so any part can be read, copied, and adapted.
 
 ## Notes for agents
 
 - The reader is a client-rendered web app; most content needs a signed-in session or the site password.
-- The public guides at https://diana-tnbc.com/education and the features page need no password.
-- To publish, use the `oncobase` CLI (`oncobase check`, then `oncobase publish`) and the bundled skills (`oncobase skills`).
+- The public guides at https://diana-tnbc.com/education, the features page, and the comparison page need no password.

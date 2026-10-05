@@ -1,17 +1,18 @@
-/* Diana's plum is the page default; .lp-oncobase switches a region to green. */
+/* The wiki's own palette (indigo on neutral grays, deep navy in dark), so the
+   public pages and the reader never clash. .lp-oncobase tints a region. */
 .landing-page {
-  --lp-ink: #422c3e;
-  --lp-muted: #735e6e;
-  --lp-accent: #805274;
-  --lp-line: #e9dee6;
-  --lp-page: #fdf9fb;
-  --lp-panel: #f7eff5;
-  --lp-soft: #eee0eb;
+  --lp-ink: #1a1a2e;
+  --lp-muted: #5b6072;
+  --lp-accent: #4f46e5;
+  --lp-line: #e5e7eb;
+  --lp-page: #ffffff;
+  --lp-panel: #f8f9fa;
+  --lp-soft: #eef2ff;
   --lp-card: #ffffff;
-  --lp-button: #422c3e;
+  --lp-button: #4f46e5;
   --lp-button-ink: #ffffff;
-  --lp-allowed: #3f6b33;
-  --lp-shadow: 66 44 62;
+  --lp-allowed: #15803d;
+  --lp-shadow: 26 26 46;
   background: var(--lp-page);
   color: var(--lp-ink);
   color-scheme: light;
@@ -29,42 +30,31 @@
   -webkit-font-smoothing: antialiased;
 }
 .lp-oncobase {
-  --lp-ink: #22362d;
-  --lp-muted: #55644f;
-  --lp-accent: #356647;
-  --lp-line: #dbe4d6;
-  --lp-page: #f8faf5;
-  --lp-panel: #eff4eb;
-  --lp-soft: #e2ecdc;
-  --lp-button: #22362d;
-  --lp-shadow: 34 54 45;
+  --lp-page: #f5f6ff;
+  --lp-panel: #eef0ff;
+  --lp-soft: #e0e5ff;
+  --lp-line: #dadff5;
 }
 .dark .landing-page {
-  --lp-ink: #f0deeb;
-  --lp-muted: #c5aebf;
-  --lp-accent: #d9aed0;
-  --lp-line: #4b3646;
-  --lp-page: #211920;
-  --lp-panel: #2a2029;
-  --lp-soft: #443044;
-  --lp-card: #302430;
-  --lp-button: #f0deeb;
-  --lp-button-ink: #241c23;
-  --lp-allowed: #a7cf96;
+  --lp-ink: #ececf4;
+  --lp-muted: #a0a4b8;
+  --lp-accent: #818cf8;
+  --lp-line: #2d2d44;
+  --lp-page: #0f0f1a;
+  --lp-panel: #161625;
+  --lp-soft: #1e1b4b;
+  --lp-card: #161625;
+  --lp-button: #818cf8;
+  --lp-button-ink: #0f0f1a;
+  --lp-allowed: #4ade80;
   --lp-shadow: 0 0 0;
   color-scheme: dark;
 }
 .dark .landing-page .lp-oncobase {
-  --lp-ink: #e2eadc;
-  --lp-muted: #a3b29c;
-  --lp-accent: #b0cba4;
-  --lp-line: #314436;
-  --lp-page: #16231c;
-  --lp-panel: #1b2a21;
-  --lp-soft: #2a3e2d;
-  --lp-card: #1b2a21;
-  --lp-button: #e2eadc;
-  --lp-button-ink: #16231c;
+  --lp-page: #12122a;
+  --lp-panel: #15152e;
+  --lp-soft: #23224e;
+  --lp-line: #2a2a4a;
 }
 
 .landing-page *,
@@ -229,7 +219,7 @@
 
 /* Header */
 .lp-header-shell {
-  --lp-header-bg: #f7eff5;
+  --lp-header-bg: #f8f9fa;
   --brand: var(--lp-accent);
   --foreground: var(--lp-ink);
   --border: var(--lp-line);
@@ -246,26 +236,15 @@
     border-color 240ms ease;
 }
 .lp-header-shell[data-tone="oncobase"] {
-  --lp-header-bg: #eef4ea;
-  --lp-ink: #22362d;
-  --lp-muted: #55644f;
-  --lp-accent: #356647;
-  --lp-line: #dbe4d6;
-  --lp-soft: #e2ecdc;
-  --lp-button: #22362d;
+  --lp-header-bg: #eef0ff;
+  --lp-line: #dadff5;
 }
 .dark .landing-page .lp-header-shell {
-  --lp-header-bg: #2a2029;
+  --lp-header-bg: #161625;
 }
 .dark .landing-page .lp-header-shell[data-tone="oncobase"] {
-  --lp-header-bg: #1b2a21;
-  --lp-ink: #e2eadc;
-  --lp-muted: #a3b29c;
-  --lp-accent: #b0cba4;
-  --lp-line: #314436;
-  --lp-soft: #2a3e2d;
-  --lp-button: #e2eadc;
-  --lp-button-ink: #16231c;
+  --lp-header-bg: #15152e;
+  --lp-line: #2a2a4a;
 }
 .lp-header {
   display: flex;
@@ -297,13 +276,13 @@
   isolation: isolate;
   padding: 88px 0 80px;
   background:
-    radial-gradient(ellipse at 0% 20%, #ead9e780, transparent 55%),
-    radial-gradient(ellipse at 100% 45%, #eee0ee80, transparent 50%),
+    radial-gradient(ellipse at 0% 20%, #e0e7ff99, transparent 55%),
+    radial-gradient(ellipse at 100% 45%, #ede9fe80, transparent 50%),
     var(--lp-page);
 }
 .dark .landing-page .lp-hero {
   background:
-    radial-gradient(ellipse at 0% 20%, #44304480, transparent 55%),
+    radial-gradient(ellipse at 0% 20%, #2b2a6a66, transparent 55%),
     var(--lp-page);
 }
 .lp-village-texture {
@@ -410,7 +389,7 @@
   bottom: 0;
   width: 21%;
   overflow: hidden;
-  border: 6px solid #2f2530;
+  border: 6px solid #1a1a2e;
   border-radius: 28px;
   background: #000;
   box-shadow: 0 30px 60px -24px rgb(0 0 0 / 0.5);
@@ -835,22 +814,32 @@
 .lp-section-heading .lp-text-link {
   margin-top: 12px;
 }
-.lp-guide-pair {
+/* Two lead cartoons, then three more. Phones get one swipeable row so the section stays about one card tall. */
+.lp-guides {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 28px;
 }
+.lp-guides > .lp-guide {
+  grid-column: span 2;
+}
+.lp-guides > .lp-guide:nth-child(-n + 2) {
+  grid-column: span 3;
+}
 .lp-guide {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--lp-line);
   border-radius: 14px;
   background: var(--lp-card);
 }
 .lp-guide img {
+  flex: none;
   border-bottom: 1px solid var(--lp-line);
 }
 .lp-guide figcaption {
+  flex: 1;
   padding: 16px 20px 20px;
 }
 .lp-guide figcaption a {
@@ -1009,13 +998,13 @@
   overflow: clip;
   border-right: 1px solid var(--lp-line);
   background:
-    radial-gradient(ellipse at 10% 10%, #ead9e7cc, transparent 55%),
-    radial-gradient(ellipse at 90% 95%, #eee0eecc, transparent 50%),
+    radial-gradient(ellipse at 10% 10%, #e0e7ffcc, transparent 55%),
+    radial-gradient(ellipse at 90% 95%, #ede9feb3, transparent 50%),
     var(--lp-panel);
 }
 .dark .landing-page .si-art {
   background:
-    radial-gradient(ellipse at 10% 10%, #44304480, transparent 55%),
+    radial-gradient(ellipse at 10% 10%, #2b2a6a66, transparent 55%),
     var(--lp-panel);
 }
 .si-art .lp-village-texture {
@@ -1115,12 +1104,8 @@
 
 /* Footer */
 .lp-footer-shell {
-  border-top: 1px solid #e5e1d8;
-  background: #f8f5f0;
-}
-.dark .landing-page .lp-footer-shell {
-  border-color: var(--lp-line);
-  background: var(--lp-page);
+  border-top: 1px solid var(--lp-line);
+  background: var(--lp-panel);
 }
 .lp-footer {
   display: flex;
@@ -1360,9 +1345,22 @@
   .lp-section-end {
     padding-bottom: 80px;
   }
-  .lp-guide-pair {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
+  .lp-guides {
+    display: flex;
+    gap: 14px;
+    margin-inline: -16px;
+    padding-inline: 16px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 16px;
+    scroll-snap-type: x mandatory;
+  }
+  .lp-guides > .lp-guide {
+    flex: 0 0 82%;
+    scroll-snap-align: start;
+  }
+  .lp-guide figcaption {
+    padding: 12px 16px 16px;
   }
   .lp-platform {
     padding-block: 72px;
@@ -1462,5 +1460,68 @@
   .landing-page *::after {
     scroll-behavior: auto !important;
     transition: none !important;
+  }
+}
+
+/* Tour: the landing links into the features page instead of repeating it */
+.lp-tour {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 72px;
+}
+.lp-tour a {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 44px;
+  padding: 24px;
+  border: 1px solid var(--lp-line);
+  border-radius: 14px;
+  background: var(--lp-card);
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+.lp-tour a:hover {
+  border-color: var(--lp-accent);
+  transform: translateY(-2px);
+}
+.lp-tour svg {
+  color: var(--lp-accent);
+}
+.lp-tour strong {
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.lp-tour span {
+  color: var(--lp-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.lp-tour em {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 8px;
+  color: var(--lp-accent);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 600;
+}
+.landing-page .lp-tour-all {
+  margin-top: 24px;
+  text-align: center;
+}
+@media (max-width: 900px) {
+  .lp-tour {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 48px;
+  }
+}
+@media (max-width: 520px) {
+  .lp-tour {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

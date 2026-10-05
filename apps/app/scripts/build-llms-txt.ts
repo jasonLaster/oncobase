@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
-// Writes the agent-readable files from the same data the features page renders.
+// Writes the agent-readable files (llms.txt, the features.md twin of /features, and the compare.md twin of /compare) from the same data the pages render.
 //   bun scripts/build-llms-txt.ts
 import { writeFileSync } from "node:fs";
-import { renderLlmsFullTxt, renderLlmsTxt } from "../src/pages/features-data";
+import { renderCompareMd } from "../src/pages/compare-data";
+import { renderFeaturesMd, renderLlmsTxt } from "../src/pages/features-data";
 
 const publicDir = new URL("../public/", import.meta.url);
 writeFileSync(new URL("llms.txt", publicDir), renderLlmsTxt());
-writeFileSync(new URL("llms-full.txt", publicDir), renderLlmsFullTxt());
-console.log("Wrote public/llms.txt and public/llms-full.txt");
+writeFileSync(new URL("features.md", publicDir), renderFeaturesMd());
+writeFileSync(new URL("compare.md", publicDir), renderCompareMd());
+console.log("Wrote public/llms.txt, public/features.md, and public/compare.md");
