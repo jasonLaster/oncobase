@@ -32,7 +32,7 @@ The shared header (`PublicChrome.tsx`, also used by `/compare`) has the Oncobase
 
 ## Accuracy rules
 
-Claims come from the code, checked in October 2026. Do **not** claim: sorting, filtering, or search inside tables; an MCP server; automatic dark-theme swapping of `data-theme-pair` images in the reader (only the `-light` file shows there; the landing, sign-in, and this page choose the matching file themselves); table column widths beyond the session; or that link previews are re-redacted. The redaction skills that spell out what to hide live in Diana's vault, not in this repository; the CLI ships only `wiki-quickstart` and `check`. The comments demo is a recreation, and says so.
+Claims come from the code, checked in October 2026. The reader swaps `data-theme-pair` cartoons with the theme (it renders the `-light` file and the matching `-dark` file, and CSS shows one), as of `7fefc1976`. Do **not** claim: sorting, filtering, or search inside tables; an MCP server; table column widths beyond the session; or that link previews are re-redacted. The redaction skills that spell out what to hide live in Diana's vault, not in this repository; the CLI ships only `wiki-quickstart` and `check`. The comments demo is a recreation, and says so.
 
 ## Screenshots
 
@@ -40,4 +40,4 @@ Real UI rendered through the e2e mocks (`omitBasePages` in `e2e/fixtures.ts`) fr
 
 ## Verification
 
-`e2e/features-page.spec.ts` covers the header anchors, that every feature and interface appears, themed image loading and the theme toggle, the compare slider, no horizontal scroll at 360, 390, and 1440px, outbound links, the text files, and axe in light and dark. `standalone-routes.spec.ts`, `app-shell.test.ts`, `local-smoke.ts`, and `verify-standalone.ts` cover the public route.
+`e2e/features-page.spec.ts` covers the header anchors, that every feature and interface appears, themed image loading and the theme toggle, the compare slider, no horizontal scroll at 360, 390, and 1440px, outbound links, the text files, and axe in light and dark. `e2e/journeys/public.spec.ts` (the route loads without the reader session or database), `app-shell.test.ts`, `local-smoke.ts`, and `verify-standalone.ts` cover the public route.

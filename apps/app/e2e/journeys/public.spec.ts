@@ -29,7 +29,7 @@ test.describe("signed-out landing and sign-in", () => {
 
     // Sections appear in order, and Oncobase's open-source band comes first of the features.
     const order = await page.evaluate(() =>
-      ["story", "platform", "inside", "privacy", "education"].map(
+      ["story", "platform", "inside", "education"].map(
         (id) => document.getElementById(id)!.getBoundingClientRect().top + scrollY,
       ),
     );
@@ -42,13 +42,23 @@ test.describe("signed-out landing and sign-in", () => {
     for (const [link, heading] of [
       ["Our story", "#story-title"],
       ["Oncobase", "#platform-title"],
-      ["Features", "#inside-title"],
-      ["Privacy", "#privacy-title"],
       ["Education", "#education-title"],
     ]) {
       await navigation.getByRole("link", { name: link, exact: true }).click();
       await expect(page.locator(heading)).toBeInViewport();
     }
+    // Features and the comparison live on their own pages.
+    await expect(navigation.getByRole("link", { name: "Features", exact: true })).toHaveAttribute(
+      "href",
+      "/features",
+    );
+    await expect(page.locator("footer").getByRole("link", { name: "Compare" })).toHaveAttribute(
+      "href",
+      "/compare",
+    );
+    await expect(
+      page.locator("#platform").getByRole("link", { name: /See everything it can do/ }),
+    ).toHaveAttribute("href", "/features");
 
     // Education and terms are public links; the password form lives on its own page.
     await expect(
@@ -66,6 +76,41 @@ test.describe("signed-out landing and sign-in", () => {
     await page.goto("/login");
     await page.getByRole("link", { name: "View Diana’s knowledge base", exact: true }).click();
     await expect(page).toHaveURL(/\/sign-in$/);
+  });
+
+  test("the education cartoons lead with two, follow with three, and swipe on phones", async ({
+    page,
+  }) => {
+    for (const width of [1440, 393]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/login");
+      const guides = page.locator(".lp-guides");
+      await expect(guides.locator("> .lp-guide")).toHaveCount(5);
+      const boxes = await guides
+        .locator("> .lp-guide")
+        .evaluateAll((items) => items.map((item) => item.getBoundingClientRect().toJSON()));
+      if (width > 700) {
+        expect(boxes[1]!.y).toBe(boxes[0]!.y);
+        expect(boxes[3]!.y).toBe(boxes[2]!.y);
+        expect(boxes[4]!.y).toBe(boxes[2]!.y);
+        expect(boxes[2]!.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height);
+        expect(await guides.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      } else {
+        // One row that scrolls sideways, about one card tall, with the next card peeking in.
+        expect(new Set(boxes.map((box) => box.y)).size).toBe(1);
+        expect(await guides.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+        expect(boxes[1]!.x).toBeLessThan(width);
+        expect(boxes[0]!.height).toBeLessThan(520);
+      }
+      // Every cartoon opens a public guide, and the tour cards open the features page.
+      for (const href of await guides.locator("a").evaluateAll((links) => links.map((link) => link.getAttribute("href")))) {
+        expect(href).toMatch(/^\/education\//);
+      }
+      for (const card of await page.locator(".lp-tour > a").all()) {
+        expect(await card.getAttribute("href")).toMatch(/^\/features#/);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
   });
 
   test("the landing page makes no reader or clinical data requests", async ({ page }) => {
@@ -183,7 +228,7 @@ test.describe("signed-out landing and sign-in", () => {
     await expect(page.locator("html")).toHaveClass(/dark/);
     expect(await page.evaluate(() => localStorage.getItem("theme"))).toBeNull();
     const themed = page.locator("#landing-main img[src*='-light.'], #landing-main img[src*='-dark.']");
-    await expect(themed).toHaveCount(6);
+    await expect(themed).toHaveCount(7);
     expect(
       await themed.evaluateAll((images) =>
         images.every((image) => image.getAttribute("src")!.includes("-dark.")),
@@ -225,6 +270,8 @@ test.describe("signed-out landing and sign-in", () => {
   for (const route of [
     { path: "/login", testId: "login-page" },
     { path: "/sign-in", testId: "sign-in-page" },
+    { path: "/features", testId: "features-page" },
+    { path: "/compare", testId: "compare-page" },
     { path: "/terms-and-conditions", testId: "terms-and-conditions" },
   ]) {
     test(`${route.path} does not require the reader session or database`, async ({

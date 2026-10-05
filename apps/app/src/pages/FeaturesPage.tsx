@@ -350,8 +350,8 @@ function Read() {
           <h3>Illustrations in light and dark.</h3>
           <p>
             We draw our explanatory cartoons in matching light and dark
-            versions, and pages like this one show the version that fits your
-            theme. Drag the divider to compare. Open any image on a page full
+            versions, and the reader and pages like this one show the version
+            that fits your theme. Drag the divider to compare. Open any image on a page full
             screen, download it, or step through a slide set with the arrow
             keys.
           </p>

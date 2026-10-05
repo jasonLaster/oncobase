@@ -170,4 +170,4 @@ Auth: Gate = the site's shared-password cookie; Session = an account cookie; Pub
 
 ## Not available today
 
-Sorting or filtering inside tables, an MCP server, and automatic dark-theme swapping of illustration pairs inside the reader (illustrations are drawn as light and dark pairs; pages like the landing and features pages pick the matching one).
+Sorting or filtering inside tables, and an MCP server.
