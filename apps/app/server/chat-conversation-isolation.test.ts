@@ -3,6 +3,8 @@
 // and the real conversation functions, then probe every read/stream/cancel
 // path with browser tokens of other owners.
 import { afterEach, expect, spyOn, test } from "bun:test";
+import { getFunctionName } from "convex/server";
+import type { ConvexHttpClient } from "convex/browser";
 import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
@@ -233,5 +235,41 @@ test("running a chat with sensitive content writes no message text to logs or te
   } finally {
     for (const spy of spies) spy.mockRestore();
     await provider.shutdown();
+  }
+});
+
+test("every conversation call the chat route makes is bound to the requesting viewer's owner key (never a site-wide call)", async () => {
+  const fixture = await createFixture();
+  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const record = (kind: "query" | "mutation") => (ref: never, args: Record<string, unknown>, ...rest: unknown[]) => {
+    const name = getFunctionName(ref);
+    if (name.startsWith("conversations:")) calls.push({ name, args });
+    return (fixture.client[kind] as (...a: unknown[]) => unknown)(ref, args, ...rest);
+  };
+  const client = { query: record("query"), mutation: record("mutation"), action: fixture.client.action.bind(fixture.client) } as unknown as ConvexHttpClient;
+  for (const [viewer, cookie] of [["care", ""], ["reader", ""], ["anonymous", anonCookie(ANON_A)], ["anonymous", ""]] as const) {
+    calls.length = 0;
+    const expected = ownerOf(fixture, viewer, cookie);
+    const conversationId = await newConversation(fixture, expected);
+    const model = scriptedModel([], "ok");
+    installModel(model);
+    const response = await handleChatRoute({
+      request: jsonRequest("/api/chat", { messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] }], conversationId }, cookieFor(fixture, viewer, cookie)),
+      client, siteSlug: SITE,
+    } as never);
+    await response.text();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const names = new Set(calls.map((call) => call.name));
+    for (const required of ["conversations:clearCancel", "conversations:beginRun", "conversations:getCancelState", "conversations:updateStreaming", "conversations:saveMessages", "conversations:clearStreaming"]) {
+      if (required === "conversations:updateStreaming" || required === "conversations:getCancelState") continue; // timing dependent
+      expect(names.has(required), required).toBe(true);
+    }
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      // Anonymous callers without a cookie get a throwaway key: it matches no row.
+      if (!(viewer === "anonymous" && !cookie)) expect(call.args.ownerKey, call.name).toBe(expected);
+      expect(call.args.ownerKey, call.name).toMatch(/^[0-9a-f]{64}$/);
+      expect(call.args.siteSlug, call.name).toBe(SITE);
+    }
   }
 });

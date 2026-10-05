@@ -141,7 +141,7 @@ export function scriptedModel(calls: ScriptedCall[], answer = "All done.") {
     doStream: async ({ prompt }) => {
       // Tool results in the prompt mean the tools already ran: answer now.
       const toolsRan = prompt.some((message) => message.role === "tool");
-      const chunks = !toolsRan
+      const chunks = !toolsRan && calls.length > 0
         ? [
             { type: "stream-start", warnings: [] },
             ...calls.map((call, index) => ({ type: "tool-call", toolCallId: `call-${index}`, toolName: call.name, input: JSON.stringify(call.input) })),
