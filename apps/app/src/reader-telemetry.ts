@@ -1,5 +1,6 @@
 import { READER_PHASES, READER_REASONS, type ReaderHandoffOutcome, type ReaderPhase, type ReaderReason, type ReaderSpan } from "../shared/reader-telemetry";
 import { storeBootPath } from "./livestore/store-boot-path";
+import { isOncobaseHost } from "./site-host";
 
 // Per-page random identity, never persisted or derived from a user or page.
 let id: string | undefined;
@@ -35,6 +36,8 @@ function flush(beacon = false) {
 
 function enqueue(span: ReaderSpan) {
   if (typeof window === "undefined" || import.meta.env.MODE === "test") return;
+  // The marketing site (oncobase.io) has no telemetry endpoint and nothing to measure.
+  if (isOncobaseHost(window.location.hostname)) return;
   try {
     traceId();
     if (count++ >= 256) { dropped++; return; }

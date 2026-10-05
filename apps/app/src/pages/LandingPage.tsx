@@ -18,6 +18,7 @@ import {
 } from "./LandingShowcase";
 import { DianaBrand, EducationTexture, OncobaseBrand, VillageTexture } from "./LandingBrands";
 import { PublicHeader } from "./PublicChrome";
+import { oncobaseUrl } from "../site-links";
 import "./landing.css";
 
 /** Tinted while the Oncobase band is under the header. */
@@ -65,7 +66,7 @@ const sections = [
   ["story", "Our story"],
   ["platform", "Oncobase"],
   ["inside", "What’s inside"],
-  ["education", "Education"],
+  ["education", "Cartoons"],
 ] as const;
 
 function Hero() {
@@ -173,7 +174,7 @@ function Inside() {
             [Activity, "See the data", "Timelines, scans, and pathology slides beside the notes.", "data"],
           ] as const
         ).map(([Icon, title, text, anchor]) => (
-          <a href={`/features#${anchor}`} key={title}>
+          <a href={oncobaseUrl(`/features#${anchor}`)} key={title}>
             <Icon aria-hidden="true" size={20} />
             <strong>{title}</strong>
             <span>{text}</span>
@@ -184,7 +185,7 @@ function Inside() {
         ))}
       </div>
       <p className="lp-tour-all">
-        <a className="lp-text-link" href="/features">
+        <a className="lp-text-link" href={oncobaseUrl("/features")}>
           See everything Oncobase can do <ArrowRight size={16} />
         </a>
       </p>
@@ -234,8 +235,8 @@ function Platform({ ref }: { ref: RefObject<HTMLElement | null> }) {
               <GitBranch size={17} /> View Oncobase on GitHub{" "}
               <ArrowRight size={15} />
             </a>
-            <a className="lp-text-link" href="/features">
-              See everything it can do <ArrowRight size={15} />
+            <a className="lp-text-link" href={oncobaseUrl("/")}>
+              Learn about Oncobase <ArrowRight size={15} />
             </a>
           </div>
         </div>
@@ -339,8 +340,8 @@ function Footer() {
         </div>
         <div className="lp-footer-note">
           <p>Shared for education, not medical advice.</p>
-          <a href="/features">Features</a>
-          <a href="/compare">Compare</a>
+          <a href={oncobaseUrl("/features")}>Features</a>
+          <a href={oncobaseUrl("/compare")}>Compare</a>
           <a href="/terms-and-conditions">Terms & conditions</a>
         </div>
       </div>

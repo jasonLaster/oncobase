@@ -2,6 +2,7 @@ import { ArrowRight, GitBranch } from "lucide-react";
 import { useEffect, useRef, useState, type Ref } from "react";
 import { PublicThemeControl } from "../PublicThemeControl";
 import { DianaBrand, OncobaseBrand } from "./LandingBrands";
+import { oncobaseUrl } from "../site-links";
 import { REPO_URL } from "./site";
 import "./public-header.css";
 
@@ -34,18 +35,26 @@ export function useActiveSection(ids: readonly string[]) {
   return active;
 }
 
-/** The pages every public page links to. This row never changes between pages. */
-const primaryPages = [
-  ["features", "/features", "Features"],
-  ["compare", "/compare", "Compare"],
-] as const;
+export type PublicPage = "features" | "compare" | "education";
 
-export type PublicPage = (typeof primaryPages)[number][0];
+/** The links in a site's primary row. They never change between that site's pages. */
+function primaryPagesFor(brand: "diana" | "oncobase"): { id: PublicPage | "oncobase"; href: string; label: string }[] {
+  return brand === "oncobase"
+    ? [
+        { id: "features", href: "/features", label: "Features" },
+        { id: "compare", href: "/compare", label: "Compare" },
+      ]
+    : [
+        { id: "education", href: "/education", label: "Education" },
+        { id: "oncobase", href: oncobaseUrl("/"), label: "Oncobase" },
+      ];
+}
 
 /**
- * The header every public page shares. The primary row (brand, Features, Compare, theme, and an action)
- * has the same links everywhere; the sub header below it lists the sections of the current page and tracks
- * the one in view. On phones the primary links join the sub header's single scrolling row, pinned at its
+ * The header every public page shares. The primary row (brand, the site's pages, theme, and an action)
+ * has the same links on every page of a site; the sub header below it lists the sections of the current
+ * page and tracks the one in view. oncobase.io has Features and Compare; Diana's site has Education and a
+ * link to Oncobase. On phones the primary links join the sub header's single scrolling row, pinned at its
  * left edge, so the header stays two rows tall.
  */
 export function PublicHeader({
@@ -68,6 +77,7 @@ export function PublicHeader({
   items: readonly (readonly [string, string])[];
 }) {
   const active = useActiveSection(items.map(([id]) => id));
+  const primaryPages = primaryPagesFor(brand);
   const strip = useRef<HTMLElement>(null);
   // On a phone the links scroll sideways; keep the current one in view.
   useEffect(() => {
@@ -92,7 +102,7 @@ export function PublicHeader({
           </a>
         )}
         <nav aria-label="Main navigation" className="ft-primary-nav">
-          {primaryPages.map(([id, href, label]) => (
+          {primaryPages.map(({ id, href, label }) => (
             <a aria-current={current === id ? "page" : undefined} href={href} key={id}>
               {label}
             </a>
@@ -114,7 +124,7 @@ export function PublicHeader({
       <div className="ft-subheader">
         <nav aria-label={navLabel} className="lp-container" ref={strip}>
           <span className="ft-sub-pages">
-            {primaryPages.map(([id, href, label]) => (
+            {primaryPages.map(({ id, href, label }) => (
               <a aria-current={current === id ? "page" : undefined} href={href} key={id}>
                 {label}
               </a>

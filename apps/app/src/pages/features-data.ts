@@ -4,7 +4,7 @@
  * `scripts/build-llms-txt.ts`). Only list what the code really does.
  */
 
-import { REPO_URL, SITE_URL } from "./site";
+import { DIANA_URL, REPO_URL, SITE_URL } from "./site";
 
 export { REPO_URL, SITE_URL };
 
@@ -175,10 +175,11 @@ It was inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
 
 ## Start here
 
+- [Oncobase](${SITE_URL}/): what it is and who it is for.
 - [Everything Oncobase can do](${SITE_URL}/features.md): every feature, where it lives, and how to call it, in markdown. The same content as the [features page](${SITE_URL}/features).
 - [How Oncobase compares](${SITE_URL}/compare.md): when to use Notion, Obsidian, Yuga Bio, and others instead, and what to reuse if you are building your own. The same content as the [comparison page](${SITE_URL}/compare).
 - [Source code and README](${REPO_URL}): MIT licensed.
-- [Diana's knowledge base](${SITE_URL}/): the first site built on Oncobase.
+- [Diana's knowledge base](${DIANA_URL}/): the first site built on Oncobase.
 
 ## Two ways to use it with an agent
 
@@ -188,7 +189,7 @@ It was inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
 ## Notes for agents
 
 - The reader is a client-rendered web app; most content needs a signed-in session or the site password.
-- The public guides at ${SITE_URL}/education, the features page, and the comparison page need no password.
+- The public guides at ${DIANA_URL}/education need no password, and neither do this site's pages (the home page, features, and compare).
 `;
 }
 
@@ -236,7 +237,7 @@ export function renderFeaturesMd(): string {
 
 > ${heroLede}
 
-Source: ${REPO_URL} (MIT). Live example: ${SITE_URL}/. This page: ${SITE_URL}/features. How it compares with Notion, Obsidian, and others: ${SITE_URL}/compare.md. Inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
+Source: ${REPO_URL} (MIT). Live example: ${DIANA_URL}/. This page: ${SITE_URL}/features. How it compares with Notion, Obsidian, and others: ${SITE_URL}/compare.md. Inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
 
 ${sections}
 

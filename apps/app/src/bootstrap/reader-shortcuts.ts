@@ -13,6 +13,8 @@ declare global {
 
 /** Serialized into every reader document head, before app scripts or snapshots. */
 export function installReaderShortcuts(create: typeof createCommandPaletteChords) {
+  // The marketing site (oncobase.io) never mounts the reader. This pattern is copied from src/site-host.ts.
+  if (/(^|\.)oncobase\.(io|localhost)$/.test(window.location?.hostname ?? "")) return;
   if (window.location?.pathname === "/education" || window.location?.pathname.startsWith("/education/")) return;
   // These routes intentionally do not mount the reader's palette host.
   if (["/login", "/sign-in", "/features", "/compare", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare", "/tools/pathology-viewer"].includes(window.location?.pathname)) return;

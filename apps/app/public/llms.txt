@@ -6,8 +6,9 @@ It was inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
 
 ## Start here
 
-- [Everything Oncobase can do](https://diana-tnbc.com/features.md): every feature, where it lives, and how to call it, in markdown. The same content as the [features page](https://diana-tnbc.com/features).
-- [How Oncobase compares](https://diana-tnbc.com/compare.md): when to use Notion, Obsidian, Yuga Bio, and others instead, and what to reuse if you are building your own. The same content as the [comparison page](https://diana-tnbc.com/compare).
+- [Oncobase](https://oncobase.io/): what it is and who it is for.
+- [Everything Oncobase can do](https://oncobase.io/features.md): every feature, where it lives, and how to call it, in markdown. The same content as the [features page](https://oncobase.io/features).
+- [How Oncobase compares](https://oncobase.io/compare.md): when to use Notion, Obsidian, Yuga Bio, and others instead, and what to reuse if you are building your own. The same content as the [comparison page](https://oncobase.io/compare).
 - [Source code and README](https://github.com/jasonLaster/oncobase): MIT licensed.
 - [Diana's knowledge base](https://diana-tnbc.com/): the first site built on Oncobase.
 
@@ -19,4 +20,4 @@ It was inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
 ## Notes for agents
 
 - The reader is a client-rendered web app; most content needs a signed-in session or the site password.
-- The public guides at https://diana-tnbc.com/education, the features page, and the comparison page need no password.
+- The public guides at https://diana-tnbc.com/education need no password, and neither do this site's pages (the home page, features, and compare).

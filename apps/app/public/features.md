@@ -2,7 +2,7 @@
 
 > A knowledge base for taking control of your care, built with attention to detail so it’s easy to read, easy to share, and safe.
 
-Source: https://github.com/jasonLaster/oncobase (MIT). Live example: https://diana-tnbc.com/. This page: https://diana-tnbc.com/features. How it compares with Notion, Obsidian, and others: https://diana-tnbc.com/compare.md. Inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
+Source: https://github.com/jasonLaster/oncobase (MIT). Live example: https://diana-tnbc.com/. This page: https://oncobase.io/features. How it compares with Notion, Obsidian, and others: https://oncobase.io/compare.md. Inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
 
 ## Find your way, then read in peace.
 

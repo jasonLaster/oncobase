@@ -68,12 +68,29 @@ try {
     throw new Error("Standalone deep route gate did not use auth-safe cache headers");
   }
 
-  // The features and comparison pages and the agent-readable lists are public.
-  for (const publicPath of ["/features", "/features.md", "/compare", "/compare.md", "/llms.txt"]) {
-    const publicResponse = await fetch(`${origin}${publicPath}`, { redirect: "manual" });
+  // The agent-readable files are public on both sites.
+  for (const publicPath of ["/features.md", "/compare.md", "/llms.txt"]) {
+    const publicResponse = await fetch(`${origin}${publicPath}`, { redirect: "manual", headers: { Host: "oncobase.io" } });
     if (publicResponse.status !== 200) {
       throw new Error(`Standalone ${publicPath} should be public, got ${publicResponse.status}`);
     }
+  }
+
+  // oncobase.io is a separate public site on the same deployment: its three pages need no password, and
+  // there is no wiki or API there. On Diana's host the old Oncobase pages redirect to it.
+  for (const marketingPath of ["/", "/features", "/compare"]) {
+    const marketingResponse = await fetch(`${origin}${marketingPath}`, { redirect: "manual", headers: { Host: "oncobase.io" } });
+    if (marketingResponse.status !== 200) {
+      throw new Error(`oncobase.io${marketingPath} should be public, got ${marketingResponse.status}`);
+    }
+  }
+  for (const gatedPath of ["/wiki/index", "/api/wiki/session"]) {
+    const response = await fetch(`${origin}${gatedPath}`, { redirect: "manual", headers: { Host: "oncobase.io" } });
+    if (response.status !== 404) throw new Error(`oncobase.io${gatedPath} should be 404, got ${response.status}`);
+  }
+  const moved = await fetch(`${origin}/features`, { redirect: "manual", headers: { Host: "diana-tnbc.com" } });
+  if (moved.status !== 301 || moved.headers.get("location") !== "https://oncobase.io/features") {
+    throw new Error(`Diana's /features should redirect to oncobase.io, got ${moved.status} ${moved.headers.get("location")}`);
   }
 
   // Signed-out visitors see the landing page at "/" instead of a redirect.

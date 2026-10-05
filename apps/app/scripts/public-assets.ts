@@ -32,6 +32,8 @@ const PUBLIC_FILES = new Set([
   "landing/diagnostics-timeline-light.jpg",
   "landing/dicom-viewer.jpg",
   "landing/og-image.jpg",
+  // The share image for the Oncobase marketing site (oncobase.io).
+  "oncobase-og.jpg",
   // Sample-content screenshots for the public features page.
   // Sources and capture method: specs/features-page.md.
   "feature-shots/ai-search-dark.jpg",

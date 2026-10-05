@@ -2,7 +2,7 @@ import { bootScriptStart } from "./boot-timing";
 import { clearStartupSnapshot } from "./bootstrap/startup-cache-lifecycle";
 import { lazy, StrictMode, Suspense, useEffect, useLayoutEffect } from "react";
 import { educationOnlyResponse } from "./education-access";
-import { landingResponse, rootRouteFor } from "./root-route";
+import { landingResponse, rootRouteFor, siteResponse } from "./root-route";
 import { prefetchReaderSession } from "./reader-session-prefetch";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
@@ -10,7 +10,9 @@ import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
 import { observeReaderVitals, recordReaderPhase } from "./reader-telemetry";
-const initialRoute = rootRouteFor(location.pathname, educationOnlyResponse(), landingResponse());
+// oncobase.io is the marketing site: three pages, no reader, no sign-in, no telemetry endpoint.
+const site = siteResponse();
+const initialRoute = rootRouteFor(location.pathname, educationOnlyResponse(), landingResponse(), site);
 // Specialist viewers do not need the reader's schema or database imports.
 // Keep that dependency graph outside their startup path. A reader load starts
 // evaluating the (modulepreloaded) reader graph now, before the first render.
@@ -21,7 +23,7 @@ const EducationApp = lazy(() => import("./education/EducationApp").then(module =
 
 // A login response supersedes previously remembered access, including a gate
 // redirect after cookie expiration. Never revive it on Back/reload.
-if (["/login", "/sign-in", "/features", "/compare"].includes(location.pathname) || landingResponse()) clearStartupSnapshot();
+if (site === "diana" && (["/login", "/sign-in"].includes(location.pathname) || landingResponse())) clearStartupSnapshot();
 
 // Retire inert HTML copies from older releases. Structured reader data remains
 // cached, but only React renders its controls and document content.
@@ -54,7 +56,7 @@ publishRuntimeEnvironment({
   // Reading response metadata keeps server-only releases out of JS hashes.
   commitSha: document.querySelector<HTMLMetaElement>('meta[name="wiki-build-commit"]')?.content || undefined,
 });
-observeReaderVitals();
+if (site === "diana") observeReaderVitals();
 recordReaderPhase("boot-script", undefined, bootScriptStart);
 
 const ImmersiveDicomRoot = lazy(() =>
@@ -70,6 +72,12 @@ const LoginPage = lazy(() =>
 );
 const SignInPage = lazy(() =>
   import("./pages/SignInPage").then((module) => ({ default: module.SignInPage })),
+);
+const OncobaseHomePage = lazy(() =>
+  import("./pages/OncobaseHomePage").then((module) => ({ default: module.OncobaseHomePage })),
+);
+const MarketingNotFound = lazy(() =>
+  import("./pages/MarketingNotFound").then((module) => ({ default: module.MarketingNotFound })),
 );
 const FeaturesPage = lazy(() =>
   import("./pages/FeaturesPage").then((module) => ({ default: module.FeaturesPage })),
@@ -87,7 +95,7 @@ function RootRouteBoundary() {
   const { pathname, search, hash } = useLocation();
   // Only reader routes need a wiki session or database. This single boundary
   // applies to cold loads, client navigation, and browser history alike.
-  const route = rootRouteFor(pathname, educationOnlyResponse(), landingResponse());
+  const route = rootRouteFor(pathname, educationOnlyResponse(), landingResponse(), site);
   const needsPassword = route === "password";
   useEffect(() => {
     if (needsPassword) window.location.replace(`/sign-in?redirect=${encodeURIComponent(`${pathname}${search}${hash}`)}`);
@@ -97,8 +105,10 @@ function RootRouteBoundary() {
     case "education": return <EducationApp />;
     case "login": return <LoginPage />;
     case "sign-in": return <SignInPage />;
+    case "oncobase-home": return <OncobaseHomePage />;
     case "features": return <FeaturesPage />;
     case "compare": return <ComparePage />;
+    case "not-found": return <MarketingNotFound />;
     case "terms": return <TermsAndConditionsPage />;
     case "pathology": return <PathologyViewerPage />;
     case "dicom": return <ImmersiveDicomRoot />;

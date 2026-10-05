@@ -4,6 +4,7 @@ import { compareRouteMetadata } from "../special-route-metadata";
 import { updateClientRouteMetadata } from "../document-title";
 import { OncobaseBrand, VillageTexture } from "./LandingBrands";
 import { PublicHeader } from "./PublicChrome";
+import { dianaUrl } from "../site-links";
 import {
   COMPARE_ASOF,
   alsoWorthKnowing,
@@ -340,8 +341,8 @@ function Footer() {
               GitHub
             </a>
             <a href="/features">Features</a>
+            <a href={dianaUrl("/")}>Diana’s knowledge base</a>
             <a href="/compare.md">For agents</a>
-            <a href="/terms-and-conditions">Terms</a>
           </nav>
         </div>
         <p className="ft-footer-credit">

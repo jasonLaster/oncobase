@@ -130,15 +130,21 @@ try {
     expect(response.status === 200 && body.includes('name="wiki-reader-access" content="landing"'), `expected the landing page, got ${response.status}`);
     expect(response.headers.get("cache-control") === "private, no-store", "expected the landing page to stay private");
   });
-  await check("GET /features without gate cookie", "/features", {}, (response, body) => {
-    expect(response.status === 200 && body.includes("Everything Oncobase can do"), `expected the public features page, got ${response.status}`);
-    expect(!body.includes("noindex"), "expected the features page to be indexable");
+  // oncobase.io is a separate public site on the same deployment: no gate, no wiki, no API.
+  const marketing = { headers: { Host: "oncobase.io" } };
+  for (const [pathname, text] of [["/", "take control of your care"], ["/features", "Everything Oncobase can do"], ["/compare", "How Oncobase compares"]] as const) {
+    await check(`GET oncobase.io${pathname}`, pathname, marketing, (response, body) => {
+      expect(response.status === 200 && body.toLowerCase().includes(text.toLowerCase()), `expected the marketing page, got ${response.status}`);
+      expect(body.includes('name="wiki-site" content="oncobase"') && !body.includes("noindex"), "expected an indexable marketing page");
+    });
+  }
+  await check("GET oncobase.io/api/wiki/session", "/api/wiki/session", marketing, (response) => expect(response.status === 404, `expected 404, got ${response.status}`));
+  await check("GET oncobase.io/wiki/index", "/wiki/index", marketing, (response) => expect(response.status === 404, `expected 404 (no wiki on the marketing site), got ${response.status}`));
+  await check("GET oncobase.io/robots.txt", "/robots.txt", marketing, (response, body) => expect(response.status === 200 && body.includes("Allow: /"), `expected an open robots.txt, got ${response.status}`));
+  await check("GET /features on Diana's host", "/features", { headers: { Host: "diana-tnbc.com" } }, (response) => {
+    expect(response.status === 301 && response.headers.get("location") === "https://oncobase.io/features", `expected 301 to oncobase.io, got ${response.status}`);
   });
-  await check("GET /compare without gate cookie", "/compare", {}, (response, body) => {
-    expect(response.status === 200 && body.includes("How Oncobase compares"), `expected the public comparison page, got ${response.status}`);
-    expect(!body.includes("noindex"), "expected the comparison page to be indexable");
-  });
-  await check("GET /compare.md without gate cookie", "/compare.md", {}, (response, body) => {
+  await check("GET oncobase.io/compare.md", "/compare.md", marketing, (response, body) => {
     expect(response.status === 200 && body.includes("Which should I use?"), `expected the comparison markdown, got ${response.status}`);
   });
   await check("GET /llms.txt without gate cookie", "/llms.txt", {}, (response, body) => {

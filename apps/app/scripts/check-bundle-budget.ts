@@ -114,7 +114,9 @@ const eagerGzipBudget = 1_233_500;
 // The public features and comparison pages (with their interactive demos and the shared
 // public header) add about 28.6 KiB of lazy JavaScript and load only on /features and
 // /compare, never in the reader or on the landing page: 3_428_000 -> 3_460_000.
-const lazyGzipBudget = 3_460_000;
+// The oncobase.io home page and its not-found page add about 4.4 KiB more, also loaded only
+// on that host: 3_460_000 -> 3_468_000.
+const lazyGzipBudget = 3_468_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

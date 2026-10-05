@@ -1,6 +1,6 @@
 # Public comparison page
 
-`/compare` helps people see how Oncobase compares with other tools, and nudges most of them toward something simpler. It is public, indexable, and shares the features page's look (`specs/features-page.md`): the same two-row header (`PublicChrome.tsx`: a primary row that is identical to the features page's, and a sub header with this page's sections), tables, accordions, and footer, plus `compare.css`.
+`/compare` lives on **oncobase.io** (`specs/oncobase-site.md`); on Diana's domain it redirects there. It helps people see how Oncobase compares with other tools, and nudges most of them toward something simpler. It is public, indexable, and shares the features page's look (`specs/features-page.md`): the same two-row header (`PublicChrome.tsx`: a primary row that is identical to the features page's, and a sub header with this page's sections), tables, accordions, and footer, plus `compare.css`.
 
 ## Purpose and tone
 
@@ -33,7 +33,7 @@ Claims about Oncobase follow the features page's accuracy rules.
 
 ## Routing and access
 
-The same wiring as `/features`: `root-route.ts`, `main.tsx`, the reader shortcut and preload lists, `special-route-metadata.ts` (`compareRouteMetadata`), `PUBLIC_PAGES` (`/compare`, `/compare.md`), the indexable branch and `robots.txt` allowance in `server/app-shell.ts`, the share-preview branch, and `scripts/public-assets.ts`.
+The same as `/features`: `root-route.ts` (`marketingRouteFor`), `main.tsx`, `special-route-metadata.ts` (`compareRouteMetadata`), the marketing handler's page list in `server/marketing-site.ts`, and `scripts/public-assets.ts`.
 
 ## Verification
 

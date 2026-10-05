@@ -29,6 +29,23 @@ export function landingRouteMetadata(): SpecialRouteMetadata {
   };
 }
 
+const ONCOBASE_HOME_DESCRIPTION =
+  "Oncobase is an open-source knowledge base for taking control of your care: a private, searchable site for the notes, papers, scans, and results around a diagnosis, with AI search, roles, inline redaction, and clinical viewers. Free, MIT licensed, and made to be run by you or your agent.";
+
+/** What a shared link to oncobase.io shows in chats and social apps. */
+export function oncobaseHomeRouteMetadata(): SpecialRouteMetadata {
+  return {
+    description: ONCOBASE_HOME_DESCRIPTION,
+    openGraphDescription: ONCOBASE_HOME_DESCRIPTION,
+    openGraphImage: "/oncobase-og.jpg",
+    openGraphTitle: "Oncobase: take control of your care",
+    openGraphType: "website",
+    title: "Oncobase — an open-source knowledge base for taking control of your care",
+    twitterDescription: ONCOBASE_HOME_DESCRIPTION,
+    twitterTitle: "Oncobase: take control of your care",
+  };
+}
+
 const FEATURES_DESCRIPTION =
   "Everything Oncobase can do: a searchable reader with an outline and file palette, smart tables, an AI chat and semantic search over your own records, role-based privacy with inline redaction, clinical viewers, and an open-source publishing pipeline built for people and agents.";
 
@@ -37,7 +54,7 @@ export function featuresRouteMetadata(): SpecialRouteMetadata {
   return {
     description: FEATURES_DESCRIPTION,
     openGraphDescription: FEATURES_DESCRIPTION,
-    openGraphImage: "/landing/og-image.jpg",
+    openGraphImage: "/oncobase-og.jpg",
     openGraphTitle: "Everything Oncobase can do",
     openGraphType: "website",
     title: "Oncobase features — open-source tools for taking control of your care",
@@ -54,7 +71,7 @@ export function compareRouteMetadata(): SpecialRouteMetadata {
   return {
     description: COMPARE_DESCRIPTION,
     openGraphDescription: COMPARE_DESCRIPTION,
-    openGraphImage: "/landing/og-image.jpg",
+    openGraphImage: "/oncobase-og.jpg",
     openGraphTitle: "How Oncobase compares",
     openGraphType: "website",
     title: "How Oncobase compares with Notion, Obsidian, and other health tools",
@@ -134,8 +151,6 @@ export function specialRouteMetadata({
   siteName: string;
 }): SpecialRouteMetadata | null {
   if (pathname === "/login") return landingRouteMetadata();
-  if (pathname === "/features") return featuresRouteMetadata();
-  if (pathname === "/compare") return compareRouteMetadata();
   if (pathname === "/sign-in") {
     return { ...landingRouteMetadata(), title: SIGN_IN_TITLE };
   }

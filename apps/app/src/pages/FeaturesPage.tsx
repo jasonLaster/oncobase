@@ -32,6 +32,7 @@ import { featuresRouteMetadata } from "../special-route-metadata";
 import { updateClientRouteMetadata } from "../document-title";
 import { OncobaseBrand, VillageTexture } from "./LandingBrands";
 import { PublicHeader } from "./PublicChrome";
+import { dianaUrl } from "../site-links";
 import { RedactionDemo, RoleDemo, ThemedImage } from "./LandingShowcase";
 import { CallDemo } from "./CallDemo";
 import { CommentsDemo } from "./CommentsDemo";
@@ -1105,7 +1106,7 @@ function Cta() {
           >
             <GitBranch size={16} /> View Oncobase on GitHub <ArrowRight size={15} />
           </a>
-          <a className="lp-text-link" href="/">
+          <a className="lp-text-link" href={dianaUrl("/")}>
             See Diana’s knowledge base <ArrowRight size={15} />
           </a>
           <a className="lp-text-link" href="/compare">
@@ -1129,10 +1130,9 @@ function Footer() {
             <a href={REPO_URL} rel="noopener noreferrer" target="_blank">
               GitHub
             </a>
-            <a href="/">Diana’s knowledge base</a>
+            <a href={dianaUrl("/")}>Diana’s knowledge base</a>
             <a href="/compare">Compare</a>
             <a href="/features.md">For agents</a>
-            <a href="/terms-and-conditions">Terms</a>
           </nav>
         </div>
         <p className="ft-footer-credit">

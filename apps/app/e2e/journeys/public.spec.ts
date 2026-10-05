@@ -10,6 +10,13 @@ import { documentArticle, gotoWiki, installWikiApiMocks } from "../fixtures";
 // Signed-out visitors: the landing page, sign-in, terms, education, theme and
 // link previews. Tests that need the deployed gate are skipped locally.
 const signedOut = { storageState: { cookies: [], origins: [] } };
+// Features and compare moved to oncobase.io. Locally that is oncobase.localhost on the same port.
+const dianaBase = new URL(process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || "61001"}`);
+const oncobaseUrl = (pathname: string) =>
+  /^(localhost|127\.0\.0\.1)$/.test(dianaBase.hostname)
+    ? `${dianaBase.protocol}//oncobase.localhost${dianaBase.port ? `:${dianaBase.port}` : ""}${pathname}`
+    : `https://oncobase.io${pathname}`;
+const oncobaseHome = oncobaseUrl("/");
 const deployed = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 const previewBypassHeaders: Record<string, string> = previewBypassSecret
@@ -44,7 +51,7 @@ test.describe("signed-out landing and sign-in", () => {
       ["Our story", "#story-title"],
       ["Oncobase", "#platform-title"],
       ["What’s inside", "#inside-title"],
-      ["Education", "#education-title"],
+      ["Cartoons", "#education-title"],
     ]) {
       await sections.getByRole("link", { name: link, exact: true }).click();
       await expect(page.locator(heading)).toBeInViewport();
@@ -53,30 +60,31 @@ test.describe("signed-out landing and sign-in", () => {
         "location",
       );
     }
-    // Features and the comparison live on their own pages.
+    // The primary row is Diana's site: Education here, and a way over to Oncobase's own site.
     const primary = page.getByRole("navigation", { name: "Main navigation" });
-    expect(await primary.getByRole("link").allTextContents()).toEqual(["Features", "Compare"]);
-    await expect(primary.getByRole("link", { name: "Features", exact: true })).toHaveAttribute(
+    expect(await primary.getByRole("link").allTextContents()).toEqual(["Education", "Oncobase"]);
+    await expect(primary.getByRole("link", { name: "Education", exact: true })).toHaveAttribute(
       "href",
-      "/features",
+      "/education",
     );
-    await expect(primary.getByRole("link", { name: "Compare", exact: true })).toHaveAttribute(
+    await expect(primary.getByRole("link", { name: "Oncobase", exact: true })).toHaveAttribute(
       "href",
-      "/compare",
+      oncobaseHome,
     );
     // On a phone the header stays two rows tall, with the primary links in the sub header's row.
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(primary).toBeHidden();
-    await expect(sections.getByRole("link", { name: "Compare", exact: true })).toBeVisible();
+    await expect(sections.getByRole("link", { name: "Education", exact: true })).toBeVisible();
     expect((await page.locator(".lp-header-shell").boundingBox())!.height).toBeLessThanOrEqual(112);
     await page.setViewportSize({ width: 1440, height: 1000 });
+    // Features and the comparison live on oncobase.io now.
     await expect(page.locator("footer").getByRole("link", { name: "Compare" })).toHaveAttribute(
       "href",
-      "/compare",
+      oncobaseUrl("/compare"),
     );
     await expect(
-      page.locator("#platform").getByRole("link", { name: /See everything it can do/ }),
-    ).toHaveAttribute("href", "/features");
+      page.locator("#platform").getByRole("link", { name: /Learn about Oncobase/ }),
+    ).toHaveAttribute("href", oncobaseHome);
 
     // Education and terms are public links; the password form lives on its own page.
     await expect(
@@ -125,7 +133,7 @@ test.describe("signed-out landing and sign-in", () => {
         expect(href).toMatch(/^\/education\//);
       }
       for (const card of await page.locator(".lp-tour > a").all()) {
-        expect(await card.getAttribute("href")).toMatch(/^\/features#/);
+        expect(await card.getAttribute("href")).toMatch(/^https?:\/\/oncobase\.(io|localhost)(:\d+)?\/features#/);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
@@ -288,8 +296,6 @@ test.describe("signed-out landing and sign-in", () => {
   for (const route of [
     { path: "/login", testId: "login-page" },
     { path: "/sign-in", testId: "sign-in-page" },
-    { path: "/features", testId: "features-page" },
-    { path: "/compare", testId: "compare-page" },
     { path: "/terms-and-conditions", testId: "terms-and-conditions" },
   ]) {
     test(`${route.path} does not require the reader session or database`, async ({

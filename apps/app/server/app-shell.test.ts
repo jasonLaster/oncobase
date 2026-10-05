@@ -449,54 +449,116 @@ describe("wiki Vite app-shell password gate", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
-  test("serves the features page publicly, indexable, with its own share card", async () => {
-    const handler = createWikiViteHandler({
-      client: fakeClient() as never,
-      distDir,
+  describe("the oncobase.io marketing site", () => {
+    // The marketing site never touches the wiki database, the gate, or a session.
+    const noDatabase = {
+      async query() {
+        throw new Error("the marketing site must not query the database");
+      },
+    };
+    const marketingRequest = (pathname: string, init: RequestInit = {}, host = "oncobase.io") => {
+      const headers = new Headers(init.headers);
+      headers.set("Host", host);
+      return new Request(`https://${host}${pathname}`, { ...init, headers });
+    };
+
+    for (const [pathname, title, ogTitle] of [
+      ["/", "Oncobase — an open-source knowledge base", "Oncobase: take control of your care"],
+      ["/features", "Oncobase features", "Everything Oncobase can do"],
+      ["/compare", "How Oncobase compares", "How Oncobase compares"],
+    ] as const) {
+      test(`serves ${pathname} publicly, indexable, with its own share card and no gate`, async () => {
+        const handler = createWikiViteHandler({ client: noDatabase as never, distDir });
+        const response = await handler(marketingRequest(pathname));
+        const html = await response.text();
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get("location")).toBeNull();
+        expect(html).toContain(`<title>${title}`);
+        expect(html).toContain(`<meta property="og:title" content="${ogTitle}" />`);
+        expect(html).toContain(`<meta property="og:image" content="https://oncobase.io/oncobase-og.jpg" />`);
+        expect(html).toContain(`<link rel="canonical" href="https://oncobase.io${pathname}" />`);
+        expect(html).toContain('<meta name="wiki-site" content="oncobase" />');
+        expect(html).toContain('<meta name="wiki-reader-access" content="public" />');
+        expect(html).not.toContain("noindex");
+        // No wiki page data rides along on a public marketing page.
+        expect(html).not.toContain('id="wiki-page-bootstrap"');
+      });
+    }
+
+    test("has no wiki, sign-in, education, or API", async () => {
+      const handler = createWikiViteHandler({ client: noDatabase as never, distDir });
+      for (const pathname of ["/wiki/index", "/sign-in", "/login", "/education", "/api/wiki/session", "/api/wiki/telemetry", "/tools/dicom-viewer"]) {
+        const response = await handler(marketingRequest(pathname));
+        expect(response.status, pathname).toBe(404);
+      }
+      const post = await handler(marketingRequest("/", { method: "POST" }));
+      expect(post.status).toBe(405);
     });
 
-    const response = await handler(request("/features"));
-    const html = await response.text();
+    test("serves built files and the markdown and text files for agents", async () => {
+      await mkdir(path.join(distDir, "landing"), { recursive: true });
+      await writeFile(path.join(distDir, "landing", "x.webp"), "webp");
+      await writeFile(path.join(distDir, "features.md"), "# Features");
+      await mkdir(path.join(distDir, "features"), { recursive: true });
+      await writeFile(path.join(distDir, "features", "shot.jpg"), "jpg");
+      const handler = createWikiViteHandler({ client: noDatabase as never, distDir });
+      const image = await handler(marketingRequest("/landing/x.webp"));
+      expect(image.status).toBe(200);
+      expect(image.headers.get("content-type")).toBe("image/webp");
+      const markdown = await handler(marketingRequest("/features.md"));
+      expect(markdown.headers.get("content-type")).toContain("markdown");
+      expect(await markdown.text()).toBe("# Features");
+      // A folder that shares a page's name does not shadow the page.
+      const page = await handler(marketingRequest("/features"));
+      expect(page.status).toBe(200);
+      expect(await page.text()).toContain("Oncobase features");
+      expect((await handler(marketingRequest("/index.html"))).status).toBe(404);
+    });
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("location")).toBeNull();
-    expect(html).toContain("<title>Oncobase features");
-    expect(html).toContain('<meta property="og:title" content="Everything Oncobase can do" />');
-    expect(html).toContain('<link rel="canonical" href="http://127.0.0.1/features" />');
-    expect(html).not.toContain("noindex");
-    // No wiki page data rides along on a public marketing page.
-    expect(html).not.toContain('id="wiki-page-bootstrap"');
+    test("allows indexing and lists its pages", async () => {
+      const handler = createWikiViteHandler({ client: noDatabase as never, distDir });
+      expect(await (await handler(marketingRequest("/robots.txt"))).text()).toBe(
+        "User-agent: *\nAllow: /\nSitemap: https://oncobase.io/sitemap.xml\n",
+      );
+      const sitemap = await (await handler(marketingRequest("/sitemap.xml"))).text();
+      for (const page of ["https://oncobase.io/", "https://oncobase.io/features", "https://oncobase.io/compare"]) {
+        expect(sitemap).toContain(`<loc>${page}</loc>`);
+      }
+    });
+
+    test("subdomains and ONCOBASE_SITE_HOSTS aliases serve it too", async () => {
+      const handler = createWikiViteHandler({ client: noDatabase as never, distDir });
+      expect((await handler(marketingRequest("/", {}, "www.oncobase.io"))).status).toBe(200);
+      const before = process.env.ONCOBASE_SITE_HOSTS;
+      process.env.ONCOBASE_SITE_HOSTS = "oncobase-preview.vercel.app";
+      try {
+        const html = await (await handler(marketingRequest("/features", {}, "oncobase-preview.vercel.app"))).text();
+        expect(html).toContain('<meta name="wiki-site" content="oncobase" />');
+      } finally {
+        if (before === undefined) delete process.env.ONCOBASE_SITE_HOSTS;
+        else process.env.ONCOBASE_SITE_HOSTS = before;
+      }
+    });
   });
 
-  test("serves the comparison page publicly, indexable, with its own share card", async () => {
-    const handler = createWikiViteHandler({
-      client: fakeClient() as never,
-      distDir,
-    });
-
-    const response = await handler(request("/compare"));
-    const html = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("location")).toBeNull();
-    expect(html).toContain('<meta name="wiki-reader-access" content="public" />');
-    expect(html).toContain("<title>How Oncobase compares");
-    expect(html).toContain('<meta property="og:title" content="How Oncobase compares" />');
-    expect(html).toContain('<link rel="canonical" href="http://127.0.0.1/compare" />');
-    expect(html).not.toContain("noindex");
-    expect(html).not.toContain('id="wiki-page-bootstrap"');
-  });
-
-  test("serves a public route whose name matches a directory in the build output", async () => {
-    await mkdir(path.join(distDir, "features"), { recursive: true });
-    await writeFile(path.join(distDir, "features", "shot.jpg"), "jpg");
-    const handler = createWikiViteHandler({
-      client: fakeClient() as never,
-      distDir,
-    });
-    const response = await handler(request("/features"));
-    expect(response.status).toBe(200);
-    expect(await response.text()).toContain("Oncobase features");
+  test("Diana's site sends the Oncobase pages to oncobase.io", async () => {
+    const handler = createWikiViteHandler({ client: fakeClient() as never, distDir });
+    const features = await handler(new Request("https://diana-tnbc.com/features?ref=old", { headers: { Host: "diana-tnbc.com" } }));
+    expect(features.status).toBe(301);
+    expect(features.headers.get("location")).toBe("https://oncobase.io/features?ref=old");
+    const compare = await handler(new Request("https://diana-tnbc.com/compare", { headers: { Host: "diana-tnbc.com" } }));
+    expect(compare.headers.get("location")).toBe("https://oncobase.io/compare");
+    // The markdown twins agents learned on this domain move too.
+    const markdown = await handler(new Request("https://diana-tnbc.com/features.md", { headers: { Host: "diana-tnbc.com" } }));
+    expect(markdown.status).toBe(301);
+    expect(markdown.headers.get("location")).toBe("https://oncobase.io/features.md");
+    // Locally the other site is oncobase.localhost on the same port.
+    const local = await handler(new Request("http://localhost:3000/features", { headers: { Host: "localhost:3000" } }));
+    expect(local.headers.get("location")).toBe("http://oncobase.localhost:3000/features");
+    // Diana's own pages are untouched.
+    const education = await handler(request("/education"));
+    expect(education.status).not.toBe(301);
   });
 
   test("rejects the unsigned legacy gate cookie", async () => {
@@ -643,7 +705,7 @@ describe("wiki Vite app-shell password gate", () => {
     expect(robots.headers.get("content-type")).toBe("text/plain; charset=utf-8");
     expect(robots.headers.get("cache-control")).toBe("no-cache");
     expect(robots.headers.get("vary")).toBe("Host");
-    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\nAllow: /education\nAllow: /features\nAllow: /compare\n");
+    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\nAllow: /education\n");
 
     const publicHandler = createWikiViteHandler({
       client: fakeClient({ passwordGate: false }) as never,

@@ -5,6 +5,8 @@ import type { Plugin } from "vite";
  * preloading does not execute them or open a database. Keep standalone routes
  * light, and follow only static imports so optional features stay optional. */
 function preloadReaderModules(urls: string[]) {
+  // The marketing site (oncobase.io) never opens the reader. This pattern is copied from src/site-host.ts.
+  if (/(^|\.)oncobase\.(io|localhost)$/.test(location.hostname)) return;
   if (location.pathname === "/education" || location.pathname.startsWith("/education/")) return;
   if (["/login", "/sign-in", "/features", "/compare", "/terms-and-conditions", "/tools/dicom-viewer", "/tools/dicom-compare", "/tools/pathology-viewer"].includes(location.pathname)) return;
   if (!document.createElement("link").relList.supports("modulepreload")) return;

@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
 import { goals, matrix, matrixOrder, oncobasePieces, otherOpenSource, products, productName } from "../src/pages/compare-data";
+import { useMarketingSite } from "./marketing";
+
+useMarketingSite();
 
 async function openCompare(page: Page) {
   await page.goto("/compare");
@@ -134,13 +137,15 @@ test("outbound links go only to the products and sources it names", async ({ pag
     "onco.cc",
     "osteosarc.com",
     "www.npmjs.com",
+    "localhost",
+    "diana-tnbc.com",
   ];
   for (const link of await page.locator(".landing-page a[href^='http']").all()) {
     expect(allowed).toContain(new URL((await link.getAttribute("href"))!).hostname);
   }
-  // Every outbound link opens safely in a new tab.
+  // Every link that opens a new tab does so safely. (The link to Diana's site stays in this tab.)
   const unsafe = await page
-    .locator(".landing-page a[href^='http']")
+    .locator(".landing-page a[href^='http'][target='_blank']")
     .evaluateAll((links) => links.filter((link) => link.getAttribute("rel") !== "noopener noreferrer").map((link) => link.getAttribute("href")));
   expect(unsafe).toEqual([]);
 });

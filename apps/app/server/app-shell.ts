@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import { readerShellHint } from "../src/bootstrap/reader-shell-hint";
-import { compareRouteMetadata, featuresRouteMetadata, landingRouteMetadata, specialRouteMetadata } from "../src/special-route-metadata";
+import { landingRouteMetadata, specialRouteMetadata } from "../src/special-route-metadata";
 import { LANDING_READER_ACCESS } from "../src/root-route";
 import { injectPageBootstrap } from "./page-bootstrap";
 import { injectHeadMetadata } from "./html-head";
+import { safeStaticPath, staticHeaders } from "./static-files";
+import { handleMarketingRequest, isMarketingRequest, movedToMarketingSite } from "./marketing-site";
 import { traceBackendCache, traceBackendPhase, traceConvexClient } from "./backend-tracing";
 import { existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -51,7 +53,7 @@ const CANONICAL_SLUG_PAGE_SIZE = 512;
 const ASSET_PATH_RE = /\.(css|js|json|png|jpg|jpeg|gif|webp|svg|ico|wasm|txt|xml|map)$/i;
 const MARKDOWN_ALIAS_PATH_RE = /\.(?:md|mdx)$/i;
 // Exact paths only. Never exempt a pattern such as every .md: those are wiki pages.
-const PUBLIC_PAGES = new Set(["/terms-and-conditions", "/features", "/features.md", "/compare", "/compare.md"]);
+const PUBLIC_PAGES = new Set(["/terms-and-conditions"]);
 const educationRequests = new WeakSet<Request>();
 // Signed-out visitors to "/" see the landing page in place of the wiki home.
 const landingRequests = new WeakSet<Request>();
@@ -83,39 +85,6 @@ function publicPageForRequest(request: Request, client: ConvexHttpClient, siteSl
     pages.set(key, page);
   }
   return page;
-}
-
-const STATIC_MIME_TYPES: Record<string, string> = {
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".md": "text/markdown; charset=utf-8",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".txt": "text/plain; charset=utf-8",
-  ".wasm": "application/wasm",
-};
-
-function staticHeaders(filePath: string) {
-  const ext = path.extname(filePath).toLowerCase();
-  return {
-    "Content-Type": STATIC_MIME_TYPES[ext] ?? "application/octet-stream",
-    "Cache-Control": filePath.includes(`${path.sep}assets${path.sep}`)
-      ? "public, max-age=31536000, immutable"
-      : "no-cache",
-  };
-}
-
-function safeStaticPath(distDir: string, pathname: string) {
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(pathname);
-  } catch {
-    return null;
-  }
-  const normalized = path.normalize(decoded).replace(/^(\.\.(\/|\\|$))+/, "");
-  return path.join(distDir, normalized);
 }
 
 function slugFromPathname(pathname: string) {
@@ -398,27 +367,6 @@ async function staticIndexHtml(
     });
   }
 
-  // The features page is public marketing content: indexable, no wiki data.
-  if (url.pathname === "/features") {
-    const features = featuresRouteMetadata();
-    return injectHeadMetadata(html, {
-      ...features,
-      openGraphImage: new URL(features.openGraphImage!, request.url).toString(),
-      canonicalUrl: new URL("/features", request.url).toString(),
-      noIndex: false,
-    });
-  }
-
-  if (url.pathname === "/compare") {
-    const compare = compareRouteMetadata();
-    return injectHeadMetadata(html, {
-      ...compare,
-      openGraphImage: new URL(compare.openGraphImage!, request.url).toString(),
-      canonicalUrl: new URL("/compare", request.url).toString(),
-      noIndex: false,
-    });
-  }
-
   if (isEducationHubPathname(url.pathname)) {
     const page = slug ? await publicPageForRequest(request, client, siteSlug, slug) : null;
     const safePage = isPublicEducationPage(page) && page
@@ -515,10 +463,6 @@ async function staticIndexHtml(
 }
 
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
-  if (["/features", "/compare"].includes(new URL(request.url).pathname)) {
-    return { ...staticHeaders(filePath), "X-Wiki-Reader-Access": "public", "X-Wiki-Reader-Account": "public",
-      "Cache-Control": "private, no-store", Vary: "Accept, Cookie, Host, User-Agent" };
-  }
   if (isEducationHubPathname(new URL(request.url).pathname)) {
     return { ...staticHeaders(filePath), "X-Wiki-Reader-Access": "education", "X-Wiki-Reader-Account": "public",
       "Cache-Control": "private, no-store", Vary: "Accept, Cookie, Host, User-Agent" };
@@ -589,7 +533,7 @@ async function robotsPolicyResponse(
   }
 
   return new Response(
-    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n${!allowIndexing && allowEducation ? "Allow: /education\nAllow: /features\nAllow: /compare\n" : ""}`,
+    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n${!allowIndexing && allowEducation ? "Allow: /education\n" : ""}`,
     {
       headers: {
         "Cache-Control": "no-cache",
@@ -679,6 +623,10 @@ export function createWikiViteHandler({
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
     const started = performance.now();
     const { pathname } = new URL(request.url);
+    // oncobase.io is a separate, public site on the same deployment: no gate, session, or database.
+    if (isMarketingRequest(request)) return handleMarketingRequest(request, { distDir, indexHtml });
+    const moved = movedToMarketingSite(request);
+    if (moved) return moved;
     if (isInternalReaderPath(pathname)) return internalReaderNotFound();
     if (pathname.startsWith("/api/")) {
       apiHandler ??= import("./wiki-api.js").then(({ createWikiApiHandler }) => createWikiApiHandler(client));

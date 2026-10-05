@@ -84,7 +84,8 @@ test.describe("signed-out visual", () => {
   test("public routes never overflow horizontally at phone, tablet, and desktop widths", async ({
     page,
   }) => {
-    const routes = ["/login", "/sign-in", "/features", "/compare", "/terms-and-conditions"];
+    // The Oncobase pages moved to oncobase.io; e2e/oncobase-site.spec.ts sweeps them.
+    const routes = ["/login", "/sign-in", "/terms-and-conditions"];
     if (process.env.PLAYWRIGHT_BASE_URL) routes.push("/education", "/education/oncology-101/index");
     const overflowing: string[] = [];
     for (const width of [360, 768, 1280]) {

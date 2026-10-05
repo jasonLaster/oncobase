@@ -6,7 +6,7 @@ We make Oncobase, so we’re not neutral. What we say about other products comes
 
 Not sure? Start with Notion to share with family today, or Obsidian to keep everything private on your own computer. If you want help researching your case, look at Yuga Bio. Come back if you outgrow them.
 
-Page: https://diana-tnbc.com/compare. Source: https://github.com/jasonLaster/oncobase. Agent-readable feature list: https://diana-tnbc.com/features.md.
+Page: https://oncobase.io/compare. Source: https://github.com/jasonLaster/oncobase. Agent-readable feature list: https://oncobase.io/features.md.
 
 ## Which should I use?
 

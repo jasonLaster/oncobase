@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
 import { detailItems, features, groups, interfaces } from "../src/pages/features-data";
+import { useMarketingSite } from "./marketing";
+
+useMarketingSite();
 
 async function openFeatures(page: Page) {
   await page.goto("/features");
@@ -117,7 +120,7 @@ for (const width of [360, 390, 1440]) {
 test("outbound links go only to the repository and credited sources", async ({ page }) => {
   await openFeatures(page);
   for (const link of await page.locator(".landing-page a[href^='http']").all()) {
-    expect(["github.com", "osteosarc.com", "doi.org", "creativecommons.org"]).toContain(
+    expect(["github.com", "osteosarc.com", "doi.org", "creativecommons.org", "localhost", "diana-tnbc.com"]).toContain(
       new URL((await link.getAttribute("href"))!).hostname,
     );
   }
