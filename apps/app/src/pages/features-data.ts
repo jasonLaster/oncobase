@@ -4,8 +4,9 @@
  * `scripts/build-llms-txt.ts`). Only list what the code really does.
  */
 
-export const REPO_URL = "https://github.com/jasonLaster/oncobase";
-export const SITE_URL = "https://diana-tnbc.com";
+import { REPO_URL, SITE_URL } from "./site";
+
+export { REPO_URL, SITE_URL };
 
 export type GroupId = "read" | "ask" | "protect" | "data" | "share" | "speed" | "build";
 

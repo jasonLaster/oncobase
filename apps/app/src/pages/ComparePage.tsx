@@ -23,7 +23,7 @@ import {
   type Piece,
   type ProductId,
 } from "./compare-data";
-import { REPO_URL } from "./features-data";
+import { REPO_URL } from "./site";
 import "./landing.css";
 import "./features.css";
 import "./compare.css";

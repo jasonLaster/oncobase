@@ -111,7 +111,10 @@ const eagerGzipBudget = 1_233_500;
 // add 7.2 KiB. Account for that measured total without increasing eager limits.
 // The dedicated public education application adds about 5 KiB of lazy JavaScript.
 // Include its routing and navigation while retaining the eager budget.
-const lazyGzipBudget = 3_428_000;
+// The public features and comparison pages (with their interactive demos and the shared
+// public header) add about 28.6 KiB of lazy JavaScript and load only on /features and
+// /compare, never in the reader or on the landing page: 3_428_000 -> 3_460_000.
+const lazyGzipBudget = 3_460_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

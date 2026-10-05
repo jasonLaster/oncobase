@@ -6,7 +6,7 @@
  * as of October 2026. Say "Not stated" rather than guess, keep claims modest,
  * and re-check a product before changing what we say about it.
  */
-import { REPO_URL, SITE_URL } from "./features-data";
+import { REPO_URL, SITE_URL } from "./site";
 
 export const COMPARE_ASOF = "October 2026";
 
