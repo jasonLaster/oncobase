@@ -319,6 +319,18 @@
   outline-offset: 2px;
 }
 
+.wiki-theater-image-button[data-theme-variant="dark"] {
+  display: none;
+}
+
+.dark .wiki-theater-image-button[data-theme-variant="light"] {
+  display: none;
+}
+
+.dark .wiki-theater-image-button[data-theme-variant="dark"] {
+  display: block;
+}
+
 .wiki-theater-image {
   transition: filter 160ms ease;
 }

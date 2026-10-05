@@ -20,15 +20,29 @@ export function TheaterImage({
   alt = "",
   width,
   height,
+  "data-theme-pair": themePair,
+  themeVariant,
   ...props
 }: ComponentProps<"img"> & {
   ImageComponent?: WikiImageComponent;
   currentSlug?: string;
   apiBasePath?: string;
+  "data-theme-pair"?: string | boolean;
+  themeVariant?: "light" | "dark";
 }) {
   const resolvedSrc =
     typeof src === "string" ? resolveImageSrc(src, currentSlug, apiBasePath) : src;
   const [image, setImage] = useState<TheaterImageState | null>(null);
+
+  if (themePair !== undefined && typeof resolvedSrc === "string" && /-light\.[a-zA-Z0-9]+$/.test(resolvedSrc)) {
+    const shared = { ...props, alt, width, height, className, ImageComponent };
+    return (
+      <>
+        <TheaterImage {...shared} src={resolvedSrc} themeVariant="light" />
+        <TheaterImage {...shared} src={resolvedSrc.replace(/-light(\.[a-zA-Z0-9]+)$/, "-dark$1")} themeVariant="dark" />
+      </>
+    );
+  }
 
   if (!resolvedSrc || typeof resolvedSrc !== "string") {
     return (
@@ -48,6 +62,7 @@ export function TheaterImage({
       <button
         aria-label={alt ? `Open image: ${alt}` : "Open image"}
         className="wiki-theater-image-button"
+        data-theme-variant={themeVariant}
         style={{ aspectRatio: Number(width) > 0 && Number(height) > 0 ? `${Number(width)} / ${Number(height)}` : "16 / 9" }}
         onClick={(event) => {
           const imageElement = event.currentTarget.querySelector("img");
