@@ -82,9 +82,17 @@ function emailMatchesPattern(email: string, pattern: string) {
   return normalizedEmail === normalizedPattern;
 }
 
-function roleMatchesEmail(role: Doc<"roles">, email: string) {
+// Signup never verifies that the registrant owns the address, so a role's
+// "Auto-assign emails" pattern would grant it to anyone who types a matching
+// string. Until email verification exists (audit V-2), patterns only apply to
+// accounts that existed when this was introduced; newer accounts get roles by
+// explicit admin assignment.
+export const EMAIL_PATTERN_GRANTS_BEFORE = 1791180325000;
+
+function roleMatchesEmail(role: Doc<"roles">, user: Pick<Doc<"users">, "email" | "createdAt">) {
+  if (user.createdAt >= EMAIL_PATTERN_GRANTS_BEFORE) return false;
   return cleanEmailPatterns(role.emailPatterns).some((pattern) =>
-    emailMatchesPattern(email, pattern),
+    emailMatchesPattern(user.email, pattern),
   );
 }
 
@@ -343,7 +351,7 @@ export const listUsersWithRoles = query({
         const roleIds = new Set(roleIdsByUser.get(user._id) ?? []);
 
         for (const role of rolesById.values()) {
-          if (!roleMatchesEmail(role, user.email)) continue;
+          if (!roleMatchesEmail(role, user)) continue;
           roleNames.add(role.name);
           roleIds.add(String(role._id));
         }
@@ -653,7 +661,7 @@ export const canUserAccessSlug = query({
     }
     if (user && rowBelongsToSite(user, site)) {
       for (const role of rolesById.values()) {
-        if (roleMatchesEmail(role, user.email)) {
+        if (roleMatchesEmail(role, user)) {
           allowedRoleIds.add(String(role._id));
         }
       }
@@ -716,7 +724,7 @@ async function createDocumentAccessCheck(ctx: QueryCtx, site: SiteCtx, userId: I
   }
   if (user && rowBelongsToSite(user, site)) {
     for (const role of rolesById.values()) {
-      if (roleMatchesEmail(role, user.email)) {
+      if (roleMatchesEmail(role, user)) {
         allowedRoleIds.add(String(role._id));
       }
     }
