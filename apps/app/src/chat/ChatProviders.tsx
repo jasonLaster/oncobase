@@ -12,6 +12,7 @@ import { api } from "../../convex/_generated/api.js";
 import { publishChatPerfSnapshot } from "../observability";
 import { useWikiSession } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
+import { ChatImage } from "./chat-image";
 import { fetchWikiConvexToken } from "./convex-token";
 
 let convexClient: ConvexReactClient | null = null;
@@ -75,6 +76,7 @@ function ChatMarkdownRenderer({
       <LazyWikiMarkdown
         content={content}
         disableAnchors={disableAnchors}
+        ImageComponent={ChatImage}
         LinkComponent={({ href = "", children, ...props }) => (
           <Link to={hrefForSlug(href.replace(/^\/+/, ""))} {...props}>
             {children}
