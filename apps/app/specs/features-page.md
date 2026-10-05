@@ -15,11 +15,11 @@
 
 ## Header
 
-The shared header (`PublicChrome.tsx`, also used by `/compare`) has the Oncobase brand, the in-page section links, the theme toggle, and a GitHub button. It shows which section is in view (scroll-spy, `aria-current="location"`, an underline) and on phones keeps a sideways-scrolling link row with the current one scrolled into view. There is no sidebar.
+The shared header (`PublicChrome.tsx`, also used by `/compare` and the landing page) has two rows. The **primary row** never changes between pages: the Oncobase brand, Features and Compare (the current page has `aria-current="page"`), the theme toggle, and a GitHub button. The **sub header** below it lists this page's sections, shows which one is in view (scroll-spy, `aria-current="location"`, an underline), and keeps the current one scrolled into view. On phones the primary links move into the sub header's single scrolling row, pinned at its left edge, so the header stays two rows (110px) tall. Section anchors clear both rows (`scroll-margin-top`). There is no sidebar.
 
 ## Sections
 
-1. **Hero.** "Everything Oncobase can do." A real screenshot with three numbered pins (page tree, smart tables, outline) and a map of the areas.
+1. **Hero.** "Everything Oncobase can do." It sits in the same textured band as the landing hero (`.ft-hero-band` with `VillageTexture`). A real screenshot with three numbered pins (page tree, smart tables, outline) and a map of the areas.
 2. **Read.** The file palette, an interactive table demo (real table component, sample-data and width buttons, lazy-loaded), the phone reader, a call-transcript demo (Overview, Formatted, and Raw pages using the real note-bundle navigation, with timestamps that jump into the raw transcript), a Mermaid diagram demo (the real renderer), illustrations in light and dark with a draggable compare handle on the image, and six cards.
 3. **Ask.** A chat conversation showing the agent's steps and citations, a four-step flow of how it finds context, AI search, and a table of which tool to use when.
 4. **Protect.** A five-layer flow, the interactive role and redaction demos, six cards, and the rules agents follow for redaction.

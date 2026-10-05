@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { ArrowRight, Check, GitBranch, Minus, Scale, X } from "lucide-react";
 import { compareRouteMetadata } from "../special-route-metadata";
 import { updateClientRouteMetadata } from "../document-title";
-import { OncobaseBrand } from "./LandingBrands";
+import { OncobaseBrand, VillageTexture } from "./LandingBrands";
 import { PublicHeader } from "./PublicChrome";
 import {
   COMPARE_ASOF,
@@ -63,140 +63,143 @@ function CellView({ cell }: { cell: Cell }) {
 
 function Hero() {
   return (
-    <section className="ft-hero lp-container" aria-labelledby="compare-title">
-      <p className="ft-kicker">
-        <Scale size={15} aria-hidden="true" /> An honest comparison
-      </p>
-      <h1 id="compare-title">
-        How <span>Oncobase</span> compares.
-      </h1>
-      <p className="ft-hero-lede">{compareHeroLede}</p>
-      <p className="cp-not-sure">{notSure}</p>
-      <div className="ft-hero-actions">
-        <a className="lp-button" href="#choose">
-          Which should I use? <ArrowRight size={16} />
-        </a>
-        <a className="lp-text-link" href="#build">
-          I’m building my own <ArrowRight size={15} />
-        </a>
-      </div>
-      <p className="cp-disclosure">{compareDisclosure}</p>
-    </section>
-  );
-}
-
-function Choose() {
-  return (
-    <section className="ft-group lp-container" id="choose" aria-labelledby="choose-title">
-      <div className="lp-section-heading">
-        <h2 id="choose-title">Which should I use?</h2>
-        <p>Pick what you’re trying to do. For most of these, something simpler than Oncobase is the right start.</p>
-      </div>
-      <ul className="cp-goals">
-        {goals.map((goal) => (
-          <li className="cp-goal" key={goal.id}>
-            <h3>{goal.label}</h3>
-            <div>
-              <p className="cp-pick">
-                <span>Start with</span> <ProductChip id={goal.pick} lead />
-                {goal.also.length ? (
-                  <span className="cp-also">
-                    Also consider{" "}
-                    {goal.also.map((id, index) => (
-                      <span key={id}>
-                        {index ? ", " : ""}
-                        <a href={productLink(id)} {...external}>
-                          {productName(id)}
-                        </a>
-                      </span>
-                    ))}
-                  </span>
-                ) : null}
-              </p>
-              <p>{goal.why}</p>
-              <p className="cp-move">{goal.moveOn}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function Matrix() {
-  return (
-    <section className="ft-group lp-container" id="table" aria-labelledby="table-title">
-      <div className="lp-section-heading">
-        <h2 id="table-title">Side by side</h2>
-        <p>
-          The questions that decide it. A dash means the product’s own site or repository doesn’t say, which isn’t the
-          same as no.
+    <section className="ft-hero-band" aria-labelledby="compare-title">
+      <VillageTexture />
+      <div className="ft-hero lp-container">
+        <p className="ft-kicker">
+          <Scale size={15} aria-hidden="true" /> An honest comparison
         </p>
+        <h1 id="compare-title">
+          How <span>Oncobase</span> compares.
+        </h1>
+        <p className="ft-hero-lede">{compareHeroLede}</p>
+        <p className="cp-not-sure">{notSure}</p>
+        <div className="ft-hero-actions">
+          <a className="lp-button" href="#choose">
+            Which should I use? <ArrowRight size={16} />
+          </a>
+          <a className="lp-text-link" href="#build">
+            I’m building my own <ArrowRight size={15} />
+          </a>
+        </div>
+        <p className="cp-disclosure">{compareDisclosure}</p>
       </div>
-      <div className="ft-table-wrap cp-matrix" role="region" aria-label="Comparison table, scrolls sideways" tabIndex={0}>
-        <table className="ft-table">
-          <caption className="ft-sr-only">How Oncobase compares with other tools</caption>
-          <thead>
-            <tr>
-              <th scope="col">Question</th>
-              {matrixOrder.map((id) => (
-                <th data-us={id === "oncobase" || undefined} key={id} scope="col">
-                  {productName(id)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {matrix.map((row) => (
-              <tr key={row.label}>
-                <th scope="row">{row.label}</th>
+      </section>
+    );
+  }
+
+  function Choose() {
+    return (
+      <section className="ft-group lp-container" id="choose" aria-labelledby="choose-title">
+        <div className="lp-section-heading">
+          <h2 id="choose-title">Which should I use?</h2>
+          <p>Pick what you’re trying to do. For most of these, something simpler than Oncobase is the right start.</p>
+        </div>
+        <ul className="cp-goals">
+          {goals.map((goal) => (
+            <li className="cp-goal" key={goal.id}>
+              <h3>{goal.label}</h3>
+              <div>
+                <p className="cp-pick">
+                  <span>Start with</span> <ProductChip id={goal.pick} lead />
+                  {goal.also.length ? (
+                    <span className="cp-also">
+                      Also consider{" "}
+                      {goal.also.map((id, index) => (
+                        <span key={id}>
+                          {index ? ", " : ""}
+                          <a href={productLink(id)} {...external}>
+                            {productName(id)}
+                          </a>
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                </p>
+                <p>{goal.why}</p>
+                <p className="cp-move">{goal.moveOn}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
+  function Matrix() {
+    return (
+      <section className="ft-group lp-container" id="table" aria-labelledby="table-title">
+        <div className="lp-section-heading">
+          <h2 id="table-title">Side by side</h2>
+          <p>
+            The questions that decide it. A dash means the product’s own site or repository doesn’t say, which isn’t the
+            same as no.
+          </p>
+        </div>
+        <div className="ft-table-wrap cp-matrix" role="region" aria-label="Comparison table, scrolls sideways" tabIndex={0}>
+          <table className="ft-table">
+            <caption className="ft-sr-only">How Oncobase compares with other tools</caption>
+            <thead>
+              <tr>
+                <th scope="col">Question</th>
                 {matrixOrder.map((id) => (
-                  <td data-us={id === "oncobase" || undefined} key={id}>
-                    <CellView cell={cellFor(row, id)} />
-                  </td>
+                  <th data-us={id === "oncobase" || undefined} key={id} scope="col">
+                    {productName(id)}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="ft-caption">As of {COMPARE_ASOF}. Pricing and features change; check each product before you decide.</p>
-    </section>
-  );
-}
+            </thead>
+            <tbody>
+              {matrix.map((row) => (
+                <tr key={row.label}>
+                  <th scope="row">{row.label}</th>
+                  {matrixOrder.map((id) => (
+                    <td data-us={id === "oncobase" || undefined} key={id}>
+                      <CellView cell={cellFor(row, id)} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="ft-caption">As of {COMPARE_ASOF}. Pricing and features change; check each product before you decide.</p>
+      </section>
+    );
+  }
 
-function Options() {
-  return (
-    <section className="ft-group lp-container" id="options" aria-labelledby="options-title">
-      <div className="lp-section-heading">
-        <h2 id="options-title">Each option</h2>
-        <p>What each one is great at, and what to keep in mind. Open one to read more.</p>
-      </div>
-      <div className="ft-acc-list">
-        {products.map((product) => (
-          <details className="ft-acc cp-prod" key={product.id}>
-            <summary>
-              <span className="ft-acc-title">
-                <strong>{product.name}</strong>
-                <span>{product.tagline}</span>
-              </span>
-              <span className="ft-acc-preview">{product.kind}</span>
-            </summary>
-            <div className="cp-prod-body">
-              <p>
-                <b>Great at</b>
-                {product.great}
-              </p>
-              <p>
-                <b>Keep in mind</b>
-                {product.consider}
-              </p>
-              <a className="lp-text-link" href={product.url} {...external}>
-                {product.id === "oncobase" ? "View the code" : `Visit ${product.name}`} <ArrowRight size={15} />
-              </a>
-            </div>
-          </details>
-        ))}
+  function Options() {
+    return (
+      <section className="ft-group lp-container" id="options" aria-labelledby="options-title">
+        <div className="lp-section-heading">
+          <h2 id="options-title">Each option</h2>
+          <p>What each one is great at, and what to keep in mind. Open one to read more.</p>
+        </div>
+        <div className="ft-acc-list">
+          {products.map((product) => (
+            <details className="ft-acc cp-prod" key={product.id}>
+              <summary>
+                <span className="ft-acc-title">
+                  <strong>{product.name}</strong>
+                  <span>{product.tagline}</span>
+                </span>
+                <span className="ft-acc-preview">{product.kind}</span>
+              </summary>
+              <div className="cp-prod-body">
+                <p>
+                  <b>Great at</b>
+                  {product.great}
+                </p>
+                <p>
+                  <b>Keep in mind</b>
+                  {product.consider}
+                </p>
+                <a className="lp-text-link" href={product.url} {...external}>
+                  {product.id === "oncobase" ? "View the code" : `Visit ${product.name}`} <ArrowRight size={15} />
+                </a>
+              </div>
+            </details>
+          ))}
       </div>
     </section>
   );
@@ -364,7 +367,7 @@ export function ComparePage() {
         <a className="lp-skip-link" href="#compare-main">
           Skip to content
         </a>
-        <PublicHeader brandHref="/features" brandLabel="Oncobase features" items={nav} navLabel="Comparison sections" />
+        <PublicHeader current="compare" items={nav} navLabel="Comparison sections" />
         <main id="compare-main">
           <Hero />
           <Choose />

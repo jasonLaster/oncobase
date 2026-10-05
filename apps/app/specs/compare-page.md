@@ -1,6 +1,6 @@
 # Public comparison page
 
-`/compare` helps people see how Oncobase compares with other tools, and nudges most of them toward something simpler. It is public, indexable, and shares the features page's look (`specs/features-page.md`): the same header (`PublicChrome.tsx`), tables, accordions, and footer, plus `compare.css`.
+`/compare` helps people see how Oncobase compares with other tools, and nudges most of them toward something simpler. It is public, indexable, and shares the features page's look (`specs/features-page.md`): the same two-row header (`PublicChrome.tsx`: a primary row that is identical to the features page's, and a sub header with this page's sections), tables, accordions, and footer, plus `compare.css`.
 
 ## Purpose and tone
 
@@ -8,7 +8,7 @@ Most people don't need to build anything. The page says so first ("Not sure? Sta
 
 ## Sections
 
-1. **Hero** with the nudge and the disclosure.
+1. **Hero** with the nudge and the disclosure, in the same textured band as the landing and features heroes.
 2. **Which should I use?** Six goals (share notes with family, keep everything private, research and trial matches, collect records, a private knowledge base for a care team, building your own). Each names a product to start with, others to consider, why, and when to move to Oncobase. Four of six send people elsewhere, and a unit test keeps most goals pointed at something other than Oncobase.
 3. **Side by side.** A table of eleven questions across Oncobase (first, so it stays in view next to the sticky question column), Notion, Obsidian, Yuga Bio, Citizen Health, Mere Medical, and Medplum. Cells carry a check, cross, or dash plus text. A dash means "Not stated": the product's own site or repository doesn't say, which is not the same as no.
 4. **Each option.** One collapsed accordion per product (tagline always visible; "Great at" and "Keep in mind" inside).

@@ -1,0 +1,96 @@
+/* The header every public page shares: a primary row that never changes (brand, Features, Compare,
+   theme, action) and a sub header for the sections of the current page. On phones the primary links
+   join the sub header's single scrolling row, so the header stays two rows tall. */
+.ft-primary {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 64px;
+}
+.ft-primary-nav {
+  display: flex;
+  gap: 4px;
+  margin-right: auto;
+}
+.ft-primary-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 14px;
+  border-radius: 8px;
+  color: var(--lp-muted);
+  font-size: 15px;
+  font-weight: 550;
+}
+.ft-primary-nav a:hover {
+  color: var(--lp-ink);
+}
+.ft-primary-nav a[aria-current="page"] {
+  color: var(--lp-ink);
+  font-weight: 650;
+}
+.ft-subheader {
+  border-top: 1px solid var(--lp-line);
+}
+.ft-subheader nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+.ft-subheader nav::-webkit-scrollbar {
+  display: none;
+}
+.ft-subheader nav a {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  min-height: 44px;
+  color: var(--lp-muted);
+  font-size: 14px;
+}
+.ft-subheader nav a:hover {
+  color: var(--lp-ink);
+}
+.ft-subheader nav a[aria-current="location"] {
+  color: var(--lp-ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--lp-accent);
+}
+.ft-sub-pages {
+  display: none;
+}
+@media (max-width: 700px) {
+  .ft-primary {
+    gap: 12px;
+  }
+  /* Phones: the primary links join the sub header's one scrolling row. */
+  .ft-primary-nav {
+    display: none;
+  }
+  .ft-primary .lp-header-actions {
+    margin-left: auto;
+  }
+  /* Pinned at the left so the primary links stay put while the sections scroll under them. */
+  .ft-sub-pages {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: inline-flex;
+    flex-shrink: 0;
+    gap: 18px;
+    padding-right: 16px;
+    border-right: 1px solid var(--lp-line);
+    background: var(--lp-header-bg);
+  }
+  .ft-subheader nav .ft-sub-pages a {
+    color: var(--lp-ink);
+    font-weight: 600;
+  }
+  .ft-subheader nav .ft-sub-pages a[aria-current="page"] {
+    color: var(--lp-accent);
+  }
+}

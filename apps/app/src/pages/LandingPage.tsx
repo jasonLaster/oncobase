@@ -1,4 +1,3 @@
-import { PublicThemeControl } from "../PublicThemeControl";
 import { LANDING_TITLE } from "../special-route-metadata";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import {
@@ -17,7 +16,8 @@ import {
   PrivateLink,
   ProductShots,
 } from "./LandingShowcase";
-import { DianaBrand, OncobaseBrand, VillageTexture } from "./LandingBrands";
+import { DianaBrand, EducationTexture, OncobaseBrand, VillageTexture } from "./LandingBrands";
+import { PublicHeader } from "./PublicChrome";
 import "./landing.css";
 
 /** Tinted while the Oncobase band is under the header. */
@@ -61,39 +61,12 @@ function usePlatformTone(
   return platformTone;
 }
 
-function Header({
-  ref,
-  platformTone,
-}: {
-  ref: RefObject<HTMLElement | null>;
-  platformTone: boolean;
-}) {
-  return (
-    <header
-      ref={ref}
-      className="lp-header-shell"
-      data-tone={platformTone ? "oncobase" : "diana"}
-    >
-      <div className="lp-header lp-container">
-        <a className="lp-brand" href="/" aria-label="Diana TNBC home">
-          <DianaBrand />
-        </a>
-        <nav aria-label="Main navigation">
-          <a href="#story">Our story</a>
-          <a href="#platform">Oncobase</a>
-          <a href="/features">Features</a>
-          <a href="#education">Education</a>
-        </nav>
-        <div className="lp-header-actions">
-          <PublicThemeControl />
-          <a className="lp-button lp-button-small" href="/sign-in">
-            Sign in <ArrowRight size={15} />
-          </a>
-        </div>
-      </div>
-    </header>
-  );
-}
+const sections = [
+  ["story", "Our story"],
+  ["platform", "Oncobase"],
+  ["inside", "What’s inside"],
+  ["education", "Education"],
+] as const;
 
 function Hero() {
   return (
@@ -313,31 +286,34 @@ const educationGuides = [
 function Education() {
   return (
     <section
-      className="lp-section lp-section-end lp-container"
+      className="lp-education"
       id="education"
       aria-labelledby="education-title"
     >
-      <div className="lp-section-heading">
-        <h2 id="education-title">
-          What does that term mean? <span>Start with a cartoon.</span>
-        </h2>
-        <p>
-          A few of the cartoons we’ve been learning from. Open one to read the
-          guide behind it, or browse the rest. Anyone can read them, no
-          password needed.
-        </p>
-        <a className="lp-text-link" href="/education">
-          Browse educational content <ArrowRight size={16} />
-        </a>
-      </div>
-      <div
-        className="lp-guides"
-        role="group"
-        aria-label="Educational cartoons"
-      >
-        {educationGuides.map((guide) => (
-          <GuideFigure key={guide.base} {...guide} />
-        ))}
+      <EducationTexture />
+      <div className="lp-section lp-section-end lp-container">
+        <div className="lp-section-heading">
+          <h2 id="education-title">
+            What does that term mean? <span>Start with a cartoon.</span>
+          </h2>
+          <p>
+            A few of the cartoons we’ve been learning from. Open one to read the
+            guide behind it, or browse the rest. Anyone can read them, no
+            password needed.
+          </p>
+          <a className="lp-text-link" href="/education">
+            Browse educational content <ArrowRight size={16} />
+          </a>
+        </div>
+        <div
+          className="lp-guides"
+          role="group"
+          aria-label="Educational cartoons"
+        >
+          {educationGuides.map((guide) => (
+            <GuideFigure key={guide.base} {...guide} />
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -386,7 +362,14 @@ export function LandingPage() {
       <a className="lp-skip-link" href="#landing-main">
         Skip to content
       </a>
-      <Header ref={header} platformTone={platformTone} />
+      <PublicHeader
+        action="sign-in"
+        brand="diana"
+        items={sections}
+        navLabel="Page sections"
+        ref={header}
+        tone={platformTone ? "oncobase" : "diana"}
+      />
       <main id="landing-main">
         <Hero />
         <Story />

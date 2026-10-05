@@ -34,6 +34,36 @@ test("the comparison page answers 'which should I use?' before it sells Oncobase
   }
 });
 
+test("the primary header is the same on features and compare, with a sub header for each page's sections", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const primary = async (path: string) => {
+    await page.goto(path);
+    await expect(page.locator("h1").first()).toBeVisible();
+    const nav = page.getByRole("navigation", { name: "Main navigation" });
+    return {
+      links: await nav.getByRole("link").allTextContents(),
+      current: await nav.locator("[aria-current='page']").allTextContents(),
+    };
+  };
+  const features = await primary("/features");
+  const compare = await primary("/compare");
+  expect(features.links).toEqual(["Features", "Compare"]);
+  expect(compare.links).toEqual(features.links);
+  expect(features.current).toEqual(["Features"]);
+  expect(compare.current).toEqual(["Compare"]);
+  // The sub header lists this page's sections and sits below the primary row.
+  const sub = page.getByRole("navigation", { name: "Comparison sections" });
+  const primaryBox = (await page.locator(".ft-primary").boundingBox())!;
+  const subBox = (await sub.boundingBox())!;
+  expect(subBox.y).toBeGreaterThanOrEqual(primaryBox.y + primaryBox.height - 1);
+  // On a phone the primary links join the sub header's one scrolling row, so the header stays two rows tall.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeHidden();
+  await expect(sub.getByRole("link", { name: "Features" })).toBeVisible();
+  await expect(sub.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
+  expect((await page.locator(".ft-header").boundingBox())!.height).toBeLessThanOrEqual(112);
+});
+
 test("the table covers every product and keeps the Oncobase column in view", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await openCompare(page);

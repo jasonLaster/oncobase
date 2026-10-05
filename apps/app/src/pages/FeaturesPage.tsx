@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { featuresRouteMetadata } from "../special-route-metadata";
 import { updateClientRouteMetadata } from "../document-title";
-import { OncobaseBrand } from "./LandingBrands";
+import { OncobaseBrand, VillageTexture } from "./LandingBrands";
 import { PublicHeader } from "./PublicChrome";
 import { RedactionDemo, RoleDemo, ThemedImage } from "./LandingShowcase";
 import { CallDemo } from "./CallDemo";
@@ -95,430 +95,433 @@ function SectionHeading({ id, icon, note }: { id: SectionId; icon: ReactNode; no
 }
 
 function Header() {
-  return <PublicHeader brandHref="/features" brandLabel="Oncobase features" items={nav} navLabel="Feature groups" />;
+  return <PublicHeader current="features" items={nav} navLabel="Feature groups" />;
 }
 
 function Hero() {
   return (
-    <section className="ft-hero lp-container" aria-labelledby="features-title">
-      <p className="ft-kicker">
-        <Sparkles size={15} aria-hidden="true" /> Open source. MIT licensed.
-      </p>
-      <h1 id="features-title">
-        Everything <span>Oncobase</span> can do.
-      </h1>
-      <p className="ft-hero-lede">{heroLede}</p>
-      <div className="ft-hero-actions">
-        <a className="lp-button" href="#read">
-          Tour the features <ArrowRight size={16} />
-        </a>
-        <a
-          className="lp-text-link"
-          href={REPO_URL}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          <GitBranch size={15} /> View the code <ArrowRight size={15} />
-        </a>
-      </div>
-      <div className="ft-hero-shot">
-        <PinnedScreenshot
-          alt="Oncobase open to a treatment comparison page: the page tree on the left, a comparison table in the middle, and the outline on the right"
-          base="/feature-shots/reader"
-          height={1125}
-          width={1800}
-          pins={[
-            {
-              x: 11,
-              y: 46,
-              title: "Page tree",
-              text: "Every page, folders first. It remembers what you had open.",
-            },
-            {
-              x: 47,
-              y: 55,
-              title: "Smart tables",
-              text: "Columns sized to their content. Drag to resize, expand to fill the screen.",
-            },
-            {
-              x: 93,
-              y: 12,
-              title: "Outline",
-              text: "Jump between sections. The current one stays highlighted.",
-            },
-          ]}
-        />
-        <p className="ft-caption">Sample content, not medical advice.</p>
-      </div>
-      <nav className="ft-map" aria-label="Feature groups">
-        {[
-          ["read", BookOpen, "Read", "Tree, outline, palette, tables, phones, themes."],
-          ["ask", MessageSquare, "Ask", "Chat with an agent and search by meaning."],
-          ["protect", ShieldCheck, "Protect", "Roles, sensitive pages, inline redaction."],
-          ["data", Activity, "See the data", "Timelines, DICOM scans, pathology slides."],
-          ["details", Check, "The details", "The small things that make it trustworthy."],
-          ["build", Terminal, "Build", "Publish from files. Built for people and agents."],
-        ].map(([id, Icon, title, text]) => {
-          const IconComponent = Icon as typeof BookOpen;
-          return (
-            <a href={`#${id as string}`} key={id as string}>
-              <strong>
-                <IconComponent size={18} aria-hidden="true" /> {title as string}
-              </strong>
-              <span>{text as string}</span>
-            </a>
-          );
-        })}
-      </nav>
-    </section>
-  );
-}
-
-function Bullets({ items }: { items: string[] }) {
-  return (
-    <ul className="ft-list">
-      {items.map((item) => (
-        <li key={item}>
-          <Check size={16} aria-hidden="true" />
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Read() {
-  return (
-    <section className="ft-group lp-container" id="read" aria-labelledby="read-title">
-      <SectionHeading icon={<BookOpen size={15} aria-hidden="true" />} id="read" />
-
-      <div className="ft-block">
-        <div>
-          <h3>A file palette that keeps up.</h3>
-          <p>
-            Press ⌘K from anywhere. It matches page names as you type, shows
-            what you opened recently, and works offline because it searches the
-            list already on your device.
-          </p>
-          <Bullets
-            items={[
-              "Fuzzy matching on name, title, and path",
-              "⌘⇧O finds a heading; ⌘⇧K runs an action",
-              "Modes for source PDFs, tags, and related files",
-              "Announces results to screen readers",
+    <section className="ft-hero-band" aria-labelledby="features-title">
+      <VillageTexture />
+      <div className="ft-hero lp-container">
+        <p className="ft-kicker">
+          <Sparkles size={15} aria-hidden="true" /> Open source. MIT licensed.
+        </p>
+        <h1 id="features-title">
+          Everything <span>Oncobase</span> can do.
+        </h1>
+        <p className="ft-hero-lede">{heroLede}</p>
+        <div className="ft-hero-actions">
+          <a className="lp-button" href="#read">
+            Tour the features <ArrowRight size={16} />
+          </a>
+          <a
+            className="lp-text-link"
+            href={REPO_URL}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <GitBranch size={15} /> View the code <ArrowRight size={15} />
+          </a>
+        </div>
+        <div className="ft-hero-shot">
+          <PinnedScreenshot
+            alt="Oncobase open to a treatment comparison page: the page tree on the left, a comparison table in the middle, and the outline on the right"
+            base="/feature-shots/reader"
+            height={1125}
+            width={1800}
+            pins={[
+              {
+                x: 11,
+                y: 46,
+                title: "Page tree",
+                text: "Every page, folders first. It remembers what you had open.",
+              },
+              {
+                x: 47,
+                y: 55,
+                title: "Smart tables",
+                text: "Columns sized to their content. Drag to resize, expand to fill the screen.",
+              },
+              {
+                x: 93,
+                y: 12,
+                title: "Outline",
+                text: "Jump between sections. The current one stays highlighted.",
+              },
             ]}
           />
+          <p className="ft-caption">Sample content, not medical advice.</p>
         </div>
-        <div className="ft-visual">
-          <div className="ft-block-shot">
-            <ThemedImage
-              alt="The file palette open over a page, showing recent pages and all pages"
-              base="/feature-shots/palette"
-              decoding="async"
-              extension="jpg"
-              height={830}
-              loading="lazy"
-              width={1280}
+        <nav className="ft-map" aria-label="Feature groups">
+          {[
+            ["read", BookOpen, "Read", "Tree, outline, palette, tables, phones, themes."],
+            ["ask", MessageSquare, "Ask", "Chat with an agent and search by meaning."],
+            ["protect", ShieldCheck, "Protect", "Roles, sensitive pages, inline redaction."],
+            ["data", Activity, "See the data", "Timelines, DICOM scans, pathology slides."],
+            ["details", Check, "The details", "The small things that make it trustworthy."],
+            ["build", Terminal, "Build", "Publish from files. Built for people and agents."],
+          ].map(([id, Icon, title, text]) => {
+            const IconComponent = Icon as typeof BookOpen;
+            return (
+              <a href={`#${id as string}`} key={id as string}>
+                <strong>
+                  <IconComponent size={18} aria-hidden="true" /> {title as string}
+                </strong>
+                <span>{text as string}</span>
+              </a>
+            );
+          })}
+        </nav>
+      </div>
+      </section>
+    );
+  }
+
+  function Bullets({ items }: { items: string[] }) {
+    return (
+      <ul className="ft-list">
+        {items.map((item) => (
+          <li key={item}>
+            <Check size={16} aria-hidden="true" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  function Read() {
+    return (
+      <section className="ft-group lp-container" id="read" aria-labelledby="read-title">
+        <SectionHeading icon={<BookOpen size={15} aria-hidden="true" />} id="read" />
+
+        <div className="ft-block">
+          <div>
+            <h3>A file palette that keeps up.</h3>
+            <p>
+              Press ⌘K from anywhere. It matches page names as you type, shows
+              what you opened recently, and works offline because it searches the
+              list already on your device.
+            </p>
+            <Bullets
+              items={[
+                "Fuzzy matching on name, title, and path",
+                "⌘⇧O finds a heading; ⌘⇧K runs an action",
+                "Modes for source PDFs, tags, and related files",
+                "Announces results to screen readers",
+              ]}
             />
           </div>
+          <div className="ft-visual">
+            <div className="ft-block-shot">
+              <ThemedImage
+                alt="The file palette open over a page, showing recent pages and all pages"
+                base="/feature-shots/palette"
+                decoding="async"
+                extension="jpg"
+                height={830}
+                loading="lazy"
+                width={1280}
+              />
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="ft-block ft-block-wide" id="read-tables">
-        <div className="ft-block-intro">
-          <h3>Tables that fit their content.</h3>
-          <p>
-            Column widths come from measuring the real text, so a long
-            paragraph and a short label each get the room they need. Try it:
-            this is the real table, with sample data. Drag a header edge, pick
-            different data, and change the width.
-          </p>
-          <Bullets
-            items={[
-              "Drag any header edge to resize; widths last for the session",
-              "Expand a table to fill the workspace on a desktop",
-              "On phones: a sticky first column and edge shadows",
-              "Scroll regions work from the keyboard",
-            ]}
-          />
-        </div>
-        <Suspense fallback={<div aria-busy="true" className="ft-demo ft-demo-loading" />}>
-          <TableDemo />
-        </Suspense>
-      </div>
-
-      <div className="ft-block ft-block-reverse">
-        <div>
-          <h3>Made for the phone in your hand.</h3>
-          <p>
-            Caregivers read at the bedside and in waiting rooms. The phone
-            reader has its own header, a bottom sheet for pages and outline,
-            and an Ask button that gets out of the way when you scroll.
-          </p>
-          <Bullets
-            items={[
-              "Page nav and Outline tabs in one sheet",
-              "Focus is trapped while it’s open and restored when it closes",
-              "Heading links clear the fixed header",
-              "Pinch and two-finger pan in the scan viewer",
-            ]}
-          />
-        </div>
-        <div className="ft-phones ft-visual">
-          {(
-            [
-              ["mobile-page", "The page"],
-              ["mobile-nav", "Page nav"],
-              ["mobile-outline", "Outline"],
-            ] as const
-          ).map(([base, label]) => (
-            <figure key={base}>
-              <div className="ft-phone-frame">
-                <ThemedImage
-                  alt={`The phone reader showing ${label.toLowerCase()}`}
-                  base={`/feature-shots/${base}`}
-                  decoding="async"
-                  extension="jpg"
-                  height={1125}
-                  loading="lazy"
-                  width={520}
-                />
-              </div>
-              <figcaption>{label}</figcaption>
-            </figure>
-          ))}
-        </div>
-      </div>
-
-      <div className="ft-block ft-block-wide" id="read-diagrams">
-        <div className="ft-block-intro">
-          <h3>Diagrams from plain text.</h3>
-          <p>
-            Write a flowchart, a decision tree, or a Gantt timeline as text in
-            your notes and it draws itself right on the page. Switch themes and
-            the diagram follows. Pages without a diagram never download the
-            drawing code.
-          </p>
-          <Bullets
-            items={[
-              "Flowcharts, timelines, and Gantt charts from a few lines of text",
-              "Light and dark versions, tuned to match the reader",
-              "Loaded only on pages that contain one",
-              "A readable outline and the source if a diagram can’t draw",
-            ]}
-          />
-        </div>
-        <div className="ft-visual">
+        <div className="ft-block ft-block-wide" id="read-tables">
+          <div className="ft-block-intro">
+            <h3>Tables that fit their content.</h3>
+            <p>
+              Column widths come from measuring the real text, so a long
+              paragraph and a short label each get the room they need. Try it:
+              this is the real table, with sample data. Drag a header edge, pick
+              different data, and change the width.
+            </p>
+            <Bullets
+              items={[
+                "Drag any header edge to resize; widths last for the session",
+                "Expand a table to fill the workspace on a desktop",
+                "On phones: a sticky first column and edge shadows",
+                "Scroll regions work from the keyboard",
+              ]}
+            />
+          </div>
           <Suspense fallback={<div aria-busy="true" className="ft-demo ft-demo-loading" />}>
-            <DiagramDemo />
+            <TableDemo />
           </Suspense>
         </div>
-      </div>
 
-      <div className="ft-block" id="read-calls">
-        <div>
-          <h3>Calls, three ways, linked.</h3>
-          <p>
-            A call becomes three pages: the raw speaker transcript, formatted
-            notes you can read, and a short overview. Name them
-            <code> -raw</code>, <code>-formatted</code>, and
-            <code> -overview</code> and the reader adds a switcher. Notes link
-            to the exact moment in the transcript, so every claim is one click
-            from its source.
-          </p>
-          <Bullets
-            items={[
-              "Raw transcript with speakers and timestamps, kept as recorded",
-              "Formatted notes organized by topic",
-              "An overview with decisions, open questions, and next steps",
-              "The file palette collapses a complete set into one entry",
-              "Redact once; the same rules apply to all three pages",
-            ]}
-          />
-          <p className="ft-sample">
-            Record a call or transcribe a file with
-            <code> oncobase transcription</code> and it drafts the note.
-          </p>
+        <div className="ft-block ft-block-reverse">
+          <div>
+            <h3>Made for the phone in your hand.</h3>
+            <p>
+              Caregivers read at the bedside and in waiting rooms. The phone
+              reader has its own header, a bottom sheet for pages and outline,
+              and an Ask button that gets out of the way when you scroll.
+            </p>
+            <Bullets
+              items={[
+                "Page nav and Outline tabs in one sheet",
+                "Focus is trapped while it’s open and restored when it closes",
+                "Heading links clear the fixed header",
+                "Pinch and two-finger pan in the scan viewer",
+              ]}
+            />
+          </div>
+          <div className="ft-phones ft-visual">
+            {(
+              [
+                ["mobile-page", "The page"],
+                ["mobile-nav", "Page nav"],
+                ["mobile-outline", "Outline"],
+              ] as const
+            ).map(([base, label]) => (
+              <figure key={base}>
+                <div className="ft-phone-frame">
+                  <ThemedImage
+                    alt={`The phone reader showing ${label.toLowerCase()}`}
+                    base={`/feature-shots/${base}`}
+                    decoding="async"
+                    extension="jpg"
+                    height={1125}
+                    loading="lazy"
+                    width={520}
+                  />
+                </div>
+                <figcaption>{label}</figcaption>
+              </figure>
+            ))}
+          </div>
         </div>
-        <div className="ft-visual">
-          <CallDemo />
+
+        <div className="ft-block ft-block-wide" id="read-diagrams">
+          <div className="ft-block-intro">
+            <h3>Diagrams from plain text.</h3>
+            <p>
+              Write a flowchart, a decision tree, or a Gantt timeline as text in
+              your notes and it draws itself right on the page. Switch themes and
+              the diagram follows. Pages without a diagram never download the
+              drawing code.
+            </p>
+            <Bullets
+              items={[
+                "Flowcharts, timelines, and Gantt charts from a few lines of text",
+                "Light and dark versions, tuned to match the reader",
+                "Loaded only on pages that contain one",
+                "A readable outline and the source if a diagram can’t draw",
+              ]}
+            />
+          </div>
+          <div className="ft-visual">
+            <Suspense fallback={<div aria-busy="true" className="ft-demo ft-demo-loading" />}>
+              <DiagramDemo />
+            </Suspense>
+          </div>
         </div>
-      </div>
 
-      <div className="ft-block">
-        <div>
-          <h3>Illustrations in light and dark.</h3>
-          <p>
-            We draw our explanatory cartoons in matching light and dark
-            versions, and the reader and pages like this one show the version
-            that fits your theme. Drag the divider to compare. Open any image on a page full
-            screen, download it, or step through a slide set with the arrow
-            keys.
-          </p>
-          <Bullets
-            items={[
-              "Each cartoon is drawn in a light and a dark version",
-              "Native full-screen lightbox with download",
-              "Slide sets with a stepper and keyboard control",
-              "Three theme modes: light, dark, or follow the system",
-            ]}
-          />
+        <div className="ft-block" id="read-calls">
+          <div>
+            <h3>Calls, three ways, linked.</h3>
+            <p>
+              A call becomes three pages: the raw speaker transcript, formatted
+              notes you can read, and a short overview. Name them
+              <code> -raw</code>, <code>-formatted</code>, and
+              <code> -overview</code> and the reader adds a switcher. Notes link
+              to the exact moment in the transcript, so every claim is one click
+              from its source.
+            </p>
+            <Bullets
+              items={[
+                "Raw transcript with speakers and timestamps, kept as recorded",
+                "Formatted notes organized by topic",
+                "An overview with decisions, open questions, and next steps",
+                "The file palette collapses a complete set into one entry",
+                "Redact once; the same rules apply to all three pages",
+              ]}
+            />
+            <p className="ft-sample">
+              Record a call or transcribe a file with
+              <code> oncobase transcription</code> and it drafts the note.
+            </p>
+          </div>
+          <div className="ft-visual">
+            <CallDemo />
+          </div>
         </div>
-        <div className="ft-visual">
-          <ThemeCompare
-            alt="One illustration of how the immune system recognizes a cell, shown in its light and dark versions"
-            base="/landing/immune-recognition"
-            extension="webp"
-            height={1024}
-            width={1536}
-          />
-        </div>
-      </div>
 
-      <FeatureGrid>
-        <FeatureCard icon={<ListTree size={18} />} title="A tree that remembers">
-          Folders first, resizable, collapsible to a rail, and virtualized for
-          large vaults. Open folders and width persist.
-        </FeatureCard>
-        <FeatureCard icon={<Palette size={18} />} title="Theme before first paint">
-          Your light or dark choice is applied before anything draws, so dark
-          mode never flashes white. Mermaid diagrams follow along.
-        </FeatureCard>
-        <FeatureCard icon={<FileText size={18} />} title="Rich markdown">
-          Wikilinks, footnotes, task lists, KaTeX math, Mermaid diagrams, and
-          citation numbers that jump to the reference.
-        </FeatureCard>
-        <FeatureCard icon={<Link2 size={18} />} title="Links that land right">
-          Every heading has a link. Hover for a # that copies it, and deep
-          links scroll to the right spot, even on very long pages.
-        </FeatureCard>
-        <FeatureCard icon={<WifiOff size={18} />} title="Saved pages, offline">
-          Pages are stored on your device and say so: “Saved page · offline”.
-          Slow connections show bytes arriving and offer a Retry.
-        </FeatureCard>
-        <FeatureCard icon={<Download size={18} />} title="Copy and download">
-          Copy a page as markdown in one click, or download the whole wiki as
-          a zip. What you copy is already redacted.
-        </FeatureCard>
-      </FeatureGrid>
-    </section>
-  );
-}
-
-const searchTools = [
-  ["File palette", "Jumping to a page you know", "Fuzzy match on page names, offline", "⌘K"],
-  ["Text search", "Finding an exact phrase or number", "Literal text, with line numbers and highlights", "/search"],
-  ["AI search", "“Where did we talk about…?”", "Meaning, ranked out of 10 with a reason", "/search"],
-  ["Chat", "Questions that span several pages", "An agent that reads, links, and cites", "Ask wiki"],
-] as const;
-
-function Ask() {
-  return (
-    <section className="ft-group lp-container" id="ask" aria-labelledby="ask-title">
-      <SectionHeading icon={<Sparkles size={15} aria-hidden="true" />} id="ask" />
-
-      <div className="ft-block">
-        <div>
-          <h3>A chat agent that finds its own context.</h3>
-          <p>
-            Ask in plain language. Behind the scenes an agent searches the
-            pages, reads the best matches, follows the links between them, and
-            answers with citations you can click.
-          </p>
-          <Bullets
-            items={[
-              "Searches several phrasings and by meaning, then merges the results",
-              "Reads the most relevant pages and follows their links",
-              "Cites its sources inline, with a list of the pages it read",
-              "Saves conversations; stop, queue a follow-up, or resume",
-              "Respects roles: restricted pages are reported as unavailable",
-            ]}
-          />
-        </div>
-        <div className="ft-visual">
-          <ChatDemo />
-        </div>
-      </div>
-
-      <ol className="ft-flow" style={{ ["--steps" as string]: 4 }}>
-        <li>
-          <b>1 · UNDERSTAND</b>
-          <strong>Your question</strong>
-          <span>Plain language is fine, abbreviations included.</span>
-        </li>
-        <li>
-          <b>2 · SEARCH</b>
-          <strong>Words and meaning</strong>
-          <span>Several phrasings plus semantic search, merged and de-duplicated.</span>
-        </li>
-        <li>
-          <b>3 · READ</b>
-          <strong>The best pages</strong>
-          <span>It opens the top matches and follows their links for context.</span>
-        </li>
-        <li>
-          <b>4 · ANSWER</b>
-          <strong>With sources</strong>
-          <span>Inline citations that link to the page and heading.</span>
-        </li>
-      </ol>
-
-      <div className="ft-block ft-block-wide">
-        <div className="ft-block-intro">
-          <h3>Search by meaning, not just words.</h3>
-          <p>
-            AI search understands what you’re asking, then ranks the pages that
-            answer it. Each result is scored out of 10 and comes with a short
-            note on why it matched.
-          </p>
-          <Bullets
-            items={[
-              "Semantic search over embeddings made when you publish",
-              "Every result scored for relevance, with a one-line reason",
-              "Low-relevance pages are dropped",
-              "Text Search is one tab away for exact words, with line hits",
-            ]}
-          />
-        </div>
-        <div className="ft-visual">
-          <div className="ft-block-shot">
-            <ThemedImage
-              alt="AI search results for a question about treatment options, each with a relevance score out of 10 and a summary"
-              base="/feature-shots/ai-search"
-              decoding="async"
-              extension="jpg"
-              height={672}
-              loading="lazy"
-              width={1600}
+        <div className="ft-block">
+          <div>
+            <h3>Illustrations in light and dark.</h3>
+            <p>
+              We draw our explanatory cartoons in matching light and dark
+              versions, and the reader and pages like this one show the version
+              that fits your theme. Drag the divider to compare. Open any image on a page full
+              screen, download it, or step through a slide set with the arrow
+              keys.
+            </p>
+            <Bullets
+              items={[
+                "Each cartoon is drawn in a light and a dark version",
+                "Native full-screen lightbox with download",
+                "Slide sets with a stepper and keyboard control",
+                "Three theme modes: light, dark, or follow the system",
+              ]}
+            />
+          </div>
+          <div className="ft-visual">
+            <ThemeCompare
+              alt="One illustration of how the immune system recognizes a cell, shown in its light and dark versions"
+              base="/landing/immune-recognition"
+              extension="webp"
+              height={1024}
+              width={1536}
             />
           </div>
         </div>
-      </div>
 
-      <div className="ft-table-wrap" style={{ marginTop: 72 }}>
-        <table className="ft-table">
-          <caption>Which one to reach for</caption>
-          <thead>
-            <tr>
-              <th>Tool</th>
-              <th>Best for</th>
-              <th>How it matches</th>
-              <th>Shortcut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {searchTools.map(([tool, bestFor, matches, shortcut]) => (
-              <tr key={tool}>
-                <td>{tool}</td>
-                <td>{bestFor}</td>
-                <td>{matches}</td>
-                <td>
-                  <code>{shortcut}</code>
-                </td>
+        <FeatureGrid>
+          <FeatureCard icon={<ListTree size={18} />} title="A tree that remembers">
+            Folders first, resizable, collapsible to a rail, and virtualized for
+            large vaults. Open folders and width persist.
+          </FeatureCard>
+          <FeatureCard icon={<Palette size={18} />} title="Theme before first paint">
+            Your light or dark choice is applied before anything draws, so dark
+            mode never flashes white. Mermaid diagrams follow along.
+          </FeatureCard>
+          <FeatureCard icon={<FileText size={18} />} title="Rich markdown">
+            Wikilinks, footnotes, task lists, KaTeX math, Mermaid diagrams, and
+            citation numbers that jump to the reference.
+          </FeatureCard>
+          <FeatureCard icon={<Link2 size={18} />} title="Links that land right">
+            Every heading has a link. Hover for a # that copies it, and deep
+            links scroll to the right spot, even on very long pages.
+          </FeatureCard>
+          <FeatureCard icon={<WifiOff size={18} />} title="Saved pages, offline">
+            Pages are stored on your device and say so: “Saved page · offline”.
+            Slow connections show bytes arriving and offer a Retry.
+          </FeatureCard>
+          <FeatureCard icon={<Download size={18} />} title="Copy and download">
+            Copy a page as markdown in one click, or download the whole wiki as
+            a zip. What you copy is already redacted.
+          </FeatureCard>
+        </FeatureGrid>
+      </section>
+    );
+  }
+
+  const searchTools = [
+    ["File palette", "Jumping to a page you know", "Fuzzy match on page names, offline", "⌘K"],
+    ["Text search", "Finding an exact phrase or number", "Literal text, with line numbers and highlights", "/search"],
+    ["AI search", "“Where did we talk about…?”", "Meaning, ranked out of 10 with a reason", "/search"],
+    ["Chat", "Questions that span several pages", "An agent that reads, links, and cites", "Ask wiki"],
+  ] as const;
+
+  function Ask() {
+    return (
+      <section className="ft-group lp-container" id="ask" aria-labelledby="ask-title">
+        <SectionHeading icon={<Sparkles size={15} aria-hidden="true" />} id="ask" />
+
+        <div className="ft-block">
+          <div>
+            <h3>A chat agent that finds its own context.</h3>
+            <p>
+              Ask in plain language. Behind the scenes an agent searches the
+              pages, reads the best matches, follows the links between them, and
+              answers with citations you can click.
+            </p>
+            <Bullets
+              items={[
+                "Searches several phrasings and by meaning, then merges the results",
+                "Reads the most relevant pages and follows their links",
+                "Cites its sources inline, with a list of the pages it read",
+                "Saves conversations; stop, queue a follow-up, or resume",
+                "Respects roles: restricted pages are reported as unavailable",
+              ]}
+            />
+          </div>
+          <div className="ft-visual">
+            <ChatDemo />
+          </div>
+        </div>
+
+        <ol className="ft-flow" style={{ ["--steps" as string]: 4 }}>
+          <li>
+            <b>1 · UNDERSTAND</b>
+            <strong>Your question</strong>
+            <span>Plain language is fine, abbreviations included.</span>
+          </li>
+          <li>
+            <b>2 · SEARCH</b>
+            <strong>Words and meaning</strong>
+            <span>Several phrasings plus semantic search, merged and de-duplicated.</span>
+          </li>
+          <li>
+            <b>3 · READ</b>
+            <strong>The best pages</strong>
+            <span>It opens the top matches and follows their links for context.</span>
+          </li>
+          <li>
+            <b>4 · ANSWER</b>
+            <strong>With sources</strong>
+            <span>Inline citations that link to the page and heading.</span>
+          </li>
+        </ol>
+
+        <div className="ft-block ft-block-wide">
+          <div className="ft-block-intro">
+            <h3>Search by meaning, not just words.</h3>
+            <p>
+              AI search understands what you’re asking, then ranks the pages that
+              answer it. Each result is scored out of 10 and comes with a short
+              note on why it matched.
+            </p>
+            <Bullets
+              items={[
+                "Semantic search over embeddings made when you publish",
+                "Every result scored for relevance, with a one-line reason",
+                "Low-relevance pages are dropped",
+                "Text Search is one tab away for exact words, with line hits",
+              ]}
+            />
+          </div>
+          <div className="ft-visual">
+            <div className="ft-block-shot">
+              <ThemedImage
+                alt="AI search results for a question about treatment options, each with a relevance score out of 10 and a summary"
+                base="/feature-shots/ai-search"
+                decoding="async"
+                extension="jpg"
+                height={672}
+                loading="lazy"
+                width={1600}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="ft-table-wrap" style={{ marginTop: 72 }}>
+          <table className="ft-table">
+            <caption>Which one to reach for</caption>
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>Best for</th>
+                <th>How it matches</th>
+                <th>Shortcut</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {searchTools.map(([tool, bestFor, matches, shortcut]) => (
+                <tr key={tool}>
+                  <td>{tool}</td>
+                  <td>{bestFor}</td>
+                  <td>{matches}</td>
+                  <td>
+                    <code>{shortcut}</code>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
       </div>
     </section>
   );

@@ -20,6 +20,21 @@
   font-weight: 650;
 }
 
+/* Hero: the landing page's textured band, on every public Oncobase page */
+.ft-hero-band {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 0% 20%, #e0e7ff99, transparent 55%),
+    radial-gradient(ellipse at 100% 45%, #ede9fe80, transparent 50%),
+    var(--lp-page);
+}
+.dark .landing-page .ft-hero-band {
+  background:
+    radial-gradient(ellipse at 0% 20%, #2b2a6a66, transparent 55%),
+    var(--lp-page);
+}
+
 /* Hero */
 .ft-hero {
   position: relative;
@@ -111,7 +126,7 @@
 /* Groups and blocks */
 .ft-group {
   padding-top: 128px;
-  scroll-margin-top: 72px;
+  scroll-margin-top: 124px;
 }
 .ft-block {
   display: grid;
@@ -1340,28 +1355,6 @@
     width: 22px;
     height: 22px;
     font-size: 11px;
-  }
-}
-
-/* Header: the section you are in */
-.ft-header .lp-header nav a[aria-current] {
-  color: var(--lp-ink);
-  font-weight: 600;
-  box-shadow: inset 0 -2px 0 var(--lp-accent);
-}
-@media (max-width: 700px) {
-  .ft-header .lp-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0 14px;
-    height: auto;
-    padding-top: 10px;
-  }
-  .ft-header .lp-header nav {
-    display: flex;
-  }
-  .ft-group {
-    scroll-margin-top: 112px;
   }
 }
 

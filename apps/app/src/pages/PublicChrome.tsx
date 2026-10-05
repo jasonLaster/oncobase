@@ -1,8 +1,9 @@
-import { GitBranch } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowRight, GitBranch } from "lucide-react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import { PublicThemeControl } from "../PublicThemeControl";
-import { OncobaseBrand } from "./LandingBrands";
+import { DianaBrand, OncobaseBrand } from "./LandingBrands";
 import { REPO_URL } from "./features-data";
+import "./public-header.css";
 
 /** The id of the section nearest the top of the screen, for the header. */
 export function useActiveSection(ids: readonly string[]) {
@@ -33,15 +34,36 @@ export function useActiveSection(ids: readonly string[]) {
   return active;
 }
 
-/** The header the public Oncobase pages share: brand, in-page links that track the current section, theme, and GitHub. */
+/** The pages every public page links to. This row never changes between pages. */
+const primaryPages = [
+  ["features", "/features", "Features"],
+  ["compare", "/compare", "Compare"],
+] as const;
+
+export type PublicPage = (typeof primaryPages)[number][0];
+
+/**
+ * The header every public page shares. The primary row (brand, Features, Compare, theme, and an action)
+ * has the same links everywhere; the sub header below it lists the sections of the current page and tracks
+ * the one in view. On phones the primary links join the sub header's single scrolling row, pinned at its
+ * left edge, so the header stays two rows tall.
+ */
 export function PublicHeader({
-  brandHref,
-  brandLabel,
+  ref,
+  brand = "oncobase",
+  action = "github",
+  tone = "diana",
+  current,
   navLabel,
   items,
 }: {
-  brandHref: string;
-  brandLabel: string;
+  ref?: Ref<HTMLElement>;
+  /** Diana's knowledge base (the landing page) or Oncobase (features and compare). */
+  brand?: "diana" | "oncobase";
+  action?: "github" | "sign-in";
+  /** The landing page tints the header while the Oncobase band is under it. */
+  tone?: "diana" | "oncobase";
+  current?: PublicPage;
   navLabel: string;
   items: readonly (readonly [string, string])[];
 }) {
@@ -49,31 +71,61 @@ export function PublicHeader({
   const strip = useRef<HTMLElement>(null);
   // On a phone the links scroll sideways; keep the current one in view.
   useEffect(() => {
-    const link = strip.current?.querySelector<HTMLElement>("[aria-current]");
+    const link = strip.current?.querySelector<HTMLElement>("[aria-current='location']");
     const bar = strip.current;
     if (link && bar && bar.scrollWidth > bar.clientWidth) {
-      bar.scrollTo({ left: link.offsetLeft - (bar.clientWidth - link.offsetWidth) / 2, behavior: "smooth" });
+      // On phones the primary links are pinned at the left; center the section in what is left.
+      const pinned = bar.querySelector<HTMLElement>(".ft-sub-pages")?.offsetWidth ?? 0;
+      bar.scrollTo({ left: link.offsetLeft - pinned - (bar.clientWidth - pinned - link.offsetWidth) / 2, behavior: "smooth" });
     }
   }, [active]);
   return (
-    <header className="lp-header-shell ft-header" data-tone="diana">
-      <div className="lp-header lp-container">
-        <a className="lp-brand" href={brandHref} aria-label={brandLabel}>
-          <OncobaseBrand />
-        </a>
-        <nav aria-label={navLabel} ref={strip}>
-          {items.map(([id, label]) => (
-            <a aria-current={active === id ? "location" : undefined} href={`#${id}`} key={id}>
+    <header className="lp-header-shell ft-header" data-tone={tone} ref={ref}>
+      <div className="ft-primary lp-container">
+        {brand === "diana" ? (
+          <a className="lp-brand" href="/" aria-label="Diana TNBC home">
+            <DianaBrand />
+          </a>
+        ) : (
+          <a className="lp-brand" href="/features" aria-label="Oncobase features">
+            <OncobaseBrand />
+          </a>
+        )}
+        <nav aria-label="Main navigation" className="ft-primary-nav">
+          {primaryPages.map(([id, href, label]) => (
+            <a aria-current={current === id ? "page" : undefined} href={href} key={id}>
               {label}
             </a>
           ))}
         </nav>
         <div className="lp-header-actions">
           <PublicThemeControl />
-          <a className="lp-button lp-button-small" href={REPO_URL} rel="noopener noreferrer" target="_blank">
-            <GitBranch size={15} /> GitHub
-          </a>
+          {action === "sign-in" ? (
+            <a className="lp-button lp-button-small" href="/sign-in">
+              Sign in <ArrowRight size={15} />
+            </a>
+          ) : (
+            <a className="lp-button lp-button-small" href={REPO_URL} rel="noopener noreferrer" target="_blank">
+              <GitBranch size={15} /> GitHub
+            </a>
+          )}
         </div>
+      </div>
+      <div className="ft-subheader">
+        <nav aria-label={navLabel} className="lp-container" ref={strip}>
+          <span className="ft-sub-pages">
+            {primaryPages.map(([id, href, label]) => (
+              <a aria-current={current === id ? "page" : undefined} href={href} key={id}>
+                {label}
+              </a>
+            ))}
+          </span>
+          {items.map(([id, label]) => (
+            <a aria-current={active === id ? "location" : undefined} href={`#${id}`} key={id}>
+              {label}
+            </a>
+          ))}
+        </nav>
       </div>
     </header>
   );

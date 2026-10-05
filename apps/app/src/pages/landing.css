@@ -207,7 +207,6 @@
   font-weight: 550;
 }
 .lp-text-link:hover,
-.lp-header nav a:hover,
 .lp-footer-note a:hover {
   color: var(--lp-accent);
   text-decoration: underline;
@@ -245,24 +244,6 @@
 .dark .landing-page .lp-header-shell[data-tone="oncobase"] {
   --lp-header-bg: #15152e;
   --lp-line: #2a2a4a;
-}
-.lp-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 28px;
-  height: 72px;
-}
-.lp-header nav {
-  display: flex;
-  gap: 26px;
-  min-width: 0;
-}
-.lp-header nav a {
-  flex-shrink: 0;
-  padding-block: 12px;
-  color: var(--lp-muted);
-  font-size: 14px;
 }
 .lp-header-actions {
   display: flex;
@@ -807,6 +788,59 @@
   font-size: 14px;
 }
 
+/* Educational content: a notebook of dots, with a few doodles beside the heading */
+.lp-education {
+  position: relative;
+  isolation: isolate;
+}
+.lp-edu-texture {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: clip;
+  pointer-events: none;
+  color: var(--lp-accent);
+}
+.lp-edu-dots {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--lp-accent) 34%, transparent) 1.2px,
+      transparent 1.7px
+    )
+    0 0 / 24px 24px;
+  opacity: 0.55;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 160px,
+    #000 calc(100% - 160px),
+    transparent
+  );
+}
+.lp-edu-doodles {
+  position: absolute;
+  top: 92px;
+  right: max(24px, calc(50% - 560px));
+  width: 360px;
+  height: 230px;
+  opacity: 0.5;
+}
+.lp-doodle {
+  position: absolute;
+  height: auto;
+  overflow: visible;
+}
+.lp-doodle-spark {
+  opacity: 0.8;
+}
+@media (max-width: 900px) {
+  .lp-edu-doodles {
+    display: none;
+  }
+}
+
 /* Educational content */
 #education h2 > span {
   display: block;
@@ -1182,30 +1216,6 @@
   .lp-container {
     width: calc(100% - 48px);
   }
-  .lp-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0 14px;
-    height: auto;
-    padding-top: 14px;
-  }
-  .lp-header nav {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    gap: 24px;
-    overflow-x: auto;
-    white-space: nowrap;
-    scrollbar-width: thin;
-  }
-  .lp-header nav a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding-block: 0;
-  }
-  .lp-header nav a:focus-visible {
-    outline-offset: -2px;
-  }
   .lp-feature,
   .lp-feature-wide .lp-feature-copy,
   .lp-card-pair,
@@ -1236,13 +1246,6 @@
 @media (max-width: 700px) {
   .lp-container {
     width: calc(100% - 32px);
-  }
-  .lp-header {
-    height: 64px;
-    padding-top: 0;
-  }
-  .lp-header nav {
-    display: none;
   }
   .lp-brand {
     font-size: 22px;
