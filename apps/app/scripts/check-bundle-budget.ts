@@ -56,7 +56,9 @@ const budgets: Budget[] = [
   // two-read comparison) must run before the adapter returns, so it stays in
   // this chunk: +1,148 bytes (20,929 -> 22,077 gzip). Allow 22 KiB; aggregate
   // eager limits unchanged.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 22_528 },
+  // The session handoff (SessionHandoffSync host, handoff span) landed in the
+  // same chunk: 22,077 -> ~22.2 KiB gzip. Allow 22.75 KiB.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 23_296 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
