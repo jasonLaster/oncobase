@@ -25,7 +25,9 @@ export const serviceIdentity = { issuer: SERVICE_ISSUER, subject: SERVICE_SUBJEC
 
 const modules = {
   "../access.ts": () => import("../convex/access"),
+  "../commentRooms.ts": () => import("../convex/commentRooms"),
   "../conversations.ts": () => import("../convex/conversations"),
+  "../guestNames.ts": () => import("../convex/guestNames"),
   "../documents.ts": () => import("../convex/documents"),
   "../sites.ts": () => import("../convex/sites"),
   "../users.ts": () => import("../convex/users"),
@@ -38,9 +40,10 @@ export type Options = {
   /** Make the diagnosis document itself sensitive (system-prompt context). */
   sensitiveDiagnosis?: boolean;
   passwordGate?: boolean;
+  enableComments?: boolean;
 };
 
-export async function createFixture({ sensitiveDiagnosis = false, passwordGate = true }: Options = {}) {
+export async function createFixture({ sensitiveDiagnosis = false, passwordGate = true, enableComments = false }: Options = {}) {
   // Convex ids are deterministic in convex-test, so a cached prompt from a prior fixture would collide.
   _resetSystemPromptCache();
   const t = convexTest(schema, modules);
@@ -48,7 +51,7 @@ export async function createFixture({ sensitiveDiagnosis = false, passwordGate =
     const siteId = await ctx.db.insert("sites", {
       slug: SITE, name: "Diana", domains: ["diana.test"], ownerEmail: "owner@test.invalid", status: "active",
       publishTokenHash: "fixture", documentMetaReadyAt: 1,
-      config: { passwordGate, passwordHash: "fixture-gate-hash", enableChat: true, enableComments: false, enableDownloads: false },
+      config: { passwordGate, passwordHash: "fixture-gate-hash", enableChat: true, enableComments, enableDownloads: false },
       quotas: { monthlyOpenAITokens: 0, blobBytes: 0 }, createdAt: 1, updatedAt: 1,
     });
     const doc = (slug: string, title: string, content: string, extra: { sensitive?: boolean; tags?: string[] } = {}) =>

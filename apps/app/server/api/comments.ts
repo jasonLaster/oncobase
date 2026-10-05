@@ -16,8 +16,8 @@ import { api } from "../../convex/_generated/api.js";
 import type { Id } from "../../convex/_generated/dataModel.js";
 import { traceBackendPhase } from "../backend-tracing";
 import { runAfterResponse } from "../background";
-import { DEFAULT_SITE_SLUG, getSessionUser, withSiteSlug } from "../reader-access";
-import { fetchSlugSensitivity } from "../slug-batch";
+import { DEFAULT_SITE_SLUG, getSessionUser, withSiteSlug, type SessionUser } from "../reader-access";
+import { fetchAccessibleSlugs, fetchSlugSensitivity } from "../slug-batch";
 
 export type CachedLiveblocksThreadsResponse = {
   body: object;
@@ -73,33 +73,49 @@ export function parseGuestUserFromRequest(request: Request) {
 
 export const COMMENT_ROOM_PREFIX = "markdown:";
 
-export async function isSensitiveCommentRoom(
-  roomId: string,
-  client: ConvexHttpClient,
-  siteSlug: string,
-) {
-  if (!roomId.startsWith(COMMENT_ROOM_PREFIX)) return false;
-  const slug = roomId.slice(COMMENT_ROOM_PREFIX.length);
-  const sensitivity = await fetchSlugSensitivity(client, siteSlug, [slug]);
-  return sensitivity.get(slug) === true;
-}
+const roomSlug = (roomId: string) =>
+  roomId.startsWith(COMMENT_ROOM_PREFIX) ? roomId.slice(COMMENT_ROOM_PREFIX.length) : null;
 
-export async function filterPublicCommentRooms(
+/**
+ * Rooms the viewer may not use. A page's comments are as sensitive as the page:
+ * a sensitive page's room is readable only by a viewer who can read the page
+ * (a session alone is not a grant). Rooms that are not page rooms are never
+ * restricted here.
+ */
+export async function unreadableCommentRooms(
   roomIds: string[],
   client: ConvexHttpClient,
   siteSlug: string,
+  user: SessionUser | null,
 ) {
+  const slugs = roomIds.flatMap((roomId) => roomSlug(roomId) ?? []);
   // One chunked sensitivity lookup instead of a full document read per room.
-  const sensitivity = await fetchSlugSensitivity(
-    client,
-    siteSlug,
-    roomIds
-      .filter((roomId) => roomId.startsWith(COMMENT_ROOM_PREFIX))
-      .map((roomId) => roomId.slice(COMMENT_ROOM_PREFIX.length)),
-  );
-  return roomIds.filter((roomId) =>
-    !roomId.startsWith(COMMENT_ROOM_PREFIX) ||
-    sensitivity.get(roomId.slice(COMMENT_ROOM_PREFIX.length)) !== true);
+  const sensitivity = await fetchSlugSensitivity(client, siteSlug, slugs);
+  const sensitiveSlugs = slugs.filter((slug) => sensitivity.get(slug) === true);
+  const allowed = await fetchAccessibleSlugs(client, siteSlug, user, sensitiveSlugs);
+  return new Set(roomIds.filter((roomId) => {
+    const slug = roomSlug(roomId);
+    return slug !== null && sensitivity.get(slug) === true && !allowed.has(slug);
+  }));
+}
+
+export async function canAccessCommentRoom(
+  roomId: string,
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: SessionUser | null,
+) {
+  return (await unreadableCommentRooms([roomId], client, siteSlug, user)).size === 0;
+}
+
+export async function filterReadableCommentRooms(
+  roomIds: string[],
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: SessionUser | null,
+) {
+  const unreadable = await unreadableCommentRooms(roomIds, client, siteSlug, user);
+  return roomIds.filter((roomId) => !unreadable.has(roomId));
 }
 
 export function invalidateLiveblocksThreadsCache(siteSlug?: string) {
@@ -107,8 +123,9 @@ export function invalidateLiveblocksThreadsCache(siteSlug?: string) {
     liveblocksThreadsResponseCache.clear();
     return;
   }
-  liveblocksThreadsResponseCache.delete(`${siteSlug}:public`);
-  liveblocksThreadsResponseCache.delete(`${siteSlug}:private`);
+  for (const key of liveblocksThreadsResponseCache.keys()) {
+    if (key.startsWith(`${siteSlug}:`)) liveblocksThreadsResponseCache.delete(key);
+  }
 }
 
 export async function seedCommentRoomsInBackground(
@@ -177,7 +194,7 @@ export async function handleLiveblocksAuthRequest(
   }
 
   const sessionUser = await getSessionUser(request, client, siteSlug);
-  if (!sessionUser && (await isSensitiveCommentRoom(room, client, siteSlug))) {
+  if (!(await canAccessCommentRoom(room, client, siteSlug, sessionUser))) {
     return Response.json({ error: "Room not found" }, { status: 404 });
   }
 
@@ -221,8 +238,9 @@ export async function handleLiveblocksThreadsRequest(
   if (!config.ok) return liveblocksDisabledResponse(config);
 
   const liveblocks = new Liveblocks({ secret: config.creds.secretKey });
-  const includeSensitive = Boolean(await getSessionUser(request, client, siteSlug));
-  const cacheKey = `${siteSlug}:${includeSensitive ? "private" : "public"}`;
+  const sessionUser = await getSessionUser(request, client, siteSlug);
+  // Per viewer: which sensitive rooms are included depends on the viewer's grants.
+  const cacheKey = `${siteSlug}:${sessionUser ? `user:${sessionUser._id}` : "public"}`;
   const url = new URL(request.url);
   const bypassCache =
     url.searchParams.get("fresh") === "1" ||
@@ -274,9 +292,7 @@ export async function handleLiveblocksThreadsRequest(
     }
 
     timing.listRooms = Date.now() - startedAt;
-    if (!includeSensitive) {
-      roomsToQuery = await filterPublicCommentRooms(roomsToQuery, client, siteSlug);
-    }
+    roomsToQuery = await filterReadableCommentRooms(roomsToQuery, client, siteSlug, sessionUser);
     timing.roomCount = roomsToQuery.length;
 
     const fetchStartedAt = Date.now();
@@ -392,6 +408,9 @@ export async function handleLiveblocksAddCommentRequest(
   if (!sessionUser) {
     return Response.json({ error: "Sign in to comment" }, { status: 401 });
   }
+  if (!(await canAccessCommentRoom(roomId, client, siteSlug, sessionUser))) {
+    return Response.json({ error: "Room not found" }, { status: 404 });
+  }
 
   try {
     const liveblocks = new Liveblocks({ secret: config.creds.secretKey });
@@ -447,6 +466,9 @@ export async function handleLiveblocksDeleteThreadRequest(
   const sessionUser = await getSessionUser(request, client, siteSlug);
   if (!sessionUser) {
     return Response.json({ error: "Sign in to manage comments" }, { status: 401 });
+  }
+  if (!(await canAccessCommentRoom(roomId, client, siteSlug, sessionUser))) {
+    return Response.json({ error: "Room not found" }, { status: 404 });
   }
 
   try {
