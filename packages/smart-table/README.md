@@ -198,5 +198,5 @@ From the monorepo root:
 ```bash
 bun run build
 bun run test:unit
-bunx playwright test apps/app/e2e/table-examples.spec.ts apps/app/e2e/table-expansion.spec.ts --project=tests
+bunx playwright test apps/app/e2e/journeys/tables.spec.ts --project=tests
 ```
