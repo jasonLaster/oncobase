@@ -310,14 +310,7 @@ function Platform({ ref }: { ref: RefObject<HTMLElement | null> }) {
         </div>
         <div className="lp-platform-copy">
           <p>
-            We built Oncobase while organizing Diana’s care, and everything on
-            this page runs on it, from the reader to the imaging viewer to the
-            privacy controls. It’s free and open source. Anyone can use it to
-            gather their own records, make sense of the research, and bring
-            family and doctors into the conversation.
-          </p>
-          <p>
-            It was inspired by{" "}
+            Oncobase was inspired by{" "}
             <a
               href="https://osteosarc.com/"
               target="_blank"
@@ -326,6 +319,11 @@ function Platform({ ref }: { ref: RefObject<HTMLElement | null> }) {
               Sid Sijbrandij’s osteosarc.com
             </a>
             , where he openly shares the data from his own cancer journey.
+          </p>
+          <p>
+            Everything in the knowledge base, from the content management
+            system to the diagnostics viewer and the agentic chatbot, is open
+            source and free to build on.
           </p>
           <a
             className="lp-button"
