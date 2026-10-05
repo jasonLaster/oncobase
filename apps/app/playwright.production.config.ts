@@ -6,7 +6,7 @@ if (process.env.CI || process.env.PRODUCTION_READER_TESTS !== "1") {
 if (!process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD) throw new Error("Set the site gate password.");
 
 export default defineConfig({
-  testDir: "./production-e2e",
+  testDir: "./deployed-e2e",
   outputDir: "./.playwright/production-reader/results",
   reporter: [["line"], ["json", { outputFile: "./.playwright/production-reader/results.json" }]],
   timeout: 120_000,

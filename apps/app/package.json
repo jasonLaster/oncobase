@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "test:e2e:endform": "endform test",
     "test:e2e:preview": "playwright test --config playwright.preview.config.ts",
+    "test:e2e:production": "playwright test --config playwright.production.config.ts",
     "dev:app": "vite --host",
     "dev:convex": "convex dev",
     "lint": "eslint .",

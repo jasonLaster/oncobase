@@ -112,7 +112,7 @@ bun run test:e2e
 
 When `PLAYWRIGHT_BASE_URL` is set, Playwright skips the local dev-server bootstrap and treats the URL as the app origin. For Vercel-protected previews, set `VERCEL_AUTOMATION_BYPASS_SECRET` so Playwright sends the Vercel bypass header and the Diana preview test-auth header with every request.
 
-Run the optional preview smoke against a deployed Vite reader:
+Run the deployed smoke (`deployed-e2e/`, Tier E: gate, first render, cold-start controls, theme, early shortcut, PDF ranges) against a deployed Vite reader:
 
 ```sh
 PLAYWRIGHT_BASE_URL=https://wiki-vite-preview.example \
@@ -120,7 +120,7 @@ WIKI_VITE_SMOKE_PATH=/wiki/logistics/insurance \
 bun run test:e2e:preview
 ```
 
-For password-gated deployments, set `WIKI_VITE_SMOKE_COOKIE` to an `authed=true` cookie from `/api/login` before running the preview smoke.
+For password-gated deployments, set `WIKI_VITE_SMOKE_COOKIE` to a signed gate cookie from `/api/login` (or `WIKI_VITE_PREVIEW_LOGIN_PASSWORD` to mint one) before running the smoke; tests that need a credential skip without it. `WIKI_VITE_SMOKE_SESSION_COOKIE` (the full Cookie header of a session signed in before the deploy) enables the "session survives the deploy" check. `bun run test:e2e:production` runs the same directory against the live site across browsers and phone widths (local only; needs `PRODUCTION_READER_TESTS=1`).
 
 You can also run the preview smoke against the standalone server:
 
@@ -154,9 +154,9 @@ bun run local:stack                 # start or reuse, push, seed; writes .local-
 bun run local:smoke                 # standalone server + OTLP sink: gate, pages, manifest/ETag, search, files, roles
 bun run local:stack serve           # standalone server on http://127.0.0.1:62003
 bun run local:stack exec -- bun dev # Vite dev server on the local backend
-PLAYWRIGHT_PORT=61091 bun run local:stack exec -- bunx playwright test e2e/backend-api.spec.ts
+PLAYWRIGHT_PORT=61091 bun run local:stack exec -- bunx playwright test e2e/contract
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:62003 WIKI_VITE_PREVIEW_LOGIN_PASSWORD=diana \
-  bun run local:stack exec -- bunx playwright test e2e/live-data.spec.ts   # while `serve` runs
+  bun run local:stack exec -- bunx playwright test e2e/contract   # while `serve` runs
 bun run local:stack status | stop | --reset | --build
 ```
 

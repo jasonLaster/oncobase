@@ -233,6 +233,9 @@ try {
   await runCommand(["bun", "run", "test:e2e:preview"], {
     PLAYWRIGHT_BASE_URL: origin,
     WIKI_VITE_SMOKE_PATH: "/wiki/logistics/insurance",
+    WIKI_VITE_SMOKE_START_PATH: "/wiki/treatment",
+    // The local stack has no chat identity provider, so skip the Ask wiki step.
+    WIKI_VITE_SMOKE_SKIP_CHAT: "1",
     WIKI_VITE_SMOKE_COOKIE: authCookie,
   });
 } finally {

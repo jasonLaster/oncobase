@@ -539,10 +539,10 @@ Local stack is up (Convex ${convexUrl}, Blob ${blobOrigin}). From apps/app:
   Standalone server:  bun run local:stack serve            # http://127.0.0.1:${PORTS.app}
   Smoke test:         bun run local:smoke
   Vite dev server:    bun run local:stack exec -- bun dev
-  Playwright (dev):   bun run local:stack exec -- bunx playwright test e2e/backend-api.spec.ts
+  Playwright (dev):   bun run local:stack exec -- bunx playwright test e2e/contract
   Playwright (server, in another shell while 'serve' runs):
     PLAYWRIGHT_BASE_URL=http://127.0.0.1:${PORTS.app} WIKI_VITE_PREVIEW_LOGIN_PASSWORD=${LOCAL_GATE_PASSWORD} \\
-      bun run local:stack exec -- bunx playwright test e2e/live-data.spec.ts
+      bun run local:stack exec -- bun run test:e2e:preview
   Manual shell:       set -a; source ${rel}; set +a
 
 Gate password: ${LOCAL_GATE_PASSWORD}

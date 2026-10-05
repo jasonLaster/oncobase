@@ -92,12 +92,13 @@ jobs:
 
       # Real sign-in, roles and private content against the seeded stack: no
       # route mocks and no secrets. See apps/app/specs/e2e-audit-2026-10-04.md.
-      - name: Run authenticated journeys
+      # e2e/contract is request-only: route x auth-state, site scoping, PII, roles.
+      - name: Run authenticated journeys and API contracts
         working-directory: apps/app
         # Only the real-backend journeys: the mocked journeys (comments, search,
         # tables, ...) run in the deployed shards, and the local stack turns
         # comments off.
-        run: bun run local:stack exec -- bunx playwright test e2e/journeys/access.spec.ts e2e/journeys/read.spec.ts e2e/journeys/find.spec.ts e2e/journeys/admin.spec.ts e2e/journeys/chat.spec.ts e2e/journeys/imaging.spec.ts --reporter=line
+        run: bun run local:stack exec -- bunx playwright test e2e/journeys/access.spec.ts e2e/journeys/read.spec.ts e2e/journeys/find.spec.ts e2e/journeys/admin.spec.ts e2e/journeys/chat.spec.ts e2e/journeys/imaging.spec.ts e2e/journeys/pii.spec.ts e2e/contract --reporter=line
 
       - name: Stop local Convex stack
         if: always()
