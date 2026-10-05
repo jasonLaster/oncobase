@@ -19,8 +19,7 @@ import {
 //   rows with that `ownerKey`. Rows created before ownership existed have no
 //   `ownerKey` and are therefore invisible to (and undeletable by) browsers.
 // - The app server passes `ownerKey` explicitly for the viewer it acts for.
-//   Service calls without it keep the old site-wide behavior only so app
-//   servers built before this change work while Convex is deployed first.
+//   Service calls without one are rejected (fail closed).
 type AnyCtx = QueryCtx | MutationCtx;
 
 async function listAll(ctx: AnyCtx, site: SiteCtx, owner: ConversationOwner) {

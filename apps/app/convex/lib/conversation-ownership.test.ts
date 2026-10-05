@@ -73,9 +73,14 @@ test("legacy unowned conversations and owner-less browser tokens are inaccessibl
   await expect(ownerless.mutation(api.conversations.create, { siteSlug: "alpha", title: "x" })).rejects.toThrow("Unauthorized");
   expect(await browser("not-a-hash").query(api.conversations.list, { siteSlug: "alpha" })).toEqual([]);
 
-  // Old app servers (no ownerKey argument) keep their site-wide behavior during rollout.
+  // A server call that omits its owner fails closed: there is no site-wide view.
   const asService = t.withIdentity(service);
-  expect((await asService.query(api.conversations.get, { siteSlug: "alpha", id: legacy }))?.title).toBe("Legacy");
+  await expect(asService.query(api.conversations.get, { siteSlug: "alpha", id: legacy })).rejects.toThrow("Unauthorized");
+  await expect(asService.query(api.conversations.list, { siteSlug: "alpha" })).rejects.toThrow("Unauthorized");
+  await expect(asService.mutation(api.conversations.remove, { siteSlug: "alpha", id: legacy })).rejects.toThrow("Unauthorized");
+  await expect(asService.query(api.conversations.get, { siteSlug: "alpha", id: legacy, ownerKey: "not-a-hash" })).rejects.toThrow("Unauthorized");
+  // With an explicit owner it still only sees that owner's rows, never the unowned legacy row.
+  expect(await asService.query(api.conversations.get, { siteSlug: "alpha", id: legacy, ownerKey: "a".repeat(64) })).toBeNull();
 });
 
 test("server writes on behalf of an owner cannot touch another owner's conversation", async () => {

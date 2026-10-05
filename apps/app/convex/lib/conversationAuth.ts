@@ -22,15 +22,14 @@ const OWNER_KEY_RE = /^[0-9a-f]{64}$/;
 
 /**
  * Which conversations the caller may touch.
- * - `any`: backend-service call without an explicit owner. Kept only so app
- *   servers built before per-owner conversations keep working during a
- *   rollout; current servers always pass `ownerKey`.
- * - `owner`: only rows whose `ownerKey` equals this value.
+ * - `owner`: only rows whose `ownerKey` equals this value. Every caller needs
+ *   one: a backend-service call without an explicit `ownerKey` is rejected, so
+ *   a server path that forgets it fails closed instead of seeing every
+ *   viewer's conversations (including the care team's sensitive chats).
  * - `none`: a browser token without an owner claim (issued by an old app
  *   server). It matches no conversation and cannot create one.
  */
 export type ConversationOwner =
-  | { scope: "any" }
   | { scope: "owner"; ownerKey: string }
   | { scope: "none" };
 
@@ -42,8 +41,7 @@ export async function requireConversationIdentity(ctx: QueryCtx | MutationCtx, a
   if (identity?.issuer !== SERVICE_ISSUER) throw new ConvexError("Unauthorized");
   let owner: ConversationOwner;
   if (identity.subject === SERVICE_SUBJECT && identity.role === "backend-service") {
-    if (args.ownerKey === undefined) owner = { scope: "any" };
-    else if (OWNER_KEY_RE.test(args.ownerKey)) owner = { scope: "owner", ownerKey: args.ownerKey };
+    if (args.ownerKey !== undefined && OWNER_KEY_RE.test(args.ownerKey)) owner = { scope: "owner", ownerKey: args.ownerKey };
     else throw new ConvexError("Unauthorized");
   } else {
     const slug = args.siteSlug ?? "diana";
@@ -65,7 +63,6 @@ export async function conversationOwner(ctx: QueryCtx | MutationCtx, args: Conve
 }
 
 export function ownerAllows(owner: ConversationOwner, row: { ownerKey?: string }) {
-  if (owner.scope === "any") return true;
   if (owner.scope === "none") return false;
   return row.ownerKey === owner.ownerKey;
 }
