@@ -45,13 +45,14 @@ test.describe("signed-out landing and sign-in", () => {
       page.locator("#platform").getByRole("link", { name: /View Oncobase on GitHub/ }),
     ).toHaveAttribute("href", "https://github.com/jasonLaster/oncobase");
 
-    // The sub header lists this page's sections; the primary row is the same on every public page.
+    // Diana's header is one row: her brand, the page's sections (tracking the one in view), and Sign in.
+    // It carries no Oncobase links up top; the platform has its own site.
     const sections = page.getByRole("navigation", { name: "Page sections" });
     for (const [link, heading] of [
       ["Our story", "#story-title"],
       ["Oncobase", "#platform-title"],
       ["What’s inside", "#inside-title"],
-      ["Cartoons", "#education-title"],
+      ["Education", "#education-title"],
     ]) {
       await sections.getByRole("link", { name: link, exact: true }).click();
       await expect(page.locator(heading)).toBeInViewport();
@@ -60,22 +61,19 @@ test.describe("signed-out landing and sign-in", () => {
         "location",
       );
     }
-    // The primary row is Diana's site: Education here, and a way over to Oncobase's own site.
-    const primary = page.getByRole("navigation", { name: "Main navigation" });
-    expect(await primary.getByRole("link").allTextContents()).toEqual(["Education", "Oncobase"]);
-    await expect(primary.getByRole("link", { name: "Education", exact: true })).toHaveAttribute(
-      "href",
-      "/education",
-    );
-    await expect(primary.getByRole("link", { name: "Oncobase", exact: true })).toHaveAttribute(
-      "href",
-      oncobaseHome,
-    );
-    // On a phone the header stays two rows tall, with the primary links in the sub header's row.
+    expect(await sections.getByRole("link").allTextContents()).toEqual([
+      "Our story",
+      "Oncobase",
+      "What’s inside",
+      "Education",
+    ]);
+    await expect(page.getByRole("navigation", { name: "Main navigation" })).toHaveCount(0);
+    expect((await page.locator(".lp-header-shell").boundingBox())!.height).toBeLessThanOrEqual(73);
+    // On a phone the sections give way to the brand, the theme toggle, and Sign in.
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(primary).toBeHidden();
-    await expect(sections.getByRole("link", { name: "Education", exact: true })).toBeVisible();
-    expect((await page.locator(".lp-header-shell").boundingBox())!.height).toBeLessThanOrEqual(112);
+    await expect(sections).toBeHidden();
+    await expect(page.getByRole("link", { name: "Sign in", exact: true }).first()).toBeVisible();
+    expect((await page.locator(".lp-header-shell").boundingBox())!.height).toBeLessThanOrEqual(73);
     await page.setViewportSize({ width: 1440, height: 1000 });
     // Features and the comparison live on oncobase.io now.
     await expect(page.locator("footer").getByRole("link", { name: "Compare" })).toHaveAttribute(

@@ -66,7 +66,7 @@ const sections = [
   ["story", "Our story"],
   ["platform", "Oncobase"],
   ["inside", "What’s inside"],
-  ["education", "Cartoons"],
+  ["education", "Education"],
 ] as const;
 
 function Hero() {

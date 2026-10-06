@@ -94,3 +94,37 @@
     color: var(--lp-accent);
   }
 }
+
+/* Diana's header: one row, with the page's sections between the brand and the actions. */
+.ft-section-nav {
+  display: flex;
+  gap: 26px;
+  margin-right: auto;
+  min-width: 0;
+}
+.ft-section-nav a {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  min-height: 44px;
+  color: var(--lp-muted);
+  font-size: 14px;
+}
+.ft-section-nav a:hover {
+  color: var(--lp-ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.ft-section-nav a[aria-current="location"] {
+  color: var(--lp-ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--lp-accent);
+}
+@media (max-width: 800px) {
+  .ft-single .ft-section-nav {
+    display: none;
+  }
+  .ft-single .lp-header-actions {
+    margin-left: auto;
+  }
+}

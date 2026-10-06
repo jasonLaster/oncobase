@@ -25,7 +25,7 @@ Oncobase's pages used to live on Diana's domain. Splitting them gives each site 
 
 ## The two headers
 
-Both sites use the shared two-row header (`PublicChrome.tsx`): a primary row that never changes within a site, and a sub header with the current page's sections. Oncobase's primary row is the Oncobase brand (a link to `/`), Features, Compare, the theme toggle, and GitHub. Diana's is the Diana brand, Education, Oncobase (a link to oncobase.io), the theme toggle, and Sign in. Diana's landing sub header calls the education section "Cartoons" so it doesn't repeat the primary "Education".
+The brands are separate, so the headers are too (`PublicChrome.tsx`). Oncobase's is two rows: a primary row that never changes (the Oncobase brand, a link to `/`, then Features, Compare, the theme toggle, and GitHub) and a sub header with the current page's sections. Diana's is one row: the Diana brand, the landing page's own sections (Our story, Oncobase, What's inside, Education), the theme toggle, and Sign in, with no Oncobase links in the top row. Diana's pages point at oncobase.io only from the Oncobase band, the tour cards, and the footer.
 
 ## The oncobase.io home page
 

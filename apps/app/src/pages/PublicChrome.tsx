@@ -2,7 +2,6 @@ import { ArrowRight, GitBranch } from "lucide-react";
 import { useEffect, useRef, useState, type Ref } from "react";
 import { PublicThemeControl } from "../PublicThemeControl";
 import { DianaBrand, OncobaseBrand } from "./LandingBrands";
-import { oncobaseUrl } from "../site-links";
 import { REPO_URL } from "./site";
 import "./public-header.css";
 
@@ -35,27 +34,24 @@ export function useActiveSection(ids: readonly string[]) {
   return active;
 }
 
-export type PublicPage = "features" | "compare" | "education";
+export type PublicPage = "features" | "compare";
 
-/** The links in a site's primary row. They never change between that site's pages. */
-function primaryPagesFor(brand: "diana" | "oncobase"): { id: PublicPage | "oncobase"; href: string; label: string }[] {
-  return brand === "oncobase"
-    ? [
-        { id: "features", href: "/features", label: "Features" },
-        { id: "compare", href: "/compare", label: "Compare" },
-      ]
-    : [
-        { id: "education", href: "/education", label: "Education" },
-        { id: "oncobase", href: oncobaseUrl("/"), label: "Oncobase" },
-      ];
-}
+/** oncobase.io's primary row. It never changes between that site's pages. */
+const primaryPages: { id: PublicPage; href: string; label: string }[] = [
+  { id: "features", href: "/features", label: "Features" },
+  { id: "compare", href: "/compare", label: "Compare" },
+];
 
 /**
- * The header every public page shares. The primary row (brand, the site's pages, theme, and an action)
- * has the same links on every page of a site; the sub header below it lists the sections of the current
- * page and tracks the one in view. oncobase.io has Features and Compare; Diana's site has Education and a
- * link to Oncobase. On phones the primary links join the sub header's single scrolling row, pinned at its
- * left edge, so the header stays two rows tall.
+ * The header the public pages share, with one branding per site.
+ *
+ * - Oncobase (oncobase.io) has two rows. The primary row (brand, Features, Compare, theme, GitHub) is the
+ *   same on every page; the sub header below it lists the sections of the current page and tracks the one
+ *   in view. On phones the primary links join the sub header's single scrolling row, pinned at its left
+ *   edge, so the header stays two rows tall.
+ * - Diana's knowledge base is its own brand and has one row: the brand, the sections of the page
+ *   (tracking the one in view), the theme toggle, and Sign in. It carries no Oncobase links up top. The
+ *   sections hide on narrow screens, where the page is short enough to scroll.
  */
 export function PublicHeader({
   ref,
@@ -77,7 +73,6 @@ export function PublicHeader({
   items: readonly (readonly [string, string])[];
 }) {
   const active = useActiveSection(items.map(([id]) => id));
-  const primaryPages = primaryPagesFor(brand);
   const strip = useRef<HTMLElement>(null);
   // On a phone the links scroll sideways; keep the current one in view.
   useEffect(() => {
@@ -89,18 +84,45 @@ export function PublicHeader({
       bar.scrollTo({ left: link.offsetLeft - pinned - (bar.clientWidth - pinned - link.offsetWidth) / 2, behavior: "smooth" });
     }
   }, [active]);
-  return (
-    <header className="lp-header-shell ft-header" data-tone={tone} ref={ref}>
-      <div className="ft-primary lp-container">
-        {brand === "diana" ? (
+  const actions = (
+    <div className="lp-header-actions">
+      <PublicThemeControl />
+      {action === "sign-in" ? (
+        <a className="lp-button lp-button-small" href="/sign-in">
+          Sign in <ArrowRight size={15} />
+        </a>
+      ) : (
+        <a className="lp-button lp-button-small" href={REPO_URL} rel="noopener noreferrer" target="_blank">
+          <GitBranch size={15} /> GitHub
+        </a>
+      )}
+    </div>
+  );
+  if (brand === "diana") {
+    return (
+      <header className="lp-header-shell ft-header" data-tone={tone} ref={ref}>
+        <div className="ft-primary ft-single lp-container">
           <a className="lp-brand" href="/" aria-label="Diana TNBC home">
             <DianaBrand />
           </a>
-        ) : (
-          <a className="lp-brand" href="/" aria-label="Oncobase home">
-            <OncobaseBrand />
-          </a>
-        )}
+          <nav aria-label={navLabel} className="ft-section-nav">
+            {items.map(([id, label]) => (
+              <a aria-current={active === id ? "location" : undefined} href={`#${id}`} key={id}>
+                {label}
+              </a>
+            ))}
+          </nav>
+          {actions}
+        </div>
+      </header>
+    );
+  }
+  return (
+    <header className="lp-header-shell ft-header" data-tone={tone} ref={ref}>
+      <div className="ft-primary lp-container">
+        <a className="lp-brand" href="/" aria-label="Oncobase home">
+          <OncobaseBrand />
+        </a>
         <nav aria-label="Main navigation" className="ft-primary-nav">
           {primaryPages.map(({ id, href, label }) => (
             <a aria-current={current === id ? "page" : undefined} href={href} key={id}>
@@ -108,18 +130,7 @@ export function PublicHeader({
             </a>
           ))}
         </nav>
-        <div className="lp-header-actions">
-          <PublicThemeControl />
-          {action === "sign-in" ? (
-            <a className="lp-button lp-button-small" href="/sign-in">
-              Sign in <ArrowRight size={15} />
-            </a>
-          ) : (
-            <a className="lp-button lp-button-small" href={REPO_URL} rel="noopener noreferrer" target="_blank">
-              <GitBranch size={15} /> GitHub
-            </a>
-          )}
-        </div>
+        {actions}
       </div>
       <div className="ft-subheader">
         <nav aria-label={navLabel} className="lp-container" ref={strip}>
