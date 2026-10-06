@@ -11,7 +11,7 @@ export type DocumentDependency = {
 };
 export type DependencyCacheMode = "content" | "metadata" | "off" | "refresh";
 type Cached = { fingerprint: string; dependency: DocumentDependency };
-const VERSION = 1; // Bump for parsing, sensitivity, reference or exclusion semantics.
+const VERSION = 2; // Bump for parsing, sensitivity, reference or exclusion semantics.
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every(v => typeof v === "string");
 function valid(value: Cached, relativePath: string) {

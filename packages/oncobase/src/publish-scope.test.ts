@@ -5,6 +5,29 @@ import path from "node:path";
 import { expect, test, spyOn } from "bun:test";
 import { readGitPublishScope, readPublishScope, readPublishSelection } from "./publish-scope";
 
+test("theme companions inherit all owners and sensitivity through relative and file API references", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-theme-images-"));
+  try {
+    fs.mkdirSync(path.join(dir, "images"));
+    for (const name of ["cleanup-light.png", "cleanup-dark.png", "plain-light.png", "plain-dark.png"]) {
+      fs.writeFileSync(path.join(dir, "images", name), "image");
+    }
+    fs.writeFileSync(path.join(dir, "public.md"),
+      '<img data-theme-pair src="/api/file?path=images%2Fcleanup-light.png">\n<img src="./images/plain-light.png">');
+    fs.writeFileSync(path.join(dir, "private.md"),
+      "---\nsensitive: true\nsensitive-include: [team]\n---\n<img src='./images/cleanup-light.png' data-theme-pair=''>");
+    const selected = readPublishSelection(dir, new Set(["public"]), "referenced");
+    expect(selected.assets.map(asset => asset.relativePath).sort()).toEqual([
+      "images/cleanup-dark.png", "images/cleanup-light.png", "images/plain-light.png",
+    ]);
+    for (const asset of selected.assets.filter(asset => asset.relativePath.startsWith("images/cleanup-"))) {
+      expect(asset.ownerSlugs).toEqual(["private", "public"]);
+      expect(asset.sensitive).toBe(true);
+      expect(asset.sensitiveInclude).toEqual(["team"]);
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("referenced scope preserves outside owners and avoids hashing unrelated LFS assets", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-scope-"));
   try {

@@ -363,6 +363,17 @@ function extractReferences(raw: string) {
     }
   }
 
+  // The reader derives the dark companion without a second source reference.
+  // Both variants must inherit every owning document's access metadata.
+  for (const match of raw.matchAll(/<img\b([^>]*)>/gi)) {
+    const attributes = match[1];
+    if (!/\sdata-theme-pair(?:\s|=|\/?$)/i.test(attributes)) continue;
+    const src = attributes.match(/(?:^|\s)src\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (src && /-light\.[a-zA-Z0-9]+$/.test(src)) {
+      references.push(src.replace(/-light(\.[a-zA-Z0-9]+)$/, "-dark$1"));
+    }
+  }
+
   return references;
 }
 
