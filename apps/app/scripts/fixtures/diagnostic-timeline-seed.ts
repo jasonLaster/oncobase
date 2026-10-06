@@ -3,10 +3,10 @@ import type { DiagnosticTimelineData } from "@oncobase/diagnostics/timeline/data
 export const diagnosticTimelineSeed: DiagnosticTimelineData = {
   "metadata": {
     "title": "Diagnostic Timeline",
-    "asOf": "2026-07-27",
+    "asOf": "2026-10-06",
     "range": {
       "start": "2026-02-01",
-      "end": "2026-08-31"
+      "end": "2026-10-06"
     },
     "sourcePages": [
       {
@@ -397,6 +397,44 @@ export const diagnosticTimelineSeed: DiagnosticTimelineData = {
                 {
                   "label": "Source page",
                   "href": "/sources/diagnostics/07-20-signatera-ctdna/07-20-signatera-ctdna"
+                }
+              ]
+            },
+            {
+              "id": "signatera-2026-08-26",
+              "date": "2026-08-26",
+              "label": "Signatera preoperative",
+              "value": 0,
+              "valueLabel": "0.00 MTM/mL, not detected",
+              "result": "Third consecutive formally negative Signatera timepoint.",
+              "status": "reported",
+              "details": [
+                "Plasma received August 27; report dated August 31, 2026.",
+                "A negative preoperative result does not establish pCR or postoperative clearance."
+              ],
+              "links": [
+                {
+                  "label": "Source page",
+                  "href": "/sources/diagnostics/08-26-signatera-ctdna/08-26-signatera-ctdna"
+                }
+              ]
+            },
+            {
+              "id": "signatera-2026-09-21",
+              "date": "2026-09-21",
+              "label": "Signatera preoperative",
+              "value": 0,
+              "valueLabel": "0.00 MTM/mL, not detected",
+              "result": "Fourth consecutive formally negative Signatera timepoint; collected before September 24 surgery.",
+              "status": "reported",
+              "details": [
+                "Plasma received September 22; report dated September 25, 2026.",
+                "The collection date controls the timeline: this is a preoperative result, not postoperative clearance."
+              ],
+              "links": [
+                {
+                  "label": "Source page",
+                  "href": "/sources/diagnostics/09-21-signatera-ctdna/09-21-signatera-ctdna"
                 }
               ]
             }
