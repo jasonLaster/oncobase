@@ -527,6 +527,12 @@ describe("wiki Vite app-shell password gate", () => {
       }
     });
 
+    test("the API function treats the marketing host as having no API", async () => {
+      const { isMarketingRequest } = await import("./marketing-host");
+      expect(isMarketingRequest(marketingRequest("/api/wiki/session"))).toBe(true);
+      expect(isMarketingRequest(new Request("https://diana-tnbc.com/api/wiki/session", { headers: { Host: "diana-tnbc.com" } }))).toBe(false);
+    });
+
     test("subdomains and ONCOBASE_SITE_HOSTS aliases serve it too", async () => {
       const handler = createWikiViteHandler({ client: noDatabase as never, distDir });
       expect((await handler(marketingRequest("/", {}, "www.oncobase.io"))).status).toBe(200);

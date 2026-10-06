@@ -8,6 +8,7 @@ import {
   restoreRewrittenPath,
   sendWebResponse,
 } from "../server/http-adapter";
+import { isMarketingRequest } from "../server/marketing-host";
 import { internalReaderNotFound, isInternalReaderPath } from "../server/reader-cache-context";
 
 const handleWikiApiRequest = createWikiApiHandler(createClient());
@@ -17,6 +18,14 @@ export default async function wikiViteApi(req: IncomingMessage, res: ServerRespo
     const request = restoreRewrittenPath(await requestFromIncoming(req));
     if (isInternalReaderPath(new URL(request.url).pathname)) {
       await sendWebResponse(res, internalReaderNotFound());
+      return;
+    }
+    // oncobase.io is the marketing site: it has no wiki and no API, so nothing here may answer for it.
+    if (isMarketingRequest(request)) {
+      await sendWebResponse(
+        res,
+        new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8", Vary: "Host" } }),
+      );
       return;
     }
     const response = await handleWikiApiRequest(request);

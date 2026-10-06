@@ -22,21 +22,7 @@ const PAGES: Record<string, () => SpecialRouteMetadata> = {
   "/compare": compareRouteMetadata,
 };
 
-/** Preview aliases that should serve the marketing site, from ONCOBASE_SITE_HOSTS (comma separated). */
-function extraHosts() {
-  return (process.env.ONCOBASE_SITE_HOSTS ?? "")
-    .split(",")
-    .map((host) => host.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-export function requestHost(request: Request) {
-  return request.headers.get("host") ?? new URL(request.url).host;
-}
-
-export function isMarketingRequest(request: Request) {
-  return isOncobaseHost(requestHost(request), extraHosts());
-}
+export { isMarketingRequest, requestHost } from "./marketing-host";
 
 const MOVED_PATHS = new Set(["/features", "/compare", "/features.md", "/compare.md"]);
 
