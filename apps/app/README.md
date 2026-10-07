@@ -112,6 +112,20 @@ bun run test:e2e
 
 When `PLAYWRIGHT_BASE_URL` is set, Playwright skips the local dev-server bootstrap and treats the URL as the app origin. For Vercel-protected previews, set `VERCEL_AUTOMATION_BYPASS_SECRET` so Playwright sends the Vercel bypass header and the Diana preview test-auth header with every request.
 
+The deployed CI suite audits every page in the signed-out education manifest and
+decodes every article image, including lazy images and hidden light/dark companions.
+Failures identify the page and image URL. Run this check after publishing education
+content too (content publishes do not trigger the application CI workflow):
+
+```sh
+PLAYWRIGHT_BASE_URL=https://diana-tnbc.com \
+bun run test:e2e e2e/journeys/public.spec.ts --grep 'every public education image'
+```
+
+Publisher unit checks also cover theme companion ownership, shared private owners,
+and rebuilding older dependency caches without requiring source edits. The normal
+`verify:wiki-vite:unit` CI job includes these tests.
+
 Run the deployed smoke (`deployed-e2e/`, Tier E: gate, first render, cold-start controls, theme, early shortcut, PDF ranges) against a deployed Vite reader:
 
 ```sh

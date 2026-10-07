@@ -321,10 +321,61 @@ test.describe("signed-out landing and sign-in", () => {
 });
 
 test.describe("education guests (deployed gate)", () => {
-  test.use({ ...signedOut, extraHTTPHeaders: { "x-wiki-test-run": "1" } });
+  test.use({ ...signedOut, extraHTTPHeaders: { ...previewBypassHeaders, "x-wiki-test-run": "1" } });
   test.skip(!deployed, "Requires the standalone app-shell password gate.");
   const slug = "wiki/education/oncology-101/index";
   const route = `/${slug}`;
+
+  test("every public education image decodes, including light and dark companions", async ({ context, request }) => {
+    test.setTimeout(300_000);
+    const response = await request.get("/api/wiki/manifest");
+    expect(response.ok()).toBe(true);
+    const manifest = await response.json();
+    const pages: Array<{ slug: string; sensitive: boolean }> = manifest.pages;
+    expect(pages.length).toBeGreaterThan(0);
+    expect(pages.every(entry => entry.slug.startsWith("wiki/education/") && !entry.sensitive)).toBe(true);
+    const queue = [...pages];
+    const failures: string[] = [];
+    let checkedImages = 0;
+    // Bound concurrency so the complete published library can be checked in CI.
+    await Promise.all(Array.from({ length: 3 }, async () => {
+      const page = await context.newPage();
+      try {
+        for (let entry = queue.shift(); entry; entry = queue.shift()) {
+          try {
+            await page.goto(`/education/${entry.slug.slice("wiki/education/".length)}`, { waitUntil: "domcontentloaded" });
+            const article = page.getByTestId("education-article");
+            await expect(article.getByRole("heading", { level: 1 })).toBeVisible();
+            const images = await article.locator("img").evaluateAll(async elements => {
+              return Promise.all(elements.map(async element => {
+                const image = element as HTMLImageElement;
+                // Hidden theme companions and below-fold lazy images must load too.
+                image.loading = "eager";
+                let timeout: ReturnType<typeof setTimeout> | undefined;
+                let decoded = false;
+                try {
+                  await Promise.race([
+                    image.decode(),
+                    new Promise((_, reject) => { timeout = setTimeout(() => reject(Error("Image timeout")), 15_000); }),
+                  ]);
+                  decoded = true;
+                } catch { /* Report all failures together, with their page and URL. */ }
+                finally { clearTimeout(timeout); }
+                return { src: image.currentSrc || image.src, loaded: decoded && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0 };
+              }));
+            });
+            checkedImages += images.length;
+            failures.push(...images.filter(image => !image.loaded).map(image => `${entry.slug}: ${image.src}`));
+          } catch (error) {
+            failures.push(`${entry.slug}: ${String(error)}`);
+          }
+        }
+      } finally { await page.close(); }
+    }));
+    console.info(`Education image audit: ${pages.length} pages, ${checkedImages} images, ${failures.length} failures`);
+    expect(checkedImages, "The public library audit must include images").toBeGreaterThan(0);
+    expect(failures, `Checked ${pages.length} pages and ${checkedImages} images; broken pages/images`).toEqual([]);
+  });
 
   test("guests read, browse, and search education without a password", async ({ page, request }) => {
     test.setTimeout(90_000);
