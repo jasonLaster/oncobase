@@ -79,6 +79,33 @@ function pathnameMatchesRoutePrefix(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
+function isAdminRoute(pathname: string) {
+  return pathnameMatchesRoutePrefix(pathname, "/admin") || pathname === "/access";
+}
+
+function AdminNavigation({ onNavigate }: { onNavigate?: () => void }) {
+  const { pathname } = useLocation();
+  return (
+    <nav aria-label="Admin sections" className="admin-navigation">
+      <Link to="/" onClick={onNavigate}>Back to wiki</Link>
+      <span className="admin-navigation-heading">Admin</span>
+      {["Pages", "Users", "Roles"].map((label) => {
+        const href = `/admin/${label.toLowerCase()}`;
+        return (
+          <Link
+            key={href}
+            to={href}
+            aria-current={pathname === href ? "page" : undefined}
+            onClick={onNavigate}
+          >
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 function isDocumentRoute(pathname: string) {
   return !NON_DOCUMENT_ROUTE_PREFIXES.some((prefix) =>
     pathnameMatchesRoutePrefix(pathname, prefix),
@@ -215,6 +242,14 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
 export const Sidebar = memo(function Sidebar({ freshness }: { freshness: NavigationFreshness }) {
   const store = useReaderStore();
   const { pathname } = useLocation();
+  if (isAdminRoute(pathname)) {
+    return (
+      <aside aria-label="Admin" className="wiki-shell-sidebar sidebar admin-sidebar" data-test-id="admin-sidebar">
+        <div className="wiki-shell-sidebar-heading"><WorkspaceHeader /></div>
+        <AdminNavigation />
+      </aside>
+    );
+  }
   if (store && pathname.startsWith("/chat")) {
     return (
         <aside
@@ -474,6 +509,25 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
             </Suspense>
           </nav>
         </WikiMobileNavigationSheet>
+    );
+  }
+
+  if (isAdminRoute(pathname)) {
+    return (
+      <>
+        <MobilePageHeader onOpenNavigation={openPageNavigation} showComments={false} title={pageTitle} />
+        <WikiMobileNavigationSheet
+          heading="Admin"
+          onOpenChange={setOpen}
+          open={open}
+          sheetAriaLabel="Admin navigation"
+          sheetId="mobile-admin-navigation"
+          title={pageTitle}
+          trigger={false}
+        >
+          <AdminNavigation onNavigate={() => setOpen(false)} />
+        </WikiMobileNavigationSheet>
+      </>
     );
   }
 

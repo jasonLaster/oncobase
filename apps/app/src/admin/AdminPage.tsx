@@ -59,12 +59,7 @@ async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
 function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="admin-shell">
-      <aside aria-label="Admin" className="admin-sidebar">
-        <Link to="/admin/pages">Pages</Link>
-        <Link to="/admin/users">Users</Link>
-        <Link to="/admin/roles">Roles</Link>
-      </aside>
-      <main className="admin-main">{children}</main>
+      <div className="admin-main">{children}</div>
     </div>
   );
 }
