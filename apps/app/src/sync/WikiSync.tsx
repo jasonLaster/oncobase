@@ -48,6 +48,7 @@ import { hasBootstrappedPage, cachedStartupStores } from "../bootstrap/seed-stat
 export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
 import { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
 import { setManifestReceivedBytes, setPageTransfer } from "./transfer-progress";
+import { readerOnline } from "./connectivity";
 export { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
 
 const MANIFEST_FRESH_MS: Record<WikiScope, number> = {
@@ -229,6 +230,9 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
             eventCount: 1,
             failedBodyFetches: 1,
           });
+        } else if (!readerOnline()) {
+          // Keep the current page up; the online listener retries this route.
+          onMetrics({ status: "offline", navigationFreshness: "offline", message: "Offline: using local cache", failedBodyFetches: 1 });
         } else {
           onMetrics({
             ...(slug === currentSlugRef.current
@@ -317,11 +321,8 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
         return;
       }
 
-      if (!navigator.onLine) {
-        onMetrics({ status: "offline", navigationFreshness: "offline", message: "Offline: using local cache" });
-        return;
-      }
-
+      // Always try: navigator.onLine can be false while the network works, and
+      // a real outage fails fast into the offline handling below.
       const syncStart = performance.now();
       setManifestReceivedBytes(0);
       onMetrics({
@@ -459,18 +460,18 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
           }
           if (cachedManifest) {
             onMetrics({
-              status: navigator.onLine ? "ready" : "offline",
-              navigationFreshness: navigator.onLine ? "saved" : "offline",
-              message: navigator.onLine
+              status: readerOnline() ? "ready" : "offline",
+              navigationFreshness: readerOnline() ? "saved" : "offline",
+              message: readerOnline()
                 ? "Refresh failed; using cached manifest"
                 : "Offline: using local cache",
             });
             scheduleRefresh(MANIFEST_RETRY_MS);
           } else {
             onMetrics({
-              status: navigator.onLine ? "error" : "offline",
+              status: readerOnline() ? "error" : "offline",
               errorReason: syncErrorReason("manifest", error),
-              navigationFreshness: navigator.onLine ? "saved" : "offline",
+              navigationFreshness: readerOnline() ? "saved" : "offline",
               message: error instanceof Error ? error.message : String(error),
             });
             // A brief lost connection must not strand an empty reader until
@@ -492,7 +493,6 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
     for (const [key, controller] of inFlight.current) {
       if (key !== `${scope}:${currentSlug}`) controller.abort();
     }
-    if (!navigator.onLine) return;
     // The current HTTP response already supplied this body. A fresh manifest
     // still reconciles updates/removals through the normal fetch path above.
     if (hasBootstrappedPage(store, currentSlug)) return;

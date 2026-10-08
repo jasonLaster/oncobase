@@ -115,6 +115,30 @@ Review morphology and biomarkers together.
     await expect(page.getByTestId("page-activity")).toHaveCount(0);
   });
 
+  test("navigation renders the next page when the browser misreports offline but requests succeed", async ({ page }) => {
+    // Chrome can report navigator.onLine === false for hours (VPN and virtual
+    // adapters) while every request succeeds. context.setOffline cannot model
+    // this: it makes requests fail too. Only the flag lies here.
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, "onLine", { configurable: true, get: () => false });
+    });
+    await gotoWiki(page, "/");
+    await waitForPageTitle(page, "Diana Wiki Home");
+
+    await openDirectory(page, "logistics");
+    await page.getByTestId("wiki-sidebar").getByRole("link", { name: "insurance" }).click();
+    await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
+    await waitForPageTitle(page, "Insurance");
+    await expect(page.getByText("Offline · waiting for connection")).toHaveCount(0);
+
+    await page.getByTestId("sidebar-search").click();
+    await page.getByTestId("command-palette-input").fill("telli");
+    await page.getByTestId("command-palette").getByRole("option", { name: /telli/i }).first().click();
+    await expect(page).toHaveURL(/\/sources\/people\/providers\/stanford\/telli$/);
+    await expect(documentArticle(page).getByRole("heading", { level: 1 }).first()).not.toContainText("Insurance");
+    await expect(page.getByTestId("page-activity")).toHaveCount(0);
+  });
+
   test("the workspace menu offers archive links, restores focus, and navigates inside the client router", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     await page.evaluate(() => {

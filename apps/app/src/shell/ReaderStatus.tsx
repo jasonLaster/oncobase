@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { NavigationFreshness } from "../types";
 import { REFRESH_MANIFEST_EVENT } from "../sync/events";
 import { useManifestReceivedBytes } from "../sync/transfer-progress";
+import { readerOnline, subscribeReaderOnline } from "../sync/connectivity";
 
 export function useSlowLoading(active: boolean) {
   const [slow, setSlow] = useState(false);
@@ -18,13 +19,8 @@ export function receivedLabel(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB received` : `${Math.max(1, Math.round(bytes / 1024))} KB received`;
 }
 
-function subscribeOnline(listener: () => void) {
-  window.addEventListener("online", listener);
-  window.addEventListener("offline", listener);
-  return () => { window.removeEventListener("online", listener); window.removeEventListener("offline", listener); };
-}
-const browserOnline = () => navigator.onLine;
-export function useBrowserOnline() { return useSyncExternalStore(subscribeOnline, browserOnline); }
+/** Reachability as the reader observed it, not `navigator.onLine` alone (see connectivity.ts). */
+export function useBrowserOnline() { return useSyncExternalStore(subscribeReaderOnline, readerOnline); }
 
 export function NavigationStatus({ freshness, hasPages }: { freshness: NavigationFreshness; hasPages: boolean }) {
   const slow = useSlowLoading(freshness === "checking");

@@ -1,5 +1,6 @@
 import { READER_PHASES, READER_REASONS, type ReaderHandoffOutcome, type ReaderPhase, type ReaderReason, type ReaderSpan } from "../shared/reader-telemetry";
 import { storeBootPath } from "./livestore/store-boot-path";
+import { noteNetworkFailure, noteNetworkResponse } from "./sync/connectivity";
 import { isOncobaseHost } from "./site-host";
 
 // Per-page random identity, never persisted or derived from a user or page.
@@ -131,6 +132,7 @@ export const readerFetch = (async (input: RequestInfo | URL, init?: RequestInit)
   try {
     const response = await fetch(request);
     status = response.status;
+    noteNetworkResponse();
     // Fetch spans end at headers; body parsing/commit is covered by sync marks.
     const timing = response.headers.get("Server-Timing");
     const rpc = timing?.match(/convex-rpc;dur=([\d.]+)/);
@@ -140,6 +142,7 @@ export const readerFetch = (async (input: RequestInfo | URL, init?: RequestInit)
     return response;
   } catch (error) {
     enqueue({ name: phase, start, duration: performance.timeOrigin + performance.now() - start, status: 0 });
+    if (!request.signal.aborted) noteNetworkFailure();
     throw error;
   }
 }) as typeof fetch;
