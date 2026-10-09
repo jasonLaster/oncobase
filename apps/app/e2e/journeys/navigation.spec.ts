@@ -139,6 +139,56 @@ Review morphology and biomarkers together.
     await expect(page.getByTestId("page-activity")).toHaveCount(0);
   });
 
+  for (const storage of ["persistent", "temporary"] as const) {
+    test(`${storage} reader cache updates allow reload and link navigation without an unsaved-changes warning`, async ({ page }) => {
+      if (storage === "temporary") {
+        await page.addInitScript(() => {
+          Object.defineProperty(navigator, "storage", { configurable: true, value: undefined });
+        });
+      }
+      const dialogs: string[] = [];
+      page.on("dialog", async dialog => {
+        dialogs.push(dialog.type());
+        await dialog.accept();
+      });
+      await gotoWiki(page, "/");
+      await waitForPageTitle(page, "Diana Wiki Home");
+      // Visible bootstrap HTML can precede the store. Wait for its actual
+      // cache, then check departure in the same turn as a real cache write,
+      // before the worker has acknowledged it. This makes the race repeatable.
+      await expect.poll(() => page.evaluate(() => Boolean(
+        (globalThis as typeof globalThis & { __debugLiveStore?: Record<string, unknown> }).__debugLiveStore?._,
+      ))).toBe(true);
+      const canceled = await page.evaluate(() => {
+        const store = (globalThis as typeof globalThis & {
+          __debugLiveStore: Record<string, { commit: (event: { name: string; args: unknown }) => void }>;
+        }).__debugLiveStore._;
+        store.commit({ name: "v1.ManifestValidated", args: { manifestHash: "fixture", validatedAt: Date.now() } });
+        const event = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(event);
+        // Model remaining on the page after this departure probe.
+        window.dispatchEvent(new Event("pageshow"));
+        return event.defaultPrevented;
+      });
+      expect(canceled).toBe(false);
+
+      await documentArticle(page).getByRole("link", { name: "Insurance", exact: true }).click();
+      await waitForPageTitle(page, "Insurance");
+      await page.reload();
+      await waitForPageTitle(page, "Insurance");
+      // A native same-tab link leaves the document, unlike the client router.
+      await page.evaluate(() => {
+        const link = document.createElement("a");
+        link.href = "/about/About";
+        link.textContent = "Native navigation fixture";
+        document.querySelector('[data-test-id="document-article"]')!.append(link);
+      });
+      await page.getByRole("link", { name: "Native navigation fixture" }).click();
+      await waitForPageTitle(page, "About This Wiki");
+      expect(dialogs).toEqual([]);
+    });
+  }
+
   test("the workspace menu offers archive links, restores focus, and navigates inside the client router", async ({ page }) => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     await page.evaluate(() => {

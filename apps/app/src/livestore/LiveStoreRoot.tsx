@@ -339,6 +339,8 @@ function ReaderStore({ identity, displayIdentity, scope, storeId, cachedSnapshot
         adapter={adapter}
         batchUpdates={batchUpdates}
         storeId={storeId}
+        // Pending reader-cache writes are refetchable, not unsaved user edits.
+        confirmUnsavedChanges={false}
         disableDevtools={!liveStoreDevtoolsEnabled}
         renderLoading={({ stage }) => (
           <StoreStartupLoading
