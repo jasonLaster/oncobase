@@ -31,7 +31,10 @@ const pages = compileEducation(sources, asset => {
 fs.writeFileSync(".generated/pages.json", JSON.stringify(pages));
 fs.writeFileSync("public/search-index.json", JSON.stringify(pages.map(({ html: _html, ...page }) => page)));
 fs.writeFileSync("public/education-manifest.json", JSON.stringify({ pages: pages.map(({ html: _html, text: _text, ...page }) => page), assets: [...assets].map(staticAssetHref) }));
-let contentCommit = "local";
-try { contentCommit = execFileSync("git", ["-C", root, "rev-parse", "HEAD"]).toString().trim(); } catch { /* An exported directory is also valid locally. */ }
+let contentCommit = process.env.ONCOGUIDE_CONTENT_SHA || (process.env.ONCOGUIDE_CONTENT_DIR ? process.env.VERCEL_GIT_COMMIT_SHA : undefined);
+if (!contentCommit) {
+  try { contentCommit = execFileSync("git", ["-C", root, "rev-parse", "HEAD"], { stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
+  catch { contentCommit = "local"; }
+}
 fs.writeFileSync("public/build-info.json", JSON.stringify({ contentCommit, appCommit: process.env.ONCOGUIDE_APP_SHA || "local" }));
 console.info(`Prepared ${pages.length} static lessons and ${assets.size} local assets (${contentCommit})`);
