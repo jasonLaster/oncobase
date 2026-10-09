@@ -23,6 +23,12 @@ test("search, themes, mobile navigation and shared image theater work", async ({
   await expect(input).toBeFocused();
   await input.fill("autophagy"); await input.press("Enter");
   await expect.poll(() => page.locator(".edu-result").count()).toBeGreaterThan(0);
+  const result = page.locator(".edu-result").first();
+  const resultTitle = await result.getByRole("heading").textContent();
+  await result.click();
+  await expect(page.getByTestId("education-article").getByRole("heading", { level: 1 })).toHaveText(resultTitle!);
+  await page.getByRole("link", { name: "All topics", exact: true }).last().click();
+  await expect(page.getByRole("heading", { name: "The education library" })).toBeVisible();
   await page.goto("/education/molecular-profiling/01-dna-the-blueprint/");
   const theme = page.getByRole("button", { name: "Dark theme", exact: true });
   await theme.click(); await expect(page.locator("html")).toHaveClass(/dark/);
