@@ -163,8 +163,18 @@ function fixPdfLinks(html: string): string {
   );
 }
 
-export function formatWikiHtml(raw: string, currentSlug?: string) {
-  return decorateRenderedImages(
+export type WikiHtmlAdapters = {
+  resolveHref?: (href: string, currentSlug?: string) => string;
+  resolveImageSrc?: (src: string, currentSlug?: string) => string;
+};
+
+export function formatWikiHtml(raw: string, currentSlug?: string, adapters: WikiHtmlAdapters = {}) {
+  let html = decorateRenderedImages(
     fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(decorateRenderedTables(raw), currentSlug)), currentSlug)),
   );
+  if (adapters.resolveHref) html = html.replace(/href="([^"]*)"/g, (_match, href) =>
+    `href="${escapeAttribute(adapters.resolveHref!(decodeHTMLAttribute(href), currentSlug))}"`);
+  if (adapters.resolveImageSrc) html = html.replace(/(<img\b[^>]*?\s)src="([^"]*)"/g, (_match, before, src) =>
+    `${before}src="${escapeAttribute(adapters.resolveImageSrc!(decodeHTMLAttribute(src), currentSlug))}"`);
+  return html;
 }

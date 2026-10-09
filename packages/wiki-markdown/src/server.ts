@@ -13,7 +13,8 @@ import {
 } from "./math.ts";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
 import { resolveWikilinks } from "./paths.ts";
-import { formatWikiHtml } from "./server-format.ts";
+import { formatWikiHtml, type WikiHtmlAdapters } from "./server-format.ts";
+export type { WikiHtmlAdapters } from "./server-format.ts";
 
 const processor = unified()
   .use(remarkParse)
@@ -46,7 +47,7 @@ function stripLegacyTableDirectives(md: string): string {
 }
 
 
-export function renderWikiMarkdownHtml(md: string, currentSlug?: string): string {
+export function renderWikiMarkdownHtml(md: string, currentSlug?: string, adapters?: WikiHtmlAdapters): string {
   const citationLinked = preprocessCitationMarkdown(resolveWikilinks(md, currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
   const mermaidExtracted = extractMermaidBlocks(slidesExpanded);
@@ -54,12 +55,13 @@ export function renderWikiMarkdownHtml(md: string, currentSlug?: string): string
     stripLegacyTableDirectives(mermaidExtracted),
   );
   const raw = processor.processSync(cleanMd).toString();
-  return formatWikiHtml(raw, currentSlug);
+  return formatWikiHtml(raw, currentSlug, adapters);
 }
 
 export async function renderWikiMarkdownHtmlAsync(
   md: string,
   currentSlug?: string,
+  adapters?: WikiHtmlAdapters,
 ): Promise<string> {
   const citationLinked = preprocessCitationMarkdown(resolveWikilinks(md, currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
@@ -68,5 +70,5 @@ export async function renderWikiMarkdownHtmlAsync(
     stripLegacyTableDirectives(mermaidExtracted),
   );
   const raw = (await processor.process(cleanMd)).toString();
-  return formatWikiHtml(raw, currentSlug);
+  return formatWikiHtml(raw, currentSlug, adapters);
 }

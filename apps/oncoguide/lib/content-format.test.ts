@@ -1,0 +1,32 @@
+import { expect, test } from "bun:test";
+import { compileEducation, localAssetPath } from "./content-format";
+const page = { path: "wiki/education/course/index.md", raw: '# Course\n\n[[wiki/education/concepts/hla|HLA]]\n\n[Case](/wiki/care/index)\n\n<img data-theme-pair src="images/test-light.png" alt="Diagram">\n\n[Lab](tools/lab.zip)' };
+const concept = { path: "wiki/education/concepts/hla.md", raw: "# HLA\n\nA concept." };
+test("static host adapters preserve routes and map both theme assets and downloads", () => {
+  const assets: string[] = [];
+  const result = compileEducation([page, concept], path => assets.push(path));
+  expect(result[0].html).toContain('href="/education/concepts/hla"');
+  expect(result[0].html).toContain('href="https://diana-tnbc.com/wiki/care/index"');
+  expect(assets).toContain("wiki/education/course/images/test-light.png");
+  expect(assets).toContain("wiki/education/course/images/test-dark.png");
+  expect(assets).toContain("wiki/education/course/tools/lab.zip");
+  expect(result[0].html).not.toContain("/api/file");
+  expect(page.raw).toContain('data-theme-pair src="images/test-light.png"');
+});
+test("legacy public Blob URLs resolve locally without mirroring other Diana assets", () => {
+  expect(localAssetPath("https://public.blob.vercel-storage.com/sites/diana/files/wiki/education/images/a.png")).toBe("wiki/education/images/a.png");
+  expect(() => localAssetPath("/api/file?path=wiki%2Fcare%2Fprivate.png")).toThrow("outside the public education corpus");
+  expect(() => localAssetPath("/api/file?path=wiki%2Feducation%2F..%2Fcare.png")).toThrow();
+  expect(() => localAssetPath("https://public.blob.vercel-storage.com/sites/diana/files/sources/private.png")).toThrow();
+});
+test("public source compilation rejects private markers and dangling education links", () => {
+  for (const raw of ["---\nsensitive: true\n---\n# Private", "# Private\n<redact>Private</redact>"]) {
+    expect(() => compileEducation([{ ...concept, raw }], () => {})).toThrow("Private content");
+  }
+  expect(() => compileEducation([{ ...concept, raw: "# HLA\n[[wiki/education/missing]]" }], () => {})).toThrow("Broken education link");
+});
+test("a missing inferred dark image fails the build even when the source names only the light image", () => {
+  expect(() => compileEducation([page, concept], path => {
+    if (path.endsWith("test-dark.png")) throw Error(`Missing asset: ${path}`);
+  })).toThrow("Missing asset: wiki/education/course/images/test-dark.png");
+});

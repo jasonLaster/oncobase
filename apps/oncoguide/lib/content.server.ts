@@ -1,0 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
+import { educationTopics } from "@oncobase/education/topics";
+import { type GuidePage, educationHref } from "./content-format";
+export const pages: GuidePage[] = JSON.parse(fs.readFileSync(path.join(process.cwd(), ".generated/pages.json"), "utf8"));
+export const topics = educationTopics(pages);
+export const navigation = topics.map(topic => ({ ...topic, pages: topic.pages.map(({ html: _html, text: _text, ...page }) => page), entry: { slug: topic.entry.slug, title: topic.entry.title } }));
+export const findPage = (slug: string) => pages.find(page => page.slug === slug);
+export const navPages = pages.map(({ html: _html, text: _text, ...page }) => page);
+export { educationHref };

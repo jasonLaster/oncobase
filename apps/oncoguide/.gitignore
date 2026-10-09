@@ -1,0 +1,9 @@
+.next/
+out/
+.generated/
+next-env.d.ts
+*.tsbuildinfo
+public/assets/
+public/search-index.json
+public/education-manifest.json
+public/build-info.json

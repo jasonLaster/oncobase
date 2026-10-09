@@ -1,0 +1,31 @@
+@import "@oncobase/education/styles.css";
+@import "@oncobase/wiki-markdown/styles.css";
+@import "@oncobase/smart-table/styles.css";
+:root {
+  color-scheme: light; --background: #fff; --foreground: #202d24;
+  --sidebar-bg: #f6f8f6; --sidebar-border: #dce5dd; --border: var(--sidebar-border);
+  --brand: #166534; --accent-light: #eaf4eb; --text-muted: #637368;
+  --muted: #f3f6f3; --muted-foreground: var(--text-muted); --panel: var(--background);
+  --font-mono: ui-monospace, monospace;
+}
+.dark { color-scheme: dark; --background: #101914; --foreground: #e5ede6;
+  --sidebar-bg: #142019; --sidebar-border: #2d3c31; --brand: #86cb9b;
+  --accent-light: #203b29; --text-muted: #a1b2a6; --muted: #1a2a20; }
+html, body { margin: 0; padding: 0; background: var(--background); color: var(--foreground); }
+* { box-sizing: border-box; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+.wiki-markdown a { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+.wiki-markdown a:hover { text-decoration-thickness: 2px; }
+.hidden { display: none; }
+.dark .dark\:hidden { display: none; }
+.dark .dark\:block { display: block; }
+[hidden] { display: none !important; }
+.heading-anchor { margin-left: 8px; opacity: 0; color: var(--text-muted); }
+.wiki-heading-linked:hover .heading-anchor, .heading-anchor:focus { opacity: 1; }
+.edu-search-results h1 { font-size: 2rem; font-weight: 500; }
+.edu-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.edu-section-heading span { color: var(--text-muted); font-size: 12px; }
+.edu-topic-bottom { display: flex; align-items: center; gap: 12px; color: var(--brand); }
+.edu-brand { text-decoration: none; }
+.edu-sidebar-footer a:hover { color: var(--brand); }

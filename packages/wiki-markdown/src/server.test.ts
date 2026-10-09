@@ -5,7 +5,7 @@ import {
   renderExampleTableSection,
 } from "@oncobase/smart-table/examples";
 import { normalizeMathValue } from "./math.ts";
-import { renderWikiMarkdownHtml } from "./server.ts";
+import { renderWikiMarkdownHtml, renderWikiMarkdownHtmlAsync } from "./server.ts";
 import { resolveHref, resolveImageSrc } from "./paths.ts";
 
 function countMatches(source: string, pattern: RegExp) {
@@ -13,6 +13,22 @@ function countMatches(source: string, pattern: RegExp) {
 }
 
 describe("server markdown rendering", () => {
+  test("optional host adapters cover both theme variants without changing default wiki URLs", async () => {
+    const markdown = '<img data-theme-pair src="images/pair-light.png">\n\n[[wiki/education/index]]';
+    const defaults = renderWikiMarkdownHtml(markdown, "wiki/education/index");
+    expect(defaults).toContain('/api/file?path=wiki%2Feducation%2Fimages%2Fpair-dark.png');
+    const adapters = {
+      resolveHref: (href: string) => href.replace("/wiki/education/", "/education/"),
+      resolveImageSrc: (src: string) => `/assets/${new URL(src, "https://wiki.invalid").searchParams.get("path")}`,
+    };
+    for (const render of [renderWikiMarkdownHtml, renderWikiMarkdownHtmlAsync]) {
+      const html = await render(markdown, "wiki/education/index", adapters);
+      expect(html).toContain('src="/assets/wiki/education/images/pair-light.png"');
+      expect(html).toContain('src="/assets/wiki/education/images/pair-dark.png"');
+      expect(html).toContain('href="/education/index"');
+    }
+    expect(renderWikiMarkdownHtml(markdown, "wiki/education/index")).toBe(defaults);
+  });
   for (const extension of ["jpg", "jpeg", "png", "gif", "webp", "avif", "svg"]) {
     test(`both renderers proxy relative and absolute ${extension} images`, () => {
       for (const source of [`images/scan.${extension}`, `/wiki/research/images/scan.${extension}`]) {

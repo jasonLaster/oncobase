@@ -1,0 +1,27 @@
+{
+  "name": "@oncobase/education",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./topics": "./src/topics.ts",
+    "./styles.css": "./src/styles.css",
+    "./theme-control": "./src/theme-control.tsx"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/react": "^19"
+  },
+  "dependencies": {
+    "@oncobase/wiki-shell": "workspace:*",
+    "lucide-react": "^0.577.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

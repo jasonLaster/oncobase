@@ -6,6 +6,9 @@
   "description": "Client-safe React markdown renderer for Oncobase wiki pages.",
   "type": "module",
   "exports": {
+    "./image-theater": "./src/image-theater.tsx",
+    "./heading-anchors": "./src/heading-anchors.tsx",
+    "./slides-viewer": "./src/slides-viewer.tsx",
     ".": {
       "types": "./src/index.tsx",
       "import": "./src/index.tsx",
