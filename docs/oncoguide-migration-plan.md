@@ -117,7 +117,7 @@ bundle size.
   `@oncobase/wiki-markdown` returned 404; a usable public npm release would require
   its own packaging and dependency work.
 - The fetched Diana `origin/main` snapshot is
-  `dca19712da746ef39f10c7a2954a47643d8707c0`: 116 Markdown pages in education,
+  `01a6c4ee948734925e77e5122b4968b59f76a777`: 116 Markdown pages in education,
   34 mentioning Diana, and 71 containing detected links outside education.
   Those link counts are an inventory heuristic, not completed editorial review.
   The tree also contains 238 PNGs, prompt/text files, an HTML lab, and a zip;
@@ -254,3 +254,24 @@ Next.js explicitly supports build-time Server Components and hydrated Client
 Components in [static exports](https://nextjs.org/docs/app/guides/static-exports).
 Keep interactive boundaries small according to the
 [Server and Client Components guidance](https://nextjs.org/docs/app/getting-started/server-and-client-components).
+
+## First release — October 9, 2026
+
+- Public site: https://oncoguide.cc. Content repository:
+  https://github.com/jasonLaster/oncoguide (public, `main`).
+- Content commit: `2e110433957e483d0533476ab63c68e6014c1441`.
+  Pinned application commit: `a0a74ba66afd466d4fd2fe8b30e4c9ede13ef9f0`.
+  Both are exposed in `/build-info.json` and matched the verified deployment.
+- All 116 Markdown files match their committed Diana source byte-for-byte.
+  All 177 copied Markdown/media files match the SHA256 import receipt.
+- Static export emitted every lesson and compatibility alias, with 61 local
+  assets and 212 KiB gzip JavaScript including lazy chunks on the hosted build.
+- Unit checks: 31 passed. OncoGuide GitHub checks passed in both repositories.
+  Hosted and public-domain browser checks passed: 116 lessons, 66 image elements,
+  zero failures; search, themes, mobile navigation, client navigation, image
+  theater, metadata and no-JavaScript reading also passed.
+- Diana's live image audit passed independently: 116 pages, 66 images, zero
+  failures. Its existing vaccine and autophagy URLs returned 200 without redirects.
+  Existing theme/landing checks, app typecheck and build passed locally.
+- No Diana content or assets were edited, removed or republished by this copy.
+  Future edits remain independent between repositories.
