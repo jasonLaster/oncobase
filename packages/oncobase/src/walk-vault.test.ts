@@ -23,6 +23,24 @@ afterEach(() => {
 });
 
 describe("readVaultDocuments", () => {
+  test("publishes only education HTML with scoped ownership and inherited visibility", () => {
+    const vault = makeVault();
+    fs.mkdirSync(path.join(vault, "wiki/education/tools"), { recursive: true });
+    fs.mkdirSync(path.join(vault, "sources"), { recursive: true });
+    fs.writeFileSync(path.join(vault, "wiki/education/tools/lab.html"), "<!doctype html><h1>Lab</h1>");
+    fs.writeFileSync(path.join(vault, "sources/capture.html"), "<!doctype html><h1>Source</h1>");
+    fs.writeFileSync(path.join(vault, "wiki/education/lesson.md"), '# Public\n<iframe data-education-lab src="tools/lab.html"></iframe>');
+    const scope = { referencedBy: new Set(["wiki/education/lesson"]) };
+    const publicAssets = readVaultAssets(vault, scope);
+    expect(publicAssets).toEqual([expect.objectContaining({ relativePath: "wiki/education/tools/lab.html",
+      kind: "file", contentType: "text/html; charset=utf-8", ownerSlugs: ["wiki/education/lesson"], sensitive: false })]);
+    fs.writeFileSync(path.join(vault, "wiki/education/private.md"), '---\nsensitive: true\n---\n# Private\n[Lab](/api/file?path=wiki/education/tools/lab.html)');
+    expect(readVaultAssets(vault, scope)[0]).toMatchObject({ sensitive: true,
+      ownerSlugs: ["wiki/education/lesson", "wiki/education/private"] });
+    expect(readVaultAssets(vault, { referencedBy: new Set(["wiki/education/missing"]) })).toEqual([]);
+    expect(readVaultAssets(vault).some(asset => asset.relativePath === "sources/capture.html")).toBe(false);
+  });
+
   test("hash changes when frontmatter title changes", () => {
     const vault = makeVault();
     const original = writeDoc(

@@ -72,7 +72,7 @@ export function compileEducation(sources: SourcePage[], onAsset: (path: string) 
   }
   const pages: GuidePage[] = parsed.map(page => ({
     slug: page.slug, title: page.title, description: page.description,
-    html: renderWikiMarkdownHtml(page.body, page.slug, { resolveHref: link, resolveImageSrc: asset }),
+    html: renderWikiMarkdownHtml(page.body, page.slug, { resolveHref: link, resolveImageSrc: asset, resolveFrameSrc: asset }),
     text: page.body.replace(/<[^>]+>/g, " ").replace(/\[\[([^\]|]+)\|?([^\]]*)\]\]/g, "$2 $1").replace(/[#*_`]/g, "").replace(/\s+/g, " ").trim(),
   }));
   return pages;

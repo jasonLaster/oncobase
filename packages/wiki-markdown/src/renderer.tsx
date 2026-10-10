@@ -43,6 +43,7 @@ import { PdfChipLink, isPdfChipHref } from "./pdf-chip.tsx";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
 import { SlidesViewer, SlidesViewerControls } from "./slides-viewer.tsx";
 import { WikiMarkdownFrame } from "./frame.tsx";
+import { EDUCATION_LAB_SANDBOX, resolveEducationLabSrc } from "./education-lab.ts";
 import {
   isInternalWikiHref,
   resolveAssetPath,
@@ -300,6 +301,13 @@ export const WikiMarkdownRenderer = memo(function WikiMarkdownRenderer({
               apiBasePath={apiBasePath}
             />
           )),
+          iframe: ({ node, src, srcDoc: _srcDoc, sandbox: _sandbox, allow: _allow, referrerPolicy: _referrerPolicy, ...props }) => {
+            if (!node?.properties || !("dataEducationLab" in node.properties)) {
+              return <iframe {...props} src={src} srcDoc={_srcDoc} sandbox={_sandbox} allow={_allow} referrerPolicy={_referrerPolicy} />;
+            }
+            const localSrc = resolveEducationLabSrc(src, currentSlug, apiBasePath);
+            return <iframe {...props} src={localSrc} sandbox={EDUCATION_LAB_SANDBOX} referrerPolicy="no-referrer" />;
+          },
         }), [currentSlug, apiBasePath, resolveLinkHref, isInternalHref, LinkComponent, tableLayoutAdapter, ImageComponent]);
 
   return (

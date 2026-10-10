@@ -54,6 +54,7 @@ const FILE_ASSET_EXTENSIONS = new Set([
 const DOCUMENT_EXTENSIONS = new Set([".md", ".mdx"]);
 
 const CONTENT_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
   ".avif": "image/avif",
   ".pdf": "application/pdf",
   ".dcm": "application/dicom",
@@ -467,7 +468,9 @@ function assetsFromEntries(entries: Entry[], documents: Array<DocumentEntry | Do
     for (const { filePath, relativePath } of entries) {
       const ext = path.extname(filePath).toLowerCase();
       const isPdf = PDF_EXTENSIONS.has(ext);
-      const isFile = FILE_ASSET_EXTENSIONS.has(ext);
+      // Executable HTML is a curriculum asset, not a general vault upload type.
+      const isFile = FILE_ASSET_EXTENSIONS.has(ext) ||
+        (ext === ".html" && relativePath.startsWith("wiki/education/"));
       if (!isPdf && !isFile) continue;
       assets.push({
         filePath,

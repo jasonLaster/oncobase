@@ -587,6 +587,9 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
         { path: "wiki/education/mixed.png", ownerSlugs: [slug, "private/plan"], sensitive: false, blobUrl: "data:image/png;base64,aW1hZ2U=" },
         { path: "wiki/education/unowned.png", ownerSlugs: [], sensitive: false, blobUrl: "data:image/png;base64,aW1hZ2U=" },
         { path: "wiki/education/private.png", ownerSlugs: [slug], sensitive: true, blobUrl: "data:image/png;base64,aW1hZ2U=" },
+        { path: "wiki/education/mixed.html", ownerSlugs: [slug, "private/plan"], sensitive: false, blobUrl: "data:text/html,<h1>Mixed lab</h1>" },
+        { path: "wiki/education/unowned.html", ownerSlugs: [], sensitive: false, blobUrl: "data:text/html,<h1>Unowned lab</h1>" },
+        { path: "wiki/education/private.html", ownerSlugs: [slug], sensitive: true, blobUrl: "data:text/html,<h1>Private lab</h1>" },
       ],
     }) as never);
     for (const query of ["scope=public", "scope=session&fallback=public"]) {
@@ -617,8 +620,10 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(labResponse!.headers.get("content-type")).toContain("text/html");
     expect(labResponse!.headers.get("content-security-policy")).toBe("sandbox allow-scripts allow-popups");
     expect(await labResponse!.text()).toContain("Learning lab");
-    for (const path of ["mixed.png", "unowned.png", "private.png"]) {
-      expect((await handler(request(`/api/file?path=wiki/education/${path}`)))?.status).toBe(404);
+    for (const path of ["mixed.png", "unowned.png", "private.png", "mixed.html", "unowned.html", "private.html"]) {
+      for (const route of ["/api/file", "/api/education/file"]) {
+        expect((await handler(request(`${route}?path=wiki/education/${path}`)))?.status).toBe(404);
+      }
     }
     const copy = await handler(request(`/api/page-copy?slug=${slug}`));
     expect(copy?.status).toBe(200);

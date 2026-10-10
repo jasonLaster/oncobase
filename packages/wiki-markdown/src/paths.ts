@@ -1,4 +1,5 @@
 import { slug as headingSlug } from "github-slugger";
+import { resolveEducationLabSrc } from "./education-lab.ts";
 
 export const PROXIED_EXTENSIONS = new Set([
   ".jpg",
@@ -189,6 +190,10 @@ export function resolveHref(href: string | undefined, currentSlug?: string, apiB
   }
   if (/\.(?:md|mdx)(?:#|$)/.test(href)) {
     return href.replace(/\.(?:md|mdx)(#|$)/, "$1");
+  }
+  if (/\.html(?:#|$)/i.test(href)) {
+    try { return resolveEducationLabSrc(href, currentSlug, apiBasePath); }
+    catch { return href; } // Other HTML links keep their existing behavior.
   }
 
   const [rawPath, ...hashParts] = href.split("#");

@@ -30,3 +30,16 @@ test("a missing inferred dark image fails the build even when the source names o
     if (path.endsWith("test-dark.png")) throw Error(`Missing asset: ${path}`);
   })).toThrow("Missing asset: wiki/education/course/images/test-dark.png");
 });
+
+test("learning lab frames and fallback links export one local HTML asset", () => {
+  const assets = new Set<string>();
+  const [result] = compileEducation([{ path: "wiki/education/tools/lab.md", raw: '# Learning lab\n\n<iframe data-education-lab title="Learning lab" src="../course/tools/lab.html" sandbox="allow-same-origin"></iframe>\n\n[Open lab](../course/tools/lab.html)' }], asset => assets.add(asset));
+  expect([...assets]).toEqual(["wiki/education/course/tools/lab.html"]);
+  expect(result.html).toContain('src="/assets/wiki/education/course/tools/lab.html"');
+  expect(result.html).toContain('href="/assets/wiki/education/course/tools/lab.html"');
+  expect(result.html).toContain('sandbox="allow-scripts allow-popups"');
+  expect(result.html).not.toContain("/api/");
+  expect(result.html).not.toContain("allow-same-origin");
+  expect(() => compileEducation([{ path: "wiki/education/tools/lab.md", raw: '# Lab\n\n<iframe data-education-lab src="https://diana-tnbc.com/api/file?path=wiki/education/lab.html"></iframe>' }], () => {}))
+    .toThrow("local HTML asset");
+});

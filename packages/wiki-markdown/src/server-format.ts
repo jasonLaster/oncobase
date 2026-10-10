@@ -1,5 +1,6 @@
 import { decodeHTMLAttribute } from "entities";
 import { resolveHref, resolveImageSrc, sanitizeMarkdownUrl } from "./paths.ts";
+import { EDUCATION_LAB_SANDBOX, resolveEducationLabSrc } from "./education-lab.ts";
 
 function escapeAttribute(value: string) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -166,12 +167,24 @@ function fixPdfLinks(html: string): string {
 export type WikiHtmlAdapters = {
   resolveHref?: (href: string, currentSlug?: string) => string;
   resolveImageSrc?: (src: string, currentSlug?: string) => string;
+  resolveFrameSrc?: (src: string, currentSlug?: string) => string;
 };
 
+function fixEducationLabs(html: string, currentSlug?: string, adapters: WikiHtmlAdapters = {}) {
+  return html.replace(/<iframe\b([^>]*)>/g, (tag, rawAttributes: string) => {
+    if (!/(?:^|\s)data-education-lab(?:\s|=|$)/.test(rawAttributes)) return tag;
+    const source = rawAttributes.match(/(?:^|\s)src="([^"]*)"/)?.[1];
+    const localSrc = resolveEducationLabSrc(source && decodeHTMLAttribute(source), currentSlug);
+    const src = adapters.resolveFrameSrc?.(localSrc, currentSlug) ?? localSrc;
+    const clean = rawAttributes.replace(/\s(?:src|srcdoc|sandbox|allow|referrerpolicy)="[^"]*"/gi, "");
+    return `<iframe${clean} src="${escapeAttribute(src)}" sandbox="${EDUCATION_LAB_SANDBOX}" referrerpolicy="no-referrer">`;
+  });
+}
+
 export function formatWikiHtml(raw: string, currentSlug?: string, adapters: WikiHtmlAdapters = {}) {
-  let html = decorateRenderedImages(
+  let html = fixEducationLabs(decorateRenderedImages(
     fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(decorateRenderedTables(raw), currentSlug)), currentSlug)),
-  );
+  ), currentSlug, adapters);
   if (adapters.resolveHref) html = html.replace(/href="([^"]*)"/g, (_match, href) =>
     `href="${escapeAttribute(adapters.resolveHref!(decodeHTMLAttribute(href), currentSlug))}"`);
   if (adapters.resolveImageSrc) html = html.replace(/(<img\b[^>]*?\s)src="([^"]*)"/g, (_match, before, src) =>
