@@ -1,4 +1,5 @@
 import { decodeHTMLAttribute } from "entities";
+import type { RenderOptions } from "beautiful-mermaid";
 import { resolveHref, resolveImageSrc, sanitizeMarkdownUrl } from "./paths.ts";
 import { EDUCATION_LAB_SANDBOX, resolveEducationLabSrc } from "./education-lab.ts";
 
@@ -168,6 +169,8 @@ export type WikiHtmlAdapters = {
   resolveHref?: (href: string, currentSlug?: string) => string;
   resolveImageSrc?: (src: string, currentSlug?: string) => string;
   resolveFrameSrc?: (src: string, currentSlug?: string) => string;
+  /** Hosts can use their CSS tokens for a single static, theme-responsive SVG. */
+  mermaidOptions?: RenderOptions;
 };
 
 function fixEducationLabs(html: string, currentSlug?: string, adapters: WikiHtmlAdapters = {}) {

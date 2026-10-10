@@ -2,6 +2,16 @@ import { expect, test } from "bun:test";
 import { compileEducation, localAssetPath } from "./content-format";
 const page = { path: "wiki/education/course/index.md", raw: '# Course\n\n[[wiki/education/concepts/hla|HLA]]\n\n[Case](/wiki/care/index)\n\n<img data-theme-pair src="images/test-light.png" alt="Diagram">\n\n[Lab](tools/lab.zip)' };
 const concept = { path: "wiki/education/concepts/hla.md", raw: "# HLA\n\nA concept." };
+test("static diagrams inherit the app theme without remote font imports or source edits", () => {
+  const raw = "# Diagram\n\n```mermaid\nflowchart TD\n A[Start] --> B[Finish]\n```";
+  const [result] = compileEducation([{ path: "wiki/education/diagram.md", raw }], () => {});
+  expect(result.html.match(/<svg\b/g)?.length).toBe(1);
+  expect(result.html).toContain("--accent:var(--brand)");
+  expect(result.html).toContain("--bg:var(--card)");
+  expect(result.html).not.toContain("@import");
+  expect(result.html).not.toContain("fonts.googleapis.com");
+  expect(raw).toContain("A[Start] --> B[Finish]");
+});
 test("static host adapters preserve routes and map both theme assets and downloads", () => {
   const assets: string[] = [];
   const result = compileEducation([page, concept], path => assets.push(path));

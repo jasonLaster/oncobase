@@ -29,7 +29,7 @@ test("search, themes, mobile navigation and shared image theater work", async ({
   await expect(page.getByTestId("education-article").getByRole("heading", { level: 1 })).toHaveText(resultTitle!);
   await page.getByRole("link", { name: "All topics", exact: true }).last().click();
   await expect(page.getByRole("heading", { name: "The education library" })).toBeVisible();
-  await page.goto("/education/molecular-profiling/01-dna-the-blueprint/");
+  await page.goto("/education/guides/start-here/01-read-the-labels/");
   const theme = page.getByRole("button", { name: "Dark theme", exact: true });
   await theme.click(); await expect(page.locator("html")).toHaveClass(/dark/);
   await page.reload(); await expect(page.locator("html")).toHaveClass(/dark/);
@@ -60,6 +60,7 @@ test("every lesson and both image themes load without Diana API dependencies", a
           await page.goto(pathname, { waitUntil: "domcontentloaded" });
           const article = page.getByTestId("education-article");
           await expect(article.getByRole("heading", { level: 1 })).toHaveText(entry.title);
+          if (await article.locator(".mermaid-placeholder").count()) failures.push(`Unrendered diagram: ${entry.slug}`);
           const result = await article.locator("img").evaluateAll(async elements => Promise.all(elements.map(async element => {
             const image = element as HTMLImageElement; image.loading = "eager";
             let timer: ReturnType<typeof setTimeout> | undefined; let decoded = false;

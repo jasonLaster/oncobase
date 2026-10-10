@@ -24,10 +24,13 @@ const processor = unified()
   .use(rehypeSlug)
   .use(rehypeStringify);
 
-function extractMermaidBlocks(md: string): string {
+function extractMermaidBlocks(md: string, options?: WikiHtmlAdapters["mermaidOptions"]): string {
   return md.replace(/^```mermaid\r?\n([\s\S]*?)^```/gm, (_match, graph: string) => {
     const src = graph.trimEnd();
     try {
+      if (options) {
+        return `<div class="mermaid-diagram">${renderMermaidSVG(src, options)}</div>`;
+      }
       const svgLight = renderMermaidSVG(src, THEMES["github-light"]);
       const svgDark = renderMermaidSVG(src, THEMES["github-dark"]);
       return (
@@ -50,7 +53,7 @@ function stripLegacyTableDirectives(md: string): string {
 export function renderWikiMarkdownHtml(md: string, currentSlug?: string, adapters?: WikiHtmlAdapters): string {
   const citationLinked = preprocessCitationMarkdown(resolveWikilinks(md, currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
-  const mermaidExtracted = extractMermaidBlocks(slidesExpanded);
+  const mermaidExtracted = extractMermaidBlocks(slidesExpanded, adapters?.mermaidOptions);
   const cleanMd = protectCurrencyFromMath(
     stripLegacyTableDirectives(mermaidExtracted),
   );
@@ -65,7 +68,7 @@ export async function renderWikiMarkdownHtmlAsync(
 ): Promise<string> {
   const citationLinked = preprocessCitationMarkdown(resolveWikilinks(md, currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
-  const mermaidExtracted = extractMermaidBlocks(slidesExpanded);
+  const mermaidExtracted = extractMermaidBlocks(slidesExpanded, adapters?.mermaidOptions);
   const cleanMd = protectCurrencyFromMath(
     stripLegacyTableDirectives(mermaidExtracted),
   );

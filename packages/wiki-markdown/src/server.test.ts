@@ -13,6 +13,23 @@ function countMatches(source: string, pattern: RegExp) {
 }
 
 describe("server markdown rendering", () => {
+  test("host Mermaid options follow CSS themes and leave the wiki defaults unchanged", async () => {
+    const markdown = "```mermaid\ngraph TD\n A[Start] --> B[Finish]\n```";
+    const defaults = renderWikiMarkdownHtml(markdown);
+    expect(countMatches(defaults, /<svg\b/g)).toBe(2);
+    expect(defaults).toContain("#0969da");
+    expect(defaults).toContain("#4493f8");
+    for (const render of [renderWikiMarkdownHtml, renderWikiMarkdownHtmlAsync]) {
+      const html = await render(markdown, undefined, { mermaidOptions: {
+        bg: "var(--card)", fg: "var(--foreground)", accent: "var(--brand)", padding: 8, transparent: true,
+      } });
+      expect(countMatches(html, /<svg\b/g)).toBe(1);
+      expect(html).toContain("--accent:var(--brand)");
+      expect(html).not.toContain("dark:hidden");
+      expect(html).not.toContain("#0969da");
+    }
+    expect(renderWikiMarkdownHtml(markdown)).toBe(defaults);
+  });
   test("optional host adapters cover both theme variants without changing default wiki URLs", async () => {
     const markdown = '<img data-theme-pair src="images/pair-light.png">\n\n[[wiki/education/index]]';
     const defaults = renderWikiMarkdownHtml(markdown, "wiki/education/index");

@@ -6,6 +6,13 @@ import { PREFIX, DIANA_ORIGIN, type GuidePage, educationHref, staticAssetHref } 
 export { PREFIX, DIANA_ORIGIN, type GuidePage, educationHref, staticAssetHref } from "./routes";
 export type SourcePage = { path: string; raw: string };
 
+function withoutDiagramFontImports(html: string) {
+  // The SVG library always emits Google font imports, including for system-ui.
+  // Keep diagrams self-contained; the app supplies the same font as the article.
+  return html.replace(/(<div class="mermaid-diagram">)(<svg\b[\s\S]*?<\/svg>)/g,
+    (_match, wrapper: string, svg: string) => wrapper + svg.replace(/\s*@import url\('[^']*'\);/g, ""));
+}
+
 export function localAssetPath(value: string, currentSlug?: string): string | null {
   const url = new URL(value, `https://oncoguide.cc/${currentSlug?.split("/").slice(0, -1).join("/") || ""}/`);
   let path: string | null = null;
@@ -72,7 +79,15 @@ export function compileEducation(sources: SourcePage[], onAsset: (path: string) 
   }
   const pages: GuidePage[] = parsed.map(page => ({
     slug: page.slug, title: page.title, description: page.description,
-    html: renderWikiMarkdownHtml(page.body, page.slug, { resolveHref: link, resolveImageSrc: asset, resolveFrameSrc: asset }),
+    html: withoutDiagramFontImports(renderWikiMarkdownHtml(page.body, page.slug, {
+      resolveHref: link, resolveImageSrc: asset, resolveFrameSrc: asset,
+      mermaidOptions: {
+        bg: "var(--card)", fg: "var(--foreground)", line: "var(--text-muted)",
+        accent: "var(--brand)", muted: "var(--text-muted)",
+        surface: "var(--surface-muted)", border: "var(--border)",
+        font: "system-ui", padding: 8, transparent: true,
+      },
+    })),
     text: page.body.replace(/<[^>]+>/g, " ").replace(/\[\[([^\]|]+)\|?([^\]]*)\]\]/g, "$2 $1").replace(/[#*_`]/g, "").replace(/\s+/g, " ").trim(),
   }));
   return pages;

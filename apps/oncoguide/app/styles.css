@@ -6,17 +6,29 @@
   --sidebar-bg: #f6f8f6; --sidebar-border: #dce5dd; --border: var(--sidebar-border);
   --brand: #166534; --accent-light: #eaf4eb; --text-muted: #637368;
   --muted: #f3f6f3; --muted-foreground: var(--text-muted); --panel: var(--background);
+  --card: var(--panel); --card-foreground: var(--foreground); --surface-muted: var(--muted);
+  --ring: var(--brand); --font-sans: ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
 }
 .dark { color-scheme: dark; --background: #101914; --foreground: #e5ede6;
   --sidebar-bg: #142019; --sidebar-border: #2d3c31; --brand: #86cb9b;
   --accent-light: #203b29; --text-muted: #a1b2a6; --muted: #1a2a20; }
-html, body { margin: 0; padding: 0; background: var(--background); color: var(--foreground); }
+html, body { margin: 0; padding: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
 * { box-sizing: border-box; }
 button, input { font: inherit; }
 button { cursor: pointer; }
 .wiki-markdown a { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
 .wiki-markdown a:hover { text-decoration-thickness: 2px; }
+/* Zero specificity keeps hidden theme variants hidden in both color schemes. */
+:where(.wiki-markdown img[data-theater-image]) { display: block; }
+/* Legacy "current step" highlights use blue in the shared Markdown. */
+.wiki-markdown .mermaid-diagram .node:has(> [fill="#dbeafe"][stroke="#2563eb"]) > [fill="#dbeafe"] {
+  fill: var(--accent-light); stroke: var(--brand);
+}
+.wiki-markdown .mermaid-diagram .node:has(> [fill="#dbeafe"][stroke="#2563eb"]) > text {
+  fill: var(--foreground);
+}
+.wiki-markdown .mermaid-diagram text { font-family: var(--font-sans); }
 .hidden { display: none; }
 .dark .dark\:hidden { display: none; }
 .dark .dark\:block { display: block; }
@@ -29,3 +41,12 @@ button { cursor: pointer; }
 .edu-topic-bottom { display: flex; align-items: center; gap: 12px; color: var(--brand); }
 .edu-brand { text-decoration: none; }
 .edu-sidebar-footer a:hover { color: var(--brand); }
+.wiki-image-theater { font-size: 14px; line-height: 1.6; }
+.wiki-image-theater__button { min-height: 44px; }
+.wiki-image-theater__button--icon { width: 44px; }
+.wiki-image-theater__button:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+.wiki-slides-viewer__button { width: 44px; height: 44px; }
+@media (max-width: 767px) {
+  .wiki-markdown .mermaid-diagram { padding: 0.75rem; }
+  .wiki-image-theater__toolbar { flex-wrap: wrap; height: auto; min-height: 4rem; padding: 0.625rem 0.75rem; }
+}
