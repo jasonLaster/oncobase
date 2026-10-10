@@ -104,6 +104,65 @@
   padding: 0.15rem 0.4rem;
 }
 
+.wiki-markdown .wiki-drug-badge,
+.wiki-markdown abbr[data-tooltip="drug"] {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--brand, #6366f1) 25%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand, #6366f1) 10%, transparent);
+  color: inherit;
+  padding: 0.15rem 0.55rem;
+  font: inherit;
+  font-size: 0.875em;
+  line-height: 1.5;
+  text-align: left;
+  text-decoration: none;
+  cursor: help;
+}
+
+.wiki-markdown .wiki-drug-badge:hover {
+  background: color-mix(in srgb, var(--brand, #6366f1) 18%, transparent);
+}
+
+.wiki-markdown .wiki-drug-badge:focus-visible {
+  outline: 2px solid var(--brand, #6366f1);
+  outline-offset: 3px;
+}
+
+.wiki-drug-tooltip {
+  display: block;
+  width: 19rem;
+  max-width: calc(100vw - 2rem);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0.75rem;
+  background: var(--card, #fff);
+  color: var(--card-foreground, #0f172a);
+  padding: 0.9rem;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.wiki-drug-tooltip__category {
+  color: var(--text-muted, #64748b);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wiki-drug-tooltip__name { margin-top: 0.2rem; font-weight: 650; }
+.wiki-drug-tooltip__pathway { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.6rem; }
+.wiki-drug-tooltip__pathway span:not([aria-hidden]) {
+  border-radius: 0.35rem;
+  background: var(--sidebar-bg, #f1f5f9);
+  padding: 0.15rem 0.4rem;
+  font-size: 0.75rem;
+}
+.wiki-drug-tooltip__description { margin: 0.6rem 0 0; }
+.wiki-drug-tooltip > svg { background: var(--card, #fff); fill: var(--card, #fff); }
+
 .wiki-markdown pre {
   background: var(--sidebar-bg, var(--surface-muted, #f1f5f9));
   border-radius: 0.5rem;

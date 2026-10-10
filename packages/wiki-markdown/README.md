@@ -29,6 +29,21 @@ Server-rendered hosts should wrap rendered HTML in `WikiMarkdownFrame` from
 `@oncobase/wiki-markdown/styles.css` from their global stylesheet. Client
 hosts that render `WikiMarkdown` get the same frame contract automatically.
 
+## Drug explanation pills
+
+An authored abbreviation can opt into a shadcn tooltip. The explanation stays
+in the Markdown document, and works on hover, keyboard focus, or tap. Ordinary
+abbreviations and inline code remain unchanged. Raw server HTML retains the
+`title` explanation as a native fallback; the React reader adds the visual pill.
+
+```html
+<abbr data-tooltip="drug" data-name="Drug name" data-category="Drug class" data-target="Target" data-effect="Effect" title="One-sentence explanation.">Short name</abbr>
+```
+
+`title` is required. Name, category, target and effect are optional presentation
+fields. Keep tooltip content concise and informational; put sources and detailed
+clinical evidence in the surrounding page.
+
 ## Slides Viewer
 
 Use a slides viewer when a wiki page should show a compact, step-through set of

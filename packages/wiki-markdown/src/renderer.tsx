@@ -43,6 +43,7 @@ import { PdfChipLink, isPdfChipHref } from "./pdf-chip.tsx";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
 import { SlidesViewer, SlidesViewerControls } from "./slides-viewer.tsx";
 import { WikiMarkdownFrame } from "./frame.tsx";
+import { AnnotatedTerm } from "./annotated-term.tsx";
 import { EDUCATION_LAB_SANDBOX, resolveEducationLabSrc } from "./education-lab.ts";
 import {
   isInternalWikiHref,
@@ -183,6 +184,7 @@ const MdTbodyCell = withoutNode(MdTbody);
 const MdTrCell = withoutNode(MdTr);
 const MdThCell = withoutNode(MdTh);
 const MdTdCell = withoutNode(MdTd);
+const AnnotatedTermCell = withoutNode(AnnotatedTerm);
 
 type MarkdownTableNode = {
   position?: {
@@ -241,6 +243,7 @@ export const WikiMarkdownRenderer = memo(function WikiMarkdownRenderer({
   // update remounts images/tables and discards an open preview or local state.
   const components = useMemo<Components>(() => ({
           pre: MarkdownPreCell,
+          abbr: AnnotatedTermCell,
           a: ({
             href,
             children,
