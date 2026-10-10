@@ -130,6 +130,20 @@
   outline-offset: 3px;
 }
 
+/* Reserve space for padded pills when a table cell wraps onto several lines. */
+.wiki-markdown td .wiki-drug-badge,
+.wiki-markdown td abbr[data-tooltip="drug"],
+.wiki-markdown td code:not(pre code) {
+  max-width: 100%;
+  margin: 0.2rem 0.15rem 0.2rem 0;
+  vertical-align: middle;
+}
+
+.wiki-markdown td code:not(pre code) {
+  display: inline-block;
+  line-height: 1.5;
+}
+
 .wiki-drug-tooltip {
   display: block;
   width: 19rem;
