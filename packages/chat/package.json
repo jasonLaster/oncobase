@@ -109,7 +109,12 @@
       "import": "./src/perf.ts",
       "default": "./src/perf.ts"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./components/session-chat": {
+      "types": "./src/components/session-chat.tsx",
+      "import": "./src/components/session-chat.tsx",
+      "default": "./src/components/session-chat.tsx"
+    }
   },
   "scripts": {
     "build": "tsc --noEmit",

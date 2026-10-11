@@ -7,14 +7,17 @@
  * This default intentionally has no host-specific markdown transforms.
  */
 
-import { Streamdown } from "streamdown";
+import { Streamdown, type Components } from "streamdown";
+import { useMemo, type ComponentType, type ComponentProps } from "react";
 import type { ChatMarkdownRendererProps } from "../types";
 
 export function StreamingMarkdown({
   content,
   disableAnchors,
   isStreaming = false,
-}: ChatMarkdownRendererProps) {
+  LinkComponent,
+}: ChatMarkdownRendererProps & { LinkComponent?: ComponentType<ComponentProps<"a">> }) {
+  const components = useMemo<Components | undefined>(() => LinkComponent ? { a: props => <LinkComponent {...(props as ComponentProps<"a">)} /> } : undefined, [LinkComponent]);
   return (
     <div className="prose min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
       <Streamdown
@@ -23,6 +26,7 @@ export function StreamingMarkdown({
         skipHtml
         controls={false}
         parseIncompleteMarkdown={isStreaming}
+        components={components}
       >
         {content}
       </Streamdown>

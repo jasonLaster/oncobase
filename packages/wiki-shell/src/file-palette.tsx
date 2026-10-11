@@ -280,7 +280,10 @@ export function WikiFilePalette({
       window.clearTimeout(focusTimeout);
       document.removeEventListener("keydown", onDocumentKeyDown, { capture: true });
       document.body.style.overflow = previousOverflow;
-      previouslyFocusedRef.current?.focus();
+      // Let the closing mouse event finish before restoring focus, otherwise
+      // its default action can blur the trigger again after cleanup.
+      const previouslyFocused = previouslyFocusedRef.current;
+      window.setTimeout(() => previouslyFocused?.focus(), 0);
       previouslyFocusedRef.current = null;
     };
   }, [closePalette, initialSearch, open]);

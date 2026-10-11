@@ -1,0 +1,210 @@
+{
+  "gateway": [
+    {
+      "status": 200,
+      "text": "",
+      "tools": [
+        {
+          "name": "read_section",
+          "input": "{\"id\":\"/education/guides/personalized-cancer-vaccine/index/\"}"
+        },
+        {
+          "name": "read_section",
+          "input": "{\"id\":\"/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data\"}"
+        },
+        {
+          "name": "read_section",
+          "input": "{\"id\":\"/education/guides/engineered-cell-therapy/index/\"}"
+        },
+        {
+          "name": "read_section",
+          "input": "{\"id\":\"/education/guides/engineered-cell-therapy/02-choosing-a-target\"}"
+        }
+      ],
+      "finishReason": {
+        "unified": "tool-calls"
+      }
+    },
+    {
+      "status": 200,
+      "text": "",
+      "tools": [
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"personalized cancer vaccine guide target selection tumor normal data candidate targets\"}"
+        },
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"engineered cell therapy guide choosing a target usable safety window target selection\"}"
+        },
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"personalized cancer vaccine recognition tumor neoantigen T cell receptor\"}"
+        },
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"engineered cell therapy CAR target recognition surface antigen peptide HLA\"}"
+        }
+      ],
+      "finishReason": {
+        "unified": "tool-calls"
+      }
+    },
+    {
+      "status": 200,
+      "text": "**Simple comparison:** a personalized cancer vaccine **teaches the patient’s own immune system what to look for**. Engineered cell therapy **adds a chosen recognition receptor to immune cells before—or sometimes inside—the body**.\n\n- **Personalized cancer vaccine:** Researchers start with tumor-specific DNA changes, then check whether the altered message is expressed, processed into a peptide, displayed by the patient’s HLA molecule, and recognized by T cells. The vaccine helps prime and expand those T cells. It does not guarantee that every tumor cell displays the target, or that the response will kill cancer [vaccine overview](/education/guides/personalized-cancer-vaccine/index/#the-big-ideas) [target selection](/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/).\n\n- **Engineered cell therapy:** Researchers install a receptor with a defined target. A **CAR** usually recognizes an accessible molecule directly on the tumor-cell surface. A conventional **TCR** recognizes an internal protein only after it is processed into a peptide and displayed with HLA. Target selection therefore asks both, “Will the receptor recognize enough tumor?” and “Could it also attack healthy tissue?” [cell-therapy overview](/education/guides/engineered-cell-therapy/index/#the-big-ideas) [target selection](/education/guides/engineered-cell-therapy/02-choosing-a-target/#specify-the-target-at-the-level-the-receptor-reads).\n\n**Analogy:** a vaccine distributes a wanted poster and trains local officers; engineered cells are issued officers carrying a specific scanner.\n\nWould you like a simple side-by-side example comparing a **neoantigen vaccine**, a **CAR**, and a **TCR therapy**?",
+      "tools": [],
+      "finishReason": {
+        "unified": "stop"
+      }
+    }
+  ],
+  "explanations": [
+    "**Simple comparison:** a personalized cancer vaccine **teaches the patient’s own immune system what to look for**. Engineered cell therapy **adds a chosen recognition receptor to immune cells before—or sometimes inside—the body**.\n\n- **Personalized cancer vaccine:** Researchers start with tumor-specific DNA changes, then check whether the altered message is expressed, processed into a peptide, displayed by the patient’s HLA molecule, and recognized by T cells. The vaccine helps prime and expand those T cells. It does not guarantee that every tumor cell displays the target, or that the response will kill cancer [vaccine overview](/education/guides/personalized-cancer-vaccine/index/#the-big-ideas) [target selection](/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/).\n\n- **Engineered cell therapy:** Researchers install a receptor with a defined target. A **CAR** usually recognizes an accessible molecule directly on the tumor-cell surface. A conventional **TCR** recognizes an internal protein only after it is processed into a peptide and displayed with HLA. Target selection therefore asks both, “Will the receptor recognize enough tumor?” and “Could it also attack healthy tissue?” [cell-therapy overview](/education/guides/engineered-cell-therapy/index/#the-big-ideas) [target selection](/education/guides/engineered-cell-therapy/02-choosing-a-target/#specify-the-target-at-the-level-the-receptor-reads).\n\n**Analogy:** a vaccine distributes a wanted poster and trains local officers; engineered cells are issued officers carrying a specific scanner.\n\nWould you like a simple side-by-side example comparing a **neoantigen vaccine**, a **CAR**, and a **TCR therapy**?"
+  ],
+  "citations": [
+    "/education/guides/personalized-cancer-vaccine/index/#the-big-ideas",
+    "/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/",
+    "/education/guides/engineered-cell-therapy/index/#the-big-ideas",
+    "/education/guides/engineered-cell-therapy/02-choosing-a-target/#specify-the-target-at-the-level-the-receptor-reads"
+  ],
+  "sections": [
+    {
+      "id": "/education/concepts/index/#treatment-mechanisms",
+      "slug": "wiki/education/concepts/index",
+      "pageTitle": "Education concepts",
+      "heading": "Treatment mechanisms",
+      "href": "/education/concepts/index/#treatment-mechanisms",
+      "images": [],
+      "excerpt": "Concept\tIn one sentenceADC (antibody-drug conjugate)\tAn antibody-drug conjugate links a targeting antibody to a drug payload so binding and product-specific processing can deliver chemical damage.\nMonoclonal antibodies: recognition with a d"
+    },
+    {
+      "id": "/education/concepts/therapeutics/immunotherapy/cancer-vaccines-overview/#how-it-works",
+      "slug": "wiki/education/concepts/therapeutics/immunotherapy/cancer-vaccines-overview",
+      "pageTitle": "Cancer vaccines: an overview",
+      "heading": "How it works",
+      "href": "/education/concepts/therapeutics/immunotherapy/cancer-vaccines-overview/#how-it-works",
+      "images": [],
+      "excerpt": "First ask what the vaccine is trying to prevent or treat. Preventive vaccines against human papillomavirus (HPV) or hepatitis B virus reduce infection-related cancer risk. They do not thereby treat an established tumor. Therapeutic cancer v"
+    },
+    {
+      "id": "/education/guides/engineered-cell-therapy/07-reading-the-safety-plan/",
+      "slug": "wiki/education/guides/engineered-cell-therapy/07-reading-the-safety-plan",
+      "pageTitle": "Read the safety plan for engineered cells",
+      "heading": "Start here",
+      "href": "/education/guides/engineered-cell-therapy/07-reading-the-safety-plan/",
+      "images": [],
+      "excerpt": "A safety feature must control a measured harm in the actual product and setting. A quieter signal, fewer cells and recovery from injury are different outcomes. This is step seven of the engineered-cell guide.\n\nBefore you start: Chimeric ant"
+    },
+    {
+      "id": "/education/guides/personalized-cancer-vaccine/index/",
+      "slug": "wiki/education/guides/personalized-cancer-vaccine/index",
+      "pageTitle": "How a personalized cancer vaccine is designed",
+      "heading": "Start here",
+      "href": "/education/guides/personalized-cancer-vaccine/index/",
+      "images": [],
+      "excerpt": "Follow a tumor alteration through discovery, target selection, manufacture and testing of the immune response. A vaccine is a defined intervention. A list of mutations is only one input."
+    },
+    {
+      "id": "/education/guides/engineered-cell-therapy/index/",
+      "slug": "wiki/education/guides/engineered-cell-therapy/index",
+      "pageTitle": "How engineered immune cells can attack a solid tumor",
+      "heading": "Start here",
+      "href": "/education/guides/engineered-cell-therapy/index/",
+      "images": [],
+      "excerpt": "Follow a living therapy from target choice and receptor design to delivery, tumor access, safety and evidence. This path includes engineering cells outside the body and engineering them inside it."
+    }
+  ],
+  "illustrations": [
+    {
+      "src": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-light.png",
+      "darkSrc": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-dark.png",
+      "alt": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex.",
+      "href": "/education/concepts/therapeutics/antibody-based/tcr-mimics-and-tcr-engagers/#how-it-works",
+      "pageTitle": "TCR mimics and soluble TCR engagers"
+    },
+    {
+      "src": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-light.png",
+      "darkSrc": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-dark.png",
+      "alt": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark",
+      "href": "/education/guides/personalized-cancer-vaccine/08-dosing-and-measuring-response/#match-each-assay-to-a-claim",
+      "pageTitle": "Dose a vaccine and measure its response"
+    },
+    {
+      "src": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-light.png",
+      "darkSrc": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-dark.png",
+      "alt": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment.",
+      "href": "/education/concepts/immunology/tumor-immunology/abscopal-effect/#how-it-works",
+      "pageTitle": "The abscopal effect"
+    }
+  ],
+  "finishReason": "stop",
+  "errors": [],
+  "rendered": {
+    "explanation": [
+      "Simple comparison: a personalized cancer vaccine teaches the patient’s own immune system what to look for. Engineered cell therapy adds a chosen recognition receptor to immune cells before—or sometimes inside—the body. Personalized cancer vaccine: Researchers start with tumor-specific DNA changes, then check whether the altered message is expressed, processed into a peptide, displayed by the patient’s HLA molecule, and recognized by T cells. The vaccine helps prime and expand those T cells. It does not guarantee that every tumor cell displays the target, or that the response will kill cancer vaccine overview target selection. Engineered cell therapy: Researchers install a receptor with a defined target. A CAR usually recognizes an accessible molecule directly on the tumor-cell surface. A conventional TCR recognizes an internal protein only after it is processed into a peptide and displayed with HLA. Target selection therefore asks both, “Will the receptor recognize enough tumor?” and “Could it also attack healthy tissue?” cell-therapy overview target selection. Analogy: a vaccine distributes a wanted poster and trains local officers; engineered cells are issued officers carrying a specific scanner. Would you like a simple side-by-side example comparing a neoantigen vaccine, a CAR, and a TCR therapy?"
+    ],
+    "citations": [
+      {
+        "text": "vaccine overview",
+        "href": "/education/guides/personalized-cancer-vaccine/index/#the-big-ideas"
+      },
+      {
+        "text": "target selection",
+        "href": "/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/"
+      },
+      {
+        "text": "cell-therapy overview",
+        "href": "/education/guides/engineered-cell-therapy/index/#the-big-ideas"
+      },
+      {
+        "text": "target selection",
+        "href": "/education/guides/engineered-cell-therapy/02-choosing-a-target/#specify-the-target-at-the-level-the-receptor-reads"
+      }
+    ],
+    "cartoons": [
+      {
+        "caption": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex.",
+        "href": "/education/concepts/therapeutics/antibody-based/tcr-mimics-and-tcr-engagers/#how-it-works",
+        "images": [
+          {
+            "src": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-light.png",
+            "alt": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex."
+          },
+          {
+            "src": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-dark.png",
+            "alt": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex."
+          }
+        ]
+      },
+      {
+        "caption": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark",
+        "href": "/education/guides/personalized-cancer-vaccine/08-dosing-and-measuring-response/#match-each-assay-to-a-claim",
+        "images": [
+          {
+            "src": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-light.png",
+            "alt": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark"
+          },
+          {
+            "src": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-dark.png",
+            "alt": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark"
+          }
+        ]
+      },
+      {
+        "caption": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment.",
+        "href": "/education/concepts/immunology/tumor-immunology/abscopal-effect/#how-it-works",
+        "images": [
+          {
+            "src": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-light.png",
+            "alt": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment."
+          },
+          {
+            "src": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-dark.png",
+            "alt": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -569,7 +569,9 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
         expect((await handler(request("/api/education/search?q=Public&scope=session", { headers })))?.status).toBe(401);
       }
       expect((await handler(request("/api/education/manifest", { method: "POST" })))?.status).toBe(405);
-      expect((await handler(request("/api/education/chat")))?.status).toBe(404);
+      const chat = await handler(request("/api/education/chat"));
+      expect(chat?.status).toBe(405);
+      expect(chat?.headers.get("Allow")).toBe("POST, OPTIONS");
     }
   });
   test("anonymous Diana readers receive only redacted education pages, assets, and search results", async () => {

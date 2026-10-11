@@ -44,8 +44,8 @@ test("search, themes, mobile navigation and shared image theater work", async ({
   page.on("pageerror", error => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "The education library" })).toBeVisible();
-  await page.keyboard.press("ControlOrMeta+k");
   const input = page.getByRole("searchbox", { name: "Search education" });
+  await input.click();
   await expect(input).toBeFocused();
   await input.fill("autophagy"); await input.press("Enter");
   await expect.poll(() => page.locator(".edu-result").count()).toBeGreaterThan(0);

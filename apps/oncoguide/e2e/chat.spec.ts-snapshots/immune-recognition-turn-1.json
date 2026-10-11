@@ -1,0 +1,153 @@
+{
+  "gateway": [
+    {
+      "status": 200,
+      "text": "",
+      "tools": [
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"how immune system recognizes cancer antigen presentation dendritic cells T cells HLA tumor cells\"}"
+        },
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"cancer immunity cycle immune recognition antigen display T cell priming\"}"
+        },
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"immune escape cancer recognition HLA antigen presentation checkpoint\"}"
+        }
+      ],
+      "finishReason": {
+        "unified": "tool-calls"
+      }
+    },
+    {
+      "status": 200,
+      "text": "The immune system recognizes cancer by inspecting **molecular features**, not by detecting a universal “cancer label.”\n\nA simplified route is:\n\n1. **Cancer cells make proteins**, including altered proteins caused by mutations. Small protein pieces are displayed on the cell surface by **HLA** molecules—human proteins that present fragments for inspection.\n2. **Dendritic cells** collect tumor material, process it, and display fragments. A T cell whose **T-cell receptor (TCR)** fits the peptide–HLA pair may then be activated.\n3. Activation needs more than recognition: supporting costimulatory signals and cytokines help determine whether the T cell becomes functional rather than inactive [T-cell priming](/education/concepts/immunology/t-cells/t-cell-priming-three-signals/#how-it-works).\n4. Activated immune cells must travel into the tumor, find cells displaying the matching target, and kill susceptible cells. This linked sequence is called the **cancer-immunity cycle** [cancer-immunity cycle](/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works).\n\nThink of it like a security system: the peptide–HLA pair is the displayed ID badge, while the TCR is the scanner. Cancer can escape by hiding the badge, changing the display system, excluding immune cells, or applying inhibitory signals.\n\nWould you like to go deeper into **HLA presentation**, **T-cell activation**, or **how tumors evade recognition**?",
+      "tools": [],
+      "finishReason": {
+        "unified": "stop"
+      }
+    }
+  ],
+  "explanations": [
+    "The immune system recognizes cancer by inspecting **molecular features**, not by detecting a universal “cancer label.”\n\nA simplified route is:\n\n1. **Cancer cells make proteins**, including altered proteins caused by mutations. Small protein pieces are displayed on the cell surface by **HLA** molecules—human proteins that present fragments for inspection.\n2. **Dendritic cells** collect tumor material, process it, and display fragments. A T cell whose **T-cell receptor (TCR)** fits the peptide–HLA pair may then be activated.\n3. Activation needs more than recognition: supporting costimulatory signals and cytokines help determine whether the T cell becomes functional rather than inactive [T-cell priming](/education/concepts/immunology/t-cells/t-cell-priming-three-signals/#how-it-works).\n4. Activated immune cells must travel into the tumor, find cells displaying the matching target, and kill susceptible cells. This linked sequence is called the **cancer-immunity cycle** [cancer-immunity cycle](/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works).\n\nThink of it like a security system: the peptide–HLA pair is the displayed ID badge, while the TCR is the scanner. Cancer can escape by hiding the badge, changing the display system, excluding immune cells, or applying inhibitory signals.\n\nWould you like to go deeper into **HLA presentation**, **T-cell activation**, or **how tumors evade recognition**?"
+  ],
+  "citations": [
+    "/education/concepts/immunology/t-cells/t-cell-priming-three-signals/#how-it-works",
+    "/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works"
+  ],
+  "sections": [
+    {
+      "id": "/education/guides/how-the-immune-system-fights-cancer/index/#the-map",
+      "slug": "wiki/education/guides/how-the-immune-system-fights-cancer/index",
+      "pageTitle": "Understand how the immune system recognizes cancer",
+      "heading": "The map",
+      "href": "/education/guides/how-the-immune-system-fights-cancer/index/#the-map",
+      "images": [],
+      "excerpt": "1. Signals and binding 2. Antigen display and priming 3. T-cell states and function 4. Cell location in tissue 5. Measurements and their limits 6. Failure points and escape 7. Compare recognition systems\n\nThe map is a learning order. The bi"
+    },
+    {
+      "id": "/education/guides/how-the-immune-system-fights-cancer/index/#lessons",
+      "slug": "wiki/education/guides/how-the-immune-system-fights-cancer/index",
+      "pageTitle": "Understand how the immune system recognizes cancer",
+      "heading": "Lessons",
+      "href": "/education/guides/how-the-immune-system-fights-cancer/index/#lessons",
+      "images": [],
+      "excerpt": "Step\tLesson\tQuestion\tMinutes\tLearning aid1\tAsk what happens after binding\tWhat changes after a molecule finds its partner?\t8\tOne address, two packages\n2\tHow dendritic cells help start a response\tHow does display become a priming opportunity"
+    },
+    {
+      "id": "/education/cellular-therapies/02-car-tcr-til-comparison/#ask-what-was-installed-and-what-was-expanded",
+      "slug": "wiki/education/cellular-therapies/02-car-tcr-til-comparison",
+      "pageTitle": "Compare immune-cell recognition systems",
+      "heading": "Ask what was installed and what was expanded",
+      "href": "/education/cellular-therapies/02-car-tcr-til-comparison/#ask-what-was-installed-and-what-was-expanded",
+      "images": [],
+      "excerpt": "Engineered TCR therapy installs selected receptor instructions. Expanding native antigen-reactive T cells does not itself do that. The distinction matters when a paper moves from finding a receptor sequence to proposing a cell product: sequ"
+    }
+  ],
+  "illustrations": [
+    {
+      "src": "/assets/wiki/education/local-treatment-modalities/images/local-injury-gates-light.png",
+      "darkSrc": "/assets/wiki/education/local-treatment-modalities/images/local-injury-gates-dark.png",
+      "alt": "Four panels show local tumor injury, a dendritic cell collecting and presenting fragments, T-cell activation with supporting signals, and travel toward a distant tumor whose recognition remains a question; dashed arrows mark conditional steps",
+      "href": "/education/local-treatment-modalities/01-mechanism/#how-immune-learning-could-follow-injury",
+      "pageTitle": "Separate local injury from immune learning"
+    },
+    {
+      "src": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-light.png",
+      "darkSrc": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-dark.png",
+      "alt": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment.",
+      "href": "/education/concepts/immunology/tumor-immunology/abscopal-effect/#how-it-works",
+      "pageTitle": "The abscopal effect"
+    },
+    {
+      "src": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-light.png",
+      "darkSrc": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-dark.png",
+      "alt": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex.",
+      "href": "/education/concepts/therapeutics/antibody-based/tcr-mimics-and-tcr-engagers/#how-it-works",
+      "pageTitle": "TCR mimics and soluble TCR engagers"
+    }
+  ],
+  "finishReason": "stop",
+  "errors": [],
+  "rendered": {
+    "explanation": [
+      "The immune system recognizes cancer by inspecting molecular features, not by detecting a universal “cancer label.” A simplified route is: Cancer cells make proteins, including altered proteins caused by mutations. Small protein pieces are displayed on the cell surface by HLA molecules—human proteins that present fragments for inspection. Dendritic cells collect tumor material, process it, and display fragments. A T cell whose T-cell receptor (TCR) fits the peptide–HLA pair may then be activated. Activation needs more than recognition: supporting costimulatory signals and cytokines help determine whether the T cell becomes functional rather than inactive T-cell priming. Activated immune cells must travel into the tumor, find cells displaying the matching target, and kill susceptible cells. This linked sequence is called the cancer-immunity cycle cancer-immunity cycle. Think of it like a security system: the peptide–HLA pair is the displayed ID badge, while the TCR is the scanner. Cancer can escape by hiding the badge, changing the display system, excluding immune cells, or applying inhibitory signals. Would you like to go deeper into HLA presentation, T-cell activation, or how tumors evade recognition?"
+    ],
+    "citations": [
+      {
+        "text": "T-cell priming",
+        "href": "/education/concepts/immunology/t-cells/t-cell-priming-three-signals/#how-it-works"
+      },
+      {
+        "text": "cancer-immunity cycle",
+        "href": "/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works"
+      }
+    ],
+    "cartoons": [
+      {
+        "caption": "Four panels show local tumor injury, a dendritic cell collecting and presenting fragments, T-cell activation with supporting signals, and travel toward a distant tumor whose recognition remains a question; dashed arrows mark conditional steps",
+        "href": "/education/local-treatment-modalities/01-mechanism/#how-immune-learning-could-follow-injury",
+        "images": [
+          {
+            "src": "/assets/wiki/education/local-treatment-modalities/images/local-injury-gates-light.png",
+            "alt": "Four panels show local tumor injury, a dendritic cell collecting and presenting fragments, T-cell activation with supporting signals, and travel toward a distant tumor whose recognition remains a question; dashed arrows mark conditional steps"
+          },
+          {
+            "src": "/assets/wiki/education/local-treatment-modalities/images/local-injury-gates-dark.png",
+            "alt": "Four panels show local tumor injury, a dendritic cell collecting and presenting fragments, T-cell activation with supporting signals, and travel toward a distant tumor whose recognition remains a question; dashed arrows mark conditional steps"
+          }
+        ]
+      },
+      {
+        "caption": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment.",
+        "href": "/education/concepts/immunology/tumor-immunology/abscopal-effect/#how-it-works",
+        "images": [
+          {
+            "src": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-light.png",
+            "alt": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment."
+          },
+          {
+            "src": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-dark.png",
+            "alt": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment."
+          }
+        ]
+      },
+      {
+        "caption": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex.",
+        "href": "/education/concepts/therapeutics/antibody-based/tcr-mimics-and-tcr-engagers/#how-it-works",
+        "images": [
+          {
+            "src": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-light.png",
+            "alt": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex."
+          },
+          {
+            "src": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-dark.png",
+            "alt": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex."
+          }
+        ]
+      }
+    ]
+  }
+}

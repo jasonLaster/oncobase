@@ -190,7 +190,8 @@ source commit. Do not import the private Diana repository's complete Git history
 
    Build validation checks all routes and assets, rejects private markers,
    unresolved education links, LFS pointers and Diana image dependencies, and
-   limits all client JavaScript (including lazy chunks) to 350 KiB gzip. Browser CI
+   limits initial reader JavaScript to 350 KiB gzip and all chunks, including the
+   lazy learning chat, to 550 KiB gzip. Browser CI
    decodes every image, verifies static HTML without JavaScript, and exercises
    search, persisted themes, mobile navigation and image theater.
 

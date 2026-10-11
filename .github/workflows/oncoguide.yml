@@ -2,9 +2,9 @@ name: OncoGuide static checks
 on:
   push:
     branches: [main]
-    paths: ["apps/oncoguide/**", "packages/education/**", "packages/wiki-markdown/**", "packages/wiki-content/**", "packages/wiki-shell/**", "packages/smart-table/**", "bun.lock", ".github/workflows/oncoguide.yml"]
+    paths: ["apps/oncoguide/**", "apps/app/server/education-chat*", "packages/education/**", "packages/chat/**", "packages/wiki-markdown/**", "packages/wiki-content/**", "packages/wiki-shell/**", "packages/smart-table/**", "bun.lock", ".github/workflows/oncoguide.yml"]
   pull_request:
-    paths: ["apps/oncoguide/**", "packages/education/**", "packages/wiki-markdown/**", "packages/wiki-content/**", "packages/wiki-shell/**", "packages/smart-table/**", "bun.lock", ".github/workflows/oncoguide.yml"]
+    paths: ["apps/oncoguide/**", "apps/app/server/education-chat*", "packages/education/**", "packages/chat/**", "packages/wiki-markdown/**", "packages/wiki-content/**", "packages/wiki-shell/**", "packages/smart-table/**", "bun.lock", ".github/workflows/oncoguide.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,12 +24,14 @@ jobs:
           bun-version: 1.3.12
       - run: bun install --frozen-lockfile
       - run: bun --cwd packages/smart-table build
+      - run: bun --cwd packages/chat typecheck
       - run: bun --cwd packages/education typecheck
       - run: bun --cwd packages/wiki-markdown typecheck
       - run: bun --cwd apps/oncoguide lint
-      - run: bun test apps/oncoguide/lib/content-format.test.ts packages/wiki-markdown/src/server.test.ts packages/wiki-markdown/src/renderer-parity.test.ts
+      - run: bun test packages/chat/src/session-messages.test.ts apps/app/server/education-chat.test.ts packages/education/src/chat.test.ts apps/oncoguide/lib/content-format.test.ts packages/wiki-markdown/src/server.test.ts packages/wiki-markdown/src/renderer-parity.test.ts
       - run: bun --cwd apps/oncoguide build
       - run: bun --cwd apps/oncoguide typecheck
       - run: bunx playwright install --with-deps chromium
         working-directory: apps/oncoguide
       - run: bun --cwd apps/oncoguide test:e2e --reporter=line
+      - run: bun --cwd apps/oncoguide test:e2e:chat --reporter=line

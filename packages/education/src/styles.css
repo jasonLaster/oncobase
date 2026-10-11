@@ -216,12 +216,12 @@
 .edu-nav-lessons a:hover {
   background: var(--edu-soft);
 }
-.edu-sidebar summary svg {
+.edu-sidebar summary > svg {
   flex-shrink: 0;
   transform: rotate(-90deg);
   color: var(--edu-muted);
 }
-.edu-sidebar details[open] summary svg {
+.edu-sidebar details[open] summary > svg {
   transform: none;
 }
 .edu-nav-lessons {
@@ -449,14 +449,19 @@
   font-family: ui-monospace, monospace;
   color: var(--edu-muted);
 }
-.edu-topic-icon {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: var(--edu-soft);
+.edu-topic-logo {
+  display: block;
+  flex-shrink: 0;
   color: var(--edu-brand);
+}
+.edu-topic-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.edu-topic-label > span {
+  overflow-wrap: anywhere;
 }
 .edu-topic-card h3 {
   font-size: 17px;

@@ -54,6 +54,8 @@ export function createWikiApiHandler(client = createClient()) {
   const requestManifestBuild = createManifestBuildRequester();
   return traceBackendHandler(async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     let pathname = new URL(request.url).pathname;
+    const rawRoute = matchRawApiRoute(pathname);
+    if (rawRoute) return (await rawRoute.load())(request);
     const dedicatedEducation = pathname.startsWith("/api/education/");
     if (dedicatedEducation) {
       const target = EDUCATION_API_ALIASES[pathname];
@@ -65,8 +67,6 @@ export function createWikiApiHandler(client = createClient()) {
       request = new Request(url, request);
       pathname = target;
     }
-    const rawRoute = matchRawApiRoute(pathname);
-    if (rawRoute) return (await rawRoute.load())(request);
     const route = matchApiRoute(pathname);
     if (!route) return null;
 

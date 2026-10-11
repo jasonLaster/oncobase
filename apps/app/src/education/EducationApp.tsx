@@ -38,6 +38,7 @@ import {
   educationSlugFromPathname,
 } from "../education-routes";
 import { updateClientRouteMetadata } from "../document-title";
+import { TopicLogo } from "@oncobase/education/topic-logo";
 import { PublicThemeControl } from "../PublicThemeControl";
 import "./education.css";
 
@@ -549,7 +550,10 @@ export function EducationApp() {
                 }
               >
                 <summary>
-                  <span>{topic.title}</span>
+                  <span className="edu-topic-label">
+                    <TopicLogo topic={topic.key} size={14.4} />
+                    <span>{topic.title}</span>
+                  </span>
                   <ChevronDown size={14} />
                 </summary>
                 <div className="edu-nav-lessons">
@@ -646,15 +650,7 @@ export function EducationApp() {
                       to={educationHref(topic.entry.slug)}
                     >
                       <div className="edu-topic-top">
-                        <span className="edu-topic-icon">
-                          {index % 3 === 0 ? (
-                            <BookOpen size={23} strokeWidth={1.5} />
-                          ) : index % 3 === 1 ? (
-                            <Dna size={23} strokeWidth={1.5} />
-                          ) : (
-                            <Network size={23} strokeWidth={1.5} />
-                          )}
-                        </span>
+                        <TopicLogo topic={topic.key} />
                         <span>{String(index + 1).padStart(2, "0")}</span>
                       </div>
                       <h3>{topic.title}</h3>

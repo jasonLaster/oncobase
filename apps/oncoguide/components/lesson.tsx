@@ -28,6 +28,7 @@ export async function Lesson({ params }: { params: LessonParams }) {
     <nav className="edu-breadcrumbs" aria-label="Breadcrumb"><Link href="/education">Education</Link><span aria-hidden="true">/</span><span>{page.title}</span></nav>
     <div className="edu-eyebrow">THE EDUCATION LIBRARY</div><h1>{page.title}</h1>
     {page.description ? <p className="edu-article-description">{page.description}</p> : null}
+    <Link className="edu-lesson-ask" href={`/education/chat/?lesson=${encodeURIComponent(page.slug)}`}>Ask about this lesson <span aria-hidden="true">↗</span></Link>
     <div className="edu-article-rule" />
     <WikiMarkdownFrame data-guide-markdown key={page.slug}>
       <div dangerouslySetInnerHTML={{ __html: page.html }} />

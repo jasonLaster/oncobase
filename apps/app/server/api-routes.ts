@@ -60,6 +60,7 @@ const always = () => true;
 const educationParam = (name: string) => (url: URL) => isEducationSlug(url.searchParams.get(name) ?? "");
 
 export const RAW_API_ROUTES: readonly RawApiRoute[] = [
+  { path: "/api/education/chat", load: () => import("./education-chat").then(m => m.handleEducationChat) },
   { path: "/api/telemetry/manifest", load: () => import("./manifest-telemetry").then(m => m.handleManifestTelemetry) },
   { path: "/api/wiki/telemetry", load: () => import("./reader-telemetry").then(m => m.handleReaderTelemetry) },
 ];

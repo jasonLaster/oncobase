@@ -30,6 +30,14 @@ for (const chunk of chunks) {
     throw Error(`Care runtime in client bundle: ${chunk}`);
   }
 }
-// Includes lazy chunks as well as the initial Next.js/React runtime.
-if (gzipBytes > 350 * 1024) throw Error(`Client JavaScript exceeds the 350 KiB gzip budget: ${gzipBytes}`);
-console.info(`Static export verified: ${pages.length} lessons, ${manifest.assets.length} assets, ${Math.round(gzipBytes / 1024)} KiB gzip JavaScript`);
+// The shared chat SDK and streaming Markdown load only on the chat route.
+// Keep the initial reader ceiling and bound all chunks, including learning chat.
+const chunkSizes = new Map(chunks.map(chunk => [chunk, gzipSync(fs.readFileSync(path.join("out/_next/static/chunks", chunk))).length]));
+const readerRoutes = ["out/index.html", ...pages.map(page => path.join("out", educationHref(page.slug), "index.html"))];
+const initialBytes = Math.max(...readerRoutes.map(file => {
+  const initialChunks = new Set([...fs.readFileSync(file, "utf8").matchAll(/<script[^>]+src="([^"]+\.js)"/g)].map(match => path.basename(match[1]!)));
+  return [...initialChunks].reduce((sum, chunk) => sum + chunkSizes.get(chunk)!, 0);
+}));
+if (initialBytes > 350 * 1024) throw Error(`Initial reader JavaScript exceeds 350 KiB gzip: ${initialBytes}`);
+if (gzipBytes > 550 * 1024) throw Error(`Client JavaScript including lazy learning chat exceeds 550 KiB gzip: ${gzipBytes}`);
+console.info(`Static export verified: ${pages.length} lessons, ${manifest.assets.length} assets, ${Math.round(gzipBytes / 1024)} KiB gzip JavaScript (${Math.round(initialBytes / 1024)} KiB maximum initial reader)`);

@@ -1,0 +1,127 @@
+{
+  "gateway": [
+    {
+      "status": 200,
+      "text": "### DNA repair, simply\n\n```text\nDNA = a set of instructions\n\n     DNA gets damaged\n          ↓\n   🚨 Cell notices\n          ↓\n   ⏸️ Cell pauses\n          ↓\n   🛠️ Repair team fixes it\n          ↓\n   ▶️ Cell keeps working\n```\n\nDifferent repair teams fix different problems:\n\n- **Small mistake:** replace one DNA “letter.”\n- **Big damaged spot:** cut it out and replace it.\n- **Broken DNA:** join the pieces back together.\n- **Hard-to-fix damage:** the cell may stop dividing or die.\n\nDNA repair is really a group of processes—not one single repair system [DNA repair basics](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works). A **checkpoint** is simply the cell’s pause button. It gives the repair team time to work, but pausing does not guarantee that the damage was fixed.\n\nWould you like an even simpler cartoon about **BRCA**, one of the DNA-repair helpers?",
+      "tools": [],
+      "finishReason": {
+        "unified": "stop"
+      }
+    }
+  ],
+  "explanations": [
+    "### DNA repair, simply\n\n```text\nDNA = a set of instructions\n\n     DNA gets damaged\n          ↓\n   🚨 Cell notices\n          ↓\n   ⏸️ Cell pauses\n          ↓\n   🛠️ Repair team fixes it\n          ↓\n   ▶️ Cell keeps working\n```\n\nDifferent repair teams fix different problems:\n\n- **Small mistake:** replace one DNA “letter.”\n- **Big damaged spot:** cut it out and replace it.\n- **Broken DNA:** join the pieces back together.\n- **Hard-to-fix damage:** the cell may stop dividing or die.\n\nDNA repair is really a group of processes—not one single repair system [DNA repair basics](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works). A **checkpoint** is simply the cell’s pause button. It gives the repair team time to work, but pausing does not guarantee that the damage was fixed.\n\nWould you like an even simpler cartoon about **BRCA**, one of the DNA-repair helpers?"
+  ],
+  "citations": [
+    "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
+  ],
+  "sections": [
+    {
+      "id": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#how-it-works",
+      "slug": "wiki/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors",
+      "pageTitle": "DNA damage response inhibitors: which repair dependency?",
+      "heading": "How it works",
+      "href": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#how-it-works",
+      "images": [],
+      "excerpt": "DNA damage response (DDR) includes more than repair enzymes. DNA means deoxyribonucleic acid, the information-bearing molecule described in the central dogma. Replication stress means difficulty copying DNA; the moving copying machinery can"
+    },
+    {
+      "id": "/education/guides/from-variant-to-drug/02-connect-repair-biology-to-parp-sensitivity/#follow-the-repair-team-not-just-one-name",
+      "slug": "wiki/education/guides/from-variant-to-drug/02-connect-repair-biology-to-parp-sensitivity",
+      "pageTitle": "Connect repair biology to PARP sensitivity",
+      "heading": "Follow the repair team, not just one name",
+      "href": "/education/guides/from-variant-to-drug/02-connect-repair-biology-to-parp-sensitivity/#follow-the-repair-team-not-just-one-name",
+      "images": [],
+      "excerpt": "Homologous recombination (HR) uses a matching DNA template to repair certain lesions. BRCA1 and BRCA2, PALB2, RAD51, and other proteins cooperate in this process. Homologous recombination deficiency (HRD) means the process is impaired. It i"
+    },
+    {
+      "id": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#in-one-sentence",
+      "slug": "wiki/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors",
+      "pageTitle": "DNA damage response inhibitors: which repair dependency?",
+      "heading": "In one sentence",
+      "href": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#in-one-sentence",
+      "images": [],
+      "excerpt": "DNA damage response inhibitors interfere with proteins that detect, signal, tolerate, or repair DNA damage, and their effects depend on the particular target and repair state."
+    }
+  ],
+  "illustrations": [
+    {
+      "src": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-light.png",
+      "darkSrc": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-dark.png",
+      "alt": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome",
+      "href": "/education/guides/from-variant-to-drug/06-pi3k-akt-mtor-and-repair/#follow-the-signal-then-look-for-the-brakes",
+      "pageTitle": "PI3K, AKT, and mTOR: competing effects on repair and recycling"
+    },
+    {
+      "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-light.png",
+      "darkSrc": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-dark.png",
+      "alt": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP",
+      "href": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle",
+      "pageTitle": "PARP trapping and recycling"
+    },
+    {
+      "src": "/assets/wiki/education/concepts/breast-cancer/receptors-and-subtypes/images/three-different-questions-light.png",
+      "darkSrc": "/assets/wiki/education/concepts/breast-cancer/receptors-and-subtypes/images/three-different-questions-dark.png",
+      "alt": "Three panels separate the TNBC receptor category, four TNBCtype-4 RNA research profiles, and cancer, immune and stromal contributions to a tissue sample",
+      "href": "/education/concepts/breast-cancer/receptors-and-subtypes/tnbc-molecular-subtypes/#how-it-works",
+      "pageTitle": "TNBC molecular subtypes: four research profiles, with tissue context"
+    }
+  ],
+  "finishReason": "stop",
+  "errors": [],
+  "rendered": {
+    "explanation": [
+      "DNA repair, simply textDNA = a set of instructions DNA gets damaged ↓ 🚨 Cell notices ↓ ⏸️ Cell pauses ↓ 🛠️ Repair team fixes it ↓ ▶️ Cell keeps working Different repair teams fix different problems: Small mistake: replace one DNA “letter.” Big damaged spot: cut it out and replace it. Broken DNA: join the pieces back together. Hard-to-fix damage: the cell may stop dividing or die. DNA repair is really a group of processes—not one single repair system DNA repair basics. A checkpoint is simply the cell’s pause button. It gives the repair team time to work, but pausing does not guarantee that the damage was fixed. Would you like an even simpler cartoon about BRCA, one of the DNA-repair helpers?"
+    ],
+    "citations": [
+      {
+        "text": "DNA repair basics",
+        "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
+      }
+    ],
+    "cartoons": [
+      {
+        "caption": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome",
+        "href": "/education/guides/from-variant-to-drug/06-pi3k-akt-mtor-and-repair/#follow-the-signal-then-look-for-the-brakes",
+        "images": [
+          {
+            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-light.png",
+            "alt": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome"
+          },
+          {
+            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-dark.png",
+            "alt": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome"
+          }
+        ]
+      },
+      {
+        "caption": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP",
+        "href": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle",
+        "images": [
+          {
+            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-light.png",
+            "alt": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP"
+          },
+          {
+            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-dark.png",
+            "alt": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP"
+          }
+        ]
+      },
+      {
+        "caption": "Three panels separate the TNBC receptor category, four TNBCtype-4 RNA research profiles, and cancer, immune and stromal contributions to a tissue sample",
+        "href": "/education/concepts/breast-cancer/receptors-and-subtypes/tnbc-molecular-subtypes/#how-it-works",
+        "images": [
+          {
+            "src": "/assets/wiki/education/concepts/breast-cancer/receptors-and-subtypes/images/three-different-questions-light.png",
+            "alt": "Three panels separate the TNBC receptor category, four TNBCtype-4 RNA research profiles, and cancer, immune and stromal contributions to a tissue sample"
+          },
+          {
+            "src": "/assets/wiki/education/concepts/breast-cancer/receptors-and-subtypes/images/three-different-questions-dark.png",
+            "alt": "Three panels separate the TNBC receptor category, four TNBCtype-4 RNA research profiles, and cancer, immune and stromal contributions to a tissue sample"
+          }
+        ]
+      }
+    ]
+  }
+}

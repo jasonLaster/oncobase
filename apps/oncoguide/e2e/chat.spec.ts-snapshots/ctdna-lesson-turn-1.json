@@ -1,0 +1,127 @@
+{
+  "gateway": [
+    {
+      "status": 200,
+      "text": "A blood measurement such as **ctDNA**—small DNA fragments released by tumor cells into the bloodstream—can tell us whether the assay detected a tumor-associated signal **at that time**, using that test’s specific denominator and detection limit. Repeated measurements can show whether the signal is rising, falling, or remaining detectable, making the result a **time series rather than a standalone verdict** [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/#takeaway).\n\nIt may help assess molecular residual disease (MRD), meaning cancer-related material that remains below what imaging can readily show. But “detected” does not automatically tell us **where** the disease is, how much tumor is present, or whether a particular treatment will help. A negative result also does not prove that no cancer exists: the amount shed into blood, sampling timing, assay sensitivity, and biological differences all matter.\n\nThink of it like a smoke detector: it can detect a signal and track changes, but it cannot by itself identify the room, measure the fire precisely, or choose the response.\n\nWould you like to explore **how to interpret a rising versus falling ctDNA result**?",
+      "tools": [],
+      "finishReason": {
+        "unified": "stop"
+      }
+    }
+  ],
+  "explanations": [
+    "A blood measurement such as **ctDNA**—small DNA fragments released by tumor cells into the bloodstream—can tell us whether the assay detected a tumor-associated signal **at that time**, using that test’s specific denominator and detection limit. Repeated measurements can show whether the signal is rising, falling, or remaining detectable, making the result a **time series rather than a standalone verdict** [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/#takeaway).\n\nIt may help assess molecular residual disease (MRD), meaning cancer-related material that remains below what imaging can readily show. But “detected” does not automatically tell us **where** the disease is, how much tumor is present, or whether a particular treatment will help. A negative result also does not prove that no cancer exists: the amount shed into blood, sampling timing, assay sensitivity, and biological differences all matter.\n\nThink of it like a smoke detector: it can detect a signal and track changes, but it cannot by itself identify the room, measure the fire precisely, or choose the response.\n\nWould you like to explore **how to interpret a rising versus falling ctDNA result**?"
+  ],
+  "citations": [
+    "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway"
+  ],
+  "sections": [
+    {
+      "id": "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway",
+      "slug": "wiki/education/molecular-profiling/06-ctdna-and-mrd",
+      "pageTitle": "Read blood measurements as a time series",
+      "heading": "Takeaway",
+      "href": "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway",
+      "images": [],
+      "excerpt": "Read a blood result with its date, assay, denominator and limit attached.\n\nNext: Build an integrated claim without skipping the clinical question."
+    },
+    {
+      "id": "/education/molecular-profiling/06-ctdna-and-mrd/",
+      "slug": "wiki/education/molecular-profiling/06-ctdna-and-mrd",
+      "pageTitle": "Read blood measurements as a time series",
+      "heading": "Start here",
+      "href": "/education/molecular-profiling/06-ctdna-and-mrd/",
+      "images": [],
+      "excerpt": "A blood result is an assay-specific snapshot in a time series. Detection, location and useful intervention remain different questions.\n\nBefore you start: Circulating tumor DNA (ctDNA) and its units distinguishes fractions and concentrations"
+    },
+    {
+      "id": "/education/cellular-therapies/06-in-vivo-delivery/#read-the-measurement-chain",
+      "slug": "wiki/education/cellular-therapies/06-in-vivo-delivery",
+      "pageTitle": "How to engineer T cells inside the body",
+      "heading": "Read the measurement chain",
+      "href": "/education/cellular-therapies/06-in-vivo-delivery/#read-the-measurement-chain",
+      "images": [],
+      "excerpt": "Assay card — the cells produced after administration\n\nInput and consumption: A carrier-lot aliquot tests the administered product. Blood or tissue collected at specified times samples the cells produced later. These samples represent limite"
+    }
+  ],
+  "illustrations": [
+    {
+      "src": "/assets/wiki/education/local-treatment-modalities/images/finite-tissue-budget-light.png",
+      "darkSrc": "/assets/wiki/education/local-treatment-modalities/images/finite-tissue-budget-dark.png",
+      "alt": "Three panels show archived tissue, sections taken onto slides, and a smaller amount of tissue remaining after use",
+      "href": "/education/local-treatment-modalities/05-tissue-and-sample-budget/#how-tissue-planning-changes-the-answer",
+      "pageTitle": "Match each measurement to its claim"
+    },
+    {
+      "src": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-light.png",
+      "darkSrc": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-dark.png",
+      "alt": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark",
+      "href": "/education/guides/personalized-cancer-vaccine/08-dosing-and-measuring-response/#match-each-assay-to-a-claim",
+      "pageTitle": "Dose a vaccine and measure its response"
+    },
+    {
+      "src": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-light.png",
+      "darkSrc": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-dark.png",
+      "alt": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement.",
+      "href": "/education/molecular-profiling/ctdna-ppm-and-mri/#two-windows-onto-different-evidence",
+      "pageTitle": "Compare blood results with imaging"
+    }
+  ],
+  "finishReason": "stop",
+  "errors": [],
+  "rendered": {
+    "explanation": [
+      "A blood measurement such as ctDNA—small DNA fragments released by tumor cells into the bloodstream—can tell us whether the assay detected a tumor-associated signal at that time, using that test’s specific denominator and detection limit. Repeated measurements can show whether the signal is rising, falling, or remaining detectable, making the result a time series rather than a standalone verdict Read blood measurements as a time series. It may help assess molecular residual disease (MRD), meaning cancer-related material that remains below what imaging can readily show. But “detected” does not automatically tell us where the disease is, how much tumor is present, or whether a particular treatment will help. A negative result also does not prove that no cancer exists: the amount shed into blood, sampling timing, assay sensitivity, and biological differences all matter. Think of it like a smoke detector: it can detect a signal and track changes, but it cannot by itself identify the room, measure the fire precisely, or choose the response. Would you like to explore how to interpret a rising versus falling ctDNA result?"
+    ],
+    "citations": [
+      {
+        "text": "Read blood measurements as a time series",
+        "href": "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway"
+      }
+    ],
+    "cartoons": [
+      {
+        "caption": "Three panels show archived tissue, sections taken onto slides, and a smaller amount of tissue remaining after use",
+        "href": "/education/local-treatment-modalities/05-tissue-and-sample-budget/#how-tissue-planning-changes-the-answer",
+        "images": [
+          {
+            "src": "/assets/wiki/education/local-treatment-modalities/images/finite-tissue-budget-light.png",
+            "alt": "Three panels show archived tissue, sections taken onto slides, and a smaller amount of tissue remaining after use"
+          },
+          {
+            "src": "/assets/wiki/education/local-treatment-modalities/images/finite-tissue-budget-dark.png",
+            "alt": "Three panels show archived tissue, sections taken onto slides, and a smaller amount of tissue remaining after use"
+          }
+        ]
+      },
+      {
+        "caption": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark",
+        "href": "/education/guides/personalized-cancer-vaccine/08-dosing-and-measuring-response/#match-each-assay-to-a-claim",
+        "images": [
+          {
+            "src": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-light.png",
+            "alt": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark"
+          },
+          {
+            "src": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-dark.png",
+            "alt": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark"
+          }
+        ]
+      },
+      {
+        "caption": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement.",
+        "href": "/education/molecular-profiling/ctdna-ppm-and-mri/#two-windows-onto-different-evidence",
+        "images": [
+          {
+            "src": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-light.png",
+            "alt": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement."
+          },
+          {
+            "src": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-dark.png",
+            "alt": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement."
+          }
+        ]
+      }
+    ]
+  }
+}
