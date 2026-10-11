@@ -204,8 +204,16 @@ test("sensitive conversation and chat endpoints sit behind the password gate", a
     const response = (await handler(new Request(`http://127.0.0.1${path}`, { ...init, headers: { host: "127.0.0.1", "content-type": "application/json" } })))!;
     expect(response.status).toBe(401);
   }
-  // The public education fallback is GET-only and never covers chat or tools.
-  for (const path of ["/api/education/chat", "/api/education/tools", "/api/education/convex-token"]) {
+  // Public learning chat has its own handler; it never aliases private chat.
+  const publicChat = await handler(new Request("http://127.0.0.1/api/education/chat"));
+  expect(publicChat?.status).toBe(405);
+  const untrustedChat = await handler(new Request("http://127.0.0.1/api/education/chat", {
+    method: "POST", headers: { origin: "https://untrusted.example", "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "x" }] }),
+  }));
+  expect(untrustedChat?.status).toBe(403);
+  // Other public aliases never expose tools or private credentials.
+  for (const path of ["/api/education/tools", "/api/education/convex-token"]) {
     const response = await handler(new Request(`http://127.0.0.1${path}`, { headers: { host: "127.0.0.1" } }));
     expect(response === null || response.status === 404).toBe(true);
   }
