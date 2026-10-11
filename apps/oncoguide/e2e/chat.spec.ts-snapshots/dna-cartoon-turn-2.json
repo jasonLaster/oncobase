@@ -2,7 +2,7 @@
   "gateway": [
     {
       "status": 200,
-      "text": "### DNA repair, simply\n\n```text\nDNA = a set of instructions\n\n     DNA gets damaged\n          ↓\n   🚨 Cell notices\n          ↓\n   ⏸️ Cell pauses\n          ↓\n   🛠️ Repair team fixes it\n          ↓\n   ▶️ Cell keeps working\n```\n\nDifferent repair teams fix different problems:\n\n- **Small mistake:** replace one DNA “letter.”\n- **Big damaged spot:** cut it out and replace it.\n- **Broken DNA:** join the pieces back together.\n- **Hard-to-fix damage:** the cell may stop dividing or die.\n\nDNA repair is really a group of processes—not one single repair system [DNA repair basics](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works). A **checkpoint** is simply the cell’s pause button. It gives the repair team time to work, but pausing does not guarantee that the damage was fixed.\n\nWould you like an even simpler cartoon about **BRCA**, one of the DNA-repair helpers?",
+      "text": "## DNA repair, very simply\n\nThink of DNA as a **book of instructions**:\n\n```text\n📖 DNA book\n      ↓\n💥 A letter is damaged or missing\n      ↓\n🚨 The cell notices the mistake\n      ↓\n🛑 The cell pauses\n      ↓\n🧰 A repair tool fixes it\n      ↓\n✅ The cell checks the repair\n```\n\nDifferent problems need different tools:\n\n- **Small mistake:** replace one damaged DNA “letter.”\n- **Copying mistake:** correct the wrong letter.\n- **Large damaged section:** cut it out and replace it.\n- **DNA break:** reconnect the broken pieces, sometimes using an undamaged matching copy as a guide.\n\nThe **DNA damage response**, or **DDR**, is the cell’s repair-and-safety system. It detects damage and may pause cell division while repair happens. If the damage cannot be handled, the cell may stop dividing or die [DNA damage and repair overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you prefer an even simpler cartoon about **one broken DNA strand** or **two broken DNA strands**?",
       "tools": [],
       "finishReason": {
         "unified": "stop"
@@ -10,7 +10,7 @@
     }
   ],
   "explanations": [
-    "### DNA repair, simply\n\n```text\nDNA = a set of instructions\n\n     DNA gets damaged\n          ↓\n   🚨 Cell notices\n          ↓\n   ⏸️ Cell pauses\n          ↓\n   🛠️ Repair team fixes it\n          ↓\n   ▶️ Cell keeps working\n```\n\nDifferent repair teams fix different problems:\n\n- **Small mistake:** replace one DNA “letter.”\n- **Big damaged spot:** cut it out and replace it.\n- **Broken DNA:** join the pieces back together.\n- **Hard-to-fix damage:** the cell may stop dividing or die.\n\nDNA repair is really a group of processes—not one single repair system [DNA repair basics](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works). A **checkpoint** is simply the cell’s pause button. It gives the repair team time to work, but pausing does not guarantee that the damage was fixed.\n\nWould you like an even simpler cartoon about **BRCA**, one of the DNA-repair helpers?"
+    "## DNA repair, very simply\n\nThink of DNA as a **book of instructions**:\n\n```text\n📖 DNA book\n      ↓\n💥 A letter is damaged or missing\n      ↓\n🚨 The cell notices the mistake\n      ↓\n🛑 The cell pauses\n      ↓\n🧰 A repair tool fixes it\n      ↓\n✅ The cell checks the repair\n```\n\nDifferent problems need different tools:\n\n- **Small mistake:** replace one damaged DNA “letter.”\n- **Copying mistake:** correct the wrong letter.\n- **Large damaged section:** cut it out and replace it.\n- **DNA break:** reconnect the broken pieces, sometimes using an undamaged matching copy as a guide.\n\nThe **DNA damage response**, or **DDR**, is the cell’s repair-and-safety system. It detects damage and may pause cell division while repair happens. If the damage cannot be handled, the cell may stop dividing or die [DNA damage and repair overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you prefer an even simpler cartoon about **one broken DNA strand** or **two broken DNA strands**?"
   ],
   "citations": [
     "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
@@ -71,11 +71,11 @@
   "errors": [],
   "rendered": {
     "explanation": [
-      "DNA repair, simply textDNA = a set of instructions DNA gets damaged ↓ 🚨 Cell notices ↓ ⏸️ Cell pauses ↓ 🛠️ Repair team fixes it ↓ ▶️ Cell keeps working Different repair teams fix different problems: Small mistake: replace one DNA “letter.” Big damaged spot: cut it out and replace it. Broken DNA: join the pieces back together. Hard-to-fix damage: the cell may stop dividing or die. DNA repair is really a group of processes—not one single repair system DNA repair basics. A checkpoint is simply the cell’s pause button. It gives the repair team time to work, but pausing does not guarantee that the damage was fixed. Would you like an even simpler cartoon about BRCA, one of the DNA-repair helpers?"
+      "DNA repair, very simply Think of DNA as a book of instructions: text📖 DNA book ↓💥 A letter is damaged or missing ↓🚨 The cell notices the mistake ↓🛑 The cell pauses ↓🧰 A repair tool fixes it ↓✅ The cell checks the repair Different problems need different tools: Small mistake: replace one damaged DNA “letter.” Copying mistake: correct the wrong letter. Large damaged section: cut it out and replace it. DNA break: reconnect the broken pieces, sometimes using an undamaged matching copy as a guide. The DNA damage response, or DDR, is the cell’s repair-and-safety system. It detects damage and may pause cell division while repair happens. If the damage cannot be handled, the cell may stop dividing or die DNA damage and repair overview. Would you prefer an even simpler cartoon about one broken DNA strand or two broken DNA strands?"
     ],
     "citations": [
       {
-        "text": "DNA repair basics",
+        "text": "DNA damage and repair overview",
         "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
       }
     ],

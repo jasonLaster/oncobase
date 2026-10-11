@@ -5,8 +5,29 @@
       "text": "",
       "tools": [
         {
+          "name": "lesson_sections",
+          "input": "{\"slug\":\"wiki/education/guides/personalized-cancer-vaccine/index\"}"
+        },
+        {
+          "name": "lesson_sections",
+          "input": "{\"slug\":\"wiki/education/guides/engineered-cell-therapy/index\"}"
+        }
+      ],
+      "finishReason": {
+        "unified": "tool-calls"
+      }
+    },
+    {
+      "status": 200,
+      "text": "",
+      "tools": [
+        {
           "name": "read_section",
-          "input": "{\"id\":\"/education/guides/personalized-cancer-vaccine/index/\"}"
+          "input": "{\"id\":\"/education/guides/personalized-cancer-vaccine/index/#start-here\"}"
+        },
+        {
+          "name": "read_section",
+          "input": "{\"id\":\"/education/guides/personalized-cancer-vaccine/index/#the-big-ideas\"}"
         },
         {
           "name": "read_section",
@@ -14,7 +35,11 @@
         },
         {
           "name": "read_section",
-          "input": "{\"id\":\"/education/guides/engineered-cell-therapy/index/\"}"
+          "input": "{\"id\":\"/education/guides/engineered-cell-therapy/index/#start-here\"}"
+        },
+        {
+          "name": "read_section",
+          "input": "{\"id\":\"/education/guides/engineered-cell-therapy/index/#the-big-ideas\"}"
         },
         {
           "name": "read_section",
@@ -31,19 +56,19 @@
       "tools": [
         {
           "name": "search_education",
-          "input": "{\"query\":\"personalized cancer vaccine guide target selection tumor normal data candidate targets\"}"
+          "input": "{\"query\":\"personalized cancer vaccine guide target selection tumor normal data candidate targets neoantigen\"}"
         },
         {
           "name": "search_education",
-          "input": "{\"query\":\"engineered cell therapy guide choosing a target usable safety window target selection\"}"
+          "input": "{\"query\":\"engineered cell therapy guide choosing a target accessible surface target safety window\"}"
         },
         {
           "name": "search_education",
-          "input": "{\"query\":\"personalized cancer vaccine recognition tumor neoantigen T cell receptor\"}"
+          "input": "{\"query\":\"How a personalized cancer vaccine is designed Start here recognition target selection\"}"
         },
         {
           "name": "search_education",
-          "input": "{\"query\":\"engineered cell therapy CAR target recognition surface antigen peptide HLA\"}"
+          "input": "{\"query\":\"How engineered immune cells can attack a solid tumor Start here recognition target selection\"}"
         }
       ],
       "finishReason": {
@@ -52,7 +77,7 @@
     },
     {
       "status": 200,
-      "text": "**Simple comparison:** a personalized cancer vaccine **teaches the patient’s own immune system what to look for**. Engineered cell therapy **adds a chosen recognition receptor to immune cells before—or sometimes inside—the body**.\n\n- **Personalized cancer vaccine:** Researchers start with tumor-specific DNA changes, then check whether the altered message is expressed, processed into a peptide, displayed by the patient’s HLA molecule, and recognized by T cells. The vaccine helps prime and expand those T cells. It does not guarantee that every tumor cell displays the target, or that the response will kill cancer [vaccine overview](/education/guides/personalized-cancer-vaccine/index/#the-big-ideas) [target selection](/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/).\n\n- **Engineered cell therapy:** Researchers install a receptor with a defined target. A **CAR** usually recognizes an accessible molecule directly on the tumor-cell surface. A conventional **TCR** recognizes an internal protein only after it is processed into a peptide and displayed with HLA. Target selection therefore asks both, “Will the receptor recognize enough tumor?” and “Could it also attack healthy tissue?” [cell-therapy overview](/education/guides/engineered-cell-therapy/index/#the-big-ideas) [target selection](/education/guides/engineered-cell-therapy/02-choosing-a-target/#specify-the-target-at-the-level-the-receptor-reads).\n\n**Analogy:** a vaccine distributes a wanted poster and trains local officers; engineered cells are issued officers carrying a specific scanner.\n\nWould you like a simple side-by-side example comparing a **neoantigen vaccine**, a **CAR**, and a **TCR therapy**?",
+      "text": "Both approaches aim to help T cells recognize cancer, but they do it at different points.\n\n**Personalized cancer vaccine:** it supplies selected tumor material—often based on tumor-specific mutations—to **train and expand the person’s existing T cells**. The T cell still uses its natural **T-cell receptor (TCR)**, which recognizes a tumor-derived peptide only when it is displayed by the right **HLA** molecule. Therefore, target selection asks: Is the mutation truly in the tumor, expressed, processed into a peptide, displayed, and recognizable? [Vaccine overview](/education/guides/personalized-cancer-vaccine/index/#the-big-ideas) [Read tumor and normal data](/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/)\n\n**Engineered cell therapy:** it changes the T cell by giving it a selected receptor. A **CAR** usually recognizes an accessible molecule directly on the tumor-cell surface; an engineered **TCR** recognizes a peptide–HLA pair. Target selection emphasizes enough tumor recognition while limiting recognition of healthy tissue, including checking the exact epitope and possible cross-reactivity. [Engineered-cell overview](/education/guides/engineered-cell-therapy/index/#the-big-ideas) [Choosing a target](/education/guides/engineered-cell-therapy/02-choosing-a-target/)\n\n**Analogy:** a vaccine teaches existing scouts what clues to look for; engineered therapy equips the scouts with a new detection device.\n\nWould you like a simple side-by-side diagram of **vaccine vs CAR-T vs TCR-T**?",
       "tools": [],
       "finishReason": {
         "unified": "stop"
@@ -60,13 +85,13 @@
     }
   ],
   "explanations": [
-    "**Simple comparison:** a personalized cancer vaccine **teaches the patient’s own immune system what to look for**. Engineered cell therapy **adds a chosen recognition receptor to immune cells before—or sometimes inside—the body**.\n\n- **Personalized cancer vaccine:** Researchers start with tumor-specific DNA changes, then check whether the altered message is expressed, processed into a peptide, displayed by the patient’s HLA molecule, and recognized by T cells. The vaccine helps prime and expand those T cells. It does not guarantee that every tumor cell displays the target, or that the response will kill cancer [vaccine overview](/education/guides/personalized-cancer-vaccine/index/#the-big-ideas) [target selection](/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/).\n\n- **Engineered cell therapy:** Researchers install a receptor with a defined target. A **CAR** usually recognizes an accessible molecule directly on the tumor-cell surface. A conventional **TCR** recognizes an internal protein only after it is processed into a peptide and displayed with HLA. Target selection therefore asks both, “Will the receptor recognize enough tumor?” and “Could it also attack healthy tissue?” [cell-therapy overview](/education/guides/engineered-cell-therapy/index/#the-big-ideas) [target selection](/education/guides/engineered-cell-therapy/02-choosing-a-target/#specify-the-target-at-the-level-the-receptor-reads).\n\n**Analogy:** a vaccine distributes a wanted poster and trains local officers; engineered cells are issued officers carrying a specific scanner.\n\nWould you like a simple side-by-side example comparing a **neoantigen vaccine**, a **CAR**, and a **TCR therapy**?"
+    "Both approaches aim to help T cells recognize cancer, but they do it at different points.\n\n**Personalized cancer vaccine:** it supplies selected tumor material—often based on tumor-specific mutations—to **train and expand the person’s existing T cells**. The T cell still uses its natural **T-cell receptor (TCR)**, which recognizes a tumor-derived peptide only when it is displayed by the right **HLA** molecule. Therefore, target selection asks: Is the mutation truly in the tumor, expressed, processed into a peptide, displayed, and recognizable? [Vaccine overview](/education/guides/personalized-cancer-vaccine/index/#the-big-ideas) [Read tumor and normal data](/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/)\n\n**Engineered cell therapy:** it changes the T cell by giving it a selected receptor. A **CAR** usually recognizes an accessible molecule directly on the tumor-cell surface; an engineered **TCR** recognizes a peptide–HLA pair. Target selection emphasizes enough tumor recognition while limiting recognition of healthy tissue, including checking the exact epitope and possible cross-reactivity. [Engineered-cell overview](/education/guides/engineered-cell-therapy/index/#the-big-ideas) [Choosing a target](/education/guides/engineered-cell-therapy/02-choosing-a-target/)\n\n**Analogy:** a vaccine teaches existing scouts what clues to look for; engineered therapy equips the scouts with a new detection device.\n\nWould you like a simple side-by-side diagram of **vaccine vs CAR-T vs TCR-T**?"
   ],
   "citations": [
     "/education/guides/personalized-cancer-vaccine/index/#the-big-ideas",
     "/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/",
     "/education/guides/engineered-cell-therapy/index/#the-big-ideas",
-    "/education/guides/engineered-cell-therapy/02-choosing-a-target/#specify-the-target-at-the-level-the-receptor-reads"
+    "/education/guides/engineered-cell-therapy/02-choosing-a-target/"
   ],
   "sections": [
     {
@@ -97,22 +122,22 @@
       "excerpt": "A safety feature must control a measured harm in the actual product and setting. A quieter signal, fewer cells and recovery from injury are different outcomes. This is step seven of the engineered-cell guide.\n\nBefore you start: Chimeric ant"
     },
     {
-      "id": "/education/guides/personalized-cancer-vaccine/index/",
+      "id": "/education/guides/personalized-cancer-vaccine/index/#the-big-ideas",
       "slug": "wiki/education/guides/personalized-cancer-vaccine/index",
       "pageTitle": "How a personalized cancer vaccine is designed",
-      "heading": "Start here",
-      "href": "/education/guides/personalized-cancer-vaccine/index/",
+      "heading": "The big ideas",
+      "href": "/education/guides/personalized-cancer-vaccine/index/#the-big-ideas",
       "images": [],
-      "excerpt": "Follow a tumor alteration through discovery, target selection, manufacture and testing of the immune response. A vaccine is a defined intervention. A list of mutations is only one input."
+      "excerpt": "A neoantigen comes from altered sequence, but most candidate sequences still face expression, processing and display gates.\nHuman leukocyte antigen (HLA) displays fragments; a T-cell receptor (TCR) recognizes the fragment together with its "
     },
     {
-      "id": "/education/guides/engineered-cell-therapy/index/",
+      "id": "/education/guides/engineered-cell-therapy/index/#the-big-ideas",
       "slug": "wiki/education/guides/engineered-cell-therapy/index",
       "pageTitle": "How engineered immune cells can attack a solid tumor",
-      "heading": "Start here",
-      "href": "/education/guides/engineered-cell-therapy/index/",
+      "heading": "The big ideas",
+      "href": "/education/guides/engineered-cell-therapy/index/#the-big-ideas",
       "images": [],
-      "excerpt": "Follow a living therapy from target choice and receptor design to delivery, tumor access, safety and evidence. This path includes engineering cells outside the body and engineering them inside it."
+      "excerpt": "A cell therapy as a living drug can change number, location and state. The cell, its genetic instructions and its receptor protein are different objects.\nA chimeric antigen receptor (CAR) usually reads an accessible surface target. A conven"
     }
   ],
   "illustrations": [
@@ -142,24 +167,24 @@
   "errors": [],
   "rendered": {
     "explanation": [
-      "Simple comparison: a personalized cancer vaccine teaches the patient’s own immune system what to look for. Engineered cell therapy adds a chosen recognition receptor to immune cells before—or sometimes inside—the body. Personalized cancer vaccine: Researchers start with tumor-specific DNA changes, then check whether the altered message is expressed, processed into a peptide, displayed by the patient’s HLA molecule, and recognized by T cells. The vaccine helps prime and expand those T cells. It does not guarantee that every tumor cell displays the target, or that the response will kill cancer vaccine overview target selection. Engineered cell therapy: Researchers install a receptor with a defined target. A CAR usually recognizes an accessible molecule directly on the tumor-cell surface. A conventional TCR recognizes an internal protein only after it is processed into a peptide and displayed with HLA. Target selection therefore asks both, “Will the receptor recognize enough tumor?” and “Could it also attack healthy tissue?” cell-therapy overview target selection. Analogy: a vaccine distributes a wanted poster and trains local officers; engineered cells are issued officers carrying a specific scanner. Would you like a simple side-by-side example comparing a neoantigen vaccine, a CAR, and a TCR therapy?"
+      "Both approaches aim to help T cells recognize cancer, but they do it at different points. Personalized cancer vaccine: it supplies selected tumor material—often based on tumor-specific mutations—to train and expand the person’s existing T cells. The T cell still uses its natural T-cell receptor (TCR), which recognizes a tumor-derived peptide only when it is displayed by the right HLA molecule. Therefore, target selection asks: Is the mutation truly in the tumor, expressed, processed into a peptide, displayed, and recognizable? Vaccine overview Read tumor and normal data Engineered cell therapy: it changes the T cell by giving it a selected receptor. A CAR usually recognizes an accessible molecule directly on the tumor-cell surface; an engineered TCR recognizes a peptide–HLA pair. Target selection emphasizes enough tumor recognition while limiting recognition of healthy tissue, including checking the exact epitope and possible cross-reactivity. Engineered-cell overview Choosing a target Analogy: a vaccine teaches existing scouts what clues to look for; engineered therapy equips the scouts with a new detection device. Would you like a simple side-by-side diagram of vaccine vs CAR-T vs TCR-T?"
     ],
     "citations": [
       {
-        "text": "vaccine overview",
+        "text": "Vaccine overview",
         "href": "/education/guides/personalized-cancer-vaccine/index/#the-big-ideas"
       },
       {
-        "text": "target selection",
+        "text": "Read tumor and normal data",
         "href": "/education/guides/personalized-cancer-vaccine/02-reading-tumor-and-normal-data/"
       },
       {
-        "text": "cell-therapy overview",
+        "text": "Engineered-cell overview",
         "href": "/education/guides/engineered-cell-therapy/index/#the-big-ideas"
       },
       {
-        "text": "target selection",
-        "href": "/education/guides/engineered-cell-therapy/02-choosing-a-target/#specify-the-target-at-the-level-the-receptor-reads"
+        "text": "Choosing a target",
+        "href": "/education/guides/engineered-cell-therapy/02-choosing-a-target/"
       }
     ],
     "cartoons": [

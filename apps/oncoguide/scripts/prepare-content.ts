@@ -14,7 +14,7 @@ if (!process.env.ONCOGUIDE_CONTENT_DIR) {
 function walk(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]);
 }
-const sources: SourcePage[] = walk(path.join(root, "wiki/education")).filter(file => file.endsWith(".md")).map(file => ({ path: path.relative(root, file).split(path.sep).join("/"), raw: fs.readFileSync(file, "utf8") }));
+const sources: SourcePage[] = walk(path.join(root, "wiki/education")).filter(file => file.endsWith(".md")).sort().map(file => ({ path: path.relative(root, file).split(path.sep).join("/"), raw: fs.readFileSync(file, "utf8") }));
 fs.mkdirSync(".generated", { recursive: true });
 fs.mkdirSync("public", { recursive: true });
 fs.rmSync("public/assets", { recursive: true, force: true });

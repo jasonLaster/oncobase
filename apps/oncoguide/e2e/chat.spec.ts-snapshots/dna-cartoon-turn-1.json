@@ -6,7 +6,7 @@
       "tools": [
         {
           "name": "search_education",
-          "input": "{\"query\":\"DNA repair cartoon illustration DNA damage repair route checkpoint response\"}"
+          "input": "{\"query\":\"DNA repair cartoon illustration damage repair checkpoint DNA damage response\"}"
         }
       ],
       "finishReason": {
@@ -15,33 +15,7 @@
     },
     {
       "status": 200,
-      "text": "",
-      "tools": [
-        {
-          "name": "search_education",
-          "input": "{\"query\":\"site:education DNA damage repair \\\"cartoon\\\" OR \\\"caption\\\"\"}"
-        }
-      ],
-      "finishReason": {
-        "unified": "tool-calls"
-      }
-    },
-    {
-      "status": 200,
-      "text": "",
-      "tools": [
-        {
-          "name": "read_section",
-          "input": "{\"id\":\"/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works\"}"
-        }
-      ],
-      "finishReason": {
-        "unified": "tool-calls"
-      }
-    },
-    {
-      "status": 200,
-      "text": "### DNA repair: a tiny cartoon\n\n```text\n        DNA “zipper”\n     =================\n     =================\n             ↓\n       ⚠️ Damage appears\n     ======= X =========\n\n             ↓\n     👀 Sensor spots the problem\n             ↓\n     🚦 Checkpoint says:\n        “Pause copying!”\n\n             ↓\n   Choose the repair crew:\n   \n   🩹 BER: fix one damaged DNA “letter”\n   ✂️  NER: remove a bulky damaged stretch\n   🔤 MMR: correct a copying mismatch\n   🧩 HR: use an intact matching template\n   🔗 End joining: reconnect broken ends\n\n             ↓\n     ✅ Repaired and continue\n     ⏸️  Stop dividing\n     💀 Or, if damage is too severe, die\n```\n\nDNA repair is not one mechanism but a group of systems that recognize and correct different kinds of DNA damage [DNA damage and repair](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works). Think of DNA as a library book: different repair teams fix a damaged letter, replace a stained strip, or reconnect a torn page. A **checkpoint** is like a pause button—it gives the cell time to repair, but the warning signal alone does not prove that repair succeeded.\n\nOne key distinction: **damage** can be repaired before it becomes a lasting **mutation** [The intuition](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition).\n\nWould you like the next cartoon to focus on **BRCA/HR repair** or on **how PARP inhibitors exploit repair weaknesses**?",
+      "text": "## DNA repair, as a cartoon\n\nImagine DNA as a **zipper containing instructions**:\n\n```text\nNormal DNA zipper\n   A—T\n   C—G\n   G—C\n   T—A\n\n        💥 Something goes wrong\n   A—T\n   C—?\n   G—C     ← damaged or mismatched letter\n   T—A\n\n        🚨 DNA damage response\n   “Stop copying! Find the problem!”\n\n        🧰 Repair crew chooses a tool\n   • BER: replaces one damaged letter\n   • MMR: fixes a copying mismatch\n   • NER: cuts out a bulky damaged stretch\n   • HR: repairs a two-strand break using a matching template\n   • End joining: reconnects broken ends without that template\n\n        ✅ Then the cell checks the result\n   Repair, temporary tolerance, stopped growth—or cell death\n```\n\nDNA repair is not one mechanism; it is a set of processes matched to different kinds of damage. The **DNA damage response (DDR)** is the larger coordination system: it detects trouble, sends warning signals, activates checkpoints, and helps choose what happens next. A checkpoint is like a **red traffic light** that pauses the cell cycle, but seeing the red light does not prove the road has been repaired [DNA damage and repair overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you like a cartoon next about **BRCA/HR repair**, **PARP inhibitors**, or **how DNA breaks happen**?",
       "tools": [],
       "finishReason": {
         "unified": "stop"
@@ -49,11 +23,10 @@
     }
   ],
   "explanations": [
-    "### DNA repair: a tiny cartoon\n\n```text\n        DNA “zipper”\n     =================\n     =================\n             ↓\n       ⚠️ Damage appears\n     ======= X =========\n\n             ↓\n     👀 Sensor spots the problem\n             ↓\n     🚦 Checkpoint says:\n        “Pause copying!”\n\n             ↓\n   Choose the repair crew:\n   \n   🩹 BER: fix one damaged DNA “letter”\n   ✂️  NER: remove a bulky damaged stretch\n   🔤 MMR: correct a copying mismatch\n   🧩 HR: use an intact matching template\n   🔗 End joining: reconnect broken ends\n\n             ↓\n     ✅ Repaired and continue\n     ⏸️  Stop dividing\n     💀 Or, if damage is too severe, die\n```\n\nDNA repair is not one mechanism but a group of systems that recognize and correct different kinds of DNA damage [DNA damage and repair](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works). Think of DNA as a library book: different repair teams fix a damaged letter, replace a stained strip, or reconnect a torn page. A **checkpoint** is like a pause button—it gives the cell time to repair, but the warning signal alone does not prove that repair succeeded.\n\nOne key distinction: **damage** can be repaired before it becomes a lasting **mutation** [The intuition](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition).\n\nWould you like the next cartoon to focus on **BRCA/HR repair** or on **how PARP inhibitors exploit repair weaknesses**?"
+    "## DNA repair, as a cartoon\n\nImagine DNA as a **zipper containing instructions**:\n\n```text\nNormal DNA zipper\n   A—T\n   C—G\n   G—C\n   T—A\n\n        💥 Something goes wrong\n   A—T\n   C—?\n   G—C     ← damaged or mismatched letter\n   T—A\n\n        🚨 DNA damage response\n   “Stop copying! Find the problem!”\n\n        🧰 Repair crew chooses a tool\n   • BER: replaces one damaged letter\n   • MMR: fixes a copying mismatch\n   • NER: cuts out a bulky damaged stretch\n   • HR: repairs a two-strand break using a matching template\n   • End joining: reconnects broken ends without that template\n\n        ✅ Then the cell checks the result\n   Repair, temporary tolerance, stopped growth—or cell death\n```\n\nDNA repair is not one mechanism; it is a set of processes matched to different kinds of damage. The **DNA damage response (DDR)** is the larger coordination system: it detects trouble, sends warning signals, activates checkpoints, and helps choose what happens next. A checkpoint is like a **red traffic light** that pauses the cell cycle, but seeing the red light does not prove the road has been repaired [DNA damage and repair overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you like a cartoon next about **BRCA/HR repair**, **PARP inhibitors**, or **how DNA breaks happen**?"
   ],
   "citations": [
-    "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
-    "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition"
+    "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
   ],
   "sections": [
     {
@@ -111,16 +84,12 @@
   "errors": [],
   "rendered": {
     "explanation": [
-      "DNA repair: a tiny cartoon text DNA “zipper” ================= ================= ↓ ⚠️ Damage appears ======= X ========= ↓ 👀 Sensor spots the problem ↓ 🚦 Checkpoint says: “Pause copying!” ↓ Choose the repair crew: 🩹 BER: fix one damaged DNA “letter” ✂️ NER: remove a bulky damaged stretch 🔤 MMR: correct a copying mismatch 🧩 HR: use an intact matching template 🔗 End joining: reconnect broken ends ↓ ✅ Repaired and continue ⏸️ Stop dividing 💀 Or, if damage is too severe, die DNA repair is not one mechanism but a group of systems that recognize and correct different kinds of DNA damage DNA damage and repair. Think of DNA as a library book: different repair teams fix a damaged letter, replace a stained strip, or reconnect a torn page. A checkpoint is like a pause button—it gives the cell time to repair, but the warning signal alone does not prove that repair succeeded. One key distinction: damage can be repaired before it becomes a lasting mutation The intuition. Would you like the next cartoon to focus on BRCA/HR repair or on how PARP inhibitors exploit repair weaknesses?"
+      "DNA repair, as a cartoon Imagine DNA as a zipper containing instructions: textNormal DNA zipper A—T C—G G—C T—A 💥 Something goes wrong A—T C—? G—C ← damaged or mismatched letter T—A 🚨 DNA damage response “Stop copying! Find the problem!” 🧰 Repair crew chooses a tool • BER: replaces one damaged letter • MMR: fixes a copying mismatch • NER: cuts out a bulky damaged stretch • HR: repairs a two-strand break using a matching template • End joining: reconnects broken ends without that template ✅ Then the cell checks the result Repair, temporary tolerance, stopped growth—or cell death DNA repair is not one mechanism; it is a set of processes matched to different kinds of damage. The DNA damage response (DDR) is the larger coordination system: it detects trouble, sends warning signals, activates checkpoints, and helps choose what happens next. A checkpoint is like a red traffic light that pauses the cell cycle, but seeing the red light does not prove the road has been repaired DNA damage and repair overview. Would you like a cartoon next about BRCA/HR repair, PARP inhibitors, or how DNA breaks happen?"
     ],
     "citations": [
       {
-        "text": "DNA damage and repair",
+        "text": "DNA damage and repair overview",
         "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
-      },
-      {
-        "text": "The intuition",
-        "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition"
       }
     ],
     "cartoons": [

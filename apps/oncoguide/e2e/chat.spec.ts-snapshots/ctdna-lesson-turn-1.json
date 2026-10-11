@@ -2,7 +2,28 @@
   "gateway": [
     {
       "status": 200,
-      "text": "A blood measurement such as **ctDNA**—small DNA fragments released by tumor cells into the bloodstream—can tell us whether the assay detected a tumor-associated signal **at that time**, using that test’s specific denominator and detection limit. Repeated measurements can show whether the signal is rising, falling, or remaining detectable, making the result a **time series rather than a standalone verdict** [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/#takeaway).\n\nIt may help assess molecular residual disease (MRD), meaning cancer-related material that remains below what imaging can readily show. But “detected” does not automatically tell us **where** the disease is, how much tumor is present, or whether a particular treatment will help. A negative result also does not prove that no cancer exists: the amount shed into blood, sampling timing, assay sensitivity, and biological differences all matter.\n\nThink of it like a smoke detector: it can detect a signal and track changes, but it cannot by itself identify the room, measure the fire precisely, or choose the response.\n\nWould you like to explore **how to interpret a rising versus falling ctDNA result**?",
+      "text": "",
+      "tools": [
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"ctDNA MRD what can blood measurement tell us detection location treatment decision viability prognosis predictive\"}"
+        },
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"minimal residual disease ctDNA assay detection limit false negative positive imaging discordance\"}"
+        },
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"blood result time series ctDNA interpretation date denominator limit of detection\"}"
+        }
+      ],
+      "finishReason": {
+        "unified": "tool-calls"
+      }
+    },
+    {
+      "status": 200,
+      "text": "A blood test for **ctDNA/MRD** can tell us whether the assay detected a tumor-associated molecular signal in that particular sample. Repeated results can show a **trend**—for example, whether a qualifying signal is appearing, disappearing, or changing over time. In some studied settings, a positive result is associated with a higher chance of later recurrence, so it may provide **prognostic** information (forecasting risk) [MRD: how it works](/education/concepts/measurement/liquid-biopsy/mrd/#how-it-works).\n\nIt **cannot**, by itself, tell us:\n\n- **Where** cancer is located or how much tumor is present.\n- That every detected DNA fragment came from a currently living cancer cell.\n- That a negative result proves there is no residual disease; the tumor may shed little DNA, the sample may be limited, or the signal may be below the assay’s detection limit.\n- That recurrence is certain after a positive result.\n- Which treatment will help, or that treatment should be changed based on the result alone.\n\nThink of it as a **smoke detector**, not a map: it can signal that something may be present, but it does not show the room, the size of the fire, or the best response. Interpretation must keep the sample date, assay, targets, units, denominator, and detection rule attached [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/).\n\nWould you like to explore **what a positive result means**, **what a negative result means**, or **how to compare it with imaging**?",
       "tools": [],
       "finishReason": {
         "unified": "stop"
@@ -10,10 +31,11 @@
     }
   ],
   "explanations": [
-    "A blood measurement such as **ctDNA**—small DNA fragments released by tumor cells into the bloodstream—can tell us whether the assay detected a tumor-associated signal **at that time**, using that test’s specific denominator and detection limit. Repeated measurements can show whether the signal is rising, falling, or remaining detectable, making the result a **time series rather than a standalone verdict** [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/#takeaway).\n\nIt may help assess molecular residual disease (MRD), meaning cancer-related material that remains below what imaging can readily show. But “detected” does not automatically tell us **where** the disease is, how much tumor is present, or whether a particular treatment will help. A negative result also does not prove that no cancer exists: the amount shed into blood, sampling timing, assay sensitivity, and biological differences all matter.\n\nThink of it like a smoke detector: it can detect a signal and track changes, but it cannot by itself identify the room, measure the fire precisely, or choose the response.\n\nWould you like to explore **how to interpret a rising versus falling ctDNA result**?"
+    "A blood test for **ctDNA/MRD** can tell us whether the assay detected a tumor-associated molecular signal in that particular sample. Repeated results can show a **trend**—for example, whether a qualifying signal is appearing, disappearing, or changing over time. In some studied settings, a positive result is associated with a higher chance of later recurrence, so it may provide **prognostic** information (forecasting risk) [MRD: how it works](/education/concepts/measurement/liquid-biopsy/mrd/#how-it-works).\n\nIt **cannot**, by itself, tell us:\n\n- **Where** cancer is located or how much tumor is present.\n- That every detected DNA fragment came from a currently living cancer cell.\n- That a negative result proves there is no residual disease; the tumor may shed little DNA, the sample may be limited, or the signal may be below the assay’s detection limit.\n- That recurrence is certain after a positive result.\n- Which treatment will help, or that treatment should be changed based on the result alone.\n\nThink of it as a **smoke detector**, not a map: it can signal that something may be present, but it does not show the room, the size of the fire, or the best response. Interpretation must keep the sample date, assay, targets, units, denominator, and detection rule attached [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/).\n\nWould you like to explore **what a positive result means**, **what a negative result means**, or **how to compare it with imaging**?"
   ],
   "citations": [
-    "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway"
+    "/education/concepts/measurement/liquid-biopsy/mrd/#how-it-works",
+    "/education/molecular-profiling/06-ctdna-and-mrd/"
   ],
   "sections": [
     {
@@ -71,12 +93,16 @@
   "errors": [],
   "rendered": {
     "explanation": [
-      "A blood measurement such as ctDNA—small DNA fragments released by tumor cells into the bloodstream—can tell us whether the assay detected a tumor-associated signal at that time, using that test’s specific denominator and detection limit. Repeated measurements can show whether the signal is rising, falling, or remaining detectable, making the result a time series rather than a standalone verdict Read blood measurements as a time series. It may help assess molecular residual disease (MRD), meaning cancer-related material that remains below what imaging can readily show. But “detected” does not automatically tell us where the disease is, how much tumor is present, or whether a particular treatment will help. A negative result also does not prove that no cancer exists: the amount shed into blood, sampling timing, assay sensitivity, and biological differences all matter. Think of it like a smoke detector: it can detect a signal and track changes, but it cannot by itself identify the room, measure the fire precisely, or choose the response. Would you like to explore how to interpret a rising versus falling ctDNA result?"
+      "A blood test for ctDNA/MRD can tell us whether the assay detected a tumor-associated molecular signal in that particular sample. Repeated results can show a trend—for example, whether a qualifying signal is appearing, disappearing, or changing over time. In some studied settings, a positive result is associated with a higher chance of later recurrence, so it may provide prognostic information (forecasting risk) MRD: how it works. It cannot, by itself, tell us: Where cancer is located or how much tumor is present. That every detected DNA fragment came from a currently living cancer cell. That a negative result proves there is no residual disease; the tumor may shed little DNA, the sample may be limited, or the signal may be below the assay’s detection limit. That recurrence is certain after a positive result. Which treatment will help, or that treatment should be changed based on the result alone. Think of it as a smoke detector, not a map: it can signal that something may be present, but it does not show the room, the size of the fire, or the best response. Interpretation must keep the sample date, assay, targets, units, denominator, and detection rule attached Read blood measurements as a time series. Would you like to explore what a positive result means, what a negative result means, or how to compare it with imaging?"
     ],
     "citations": [
       {
+        "text": "MRD: how it works",
+        "href": "/education/concepts/measurement/liquid-biopsy/mrd/#how-it-works"
+      },
+      {
         "text": "Read blood measurements as a time series",
-        "href": "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway"
+        "href": "/education/molecular-profiling/06-ctdna-and-mrd/"
       }
     ],
     "cartoons": [

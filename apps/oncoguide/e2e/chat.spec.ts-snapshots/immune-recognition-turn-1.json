@@ -2,28 +2,7 @@
   "gateway": [
     {
       "status": 200,
-      "text": "",
-      "tools": [
-        {
-          "name": "search_education",
-          "input": "{\"query\":\"how immune system recognizes cancer antigen presentation dendritic cells T cells HLA tumor cells\"}"
-        },
-        {
-          "name": "search_education",
-          "input": "{\"query\":\"cancer immunity cycle immune recognition antigen display T cell priming\"}"
-        },
-        {
-          "name": "search_education",
-          "input": "{\"query\":\"immune escape cancer recognition HLA antigen presentation checkpoint\"}"
-        }
-      ],
-      "finishReason": {
-        "unified": "tool-calls"
-      }
-    },
-    {
-      "status": 200,
-      "text": "The immune system recognizes cancer by inspecting **molecular features**, not by detecting a universal “cancer label.”\n\nA simplified route is:\n\n1. **Cancer cells make proteins**, including altered proteins caused by mutations. Small protein pieces are displayed on the cell surface by **HLA** molecules—human proteins that present fragments for inspection.\n2. **Dendritic cells** collect tumor material, process it, and display fragments. A T cell whose **T-cell receptor (TCR)** fits the peptide–HLA pair may then be activated.\n3. Activation needs more than recognition: supporting costimulatory signals and cytokines help determine whether the T cell becomes functional rather than inactive [T-cell priming](/education/concepts/immunology/t-cells/t-cell-priming-three-signals/#how-it-works).\n4. Activated immune cells must travel into the tumor, find cells displaying the matching target, and kill susceptible cells. This linked sequence is called the **cancer-immunity cycle** [cancer-immunity cycle](/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works).\n\nThink of it like a security system: the peptide–HLA pair is the displayed ID badge, while the TCR is the scanner. Cancer can escape by hiding the badge, changing the display system, excluding immune cells, or applying inhibitory signals.\n\nWould you like to go deeper into **HLA presentation**, **T-cell activation**, or **how tumors evade recognition**?",
+      "text": "The immune system does not recognize “cancer” with one universal detector. Different immune cells use different clues and rules.\n\nFor conventional T cells, a cancer cell—or another cell that has taken up tumor material—can display a short protein fragment on a surface molecule called **HLA** (human leukocyte antigen). A **T-cell receptor (TCR)** checks the combined HLA–fragment feature. If the match is suitable, and the required activation signals are present, the T cell may become able to attack. This is a chain of steps: a DNA change must affect a protein, a fragment must be produced and displayed, and a T cell must recognize it [Follow the route to immune recognition](/education/guides/start-here/02-follow-immune-recognition/#think-of-a-team-with-different-jobs).\n\nOther immune systems work differently. Antibodies recognize accessible molecular shapes, while natural killer cells weigh activating and inhibitory signals. Even finding T cells in a tumor does not prove they recognize cancer or can kill it [The map](/education/guides/how-the-immune-system-fights-cancer/index/#the-map).\n\nWould you like to explore **T-cell recognition**, **antibodies**, or **how tumors evade recognition** next?",
       "tools": [],
       "finishReason": {
         "unified": "stop"
@@ -31,11 +10,11 @@
     }
   ],
   "explanations": [
-    "The immune system recognizes cancer by inspecting **molecular features**, not by detecting a universal “cancer label.”\n\nA simplified route is:\n\n1. **Cancer cells make proteins**, including altered proteins caused by mutations. Small protein pieces are displayed on the cell surface by **HLA** molecules—human proteins that present fragments for inspection.\n2. **Dendritic cells** collect tumor material, process it, and display fragments. A T cell whose **T-cell receptor (TCR)** fits the peptide–HLA pair may then be activated.\n3. Activation needs more than recognition: supporting costimulatory signals and cytokines help determine whether the T cell becomes functional rather than inactive [T-cell priming](/education/concepts/immunology/t-cells/t-cell-priming-three-signals/#how-it-works).\n4. Activated immune cells must travel into the tumor, find cells displaying the matching target, and kill susceptible cells. This linked sequence is called the **cancer-immunity cycle** [cancer-immunity cycle](/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works).\n\nThink of it like a security system: the peptide–HLA pair is the displayed ID badge, while the TCR is the scanner. Cancer can escape by hiding the badge, changing the display system, excluding immune cells, or applying inhibitory signals.\n\nWould you like to go deeper into **HLA presentation**, **T-cell activation**, or **how tumors evade recognition**?"
+    "The immune system does not recognize “cancer” with one universal detector. Different immune cells use different clues and rules.\n\nFor conventional T cells, a cancer cell—or another cell that has taken up tumor material—can display a short protein fragment on a surface molecule called **HLA** (human leukocyte antigen). A **T-cell receptor (TCR)** checks the combined HLA–fragment feature. If the match is suitable, and the required activation signals are present, the T cell may become able to attack. This is a chain of steps: a DNA change must affect a protein, a fragment must be produced and displayed, and a T cell must recognize it [Follow the route to immune recognition](/education/guides/start-here/02-follow-immune-recognition/#think-of-a-team-with-different-jobs).\n\nOther immune systems work differently. Antibodies recognize accessible molecular shapes, while natural killer cells weigh activating and inhibitory signals. Even finding T cells in a tumor does not prove they recognize cancer or can kill it [The map](/education/guides/how-the-immune-system-fights-cancer/index/#the-map).\n\nWould you like to explore **T-cell recognition**, **antibodies**, or **how tumors evade recognition** next?"
   ],
   "citations": [
-    "/education/concepts/immunology/t-cells/t-cell-priming-three-signals/#how-it-works",
-    "/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works"
+    "/education/guides/start-here/02-follow-immune-recognition/#think-of-a-team-with-different-jobs",
+    "/education/guides/how-the-immune-system-fights-cancer/index/#the-map"
   ],
   "sections": [
     {
@@ -93,16 +72,16 @@
   "errors": [],
   "rendered": {
     "explanation": [
-      "The immune system recognizes cancer by inspecting molecular features, not by detecting a universal “cancer label.” A simplified route is: Cancer cells make proteins, including altered proteins caused by mutations. Small protein pieces are displayed on the cell surface by HLA molecules—human proteins that present fragments for inspection. Dendritic cells collect tumor material, process it, and display fragments. A T cell whose T-cell receptor (TCR) fits the peptide–HLA pair may then be activated. Activation needs more than recognition: supporting costimulatory signals and cytokines help determine whether the T cell becomes functional rather than inactive T-cell priming. Activated immune cells must travel into the tumor, find cells displaying the matching target, and kill susceptible cells. This linked sequence is called the cancer-immunity cycle cancer-immunity cycle. Think of it like a security system: the peptide–HLA pair is the displayed ID badge, while the TCR is the scanner. Cancer can escape by hiding the badge, changing the display system, excluding immune cells, or applying inhibitory signals. Would you like to go deeper into HLA presentation, T-cell activation, or how tumors evade recognition?"
+      "The immune system does not recognize “cancer” with one universal detector. Different immune cells use different clues and rules. For conventional T cells, a cancer cell—or another cell that has taken up tumor material—can display a short protein fragment on a surface molecule called HLA (human leukocyte antigen). A T-cell receptor (TCR) checks the combined HLA–fragment feature. If the match is suitable, and the required activation signals are present, the T cell may become able to attack. This is a chain of steps: a DNA change must affect a protein, a fragment must be produced and displayed, and a T cell must recognize it Follow the route to immune recognition. Other immune systems work differently. Antibodies recognize accessible molecular shapes, while natural killer cells weigh activating and inhibitory signals. Even finding T cells in a tumor does not prove they recognize cancer or can kill it The map. Would you like to explore T-cell recognition, antibodies, or how tumors evade recognition next?"
     ],
     "citations": [
       {
-        "text": "T-cell priming",
-        "href": "/education/concepts/immunology/t-cells/t-cell-priming-three-signals/#how-it-works"
+        "text": "Follow the route to immune recognition",
+        "href": "/education/guides/start-here/02-follow-immune-recognition/#think-of-a-team-with-different-jobs"
       },
       {
-        "text": "cancer-immunity cycle",
-        "href": "/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works"
+        "text": "The map",
+        "href": "/education/guides/how-the-immune-system-fights-cancer/index/#the-map"
       }
     ],
     "cartoons": [
