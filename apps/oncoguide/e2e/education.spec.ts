@@ -16,10 +16,12 @@ test("the wiki palette survives theme changes, navigation and reload", async ({ 
 
   const theme = page.getByRole("button", { name: "Dark theme", exact: true });
   await theme.click();
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
   await page.reload();
   await expect(page.locator("body")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(page.locator(".edu-sidebar")).toHaveCSS("background-color", "rgb(248, 249, 250)");
   await theme.click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
   await page.reload();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open education navigation" }).click();

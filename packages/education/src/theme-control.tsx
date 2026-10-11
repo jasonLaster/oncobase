@@ -57,7 +57,8 @@ export function PublicThemeControl() {
       aria-pressed={dark}
       title={dark ? "Switch to light theme" : "Switch to dark theme"}
       onClick={() => {
-        const next = dark ? "light" : "dark";
+        // Read the current preference at click time, including during hydration.
+        const next = resolvedTheme() === "dark" ? "light" : "dark";
         // Choosing the system's own theme returns to following the system.
         setWikiThemePreference(next === systemTheme() ? null : next);
       }}
