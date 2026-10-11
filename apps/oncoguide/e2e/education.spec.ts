@@ -1,5 +1,31 @@
 import { expect, test } from "@playwright/test";
 const autophagy = "/education/molecular-profiling/evee-pathways/01-autophagy-and-proteostasis/";
+test("the wiki palette survives theme changes, navigation and reload", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(15, 15, 26)");
+  await expect(page.locator(".edu-sidebar")).toHaveCSS("background-color", "rgb(22, 22, 37)");
+  await expect(page.locator(".edu-hero h1 em")).toHaveCSS("color", "rgb(129, 140, 248)");
+  await expect(page.locator('.edu-all-topics[aria-current="page"]')).toHaveCSS("background-color", "rgb(30, 27, 75)");
+
+  await page.getByRole("link", { name: "Start with the basics" }).click();
+  await expect(page.getByTestId("education-article")).toBeVisible();
+  await page.reload();
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(15, 15, 26)");
+  await expect(page.locator('.edu-nav-lessons a[aria-current="page"]').first()).toHaveCSS("color", "rgb(129, 140, 248)");
+
+  const theme = page.getByRole("button", { name: "Dark theme", exact: true });
+  await theme.click();
+  await page.reload();
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(page.locator(".edu-sidebar")).toHaveCSS("background-color", "rgb(248, 249, 250)");
+  await theme.click();
+  await page.reload();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Open education navigation" }).click();
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(15, 15, 26)");
+  await expect(page.locator(".edu-sidebar")).toHaveCSS("background-color", "rgb(22, 22, 37)");
+});
 test("lessons, aliases and metadata work as static HTML without JavaScript", async ({ browser, request }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();

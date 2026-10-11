@@ -1,0 +1,69 @@
+/* Shared reader palette for the wiki and OncoGuide. */
+:root {
+  color-scheme: light;
+  --sidebar-bg: #f8f9fa;
+  --sidebar-border: #e5e7eb;
+  --brand: #4f46e5;
+  --accent-light: #eef2ff;
+  --text-muted: #6b7280;
+  --background: #ffffff;
+  --foreground: #1a1a2e;
+  --muted: #f3f4f6;
+  --muted-foreground: var(--text-muted);
+  --border: var(--sidebar-border);
+  --input: var(--sidebar-border);
+  --ring: var(--brand);
+  --primary: var(--brand);
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: var(--foreground);
+  --accent: var(--accent-light);
+  --accent-foreground: var(--foreground);
+  --popover: var(--background);
+  --popover-foreground: var(--foreground);
+  --card: var(--background);
+  --card-foreground: var(--foreground);
+  --destructive: #dc2626;
+  --radius: 0.625rem;
+  --panel: #ffffff;
+  --panel-alt: var(--sidebar-bg);
+  --surface-muted: #f3f4f6;
+  --green: #15803d;
+  --amber: #b45309;
+  --red: #dc2626;
+  --violet: var(--brand);
+}
+
+.dark {
+  color-scheme: dark;
+  --sidebar-bg: #161625;
+  --sidebar-border: #2d2d44;
+  --brand: #818cf8;
+  --accent-light: #1e1b4b;
+  --text-muted: #9ca3af;
+  --background: #0f0f1a;
+  --foreground: #e5e5e5;
+  --muted: #2d2d44;
+  --muted-foreground: var(--text-muted);
+  --border: var(--sidebar-border);
+  --input: var(--sidebar-border);
+  --ring: var(--brand);
+  --primary: var(--brand);
+  --primary-foreground: #0f0f1a;
+  --secondary: #2d2d44;
+  --secondary-foreground: var(--foreground);
+  --accent: #1e1b4b;
+  --accent-foreground: var(--foreground);
+  --popover: #1e1e32;
+  --popover-foreground: var(--foreground);
+  --card: #161625;
+  --card-foreground: var(--foreground);
+  --destructive: #f87171;
+  --panel: #161625;
+  --panel-alt: #10101d;
+  --surface-muted: #2d2d44;
+  --green: #4ade80;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --violet: var(--brand);
+}

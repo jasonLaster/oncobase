@@ -96,11 +96,16 @@ for (const width of [393, 1440]) {
       const appearance = await diagram.evaluate(element => {
         const svg = element.querySelector("svg")!;
         const root = getComputedStyle(document.documentElement);
+        const panel = document.createElement("span");
+        panel.style.color = "var(--card)";
+        document.body.append(panel);
+        const panelBackground = getComputedStyle(panel).color;
+        panel.remove();
         const box = element.getBoundingClientRect();
         const text = svg.querySelector("text")!;
         return {
           background: getComputedStyle(element).backgroundColor,
-          pageBackground: root.backgroundColor,
+          panelBackground,
           textColor: getComputedStyle(text).fill, foreground: root.color,
           svgBackground: getComputedStyle(svg).backgroundColor,
           accent: getComputedStyle(svg).getPropertyValue("--accent").trim(),
@@ -110,7 +115,7 @@ for (const width of [393, 1440]) {
           pageOverflow: document.documentElement.scrollWidth > innerWidth,
         };
       });
-      expect(appearance.background).toBe(appearance.pageBackground);
+      expect(appearance.background).toBe(appearance.panelBackground);
       expect(appearance.textColor).toBe(appearance.foreground);
       expect(appearance.svgBackground).toBe("rgba(0, 0, 0, 0)");
       expect(appearance.accent).toBe(appearance.brand);

@@ -1,18 +1,11 @@
+@import "@oncobase/wiki-shell/theme.css";
 @import "@oncobase/education/styles.css";
 @import "@oncobase/wiki-markdown/styles.css";
 @import "@oncobase/smart-table/styles.css";
 :root {
-  color-scheme: light; --background: #fff; --foreground: #202d24;
-  --sidebar-bg: #f6f8f6; --sidebar-border: #dce5dd; --border: var(--sidebar-border);
-  --brand: #166534; --accent-light: #eaf4eb; --text-muted: #637368;
-  --muted: #f3f6f3; --muted-foreground: var(--text-muted); --panel: var(--background);
-  --card: var(--panel); --card-foreground: var(--foreground); --surface-muted: var(--muted);
-  --ring: var(--brand); --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
 }
-.dark { color-scheme: dark; --background: #101914; --foreground: #e5ede6;
-  --sidebar-bg: #142019; --sidebar-border: #2d3c31; --brand: #86cb9b;
-  --accent-light: #203b29; --text-muted: #a1b2a6; --muted: #1a2a20; }
 html, body { margin: 0; padding: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
 * { box-sizing: border-box; }
 button, input { font: inherit; }
