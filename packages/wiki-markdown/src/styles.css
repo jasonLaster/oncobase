@@ -251,6 +251,7 @@
 .wiki-markdown img {
   border-radius: 0.5rem;
   cursor: zoom-in;
+  height: auto;
   margin: 1rem 0;
   max-width: 100%;
 }
