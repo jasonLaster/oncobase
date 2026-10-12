@@ -84,6 +84,8 @@ jobs:
       # key and a fixture site seeded through the real publish path.
       - name: Start local Convex stack
         working-directory: apps/app
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bun run local:stack
 
       - name: Verify standalone server
@@ -242,6 +244,7 @@ jobs:
       - name: Exercise every durable-cache assertion on the local production build
         working-directory: apps/app
         env:
+          GH_TOKEN: ${{ github.token }}
           PLAYWRIGHT_BROWSER: webkit
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:62003
           WIKI_VITE_PREVIEW_LOGIN_PASSWORD: diana
