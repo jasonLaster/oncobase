@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { makePublicWikiSessionIdentity, makeWikiStoreId } from "@oncobase/wiki-content";
+import { READER_STORE_PATHS } from "../../shared/reader-telemetry";
 import { bareReaderShell, documentArticle, gotoWiki, installWikiApiMocks, readerShellHtml, waitForPageTitle } from "../fixtures";
 import { test } from "../persistent-reader-fixture";
 
@@ -115,7 +116,7 @@ test("healthy follower tabs and leader handoff do not need fallback", async ({ p
   expect(warnings.filter(message => message.includes("startup timed out"))).toEqual([]);
 });
 
-test("a new worker version cannot strand a tab behind the old version's leader", async ({ page, context }) => {
+test("a new worker version cannot strand a tab behind the old version's leader", async ({ page, context }, testInfo) => {
   test.setTimeout(60_000);
   await installWikiApiMocks(page);
   await gotoWiki(page, ROUTE);
@@ -136,7 +137,10 @@ test("a new worker version cannot strand a tab behind the old version's leader",
   const storePaths: string[] = [];
   await newer.route("**/api/wiki/telemetry", async route => {
     try {
-      for (const span of JSON.parse(route.request().postData() ?? "{}").spans ?? []) if (span.name === "store-adapter") storePaths.push(span.path);
+      for (const span of JSON.parse(route.request().postData() ?? "{}").spans ?? []) if (span.name === "store-adapter") {
+        storePaths.push(span.path);
+        if (READER_STORE_PATHS.includes(span.path)) testInfo.annotations.push({ type: `qa-store:${span.path}` });
+      }
     } catch { /* Not a reader batch. */ }
     await route.fulfill({ status: 204 });
   });

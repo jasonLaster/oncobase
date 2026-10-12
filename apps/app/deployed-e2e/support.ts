@@ -43,7 +43,22 @@ export async function gateCookieHeader(baseURL: string) {
 
 /** Passes the gate in the page's browser context. */
 export async function passGate(page: Page, baseURL: string) {
-  await page.context().setExtraHTTPHeaders({ Cookie: await gateCookieHeader(baseURL) });
+  if (!process.env.WIKI_VITE_SMOKE_COOKIE) {
+    // A request attached to this browser context retains the real Set-Cookie
+    // attributes and authenticates later browser fetches and reloads.
+    const login = await page.context().request.post(new URL("/api/login", baseURL).href, {
+      data: { password: process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD },
+    });
+    expect(login.ok(), "site password login").toBeTruthy();
+    return;
+  }
+  const token = process.env.WIKI_VITE_SMOKE_COOKIE.split(/;\s*/)
+    .find(part => part.startsWith("authed="))?.slice("authed=".length);
+  expect(token, "supplied gate cookie").toBeTruthy();
+  await page.context().addCookies([{
+    name: "authed", value: token!, url: new URL(baseURL).origin,
+    httpOnly: true, sameSite: "Lax", secure: new URL(baseURL).protocol === "https:",
+  }]);
 }
 
 /** Opens the page and waits until the client-rendered reader shows its document. */

@@ -72,12 +72,16 @@ export const test = base.extend({
           // Release worker file locks, then remove only this test origin's
           // reader namespaces. Profile deletion alone does not clear OPFS in
           // this WebKit build. Never touch another origin's reader storage.
-          phase = "page-cleanup";
-          for (const page of persistent.pages()) await page.close();
-          mark("pages-closed");
+          // Linux WebKit can end the persistent session after its final page
+          // closes. Keep a blank page alive while releasing the worker pages.
+          const workerPages = persistent.pages();
           phase = "cleanup-page";
           const cleanupPage = await persistent.newPage();
           mark("cleanup-page-created");
+          phase = "page-cleanup";
+          for (const page of workerPages) await page.close();
+          mark("pages-closed");
+          phase = "cleanup-page";
           // Only the temporary browser origin is needed for OPFS access. Do
           // not make teardown depend on application/backend route latency.
           // This response exists only in Playwright, never on disk or a server.

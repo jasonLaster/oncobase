@@ -72,6 +72,9 @@ test("anonymous root and deep link use the same uncached gate; content APIs refu
 test("a gate cookie renders a wiki page from the configured backend", async ({ page, baseURL }) => {
   skipWithoutGate();
   await passGate(page, baseURL!);
+  // Browser reads and reloads must use a real gate cookie, as normal sign-in
+  // does. A manually injected Cookie header does not populate this jar.
+  expect((await page.context().cookies(baseURL!)).some(cookie => cookie.name === "authed" && cookie.httpOnly)).toBe(true);
   await page.goto(SMOKE_PATH, { waitUntil: "domcontentloaded" });
 
   await expect(page).toHaveTitle(/Insurance|Wiki/i);

@@ -73,6 +73,8 @@ test("persistent context phases expose teardown boundaries without profile paths
         { type: "qa-persistent:body-passed", description: "PRIVATE_TEST_PAYLOAD" },
         { type: "qa-persistent:closed-during-page-cleanup" },
         { type: "qa-persistent:PRIVATE_TEST_PAYLOAD" },
+        { type: "qa-store:memory", description: "PRIVATE_TEST_PAYLOAD" },
+        { type: "qa-store:PRIVATE_TEST_PAYLOAD" },
       ],
       results: [{ status: "failed", error: {
         message: "browserContext.newPage: Target page, context or browser has been closed PRIVATE_TEST_PAYLOAD",
@@ -81,6 +83,7 @@ test("persistent context phases expose teardown boundaries without profile paths
     }] }] }],
   });
   expect(summary.tests[0]?.persistentContext).toEqual(["body-passed", "closed-during-page-cleanup"]);
+  expect(summary.tests[0]?.storeAdapter).toEqual(["memory"]);
   expect(summary.tests[0]?.failures?.[0]?.locations).toEqual(["persistent-reader-fixture.ts:72"]);
   expect(summary.tests[0]?.failures?.[0]?.categories).toEqual(["browserContext.newPage", "Target page, context or browser has been closed"]);
   expect(JSON.stringify(summary)).not.toContain("PRIVATE_TEST_PAYLOAD");
