@@ -1,4 +1,4 @@
-import { expect, request as playwrightRequest, test, type Page } from "@playwright/test";
+import { expect, request as playwrightRequest, test, type Page, type Request } from "@playwright/test";
 
 // Tier E: post-deploy smoke against a real deployment (a Vercel preview,
 // production, or the standalone server). Real responses only: no mocks, no
@@ -79,4 +79,44 @@ export function watchForFailures(page: Page, origin: string) {
     expect(errors, "Unhandled browser exceptions").toEqual([]);
     expect(failed, "Same-origin 5xx responses").toEqual([]);
   };
+}
+
+/** Bounded metadata for failed real-reader smoke tests. No URLs, query strings,
+ * headers, response bodies, console text or browser storage leave this helper. */
+export function watchReaderRequests(page: Page, origin: string) {
+  type Read = { endpoint: "pages" | "manifest" | "session"; status?: number; finished?: boolean; failure?: string };
+  const reads = new Map<Request, Read>();
+  const endpoints: Record<string, Read["endpoint"]> = {
+    "/api/wiki/pages": "pages", "/api/wiki/manifest": "manifest", "/api/wiki/session": "session",
+  };
+  page.on("request", request => {
+    const url = new URL(request.url());
+    if (url.origin !== origin || reads.size >= 40) return;
+    const endpoint = endpoints[url.pathname];
+    if (endpoint) reads.set(request, { endpoint });
+  });
+  page.on("response", response => {
+    const read = reads.get(response.request());
+    if (read) read.status = response.status();
+  });
+  page.on("requestfinished", request => {
+    const read = reads.get(request);
+    if (read) read.finished = true;
+  });
+  page.on("requestfailed", request => {
+    const read = reads.get(request);
+    if (!read) return;
+    const message = request.failure()?.errorText ?? "";
+    read.failure = ["ERR_ABORTED", "ERR_CONNECTION_REFUSED", "ERR_CONNECTION_RESET", "ERR_TIMED_OUT", "NS_BINDING_ABORTED"].find(code => message.includes(code)) ?? "OTHER";
+  });
+  return async () => ({
+    reads: [...reads.values()],
+    pageClosed: page.isClosed(),
+    health: page.isClosed() ? null : await page.evaluate(() => ({
+      unavailable: Boolean(document.querySelector('[data-reader-unavailable="true"]')),
+      retry: Boolean(document.querySelector('[data-test-id="retry-page-fetch"]')),
+      loading: Boolean(document.querySelector('[data-test-id="page-loading"]')),
+      recovery: Boolean(document.querySelector('[data-test-id="store-startup-recovery"]')),
+    })).catch(() => null),
+  });
 }

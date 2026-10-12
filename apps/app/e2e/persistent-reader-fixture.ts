@@ -42,33 +42,51 @@ export const test = base.extend({
       await new Promise<void>(resolve => server.close(() => resolve()));
     }
   },
-  context: async ({ browserName, context, playwright, baseURL }, use) => {
+  context: async ({ browserName, context, playwright, baseURL }, use, testInfo) => {
     if (browserName !== "webkit") {
       await use(context);
       return;
     }
     const directory = await mkdtemp(path.join(tmpdir(), "oncobase-reader-webkit-"));
     let persistent: Awaited<ReturnType<typeof playwright.webkit.launchPersistentContext>> | undefined;
+    let phase = "setup";
+    const observed = new Set<string>();
+    const mark = (flag: string) => {
+      if (observed.has(flag)) return;
+      observed.add(flag);
+      testInfo.annotations.push({ type: `qa-persistent:${flag}` });
+    };
     try {
       persistent = await playwright.webkit.launchPersistentContext(directory);
+      mark("launched");
+      persistent.on("close", () => mark(`closed-during-${phase}`));
       // Transfer the test's authorized state only in memory; never print it.
       await persistent.setStorageState(await context.storageState());
+      mark("state-copied");
+      phase = "test";
       await use(persistent);
+      mark(testInfo.status === "passed" ? "body-passed" : "body-failed");
     } finally {
       try {
         if (persistent) {
           // Release worker file locks, then remove only this test origin's
           // reader namespaces. Profile deletion alone does not clear OPFS in
           // this WebKit build. Never touch another origin's reader storage.
+          phase = "page-cleanup";
           for (const page of persistent.pages()) await page.close();
+          mark("pages-closed");
+          phase = "cleanup-page";
           const cleanupPage = await persistent.newPage();
+          mark("cleanup-page-created");
           // Only the temporary browser origin is needed for OPFS access. Do
           // not make teardown depend on application/backend route latency.
           // This response exists only in Playwright, never on disk or a server.
           const cleanupUrl = `${baseURL}/__reader-test-cleanup`;
           await cleanupPage.route(cleanupUrl, route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Test storage cleanup</title>" }));
           await cleanupPage.goto(cleanupUrl, { waitUntil: "domcontentloaded", timeout: 10_000 });
+          mark("cleanup-page-loaded");
           const marker = `-${baseURL!.replace(/[^a-zA-Z0-9]/g, "_")}-`;
+          phase = "storage-cleanup";
           await cleanupPage.evaluate(async originMarker => {
             const root = await navigator.storage.getDirectory() as FileSystemDirectoryHandle & { keys(): AsyncIterableIterator<string> };
             for await (const name of root.keys()) {
@@ -77,8 +95,10 @@ export const test = base.extend({
               }
             }
           }, marker);
+          mark("storage-cleaned");
         }
       } finally {
+        phase = "context-cleanup";
         try { await persistent?.close(); }
         finally { await rm(directory, { recursive: true, force: true }); }
       }

@@ -12,6 +12,7 @@ import {
   SMOKE_SLUG,
   START_PATH,
   watchForFailures,
+  watchReaderRequests,
 } from "./support";
 
 // Run after a deploy: `bun run test:e2e:preview` (one browser, a preview or the
@@ -20,10 +21,21 @@ import {
 // for the environment each test needs; tests that need a credential skip without it.
 
 let assertNoFailures: (() => void) | undefined;
+let readerRequests: ReturnType<typeof watchReaderRequests> | undefined;
 test.beforeEach(async ({ page, baseURL }) => {
   assertNoFailures = watchForFailures(page, new URL(baseURL!).origin);
+  readerRequests = watchReaderRequests(page, new URL(baseURL!).origin);
 });
-test.afterEach(() => assertNoFailures?.());
+test.afterEach(async ({ page }, testInfo) => {
+  let assertionFailed = false;
+  try { assertNoFailures?.(); }
+  catch (error) { assertionFailed = true; throw error; }
+  finally {
+    if (assertionFailed || testInfo.status !== testInfo.expectedStatus) {
+      console.info("reader-smoke-diagnostic", JSON.stringify({ line: testInfo.line, pageClosed: page.isClosed(), ...await readerRequests?.() }));
+    }
+  }
+});
 
 test("anonymous root and deep link use the same uncached gate; content APIs refuse without it", async ({ baseURL }) => {
   const anonymous = await playwrightRequest.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
