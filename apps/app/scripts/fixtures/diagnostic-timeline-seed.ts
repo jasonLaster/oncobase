@@ -3,10 +3,10 @@ import type { DiagnosticTimelineData } from "@oncobase/diagnostics/timeline/data
 export const diagnosticTimelineSeed: DiagnosticTimelineData = {
   "metadata": {
     "title": "Diagnostic Timeline",
-    "asOf": "2026-10-06",
+    "asOf": "2026-10-12",
     "range": {
       "start": "2026-02-01",
-      "end": "2026-10-06"
+      "end": "2026-10-12"
     },
     "sourcePages": [
       {
@@ -523,6 +523,25 @@ export const diagnosticTimelineSeed: DiagnosticTimelineData = {
                 {
                   "label": "Source page",
                   "href": "/sources/diagnostics/07-20-personalis-next-personal-mrd/07-20-personalis-next-personal-mrd"
+                }
+              ]
+            },
+            {
+              "id": "personalis-2026-08-26",
+              "date": "2026-08-26",
+              "label": "NeXT Personal Dx",
+              "valueLabel": "ctDNA not detected",
+              "result": "Third consecutive not-detected Personalis draw; collected before September 24 surgery, received August 27 and reported September 5.",
+              "status": "reported",
+              "details": [
+                "ctDNA fraction: Not applicable; no numeric zero reported.",
+                "Real-Time Variant Tracker: no alterations detected; allele fraction Not applicable.",
+                "A negative result does not establish pCR or postoperative molecular clearance."
+              ],
+              "links": [
+                {
+                  "label": "Source page",
+                  "href": "/sources/diagnostics/08-26-personalis-next-personal-mrd/08-26-personalis-next-personal-mrd"
                 }
               ]
             }

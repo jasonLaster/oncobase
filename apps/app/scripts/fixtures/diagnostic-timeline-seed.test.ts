@@ -21,7 +21,20 @@ describe("diagnostic timeline MRD seed", () => {
     expect(events.find((event) => event.id === "signatera-2026-09-21")!.result)
       .toContain("before September 24 surgery");
     expect(tracks.find((track) => track.id === "personalis")!.events.at(-1)!.date)
-      .toBe("2026-07-20");
+      .toBe("2026-08-26");
+  });
+
+  test("records August Personalis by collection date without inventing a zero PPM value", () => {
+    const events = diagnosticTimelineSeed.sleeves.find((sleeve) => sleeve.id === "molecular")!
+      .tracks.find((track) => track.id === "personalis")!.events;
+    const event = events.find((entry) => entry.id === "personalis-2026-08-26")!;
+    expect(events.filter((entry) => entry.id === event.id)).toHaveLength(1);
+    expect(event).toMatchObject({ date: "2026-08-26", status: "reported", valueLabel: "ctDNA not detected" });
+    expect(event.value).toBeUndefined();
+    expect(event.result).toContain("reported September 5");
+    expect(event.result).toContain("before September 24 surgery");
+    expect(event.details).toContain("ctDNA fraction: Not applicable; no numeric zero reported.");
+    expect(event.links).toContainEqual({ label: "Source page", href: "/sources/diagnostics/08-26-personalis-next-personal-mrd/08-26-personalis-next-personal-mrd" });
   });
 
   test("includes the four reported July tumor-informed MRD results", () => {
