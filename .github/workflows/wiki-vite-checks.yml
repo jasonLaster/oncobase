@@ -259,16 +259,46 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           TEST_ENV: prod
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
-        run: bun run test:e2e e2e/accessibility.spec.ts e2e/journeys/markdown.spec.ts e2e/journeys/clinical-tools.spec.ts e2e/journeys/search.spec.ts e2e/resilience/runtime.spec.ts --reporter=json > playwright-runner.log 2>&1
-      - name: Publish content-free test outcomes
+        run: bun run test:e2e e2e/accessibility.spec.ts e2e/journeys/markdown.spec.ts e2e/journeys/clinical-tools.spec.ts e2e/journeys/search.spec.ts --reporter=json > playwright-runner.log 2>&1
+      - name: Publish deployed WebKit outcomes
         if: always()
+        working-directory: apps/app
+        run: bun scripts/summarize-playwright.ts test-results/results.json test-summary-deployed.json
+      # The same required WebKit job keeps every resilience assertion, but
+      # durable contexts need the existing synthetic stack on loopback.
+      - name: Exercise durable cache on the local production build
+        id: durable
+        working-directory: apps/app
+        env:
+          PLAYWRIGHT_BROWSER: webkit
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:62003
+          WIKI_VITE_PREVIEW_LOGIN_PASSWORD: diana
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
+        run: |
+          set -euo pipefail
+          rm -f test-results/results.json
+          bun run local:stack
+          bun run local:stack serve > local-cache-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; bun run local:stack stop' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:62003/api/wiki/session > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          bun run local:stack exec -- bunx playwright test e2e/resilience/runtime.spec.ts --reporter=json > playwright-runner.log 2>&1
+      - name: Publish durable-cache outcomes
+        if: always() && steps.durable.outcome != 'skipped'
         working-directory: apps/app
         run: bun scripts/summarize-playwright.ts test-results/results.json test-summary.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wiki-vite-${{ matrix.browser }}-report
-          path: apps/app/test-summary.json
+          path: |
+            apps/app/test-summary-deployed.json
+            apps/app/test-summary.json
           retention-days: 7
 
   visual:

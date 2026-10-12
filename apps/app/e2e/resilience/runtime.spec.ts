@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { makePublicWikiSessionIdentity, makeWikiStoreId } from "@oncobase/wiki-content";
-import { documentArticle, gotoWiki, installWikiApiMocks, readerShellHtml, waitForPageTitle } from "../fixtures";
+import { bareReaderShell, documentArticle, gotoWiki, installWikiApiMocks, readerShellHtml, waitForPageTitle } from "../fixtures";
 import { test } from "../persistent-reader-fixture";
 
 // Tier B reader resilience: one browser test per distinct failure class.
@@ -378,8 +378,23 @@ test("the search shortcut survives refreshing an unknown deep link before script
   let pauseScripts = false;
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
+  const reloadEntry = `held-${crypto.randomUUID()}`;
   await page.route("**/*", async route => {
-    if (pauseScripts && route.request().resourceType() === "script") await held;
+    const request = route.request();
+    if (pauseScripts && request.resourceType() === "document") {
+      const response = await route.fetch({ maxRedirects: 0 });
+      // WebKit can reuse a warm module entry without a new script request.
+      // Give only this held reload a fresh entry URL so it really tests the
+      // inline shortcut before application code, retaining the server build.
+      if (response.status() === 200 && response.headers()["content-type"]?.includes("text/html")) {
+        const html = bareReaderShell(await response.text()).replace(
+          /(<script\b[^>]*\btype="module"[^>]*\bsrc=")([^"]+)(")/g,
+          (_match, before, src, after) => `${before}${src}${src.includes("?") ? "&" : "?"}startup=${reloadEntry}${after}`,
+        );
+        return route.fulfill({ response, body: html });
+      }
+    }
+    if (pauseScripts && request.resourceType() === "script") await held;
     await route.fallback();
   });
   // An unknown deep link renders not-found after the manifest syncs.
