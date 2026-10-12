@@ -76,12 +76,16 @@ export const test = base.extend({
           // closes. Keep a blank page alive while releasing the worker pages.
           const workerPages = persistent.pages();
           phase = "cleanup-page";
-          const cleanupPage = await persistent.newPage();
-          mark("cleanup-page-created");
+          const keepalive = process.platform === "linux" ? await persistent.newPage() : undefined;
+          if (keepalive) mark("cleanup-page-created");
           phase = "page-cleanup";
           for (const page of workerPages) await page.close();
           mark("pages-closed");
           phase = "cleanup-page";
+          // Preserve the native macOS lifecycle: close worker pages before
+          // opening cleanup. Its persistent session remains available.
+          const cleanupPage = keepalive ?? await persistent.newPage();
+          mark("cleanup-page-created");
           // Only the temporary browser origin is needed for OPFS access. Do
           // not make teardown depend on application/backend route latency.
           // This response exists only in Playwright, never on disk or a server.
