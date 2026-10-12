@@ -242,6 +242,9 @@ jobs:
       - name: Install browser
         working-directory: apps/app
         run: bunx playwright install --with-deps ${{ matrix.browser }}
+      - name: Measure WebKit storage capabilities without application traffic
+        working-directory: apps/app
+        run: node scripts/probe-webkit-storage.mjs > webkit-storage-probe.json
       - name: Check anonymous and synthetic browser startup
         working-directory: apps/app
         env:
@@ -299,6 +302,7 @@ jobs:
           path: |
             apps/app/test-summary-deployed.json
             apps/app/test-summary.json
+            apps/app/webkit-storage-probe.json
           retention-days: 7
 
   visual:

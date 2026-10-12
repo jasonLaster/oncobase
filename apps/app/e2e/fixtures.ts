@@ -402,6 +402,11 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
       } catch (error) {
         // A document interception can finish after test teardown closes its
         // page. Preserve every failure while the page is still live.
+        if (!page.isClosed() && error instanceof Error && error.message.includes("Target page, context or browser has been closed")) {
+          // The transport rejection can precede the page-close notification.
+          // Require that actual notification; a live-page failure still throws.
+          await page.waitForEvent("close", { timeout: 250 }).catch(() => undefined);
+        }
         if (!page.isClosed()) throw error;
       }
     });
