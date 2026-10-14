@@ -71,6 +71,14 @@ const PUBLISH_STEPS = [
 ] as const;
 
 export const API_ROUTES: readonly ApiRoute[] = [
+  {
+    path: "/api/page-shares", gate: "exempt",
+    load: () => import("./api/page-shares").then(m => legacy(m.handlePageShares)),
+  },
+  {
+    prefix: "/api/page-shares/", gate: "exempt", tracedSubpaths: ["read", "asset"],
+    load: () => import("./api/page-shares").then(m => legacy(m.handlePageShares)),
+  },
   // Publisher and admin APIs authenticate with their own tokens/sessions.
   {
     prefix: "/api/publish/", gate: "exempt", tracedSubpaths: PUBLISH_STEPS,

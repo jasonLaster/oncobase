@@ -20,6 +20,7 @@ const readerModule = initialRoute === "reader" ? import("./WikiViteRoot") : null
 let ReadyWikiViteRoot: typeof import("./WikiViteRoot").WikiViteRoot | undefined;
 const WikiViteRoot = lazy(() => (readerModule ?? import("./WikiViteRoot")).then(module => ({ default: module.WikiViteRoot })));
 const EducationApp = lazy(() => import("./education/EducationApp").then(module => ({ default: module.EducationApp })));
+const SharedPage = lazy(() => import("./pages/SharedPage").then(module => ({ default: module.SharedPage })));
 
 // A login response supersedes previously remembered access, including a gate
 // redirect after cookie expiration. Never revive it on Back/reload.
@@ -101,6 +102,7 @@ function RootRouteBoundary() {
     if (needsPassword) window.location.replace(`/sign-in?redirect=${encodeURIComponent(`${pathname}${search}${hash}`)}`);
   }, [needsPassword, pathname, search, hash]);
   switch (route) {
+    case "share": return <SharedPage />;
     case "password": return <AppStarting />;
     case "education": return <EducationApp />;
     case "login": return <LoginPage />;

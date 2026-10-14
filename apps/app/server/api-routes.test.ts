@@ -4,6 +4,7 @@ import { API_ROUTES, EDUCATION_API_ALIASES, PUBLISH_API_ROUTES, RAW_API_ROUTES, 
 // The route list before the table existed, kept literally so any change to
 // claimed paths, gate exemptions or traced names is a reviewed test change.
 const CLAIMED_EXACT = [
+  "/api/page-shares",
   "/api/login", "/api/auth/session", "/api/auth/signin", "/api/auth/signup", "/api/auth/signout",
   "/api/ai-search", "/api/chat", "/api/search", "/api/timeline", "/api/diagnostic-studies", "/api/share-preview",
   "/api/dicom/file", "/api/dicom/studies", "/api/dicom/series", "/api/dicom/annotations", "/api/dicom/comparisons",
@@ -13,10 +14,11 @@ const CLAIMED_EXACT = [
   "/api/download", "/api/file", "/api/page-copy",
   "/api/integrations/epic/authorize", "/api/integrations/epic/callback", "/api/integrations/epic/sync",
 ];
-const CLAIMED_PREFIXES = ["/api/wiki/", "/api/admin/", "/api/publish/", "/api/pathology/", "/api/dicom/comparisons/"];
+const CLAIMED_PREFIXES = ["/api/wiki/", "/api/admin/", "/api/publish/", "/api/pathology/", "/api/dicom/comparisons/", "/api/page-shares/"];
 
 function wasGateExempt(pathname: string) {
   return pathname === "/api/login" ||
+    pathname === "/api/page-shares" || pathname.startsWith("/api/page-shares/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/admin/") ||
     pathname.startsWith("/api/publish/") ||
@@ -75,6 +77,7 @@ test("privatized responses are the four previously wrapped routes", () => {
 test("tracing names only fixed route strings", () => {
   expect([...TRACED_API_ROUTES].sort()).toEqual([
     "/api/admin/access", "/api/admin/roles", "/api/admin/session", "/api/admin/users", "/api/admin/users/role",
+    "/api/page-shares/read", "/api/page-shares/asset",
     ...CLAIMED_EXACT, "/api/wiki/manifest", "/api/wiki/pages", "/api/wiki/prefetch", "/api/wiki/session", "/api/wiki/convex-token",
     ...RAW_API_ROUTES.map(route => route.path), ...PUBLISH_API_ROUTES,
   ].sort());

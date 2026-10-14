@@ -635,6 +635,17 @@ export function createWikiViteHandler({
     }
     const trailingSlashRedirect = trailingSlashRedirectResponse(request);
     if (trailingSlashRedirect) return trailingSlashRedirect;
+    // A shared reader shell contains no page metadata, bootstrap or account
+    // state. Its fragment capability is checked by the dedicated read API.
+    if (pathname === "/share") {
+      if (request.method !== "GET" && request.method !== "HEAD") return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });
+      if (!await resolveSiteSlug(request, client)) return new Response("Not found", { status: 404 });
+      const { SHARE_HEADERS } = await import("./api/page-shares");
+      const html = indexHtml ?? await readFile(path.join(distDir, "index.html"), "utf8");
+      const safeHtml = injectHeadMetadata(html, { title: "Shared page", description: "A privately shared page.", noIndex: true });
+      return new Response(request.method === "HEAD" ? null : safeHtml, { headers: {
+        ...SHARE_HEADERS, "Content-Type": "text/html; charset=utf-8" } });
+    }
     const gateResponse = await traceBackendPhase("shell.gate", () => enforcePasswordGate(request, client));
     if (gateResponse) return gateResponse;
     const redirectResponse = legacyRedirectResponse(request);

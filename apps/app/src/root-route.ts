@@ -11,6 +11,7 @@ export function landingResponse(): boolean {
 }
 
 export type RootRoute =
+  | "share"
   | "password"
   | "education"
   | "login"
@@ -40,6 +41,7 @@ export function rootRouteFor(
   site: SiteKind = "diana",
 ): RootRoute {
   if (site === "oncobase") return marketingRouteFor(pathname);
+  if (pathname === "/share") return "share";
   if (landing && pathname === "/") return "login";
   if (educationOnly && !isEducationPathname(pathname) && !isEducationHubPathname(pathname) &&
     !["/search", "/login", "/sign-in", "/terms-and-conditions"].includes(pathname)) return "password";

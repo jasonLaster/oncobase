@@ -2,13 +2,15 @@ import { CopyPageIcon } from "../shell/copy-page-icon";
 import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiPageActionButton,
-  WikiSensitiveLock,
   copyTextToClipboard,
 } from "@oncobase/wiki-shell";
 import {
   CheckIcon,
+  LockKeyhole,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, lazy, Suspense, useEffect, useRef, useState } from "react";
+
+const PageShareDialog = lazy(() => import("./PageShareDialog").then(m => ({ default: m.PageShareDialog })));
 
 function ActionButton({
   children,
@@ -29,6 +31,7 @@ function ActionButton({
 export function PageActions({
   content,
   sensitive,
+  slug,
   title,
 }: {
   content: string;
@@ -39,6 +42,7 @@ export function PageActions({
   title: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -65,7 +69,12 @@ export function PageActions({
 
   return (
     <div className="wiki-vite-title-copy" data-test-id="page-actions">
-      {sensitive ? <WikiSensitiveLock data-test-id="sensitive-page-lock" /> : null}
+      {sensitive ? <WikiPageActionButton aria-label="Share private page" title="Share private page"
+        className="size-11"
+        data-test-id="sensitive-page-lock" aria-haspopup="dialog" onClick={event => { event.currentTarget.focus(); setSharing(true); }}>
+        <LockKeyhole size={16} />
+      </WikiPageActionButton> : null}
+      {sharing ? <Suspense fallback={null}><PageShareDialog key={slug} slug={slug} title={title} onClose={() => setSharing(false)} /></Suspense> : null}
       <ActionButton label="Copy page as markdown" onClick={copyMarkdown}>
         {copied ? <CheckIcon size={16} /> : <CopyPageIcon />}
       </ActionButton>

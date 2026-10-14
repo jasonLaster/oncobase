@@ -164,6 +164,17 @@ export default defineSchema({
     .index("by_site_sensitive_slug", ["siteId", "sensitive", "slug"])
     .index("by_site_deleted_sensitive_slug", ["siteId", "deletedAt", "sensitive", "slug"]),
 
+  pageShares: defineTable({
+    siteId: v.id("sites"),
+    documentId: v.id("documents"),
+    tokenHash: v.string(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_site_token", ["siteId", "tokenHash"])
+    .index("by_site_document", ["siteId", "documentId", "revokedAt"]),
+
   pageVisitStats: defineTable({
     siteId: v.id("sites"),
     slug: v.string(),

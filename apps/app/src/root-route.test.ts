@@ -4,6 +4,8 @@ import { rootRouteFor } from "./root-route";
 describe("rootRouteFor", () => {
   test("only reader routes start session verification", () => {
     expect(rootRouteFor("/", false)).toBe("reader");
+    expect(rootRouteFor("/share", false)).toBe("share");
+    expect(rootRouteFor("/share", true)).toBe("share");
     expect(rootRouteFor("/wiki/some/page", false)).toBe("reader");
     expect(rootRouteFor("/search", true)).toBe("reader");
     expect(rootRouteFor("/login", false)).toBe("login");

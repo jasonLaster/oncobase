@@ -1,0 +1,32 @@
+.page-share-dialog {
+  width: min(30rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem);
+  padding: 1.5rem; margin: auto; overflow: auto; color: var(--foreground);
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 20px 70px #0005; font-size: 0.9375rem; line-height: 1.5;
+}
+.page-share-dialog::backdrop { background: #0007; }
+.page-share-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.page-share-heading h2 { font-size: 1.125rem; font-weight: 600; margin: 0; }
+.page-share-dialog p { margin: 1rem 0; color: var(--muted-foreground); }
+.page-share-dialog .page-share-page-title { margin-top: 0.25rem; overflow-wrap: anywhere; color: var(--text-muted); }
+.page-share-dialog button, .shared-page button { min-height: 44px; padding: 0.5rem 0.875rem; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; }
+.page-share-dialog .page-share-close { display: grid; place-items: center; flex: none; width: 44px; padding: 0; border: 0; }
+.page-share-dialog button:hover { background: var(--muted); }
+.page-share-dialog button:disabled { opacity: 0.5; cursor: wait; }
+.page-share-dialog .page-share-primary { background: var(--foreground); color: var(--background); }
+.page-share-dialog .page-share-primary:hover { background: var(--foreground); opacity: 0.9; }
+.page-share-dialog button:focus-visible, .page-share-dialog input:focus-visible { outline: 2px solid var(--foreground); outline-offset: 3px; }
+.page-share-link { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; margin: 1rem 0; }
+.page-share-link input { width: 100%; min-width: 0; background: var(--background); border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; font-size: 0.8125rem; }
+.page-share-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.page-share-dialog .page-share-error, .shared-page-error { color: var(--foreground); }
+.shared-page { width: min(100%, 52rem); margin: 0 auto; padding: 2rem 1.5rem 4rem; min-height: 100dvh; overflow-wrap: anywhere; }
+.shared-page > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem; }
+.shared-page-privacy { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 2rem; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--accent-light); color: var(--foreground); }
+.shared-page-privacy > svg { flex: none; margin-top: 2px; color: var(--brand); }
+.shared-page-privacy strong { display: block; font-size: 0.9375rem; font-weight: 600; line-height: 1.5; }
+.shared-page-privacy p { margin: 0.25rem 0 0; font-size: 0.875rem; line-height: 1.5; }
+.shared-page h1 { font-size: clamp(1.75rem, 5vw, 2.25rem); line-height: 1.2; font-weight: 600; margin-bottom: 1.5rem; }
+.shared-page-status { color: var(--text-muted); }
+.shared-page .shared-file-link { display: inline; min-height: auto; padding: 0; border: 0; text-decoration: underline; }
+@media (max-width: 480px) { .page-share-dialog { padding: 1rem; } .shared-page { padding: 1.25rem; } }
