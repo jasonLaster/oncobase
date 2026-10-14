@@ -78,8 +78,10 @@ test("readers without sharing permission see an explanation and no create action
 });
 
 test("changing the share link in an open tab discards the previous page", async ({ page }) => {
-  await page.route("**/api/page-shares/read", route => route.fulfill({ json: { ...shared, content: "Only this page is shared." } }));
+  await page.route("**/api/page-shares/read", route => route.fulfill({ json: { ...shared, content: 'Only this page is shared.\n\n<a href="#shared-file:%">Malformed file</a>' } }));
   await page.goto(`/share#${token}`);
+  await expect(page.getByTestId("shared-article")).toBeVisible();
+  await page.getByRole("link", { name: "Malformed file", exact: true }).click();
   await expect(page.getByTestId("shared-article")).toBeVisible();
   await page.evaluate(() => { location.hash = "incomplete"; });
   await expect(page.getByRole("heading", { name: "Page unavailable" })).toBeVisible();

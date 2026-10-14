@@ -21,6 +21,7 @@ export function PageShareDialog({ slug, title, onClose }: { slug: string; title:
     void fetch(backendHref("/api/page-shares", { slug }), { cache: "no-store", signal: controller.signal })
       .then(async response => {
         const data = await response.json();
+        if (controller.signal.aborted) return;
         if (!response.ok) {
           setForbidden(response.status === 403);
           throw new Error(data.error || "Sharing could not be loaded.");

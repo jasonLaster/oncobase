@@ -8,6 +8,11 @@ const ShareToken = createContext("");
 const MermaidRenderer = lazy(() => import("@oncobase/wiki-markdown/mermaid").then(m => ({ default: m.WikiMermaidRenderer })));
 type SharedDocument = { slug: string; title: string; content: string };
 
+function sharedFilePath(href?: string) {
+  if (!href?.startsWith("#shared-file:")) return null;
+  try { return decodeURIComponent(href.slice(13)); } catch { return null; }
+}
+
 // Keep capabilities out of the ordinary reader, LiveStore, localStorage and
 // telemetry. Hash navigation within the article must preserve the share link.
 function filePathFromHref(href?: string) {
@@ -49,7 +54,7 @@ function SharedLink({ href, children, ...props }: WikiMarkdownLinkProps) {
   const token = useContext(ShareToken);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const path = href?.startsWith("#shared-file:") ? decodeURIComponent(href.slice(13)) : null;
+  const path = sharedFilePath(href);
   if (path) return <>
     <button className="shared-file-link" disabled={busy} onClick={async () => {
       setError(""); setBusy(true);
