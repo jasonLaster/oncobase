@@ -7,6 +7,7 @@ import { handleAiSearchRequest } from "./ai-search";
 import { handlePageCopyRequest } from "./api/page-copy";
 import { handleSearchRequest } from "./api/search";
 import { handleSharePreviewRequest } from "./api/share-preview";
+import { handleShareImageRequest } from "./api/share-image";
 import { PUBLIC_NEEDLE, SECRET_BODY, SECRET_TITLE, SITE, cookieFor, createFixture, jsonRequest, type Viewer } from "./chat-security-fixture";
 
 const get = (fixture: Awaited<ReturnType<typeof createFixture>>, viewer: Viewer, path: string) =>
@@ -37,6 +38,19 @@ test("link previews expose no title or description of a sensitive page", async (
     const html = await response.text();
     expect(html).not.toContain(SECRET_TITLE);
     expect(html).not.toContain(SECRET_BODY);
+    expect(html).not.toContain("share-image");
+    const image = await handleShareImageRequest(get(fixture, viewer, "/api/share-image?path=/private/care-team-notes"), fixture.client, SITE);
+    expect(image.status).toBe(404);
+  }
+});
+
+test("preview descriptions and image copy use the anonymous redacted page", async () => {
+  const fixture = await createFixture();
+  for (const viewer of ["anonymous", "care"] as const) {
+    const response = await handleSharePreviewRequest(get(fixture, viewer, "/api/share-preview?path=/wiki/public-note"), fixture.client, SITE);
+    const html = await response.text();
+    expect(html).not.toContain("88855655");
+    expect(html).toContain("share-image");
   }
 });
 

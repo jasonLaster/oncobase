@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import { handleSharePreviewRequest } from "./api/share-preview";
+import { handleShareImageRequest } from "./api/share-image";
+import { pageDescription } from "./page-social-metadata";
 
 function clientFor(siteSlug: string) {
   return {
@@ -16,6 +18,8 @@ function clientFor(siteSlug: string) {
         { slug: "wiki/linked page", title: `${siteSlug} linked page`, description: 'Page-specific description & "details".' },
         { slug: "wiki/folder/index", title: "Folder overview", description: "Pages in this folder." },
         { slug: "wiki/no-description", title: "Page without a description", description: null },
+        { slug: "wiki/prose", title: "Immune recognition", content: '# Immune recognition\n\n![Cartoon](private.png)\n\nCancer cells can hide from **immune cells**. [T cells](t-cells) help recognize them.\n\n```ts\nignore this code\n```' },
+        { slug: "wiki/education/immune-recognition", title: "Immune recognition", description: "How immune cells recognize cancer." },
       ];
       return pages.find((page) => page.slug === args.slug) ?? null;
     },
@@ -38,6 +42,8 @@ describe("linked page card metadata", () => {
       expect(html).toContain('property="og:description" content="Page-specific description &amp; &quot;details&quot;."');
       expect(html).toContain(`name="twitter:title" content="${site} linked page"`);
       expect(html).toContain('name="twitter:description" content="Page-specific description &amp; &quot;details&quot;."');
+      expect(html).toContain('name="twitter:card" content="summary_large_image"');
+      expect(html).toContain('property="og:image" content="https://wiki.example/api/share-image?path=%2Fwiki%2Flinked%2520page"');
     });
 
     test(`uses directory index metadata for ${site}`, async () => {
@@ -60,6 +66,19 @@ describe("linked page card metadata", () => {
     expect(html).not.toContain("TNBC Knowledge Base");
   });
 
+  test("uses published page prose when an authored description is absent", async () => {
+    const html = await preview("diana", "/wiki/prose");
+    expect(html).toContain('property="og:description" content="Cancer cells can hide from immune cells. T cells help recognize them."');
+    expect(html).not.toContain("private.png");
+    expect(html).not.toContain("ignore this code");
+  });
+
+  test("resolves public education URLs to their published lesson", async () => {
+    const html = await preview("diana", "/education/immune-recognition");
+    expect(html).toContain('property="og:title" content="Immune recognition"');
+    expect(html).toContain('property="og:image" content="https://wiki.example/api/share-image?path=%2Feducation%2Fimmune-recognition"');
+  });
+
   test("uses site defaults for missing or non-public pages", async () => {
     const html = await preview("research", "/private/note");
     expect(html).toContain('property="og:title" content="Research Wiki"');
@@ -78,12 +97,42 @@ describe("landing page card", () => {
     expect(html).toContain('name="twitter:image" content="https://wiki.example/landing/og-image.jpg"');
   });
 
-  test("keeps page links and other sites on their own summary cards", async () => {
+  test("keeps page links and other sites separate from the landing card", async () => {
     for (const [site, path] of [["diana", "/wiki/linked%20page"], ["research", "/"]] as const) {
       const html = await preview(site, path);
-      expect(html).toContain('name="twitter:card" content="summary"');
-      expect(html).not.toContain("og:image");
+      if (path === "/") expect(html).not.toContain("og:image");
       expect(html).not.toContain("It takes a village");
     }
   });
+});
+
+describe("page image", () => {
+  test("renders different 1200 by 630 PNGs for different pages", async () => {
+    const images = [];
+    for (const path of ["/wiki/linked%20page", "/wiki/prose", "/education/immune-recognition"]) {
+      const response = await handleShareImageRequest(new Request(`https://wiki.example/api/share-image?path=${encodeURIComponent(path)}`), clientFor("diana") as never, "diana");
+      expect(response.headers.get("content-type")).toBe("image/png");
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      const image = Buffer.from(await response.arrayBuffer());
+      expect(image.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+      expect(image.readUInt32BE(16)).toBe(1200);
+      expect(image.readUInt32BE(20)).toBe(630);
+      images.push(image);
+    }
+    expect(images[0]!.equals(images[1]!)).toBe(false);
+  });
+
+  test("missing pages have no image and methods are constrained", async () => {
+    const url = "https://wiki.example/api/share-image?path=/missing";
+    expect((await handleShareImageRequest(new Request(url), clientFor("diana") as never, "diana")).status).toBe(404);
+    expect((await handleShareImageRequest(new Request(url, { method: "POST" }), clientFor("diana") as never, "diana")).status).toBe(405);
+    const head = await handleShareImageRequest(new Request("https://wiki.example/api/share-image?path=/wiki/prose", { method: "HEAD" }), clientFor("diana") as never, "diana");
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe("");
+  });
+});
+
+test("page summaries omit frontmatter, headings, tables, code and hidden HTML", () => {
+  expect(pageDescription({ title: "Example", content: "---\nsecret: value\n---\n# Heading\n\n<!-- hidden -->\n<script>bad()</script>\n| Table |\n| --- |\n\nReadable [[wiki/page|page text]] and `terms`." }, "Wiki"))
+    .toBe("Readable page text and terms.");
 });

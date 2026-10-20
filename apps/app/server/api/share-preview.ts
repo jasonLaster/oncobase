@@ -8,9 +8,11 @@ import {
   DIANA_SITE_NAME as SITE_NAME,
   legacyRouteMetadata,
   tagFromPathname,
-  truncateLegacyDescription,
 } from "../legacy-route-metadata.js";
 import { DEFAULT_SITE_SLUG, withSiteSlug } from "../reader-access";
+import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
+import { pageDescription, pageSocialImageUrl } from "../page-social-metadata";
+import { educationSlugFromPathname, isEducationHubPathname } from "../../src/education-routes";
 
 export async function handleSharePreviewRequest(
   request: Request,
@@ -24,13 +26,52 @@ export async function handleSharePreviewRequest(
     });
   }
 
+  const { siteName, title, description, ogTitle, ogDescription, ogType, ogImage, twitterTitle, twitterDescription, hasPageCard } =
+    await sharePreviewMetadata(request, client, siteSlug);
+
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex,nofollow">
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}">
+    <meta property="og:title" content="${escapeHtml(ogTitle)}">
+    <meta property="og:description" content="${escapeHtml(ogDescription)}">
+    ${ogType ? `<meta property="og:type" content="${ogType}">` : ""}
+    <meta property="og:site_name" content="${escapeHtml(siteName)}">
+    ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}">
+    <meta property="og:image:alt" content="${escapeHtml(ogTitle)}">` : ""}
+    ${hasPageCard ? '<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">' : ""}
+    <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
+    <meta name="twitter:title" content="${escapeHtml(twitterTitle)}">
+    <meta name="twitter:description" content="${escapeHtml(twitterDescription)}">
+    ${ogImage ? `<meta name="twitter:image" content="${escapeHtml(ogImage)}">` : ""}
+  </head>
+  <body></body>
+</html>`;
+
+  return new Response(request.method === "HEAD" ? null : html, {
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "x-robots-tag": "noindex, nofollow",
+      "x-site-slug": siteSlug,
+      "Cache-Control": "private, no-store",
+      Vary: "Host",
+    },
+  });
+}
+
+/** Always resolves the public projection, even when the caller has a session. */
+export async function sharePreviewMetadata(request: Request, client: ConvexHttpClient, siteSlug: string) {
   const url = new URL(request.url);
   const routePath =
     request.headers.get("x-share-preview-path") ??
     url.searchParams.get("path") ??
     "/";
   const pathname = routePath.split(/[?#]/)[0]?.replace(/\/+$/, "") || "/";
-  const slug = slugFromRoutePathname(pathname);
+  const slug = isEducationHubPathname(pathname)
+    ? educationSlugFromPathname(pathname) : slugFromRoutePathname(pathname);
   const tag = tagFromPathname(pathname);
   async function linkedPage() {
     if (!slug) return null;
@@ -44,13 +85,24 @@ export async function handleSharePreviewRequest(
       withSiteSlug(siteSlug, { slug: `${slug}/index` }),
     );
   }
-  const [site, page, taggedPages] = await Promise.all([
+  const [site, publicPage, taggedPages] = await Promise.all([
     client.query(api.sites.getBySlug, { slug: siteSlug }).catch(() => null),
     linkedPage().catch(() => null),
     tag
       ? getDocumentsByTag(client, withSiteSlug(siteSlug, { tag })).catch(() => null)
       : Promise.resolve(null),
   ]);
+  // Preview copy and the generated image must share the anonymous PII policy.
+  // If configuration cannot be read, omit page data rather than guessing it.
+  const configured = parseSitePiiPatterns(site?.config?.piiPatterns);
+  const patterns = configured.length ? configured : siteSlug === DEFAULT_SITE_SLUG ? undefined : [];
+  const redact = (text: string) => applyPiiRedactions(text, { patterns });
+  const page = site && publicPage && publicPage.sensitive !== true ? {
+    ...publicPage,
+    title: redact(publicPage.title),
+    description: publicPage.description ? redact(publicPage.description) : null,
+    content: redact(publicPage.content ?? ""),
+  } : null;
   const isDiana = siteSlug === DEFAULT_SITE_SLUG;
   let siteName: string;
   let title: string;
@@ -66,7 +118,7 @@ export async function handleSharePreviewRequest(
     siteName = SITE_NAME;
     // A shared bare domain opens the landing page for anyone signed out.
     const metadata = pathname === "/" ? landingRouteMetadata() : legacyRouteMetadata({
-      page,
+      page: page && { ...page, description: pageDescription(page, siteName) },
       pathname,
       siteName,
       slug,
@@ -84,7 +136,7 @@ export async function handleSharePreviewRequest(
     siteName = site?.config.title ?? site?.name ?? siteSlug;
     title = page ? `${page.title} — ${siteName}` : siteName;
     description = page
-      ? truncateLegacyDescription(page.description ?? "") || `${page.title} notes in ${siteName}`
+      ? pageDescription(page, siteName)
       : site?.config.description ?? DEFAULT_SITE_DESCRIPTION;
     ogTitle = page?.title ?? siteName;
     ogDescription = description;
@@ -92,36 +144,9 @@ export async function handleSharePreviewRequest(
     twitterTitle = ogTitle;
     twitterDescription = description;
   }
-
-  const html = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="robots" content="noindex,nofollow">
-    <title>${escapeHtml(title)}</title>
-    <meta name="description" content="${escapeHtml(description)}">
-    <meta property="og:title" content="${escapeHtml(ogTitle)}">
-    <meta property="og:description" content="${escapeHtml(ogDescription)}">
-    ${ogType ? `<meta property="og:type" content="${ogType}">` : ""}
-    <meta property="og:site_name" content="${escapeHtml(siteName)}">
-    ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}">` : ""}
-    <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
-    <meta name="twitter:title" content="${escapeHtml(twitterTitle)}">
-    <meta name="twitter:description" content="${escapeHtml(twitterDescription)}">
-    ${ogImage ? `<meta name="twitter:image" content="${escapeHtml(ogImage)}">` : ""}
-  </head>
-  <body></body>
-</html>`;
-
-  return new Response(html, {
-    headers: {
-      "content-type": "text/html; charset=utf-8",
-      "x-robots-tag": "noindex, nofollow",
-      "x-site-slug": siteSlug,
-      "Cache-Control": "private, no-store",
-      Vary: "Host",
-    },
-  });
+  const hasPageCard = Boolean(page && ogType === "article");
+  if (hasPageCard) ogImage = pageSocialImageUrl(request.url, pathname);
+  return { siteName, title, description, ogTitle, ogDescription, ogType, ogImage, twitterTitle, twitterDescription, hasPageCard };
 }
 
 export function escapeHtml(value: string) {

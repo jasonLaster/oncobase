@@ -877,6 +877,10 @@ describe("wiki Vite app-shell password gate", () => {
       const escapedDescription = route.description.replace(/"/g, "&quot;");
 
       expect(html).toContain(`<title>${route.title}</title>`);
+      if (route.path === "/wiki/public") {
+        expect(html).toContain('<meta property="og:image" content="http://127.0.0.1/api/share-image?path=%2Fwiki%2Fpublic" />');
+        expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
+      }
       expect(html).toContain(
         `<meta name="description" content="${escapedDescription}" />`,
       );

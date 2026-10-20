@@ -6,7 +6,7 @@ import { API_ROUTES, EDUCATION_API_ALIASES, PUBLISH_API_ROUTES, RAW_API_ROUTES, 
 const CLAIMED_EXACT = [
   "/api/page-shares",
   "/api/login", "/api/auth/session", "/api/auth/signin", "/api/auth/signup", "/api/auth/signout",
-  "/api/ai-search", "/api/chat", "/api/search", "/api/timeline", "/api/diagnostic-studies", "/api/share-preview",
+  "/api/ai-search", "/api/chat", "/api/search", "/api/timeline", "/api/diagnostic-studies", "/api/share-preview", "/api/share-image",
   "/api/dicom/file", "/api/dicom/studies", "/api/dicom/series", "/api/dicom/annotations", "/api/dicom/comparisons",
   "/api/test/diagnostic-studies", "/api/test/dicom-comparisons", "/api/tools",
   "/api/liveblocks-auth", "/api/liveblocks-threads", "/api/liveblocks-add-comment", "/api/liveblocks-delete-thread",
@@ -23,7 +23,7 @@ function wasGateExempt(pathname: string) {
     pathname.startsWith("/api/admin/") ||
     pathname.startsWith("/api/publish/") ||
     pathname === "/api/wiki/session" ||
-    pathname === "/api/share-preview" ||
+    pathname === "/api/share-preview" || pathname === "/api/share-image" ||
     pathname === "/api/liveblocks-webhook" ||
     pathname.startsWith("/api/integrations/epic/");
 }

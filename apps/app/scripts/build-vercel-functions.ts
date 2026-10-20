@@ -19,6 +19,9 @@ const result = await Bun.build({
   target: "node",
   format: "esm",
   splitting: true,
+  // Preserve the renderer's package-relative font and WASM resources for
+  // Vercel's file tracing. It is loaded only by the share-image route.
+  external: ["@vercel/og"],
   minify: true,
   sourcemap: "external",
   define: {

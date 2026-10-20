@@ -123,6 +123,7 @@ export const API_ROUTES: readonly ApiRoute[] = [
   { prefix: "/api/pathology/", gate: "required", load: () => import("./pathology-api").then(m => legacy(m.handlePathologyRequest)) },
   // Link-preview bots carry no session; the handler returns metadata only.
   { path: "/api/share-preview", gate: "exempt", load: () => import("./api/share-preview").then(m => legacy(m.handleSharePreviewRequest)) },
+  { path: "/api/share-image", gate: "exempt", load: () => import("./api/share-image").then(m => legacy(m.handleShareImageRequest)) },
   { path: "/api/dicom/file", gate: "required", load: () => import("./api/diagnostics").then(m => legacy(m.handleDicomFileRequest)) },
   { path: "/api/dicom/studies", gate: "required", load: () => import("./api/diagnostics").then(m => legacy(m.handleDicomStudiesRequest)) },
   { path: "/api/dicom/series", gate: "required", load: () => import("./api/diagnostics").then(m => legacy(m.handleDicomSeriesRequest)) },

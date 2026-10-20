@@ -856,6 +856,15 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(await handler(new Request("https://example.test/api/post-deploy", { method: "POST" }))).toBeNull();
   });
 
+  test("serves a public page image anonymously through the gated API router", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient({ passwordGate: true }) as never);
+    const response = await handler(request("/api/share-image?path=%2Fwiki%2Fpublic"));
+    expect(response?.status).toBe(200);
+    expect(response!.headers.get("content-type")).toBe("image/png");
+    expect(response!.headers.get("cache-control")).toBe("private, no-store");
+    expect(Buffer.from(await response!.arrayBuffer()).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+  });
+
   test("returns redacted line-level text search matches with source locations", async () => {
     const handler = createWikiApiHandler(createFakeConvexClient() as never);
     const response = await handler(searchRequest("/api/search?q=public"));

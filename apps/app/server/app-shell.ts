@@ -4,6 +4,7 @@ import { landingRouteMetadata, specialRouteMetadata } from "../src/special-route
 import { LANDING_READER_ACCESS } from "../src/root-route";
 import { injectPageBootstrap } from "./page-bootstrap";
 import { injectHeadMetadata } from "./html-head";
+import { pageDescription, pageSocialImageUrl } from "./page-social-metadata";
 import { safeStaticPath, staticHeaders } from "./static-files";
 import { handleMarketingRequest, isMarketingRequest, movedToMarketingSite } from "./marketing-site";
 import { traceBackendCache, traceBackendPhase, traceConvexClient } from "./backend-tracing";
@@ -372,10 +373,11 @@ async function staticIndexHtml(
     const safePage = isPublicEducationPage(page) && page
       ? await redactPageContent(client, siteSlug, page, request) : null;
     const title = safePage?.title ?? (url.pathname === "/education/search" ? "Search education" : "Cancer science, made approachable");
-    const description = safePage?.description || "Explore the Oncobase education library: cancer biology, immunotherapy, and the science behind treatment.";
+    const description = safePage ? pageDescription(safePage, "Oncobase Education") : "Explore the Oncobase education library: cancer biology, immunotherapy, and the science behind treatment.";
     return injectHeadMetadata(html, { title: `${title} — Oncobase Education`, description,
       openGraphTitle: title, openGraphDescription: description, openGraphType: safePage ? "article" : "website",
       twitterTitle: title, twitterDescription: description,
+      openGraphImage: safePage ? pageSocialImageUrl(request.url, url.pathname) : undefined,
       canonicalUrl: new URL(url.pathname, request.url).toString(), noIndex: false, sensitive: false });
   }
 
@@ -423,8 +425,11 @@ async function staticIndexHtml(
   if (!page && !gateEnabled) return html;
 
   const siteName = siteSlug === DEFAULT_SITE_SLUG ? DIANA_SITE_NAME : siteSlug;
+  const metadataPage = publicPage
+    ? await redactPageContent(client, siteSlug, { ...publicPage, content: publicPage.content ?? "" }, request)
+    : page;
   const routeMetadata = legacyRouteMetadata({
-    page,
+    page: metadataPage && { ...metadataPage, description: pageDescription(metadataPage, siteName) },
     pathname: url.pathname,
     siteName,
     slug,
@@ -435,7 +440,8 @@ async function staticIndexHtml(
     ...routeMetadata,
     openGraphImage: routeMetadata.openGraphImage
       ? new URL(routeMetadata.openGraphImage, request.url).toString()
-      : undefined,
+      : publicPage && routeMetadata.openGraphType === "article"
+        ? pageSocialImageUrl(request.url, url.pathname) : undefined,
     canonicalUrl: gateEnabled || page?.sensitive === true
       ? undefined
       : new URL(url.pathname, request.url).toString(),
