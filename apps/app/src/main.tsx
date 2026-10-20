@@ -68,6 +68,7 @@ const ImmersiveDicomRoot = lazy(() =>
 const PathologyViewerPage = lazy(() =>
   import("./pages/PathologyViewerPage").then(module => ({ default: module.PathologyViewerPage })),
 );
+const PdfViewerPage = lazy(() => import("./pages/PdfViewerPage").then(module => ({ default: module.PdfViewerPage })));
 const LoginPage = lazy(() =>
   import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
 );
@@ -113,6 +114,7 @@ function RootRouteBoundary() {
     case "not-found": return <MarketingNotFound />;
     case "terms": return <TermsAndConditionsPage />;
     case "pathology": return <PathologyViewerPage />;
+    case "pdf": return <PdfViewerPage />;
     case "dicom": return <ImmersiveDicomRoot />;
     case "reader": return ReadyWikiViteRoot ? <ReadyWikiViteRoot /> : <WikiViteRoot />;
   }

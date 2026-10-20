@@ -204,6 +204,18 @@ export async function handleFileRequest(
     Boolean(sessionUser) ||
     hasPasswordSession;
 
+  // Browser navigation opens the application viewer; PDF.js and API clients
+  // still receive the original bytes, including range responses. Authorize
+  // first, so the redirect cannot disclose a restricted asset's existence.
+  if (ext === ".pdf" && request.headers.get("Accept")?.includes("text/html") &&
+      !url.searchParams.has("download") && !url.searchParams.has("raw") &&
+      !request.headers.has("Range") && !educationOnly) {
+    return new Response(null, { status: 302, headers: {
+      Location: `/tools/pdf-viewer?path=${encodeURIComponent(normalized)}`,
+      ...PRIVATE_FILE_DENIAL_HEADERS,
+    } });
+  }
+
   let upstream: Response | null = null;
   const blobUrl = asset.blobUrl;
   try {
@@ -233,7 +245,9 @@ export async function handleFileRequest(
 
   const headers = new Headers({
       "Content-Type": mimeType,
-      "Content-Disposition": contentDisposition(ext, filename),
+      "Content-Disposition": url.searchParams.has("download")
+        ? `attachment; filename="${filename.replace(/["\r\n]/g, "")}"`
+        : contentDisposition(ext, filename),
       "Cache-Control": privateCache
         ? "private, max-age=60, stale-while-revalidate=3600"
         : "public, max-age=86400",

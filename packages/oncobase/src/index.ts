@@ -5,5 +5,5 @@ export { runSync, type SyncResult } from "./sync";
 export { HASH_FUNCTION_VERSION, hashDocument, readVaultSelection, readVaultAssets, readVaultDocuments } from "./walk-vault";
 export { PublishProfile, installPublishProfile, publishProfile } from "./publish-profile";
 export { publisherPost } from "./publish-post";
-export { readPublishScope, readPublishSelection } from "./publish-scope";
+export { readPublishScope, readPublishAssetScope, readPublishSelection } from "./publish-scope";
 export { readPublishedState, comparePublishedState, type PublishedState } from "./publish-state";

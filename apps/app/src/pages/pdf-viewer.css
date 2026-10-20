@@ -1,0 +1,53 @@
+.pdf-viewer { height: 100dvh; display: flex; flex-direction: column; background: var(--bg, #f4f3ef); color: var(--text, #242424); }
+.pdf-viewer-header { display: flex; align-items: center; gap: 16px; min-height: 64px; padding: 8px 20px; border-bottom: 1px solid var(--border, #ddd); background: var(--bg, #fff); }
+.pdf-viewer-header h1 { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; }
+.pdf-viewer-header a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; flex-shrink: 0; text-decoration: none; }
+.pdf-viewer-back { color: var(--text-muted, #666); }
+.pdf-viewer-download { padding: 0 14px; border: 1px solid var(--border, #ddd); border-radius: 6px; }
+.pdf-viewer-toolbar { display: flex; align-items: center; justify-content: center; gap: 24px; padding: 8px 16px; border-bottom: 1px solid var(--border, #ddd); }
+.pdf-viewer-page-controls, .pdf-viewer-zoom-controls, .pdf-viewer-toolbar form { display: flex; align-items: center; gap: 8px; }
+.pdf-viewer-toolbar button { min-width: 44px; min-height: 44px; border: 1px solid var(--border, #ddd); border-radius: 5px; background: var(--bg, #fff); font-size: 16px; cursor: pointer; }
+.pdf-viewer-toolbar button:disabled { opacity: .4; cursor: default; }
+.pdf-viewer-toolbar .pdf-viewer-fit { min-width: 84px; font-size: 13px; }
+.pdf-viewer-toolbar input { width: 60px; min-height: 44px; padding: 4px 6px; border: 1px solid var(--border, #ddd); border-radius: 5px; background: var(--bg, #fff); color: inherit; text-align: center; }
+.pdf-viewer-toolbar label, .pdf-viewer-toolbar span { font-size: 13px; white-space: nowrap; }
+.pdf-viewer-content { flex: 1; min-height: 0; overflow: auto; padding: 16px; background: color-mix(in srgb, var(--text, #242424) 12%, var(--bg, #f4f3ef)); }
+.pdf-viewer-paper { position: relative; margin: 0 auto; background: white; box-shadow: 0 2px 10px #0002; }
+.pdf-viewer-paper canvas { display: block; }
+.pdf-viewer-paper .textLayer { position: absolute; inset: 0; }
+.pdf-viewer-message { padding: 24px; text-align: center; line-height: 1.6; }
+.pdf-viewer-message a { text-decoration: underline; }
+.pdf-viewer-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.pdf-viewer :is(a, button, input, [tabindex]):focus-visible { outline: 2px solid var(--accent, #47765e); outline-offset: 3px; }
+@media (max-width: 600px) {
+  .pdf-viewer-header { padding: 8px 12px; gap: 12px; }
+  .pdf-viewer-header h1 { font-size: 13px; }
+  .pdf-viewer-toolbar { gap: 8px; flex-wrap: wrap; }
+  .pdf-viewer-page-controls, .pdf-viewer-zoom-controls { justify-content: center; }
+  .pdf-viewer-content { padding: 16px 8px; }
+}
+
+/* PDF.js TextLayer layout (Mozilla, Apache-2.0). Keep selection styles local;
+   the full editor stylesheet is unnecessary for this read-only viewer. */
+.pdf-viewer-paper .textLayer {
+  --scale-round-x: 1px; --scale-round-y: 1px;
+  color-scheme: only light; text-align: initial; overflow: clip; line-height: 1;
+  letter-spacing: normal; word-spacing: normal; text-size-adjust: none;
+  forced-color-adjust: none; transform-origin: 0 0; caret-color: CanvasText;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.pdf-viewer-paper .textLayer :is(span, br) {
+  color: transparent; position: absolute; white-space: pre; cursor: text;
+  transform-origin: 0 0; user-select: text;
+}
+.pdf-viewer-paper .textLayer > :not(.markedContent),
+.pdf-viewer-paper .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1; --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1; --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.pdf-viewer-paper .textLayer .markedContent { display: contents; }
+.pdf-viewer-paper .textLayer ::selection { background: #4466ff66; color: transparent; }

@@ -51,3 +51,18 @@ test("rejects root HTML produced outside public assets", () => {
   writeFileSync(path.join(directory, "document.html"), "Synthetic test content");
   expect(() => assertBuildAssets(directory)).toThrow("Unapproved static build output");
 });
+
+test("PDF support assets allow only the package's codecs, fonts and character maps", () => {
+  const directory = fixtureDirectory();
+  for (const name of ["pdf-assets/wasm/openjpeg.wasm", "pdf-assets/standard_fonts/LiberationSans-Regular.ttf", "pdf-assets/cmaps/Adobe-Japan1-UCS2.bcmap"]) {
+    mkdirSync(path.dirname(path.join(directory, name)), { recursive: true });
+    writeFileSync(path.join(directory, name), "Synthetic fixture");
+  }
+  expect(() => assertBuildAssets(directory)).not.toThrow();
+  for (const name of ["pdf-assets/report.pdf", "pdf-assets/wasm/unreviewed.wasm", "pdf-assets/wasm/quickjs-eval.wasm"]) {
+    mkdirSync(path.dirname(path.join(directory, name)), { recursive: true });
+    writeFileSync(path.join(directory, name), "Synthetic fixture");
+    expect(() => assertBuildAssets(directory)).toThrow("Unapproved static build output");
+    rmSync(path.join(directory, name));
+  }
+});

@@ -2207,3 +2207,26 @@ test("repeat snapshot hits read storage once per hash and representation", async
     else process.env.WIKI_PREFETCH_SECRET = saved;
   }
 });
+
+test("PDF navigation authorizes before opening the viewer and keeps original downloads", async () => {
+  const handler = createWikiApiHandler(createFakeConvexClient() as never);
+  const view = await handler(request("/api/file?path=sources/public/source.pdf", { headers: { Accept: "text/html" } }));
+  expect(view?.status).toBe(302);
+  expect(view!.headers.get("location")).toBe("/tools/pdf-viewer?path=sources%2Fpublic%2Fsource.pdf");
+  expect(view!.headers.get("cache-control")).toBe("private, no-store");
+  const denied = await handler(request("/api/file?path=private/plan.pdf", { headers: { Accept: "text/html" } }));
+  expect(denied?.status).toBe(404);
+  expect(denied!.headers.get("location")).toBeNull();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = Object.assign(async () => new Response("%PDF-original"), { preconnect: globalThis.fetch.preconnect });
+  try {
+    for (const suffix of ["", "&raw=1", "&download=1"]) {
+      const result = await handler(request(`/api/file?path=sources/public/source.pdf${suffix}`, {
+        headers: { Accept: suffix ? "text/html" : "*/*" },
+      }));
+      expect(result?.status).toBe(200);
+      expect(await result!.text()).toBe("%PDF-original");
+      expect(result!.headers.get("content-disposition")).toStartWith(suffix.includes("download") ? "attachment;" : "inline;");
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});

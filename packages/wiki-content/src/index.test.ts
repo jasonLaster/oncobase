@@ -123,7 +123,6 @@ function referenceIsHiddenFileTreePath(path: string): boolean {
 }
 
 function referenceIsHiddenFileTreeAssetPath(path: string): boolean {
-  if (referenceIsHiddenFileTreePath(path)) return true;
   const lower = path.toLowerCase();
   return !lower.endsWith(".pdf");
 }
@@ -183,7 +182,8 @@ function referenceInsertFileNode(
   const slug = parentSlug ? `${parentSlug}/${name}` : name;
 
   if (rest.length === 0) {
-    const existing = nodes.find((node) => node.name === name);
+    const existing = nodes.find((node) => node.name === name && node.type === type)
+      ?? nodes.find((node) => node.name === name && node.type === "directory");
     const nextNode: ReferenceFileNode =
       type === "pdf"
         ? { name, slug: pdfPath ?? slug, type: "pdf", pdfPath: pdfPath ?? slug }
@@ -286,7 +286,7 @@ describe("wiki content contracts", () => {
     ]);
   });
 
-  test("matches the previous manifest compact-tree builder over representative inputs", () => {
+  test("matches the reference compact-tree builder over representative inputs", () => {
     const cases: Array<{
       name: string;
       pages: Array<{ slug: string }>;
@@ -424,6 +424,7 @@ describe("wiki content contracts", () => {
                 "d",
                 "papers",
                 [
+                  ["f", "grippin-2025-covid-mrna-tumor-sensitization"],
                   ["p", "grippin-2025-covid-mrna-tumor-sensitization"],
                   ["f", "grippin-2025-covid-mrna-tumor-sensitization-analysis"],
                 ],
@@ -556,11 +557,13 @@ describe("wiki content contracts", () => {
         ],
       ),
     ).toEqual([
+      ["d", "diagnostics", [["d", "viewer-upload", [["p", "report"]]]]],
       [
         "d",
         "sources",
         [
           ["d", "diagnostics", [["p", "report"]]],
+          ["d", "images", [["p", "pathology-slide"]]],
           ["d", "people", [["d", "providers", [["d", "stanford", [["p", "telli"]]]]]]],
         ],
       ],

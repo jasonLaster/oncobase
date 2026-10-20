@@ -3,7 +3,28 @@ import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, spyOn } from "bun:test";
-import { readGitPublishScope, readPublishScope, readPublishSelection } from "./publish-scope";
+import { readGitPublishScope, readPublishScope, readPublishAssetScope, readPublishSelection } from "./publish-scope";
+
+test("asset-only allowlists preserve outside restrictions and never hash unrelated binaries", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-assets-only-"));
+  try {
+    fs.writeFileSync(path.join(dir, "private.md"), "---\nsensitive: true\n---\n[Report](report.PDF)");
+    fs.writeFileSync(path.join(dir, "report.PDF"), "%PDF-1.7\nfixture");
+    fs.writeFileSync(path.join(dir, "unrelated.pdf"), "version https://git-lfs.github.com/spec/v1\noid sha256:" + "a".repeat(64) + "\nsize 100\n");
+    const scopeFile = path.join(dir, "scope.json");
+    fs.writeFileSync(scopeFile, '["report.PDF", "report.PDF"]');
+    const paths = readPublishAssetScope(scopeFile);
+    const selection = readPublishSelection(dir, new Set(), "all", "content", undefined, paths);
+    expect(selection.documents).toEqual([]);
+    expect(selection.assets).toHaveLength(1);
+    expect(selection.assets[0]).toMatchObject({ relativePath: "report.PDF", sensitive: true, ownerSlugs: ["private"] });
+    expect(() => readPublishSelection(dir, new Set(), "all", "content", undefined, new Set(["absent.pdf"]))).toThrow("missing");
+    for (const paths of [[], ["../report.PDF"], ["/report.PDF"], ["private.md"], ["./report.PDF"], ["a\\b.pdf"]]) {
+      fs.writeFileSync(scopeFile, JSON.stringify(paths));
+      expect(() => readPublishAssetScope(scopeFile)).toThrow("vault-relative asset");
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
 
 test("theme companions inherit all owners and sensitivity through relative and file API references", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-theme-images-"));

@@ -120,6 +120,7 @@ function routeDefinition(pathname: string): RouteDefinition | null {
   if (pathname === "/tools/pathology-viewer") {
     return { routeTitle: "H&E Slide Viewer" };
   }
+  if (pathname === "/tools/pdf-viewer") return { routeTitle: "PDF Viewer" };
   if (pathname === "/tools/dicom-compare") {
     return { routeTitle: "DICOM Comparison" };
   }

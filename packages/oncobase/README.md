@@ -310,3 +310,15 @@ The CLI ships two default skills:
 After upgrading, `oncobase skills --site <slug>` refreshes these bundled skills.
 The installed bundle takes precedence over an older copy already in the vault;
 keep custom workflows under separate skill names if they should not be replaced.
+
+### Publish selected assets without changing pages
+
+Use a nonempty JSON array of vault-relative asset paths with `--asset-files-from`.
+This supports standalone PDFs without a Markdown sibling. Ownership and access
+rules are still resolved against the whole vault, and unselected assets are not
+hashed or uploaded. This scoped mode never infers deletions.
+
+```sh
+oncobase publish --site acme --asset-files-from /tmp/pdf-paths.json --dry-run
+oncobase publish --site acme --asset-files-from /tmp/pdf-paths.json --verify content
+```

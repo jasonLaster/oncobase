@@ -489,8 +489,9 @@ test("indexed manifest trees preserve file/directory collisions and report fixed
   context.onManifestPhase = (name, ms) => { phases.push(name); expect(ms).toBeGreaterThanOrEqual(0); };
   const body = await (await createWikiManifestResponse(new Request("https://example.test/api/wiki/manifest"), context)).json();
   expect(body.compactTree).toEqual([
-    ["d", "nested", [["d", "item", [["f", "child"]]], ["p", "item"]]],
-    ["d", "same", [["p", "child"]]], ["d", "tree", [["f", "leaf"], ["p", "tree", "tree.pdf"]]], ["p", "same"],
+    ["d", "nested", [["d", "item", [["f", "child"], ["p", "item", "nested/item.pdf"]]], ["f", "item"]]],
+    ["d", "same", [["f", "child"], ["p", "child"], ["p", "same", "same.pdf"]]],
+    ["d", "tree", [["f", "leaf"], ["p", "tree", "tree.pdf"]]], ["f", "same"],
   ]);
   expect(phases).toEqual(["overlay", "assets", "read", "filter", "tree", "hash", "serialize"]);
   context.onManifestPhase = () => { throw new Error("observer failed"); };

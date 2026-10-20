@@ -424,6 +424,7 @@ export function readVaultAssets(vaultPath: string, options: { referencedBy?: Rea
  * Persistence contains metadata only; selected bodies and asset bytes stay fresh. */
 export function readVaultSelection(vaultPath: string, options: {
   slugs?: ReadonlySet<string>; assetMode: "none" | "referenced" | "all";
+  assetPaths?: ReadonlySet<string>;
   cache?: DependencyCacheMode; cacheDirectory?: string;
 }) {
   const snapshot = publishProfile.sync("scan.documents", () => {
@@ -453,7 +454,8 @@ export function readVaultSelection(vaultPath: string, options: {
   if (options.slugs && snapshot.documents.length !== options.slugs.size) throw new Error("Publish scope contains missing, excluded, or ambiguous documents");
   const assets = publishProfile.sync("scan.assets", () => {
     const assets = options.assetMode === "none" ? [] : assetsFromEntries(snapshot.entries, snapshot.parsed,
-      options.assetMode === "referenced" ? { referencedBy: options.slugs } : {});
+      { ...(options.assetMode === "referenced" ? { referencedBy: options.slugs } : {}), assetPaths: options.assetPaths });
+    if (options.assetPaths && assets.length !== options.assetPaths.size) throw new Error("Asset scope contains missing, excluded, unsupported or unreferenced files");
     publishProfile.metric("items", assets.length);
     publishProfile.metric("bytes", assets.reduce((sum, asset) => sum + asset.sizeBytes, 0));
     publishProfile.metric("reusedDocuments", options.assetMode === "none" ? 0 : snapshot.parsed.length);
@@ -462,7 +464,7 @@ export function readVaultSelection(vaultPath: string, options: {
   return { documents: snapshot.documents, assets };
 }
 
-function assetsFromEntries(entries: Entry[], documents: Array<DocumentEntry | DocumentDependency>, options: { referencedBy?: ReadonlySet<string> }) {
+function assetsFromEntries(entries: Entry[], documents: Array<DocumentEntry | DocumentDependency>, options: { referencedBy?: ReadonlySet<string>; assetPaths?: ReadonlySet<string> }) {
   const assets = (() => {
     const assets: PublishAsset[] = [];
     for (const { filePath, relativePath } of entries) {
@@ -535,9 +537,9 @@ function assetsFromEntries(entries: Entry[], documents: Array<DocumentEntry | Do
         }),
       );
     }
-    return options.referencedBy
-      ? assets.filter(asset => asset.ownerSlugs.some(slug => options.referencedBy!.has(slug)))
-      : assets;
+    return assets.filter(asset =>
+      (!options.assetPaths || options.assetPaths.has(asset.relativePath)) &&
+      (!options.referencedBy || asset.ownerSlugs.some(slug => options.referencedBy!.has(slug))));
   });
   // Resolve owners against the entire vault before filtering. A shared asset's
   // sensitivity must include owners outside the selected publish scope.

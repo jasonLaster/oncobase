@@ -31,6 +31,8 @@ const budgets: Budget[] = [
   { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 115_000 },
   { label: "optional math vendor", pattern: /^vendor-math-[\w-]+\.js$/, maxGzipBytes: 85_000 },
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
+  { label: "PDF viewer", pattern: /^PdfViewerPage-[\w-]+\.js$/, maxGzipBytes: 140_000 },
+  { label: "PDF worker", pattern: /^pdf\.worker\.min-[\w-]+\.mjs$/, maxGzipBytes: 390_000 },
   { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
   // The bootstrap bridge adds a small provider hook and fetch exemption. Keep
   // the payload parser separate, but count its runtime cost as eager below.
@@ -116,7 +118,9 @@ const eagerGzipBudget = 1_233_500;
 // /compare, never in the reader or on the landing page: 3_428_000 -> 3_460_000.
 // The oncobase.io home page and its not-found page add about 4.4 KiB more, also loaded only
 // on that host: 3_460_000 -> 3_468_000.
-const lazyGzipBudget = 3_468_000;
+// PDF.js adds ~495 KiB gzip, exclusively on the PDF route (viewer + worker).
+// The reader's eager budget is unchanged; fonts/codecs load only when needed.
+const lazyGzipBudget = 3_990_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

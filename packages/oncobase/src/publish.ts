@@ -7,7 +7,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { sitePut } from "./blob";
 import { countEmbeddingTokens, embedBatch } from "./embeddings";
 import { parseArgs } from "node:util";
-import { readGitPublishScope, readPublishScope, readPublishSelection, type AssetMode } from "./publish-scope";
+import { readGitPublishScope, readPublishScope, readPublishAssetScope, readPublishSelection, type AssetMode } from "./publish-scope";
 import { readPublishedState, comparePublishedState } from "./publish-state";
 import { loadConfig, loadPublishToken } from "./config";
 import {
@@ -202,7 +202,7 @@ async function embedInChunks(
 }
 
 const { values } = parseArgs({ args: process.argv.slice(2), options: {
-  site: { type: "string" }, vault: { type: "string" }, profile: { type: "string" }, "no-profile": { type: "boolean" }, "files-from": { type: "string" }, "changed-since": { type: "string" },
+  site: { type: "string" }, vault: { type: "string" }, profile: { type: "string" }, "no-profile": { type: "boolean" }, "files-from": { type: "string" }, "asset-files-from": { type: "string" }, "changed-since": { type: "string" },
   "doc-concurrency": { type: "string" }, "asset-concurrency": { type: "string" }, "request-timeout-ms": { type: "string", default: "20000" },
   assets: { type: "string" }, embeddings: { type: "string", default: "auto" }, verify: { type: "string" },
   "cache": { type: "string", default: "content" }, "coordination": { type: "string", default: "auto" },
@@ -239,14 +239,16 @@ const confirmTombstone = values["confirm-tombstone"] || force;
 const syncFirst = values["sync-first"];
 const noSyncPreflight = values["no-sync-preflight"];
 const allowDirty = values["allow-dirty"];
-let scope = values["files-from"] ? readPublishScope(values["files-from"]) : undefined;
+const assetScope = values["asset-files-from"] ? readPublishAssetScope(values["asset-files-from"]) : undefined;
+let scope = values["files-from"] ? readPublishScope(values["files-from"]) : assetScope ? new Set<string>() : undefined;
 const scoped = Boolean(scope || values["changed-since"]);
-const assetMode = values.assets ?? (scoped ? "referenced" : "all");
+const assetMode = values.assets ?? (assetScope ? "all" : scoped ? "referenced" : "all");
 const verification = values.verify ?? (scoped ? "content" : "legacy");
 if (!site || values.help) {
   console.log(`Usage: oncobase publish --site <slug> [options]
   --vault <path>                Publish a release worktree without changing saved site config
   --files-from <scope.json>       Selected vault-relative Markdown paths; never infer deletions
+  --asset-files-from <scope.json> Selected asset paths, including asset-only releases; retains all outside owners
   --changed-since <git-ref>      Scope committed Markdown additions/edits since an explicit ref; clean vault required
   --assets none|referenced|all   Scoped default: referenced; whole-vault default: all
   --embeddings auto|skip|required  Auto requires OPENAI_API_KEY; skip leaves search vectors unchanged
@@ -266,6 +268,8 @@ if (!site || values.help) {
   process.exit(values.help ? 0 : 1);
 }
 if (!["none", "referenced", "all"].includes(assetMode) || (!scoped && assetMode !== "all")) throw new Error("--assets none|referenced requires --files-from or --changed-since");
+if (assetScope && assetMode !== "all") throw new Error("--asset-files-from requires --assets all (the default with this flag)");
+if (assetScope && values["changed-since"]) throw new Error("--asset-files-from conflicts with --changed-since");
 if (!["auto", "skip", "required"].includes(values.embeddings)) throw new Error("--embeddings must be auto, skip, or required");
 if (!["content", "metadata", "legacy"].includes(verification) || values.verify === "legacy") throw new Error("--verify must be content or metadata");
 if (!["content", "metadata", "off", "refresh"].includes(values.cache)) throw new Error("--cache must be content, metadata, off, or refresh");
@@ -318,7 +322,7 @@ if (shouldRunSyncPreflight) {
 if (values.embeddings === "required" && !process.env.OPENAI_API_KEY) throw new Error("--embeddings required needs OPENAI_API_KEY");
 console.log(`Publish policy: scope=${scope ? "selected" : "whole-vault"}, assets=${assetMode}, sync=${shouldRunSyncPreflight ? "pull" : "none"}, embeddings=${values.embeddings}, verify=${verification}, cache=${scope ? values.cache : "off"}, coordination=${values.coordination}.`);
 const { documents, assets } = scope
-  ? readPublishSelection(config.vaultPath, scope, assetMode as AssetMode, values.cache as DependencyCacheMode)
+  ? readPublishSelection(config.vaultPath, scope, assetMode as AssetMode, values.cache as DependencyCacheMode, undefined, assetScope)
   : readVaultSelection(config.vaultPath, { assetMode: assetMode as AssetMode });
 
 if (scope && (documents.length > 1000 || assets.length > 1024)) throw new Error("Scoped publish supports at most 1000 documents and 1024 assets; narrow the scope");

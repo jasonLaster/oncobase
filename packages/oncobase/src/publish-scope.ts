@@ -6,6 +6,16 @@ import { readVaultSelection } from "./walk-vault";
 
 export type AssetMode = "none" | "referenced" | "all";
 
+export function readPublishAssetScope(file: string): Set<string> {
+  const paths: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (!Array.isArray(paths) || paths.length === 0 || paths.some(p =>
+    typeof p !== "string" || !path.posix.extname(p) || /\.mdx?$/i.test(p) || path.posix.isAbsolute(p) ||
+    p.includes("\\") || p.split("/").some(part => !part || part === "." || part === ".."))) {
+    throw new Error("--asset-files-from must contain a nonempty JSON array of vault-relative asset paths");
+  }
+  return new Set(paths);
+}
+
 export function readPublishScope(file: string): Set<string> {
   const paths: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
   if (!Array.isArray(paths) || paths.length === 0 || paths.some(p =>
@@ -16,8 +26,8 @@ export function readPublishScope(file: string): Set<string> {
   return new Set(paths.map(p => p.replace(/\.mdx?$/, "")));
 }
 
-export function readPublishSelection(vault: string, slugs: ReadonlySet<string>, assetMode: AssetMode, cache?: DependencyCacheMode, cacheDirectory?: string) {
-  const selected = readVaultSelection(vault, { slugs, assetMode, cache, cacheDirectory });
+export function readPublishSelection(vault: string, slugs: ReadonlySet<string>, assetMode: AssetMode, cache?: DependencyCacheMode, cacheDirectory?: string, assetPaths?: ReadonlySet<string>) {
+  const selected = readVaultSelection(vault, { slugs, assetMode, cache, cacheDirectory, assetPaths });
   if (selected.documents.length !== slugs.size) throw new Error("Publish scope contains missing, excluded, or ambiguous documents");
   return selected;
 }

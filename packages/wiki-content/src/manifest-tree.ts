@@ -20,7 +20,7 @@ function indexTreeNodes(indexes: TreeIndexes, nodes: ApiFileNode[]) {
   if (!index) {
     index = { first: new Map(), directories: new Map() };
     for (const node of nodes) {
-      if (!index.first.has(node.name)) index.first.set(node.name, node);
+      index.first.set(`${node.type}:${node.name}`, node);
       if (node.type === "directory" && !index.directories.has(node.name)) index.directories.set(node.name, node);
     }
     indexes.set(nodes, index);
@@ -42,7 +42,7 @@ function insertFileNode(
   const index = indexTreeNodes(indexes, nodes);
 
   if (rest.length === 0) {
-    const existing = index.first.get(name);
+    const existing = index.first.get(`${type}:${name}`) ?? index.directories.get(name);
     const nextNode: ApiFileNode =
       type === "pdf"
         ? { name, slug: pdfPath ?? slug, type: "pdf", pdfPath: pdfPath ?? slug }
@@ -50,14 +50,14 @@ function insertFileNode(
 
     if (!existing) {
       nodes.push(nextNode);
-      index.first.set(name, nextNode);
+      index.first.set(`${type}:${name}`, nextNode);
       return;
     }
 
     if (existing.type === "directory") {
       existing.children = existing.children ?? [];
       existing.children.unshift(nextNode);
-      indexTreeNodes(indexes, existing.children).first.set(name, nextNode);
+      indexTreeNodes(indexes, existing.children).first.set(`${type}:${name}`, nextNode);
       return;
     }
 
@@ -70,7 +70,7 @@ function insertFileNode(
     directory = { name, slug, type: "directory", children: [] };
     nodes.push(directory);
     index.directories.set(name, directory);
-    if (!index.first.has(name)) index.first.set(name, directory);
+    index.first.set(`directory:${name}`, directory);
   }
   directory.children = directory.children ?? [];
   insertFileNode(indexes, directory.children, rest, type, pdfPath, slug);

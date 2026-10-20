@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs";
 import path from "node:path";
+import { pdfSupportAssetFiles } from "./pdf-assets-plugin";
 
 // Vercel serves static files before the authentication catch-all. Every file
 // here is deliberately anonymous; adding a new one requires explicit review.
@@ -72,10 +73,12 @@ export function assertPublicAssets(directory: string) {
 }
 
 export function assertBuildAssets(directory: string) {
+  const pdfSupportFiles = pdfSupportAssetFiles();
   const unexpected = files(directory).filter((file) => {
     // The one SPA entry is embedded into the gated function and removed from
     // Vercel's static output by build-vercel-functions.ts.
     if (file === "index.html" || PUBLIC_FILES.has(file)) return false;
+    if (pdfSupportFiles.has(`/${file}`)) return false;
     return !file.startsWith("assets/") || /\.(?:html?|xhtml)$/i.test(file);
   });
   if (unexpected.length) {

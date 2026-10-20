@@ -22,6 +22,7 @@ export type RootRoute =
   | "not-found"
   | "terms"
   | "pathology"
+  | "pdf"
   | "dicom"
   | "reader";
 
@@ -50,6 +51,7 @@ export function rootRouteFor(
   if (pathname === "/sign-in") return "sign-in";
   if (pathname === "/terms-and-conditions") return "terms";
   if (pathname === "/tools/pathology-viewer") return "pathology";
+  if (pathname === "/tools/pdf-viewer") return "pdf";
   if (pathname === "/tools/dicom-viewer" || pathname === "/tools/dicom-compare") return "dicom";
   return "reader";
 }

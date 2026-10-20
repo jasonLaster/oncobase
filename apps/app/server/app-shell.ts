@@ -93,7 +93,7 @@ function slugFromPathname(pathname: string) {
 }
 
 function isAppAssetRequest(pathname: string) {
-  return pathname.startsWith("/assets/") || pathname === "/favicon.ico" || ASSET_PATH_RE.test(pathname);
+  return pathname.startsWith("/assets/") || pathname.startsWith("/pdf-assets/") || pathname === "/favicon.ico" || ASSET_PATH_RE.test(pathname);
 }
 
 function isLinkPreviewRequest(request: Request) {

@@ -211,7 +211,8 @@ export function isHiddenFileTreePath(path: string): boolean {
 }
 
 export function isHiddenFileTreeAssetPath(path: string): boolean {
-  if (isHiddenFileTreePath(path)) return true;
+  // A PDF is a reader document even inside an otherwise hidden asset or
+  // diagnostics folder. The manifest already applies its access rules.
   const lower = path.toLowerCase();
   return !Array.from(NAVIGABLE_FILE_TREE_ASSET_EXTENSIONS).some((extension) =>
     lower.endsWith(extension),
@@ -446,7 +447,8 @@ function insertFileNode(
   const slug = parentSlug ? `${parentSlug}/${name}` : name;
 
   if (rest.length === 0) {
-    const existing = nodes.find((node) => node.name === name);
+    const existing = nodes.find((node) => node.name === name && node.type === type)
+      ?? nodes.find((node) => node.name === name && node.type === "directory");
     const nextNode: FileNode =
       type === "pdf"
         ? { name, slug: pdfPath ?? slug, type: "pdf", pdfPath: pdfPath ?? slug }

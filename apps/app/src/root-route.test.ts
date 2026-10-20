@@ -14,6 +14,8 @@ describe("rootRouteFor", () => {
     expect(rootRouteFor("/education", false)).toBe("education");
     expect(rootRouteFor("/education/topic", false)).toBe("education");
     expect(rootRouteFor("/tools/pathology-viewer", false)).toBe("pathology");
+    expect(rootRouteFor("/tools/pdf-viewer", false)).toBe("pdf");
+    expect(rootRouteFor("/tools/pdf-viewer", true)).toBe("password");
     expect(rootRouteFor("/tools/dicom-viewer", false)).toBe("dicom");
     expect(rootRouteFor("/tools/dicom-compare", false)).toBe("dicom");
   });
