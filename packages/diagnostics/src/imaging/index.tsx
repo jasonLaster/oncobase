@@ -56,11 +56,11 @@ export function DiagnosticImaging({
     })),
     ...pathologyCollections(pathologySlides).map((collection) => ({
       id: `pathology-${collection.id}`,
-      title: `${collection.stain} slides`,
+      title: "Pathology slides",
       isoDate: collection.isoDate,
       dateLabel: collection.dateLabel,
-      modality: collection.stain,
-      focus: `${collection.slides.length} whole-slide ${collection.slides.length === 1 ? "image" : "images"}${collection.unknownDates ? ` · ${collection.unknownDates} scan ${collection.unknownDates === 1 ? "date" : "dates"} unavailable` : ""}`,
+      modality: "Pathology",
+      focus: `${collection.slides.length} ${collection.slides.length === 1 ? "slide" : "slides"} · ${collection.stains.length === 1 ? collection.stains[0] : `${collection.stains.length} stains`}${collection.unknownDates ? " · scan date unavailable" : ""}`,
       viewerHref: pathologyCollectionHref(collection),
       reportLinks: [],
       comparisonLinks: collection.slides.length > 1 ? [{
@@ -194,6 +194,7 @@ function DiagnosticStudyCard({
         <p>
           {study.dateLabel} · {study.modality}
         </p>
+        {study.modality === "Pathology" ? <p>{study.focus}</p> : null}
       </div>
       <div className="diagnostics-study-actions">
         <a href={study.viewerHref}>

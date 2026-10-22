@@ -3,6 +3,7 @@ import type { PathologySlide } from "./model";
 const formatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
 });
+const stainOrder = new Map(["H&E", "PanKera", "ER", "PR", "HER2", "MIB1", "p63"].map((stain, index) => [stain, index]));
 
 export function slideScanDate(scanDate?: string) {
   const match = scanDate?.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -21,11 +22,19 @@ export function sortPathologySlides(slides: PathologySlide[]) {
 }
 
 export function pathologyCollectionId(slide: PathologySlide) {
-  return `${slide.stain}:${slideScanDate(slide.scanDate).isoDate || slide.slideId}`;
+  return slideScanDate(slide.scanDate).isoDate || `slide:${slide.slideId}`;
 }
 
-export function pathologyCollectionHref(collection: { id: string; stain: string }, slideId?: string, compareId?: string) {
-  const params = new URLSearchParams({ stain: collection.stain, collection: collection.id });
+export function normalizePathologyCollectionId(id: string | null) {
+  if (!id) return null;
+  const date = id.match(/(?:^|:)(\d{4}-\d{2}-\d{2})$/);
+  if (date) return date[1];
+  const source = id.match(/:(he-[a-f0-9]{20})$/);
+  return source ? `slide:${source[1]}` : id;
+}
+
+export function pathologyCollectionHref(collection: { id: string }, slideId?: string, compareId?: string) {
+  const params = new URLSearchParams({ collection: collection.id });
   if (slideId) params.set("slide", slideId);
   if (compareId) params.set("compare", compareId);
   return `/tools/pathology-viewer?${params}`;
@@ -41,8 +50,10 @@ export function pathologyCollections(slides: PathologySlide[]) {
   }
   return [...groups].map(([id, associatedSlides]) => {
     const date = slideScanDate(associatedSlides[0].scanDate);
+    const stains = [...new Set(associatedSlides.map(slide => slide.stain))]
+      .sort((a, b) => (stainOrder.get(a) ?? stainOrder.size) - (stainOrder.get(b) ?? stainOrder.size) || a.localeCompare(b));
     return {
-      id, stain: associatedSlides[0].stain, slides: associatedSlides, isoDate: date.isoDate,
+      id, stains, slides: associatedSlides, isoDate: date.isoDate,
       dateLabel: date.isoDate ? `${date.label} (scan)` : date.label,
       unknownDates: date.isoDate ? 0 : associatedSlides.length,
     };

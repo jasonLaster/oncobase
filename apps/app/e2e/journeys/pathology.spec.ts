@@ -93,61 +93,69 @@ test("opens independently of the wiki database, supports calibrated magnificatio
   expect(failures).toEqual([]);
 });
 
-test("July and October collections keep navigation, comparison and copied links in their own set", async ({ page }) => {
-  const catalog = Array.from({ length: 11 }, (_, index) => ({
-    ...slides[0], slideId: `he-${(index + 1).toString(16).repeat(20)}`,
-    label: `H&E slide ${String(index + 1).padStart(2, "0")}`, sourceSha256: (index + 1).toString(16).repeat(64),
-    scanDate: index < 9 ? "10/13/2026" : "07/09/2026",
-  }));
-  await fixture(page, [...catalog, { ...slides[1], stain: "HER2", scanDate: "10/13/2026" }]);
+const octoberStains = [...Array(9).fill("H&E"), ...Array(5).fill("PanKera"), "ER", "PR", "HER2", "MIB1", "p63"] as string[];
+const dateCatalog = [...octoberStains, "H&E", "H&E"].map((stain, i) => ({
+  ...slides[0], stain, slideId: `he-${(i + 1).toString(16).padStart(20, "0")}`,
+  label: `Synthetic ${stain} ${String(i + 1).padStart(2, "0")}`, sourceSha256: (i + 1).toString(16).padStart(64, "0"),
+  scanDate: i < 19 ? "10/13/2026" : "07/09/2026",
+}));
+
+test("October stain tabs browse all nineteen slides while July stays separate", async ({ page }) => {
+  await fixture(page, dateCatalog);
   for (const width of [1440, 393]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const [date, collectionId] of [["10/13/2026", "H&E:2026-10-13"], ["07/09/2026", "H&E:2026-07-09"]]) {
-      const associated = catalog.filter(s => s.scanDate === date);
-      await page.goto(`/tools/pathology-viewer?${new URLSearchParams({ stain: "H&E", collection: collectionId })}`);
-      await expect(page.getByTestId("pathology-slide-card")).toHaveCount(associated.length);
-      await expect(page.getByLabel("Select slide", { exact: true }).locator("option")).toHaveCount(associated.length);
-      await expect(page.getByLabel("Compare with slide", { exact: true }).locator("option")).toHaveCount(associated.length);
-      await page.getByLabel("Select slide", { exact: true }).selectOption(associated.at(-1)!.slideId);
-      await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", associated.at(-1)!.slideId);
-      await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-render-status", "ready");
-      await expect(page.getByRole("button", { name: "Next slide", exact: true })).toBeDisabled();
-      await page.getByRole("button", { name: "Previous slide", exact: true }).click();
-      await expect(page.getByLabel("Select slide", { exact: true })).toHaveValue(associated.at(-2)!.slideId);
-      await page.getByLabel("Compare with slide", { exact: true }).selectOption(associated.at(-1)!.slideId);
-      await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
-      await page.getByRole("button", { name: "Copy current view link" }).click();
-      expect(new URL(page.url()).searchParams.get("collection")).toBe(collectionId);
-      await page.reload();
-      await expect(page.getByTestId("pathology-slide-card")).toHaveCount(associated.length);
-      await expect(page.getByLabel("Select slide", { exact: true })).toHaveValue(associated.at(-2)!.slideId);
-      await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.goto("/tools/pathology-viewer?collection=2026-10-13");
+    await expect(page.getByRole("tab")).toHaveCount(7);
+    await expect(page.getByRole("tab", { name: "H&E (9)", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByLabel("Select slide", { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("pathology-slide-card")).toHaveCount(9);
+    const tabsBefore = await page.getByRole("tablist", { name: "Stains" }).boundingBox();
+    await page.getByTestId("pathology-slide-card").last().click();
+    await expect(page.getByRole("button", { name: "Next slide", exact: true })).toBeDisabled();
+    const tabsAfter = await page.getByRole("tablist", { name: "Stains" }).boundingBox();
+    expect(Math.abs(tabsAfter!.y - tabsBefore!.y)).toBeLessThanOrEqual(1);
+    await page.getByRole("button", { name: "Previous slide", exact: true }).click();
+    await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", dateCatalog[7].slideId);
+    await page.getByRole("tab", { name: "PanKera (5)", exact: true }).click();
+    await expect(page.getByTestId("pathology-slide-card")).toHaveCount(5);
+    await page.getByRole("tab", { name: "H&E (9)", exact: true }).click();
+    await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", dateCatalog[7].slideId);
+    await page.getByRole("tab", { name: "HER2 (1)", exact: true }).click();
+    await expect(page.getByTestId("pathology-slide-card")).toHaveCount(1);
+    await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-render-status", "ready");
+    await page.getByLabel("Compare with slide", { exact: true }).selectOption(dateCatalog[7].slideId);
+    await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
+    await page.getByRole("button", { name: "Copy current view link" }).click();
+    expect(new URL(page.url()).searchParams.get("collection")).toBe("2026-10-13");
+    await page.reload();
+    await expect(page.getByRole("tab", { name: "HER2 (1)", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
+    await page.getByRole("tab", { name: "HER2 (1)", exact: true }).press("Home");
+    await expect(page.getByRole("tab", { name: "H&E (9)", exact: true })).toBeFocused();
+    await page.getByRole("tab", { name: "H&E (9)", exact: true }).press("ArrowRight");
+    await expect(page.getByRole("tab", { name: "PanKera (5)", exact: true })).toHaveAttribute("aria-selected", "true");
+    if (width === 393) for (const tab of await page.getByRole("tab").all()) {
+      const box = await tab.boundingBox(); expect(box!.height).toBeGreaterThanOrEqual(44); expect(box!.width).toBeGreaterThanOrEqual(44);
     }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.goto("/tools/pathology-viewer?collection=2026-07-09");
+    await expect(page.getByRole("tab")).toHaveCount(1);
+    await expect(page.getByTestId("pathology-slide-card")).toHaveCount(2);
+    await expect(page.getByLabel("Compare with slide", { exact: true }).locator("option")).toHaveCount(2);
   }
-  await page.goto(`/tools/pathology-viewer?${new URLSearchParams({ stain: "H&E", collection: "H&E:2026-07-09", slide: catalog[0].slideId })}`);
+  await page.goto(`/tools/pathology-viewer?collection=2026-07-09&slide=${dateCatalog[0].slideId}`);
   await expect(page.getByText("This slide is unavailable", { exact: true })).toBeVisible();
 });
 
-test("protein stains use the same viewer with distinct stain collections", async ({ page }) => {
-  const stains = ["PanKera", "PanKera", "PanKera", "PanKera", "PanKera", "ER", "PR", "HER2", "MIB1", "p63"];
-  const protein = stains.map((stain, index) => ({ ...slides[0],
-    slideId: `he-${(index + 1).toString(16).repeat(20)}`, label: `Synthetic ${stain} ${index + 1}`,
-    sourceSha256: (index + 1).toString(16).repeat(64), stain, scanDate: "10/13/2026",
-  }));
-  await fixture(page, [...slides, ...protein]);
-  for (const width of [1440, 393]) {
-    await page.setViewportSize({ width, height: 1000 });
-    for (const stain of new Set(stains)) {
-      const associated = protein.filter(slide => slide.stain === stain);
-      await page.goto(`/tools/pathology-viewer?${new URLSearchParams({ stain, collection: `${stain}:2026-10-13` })}`);
-      await expect(page.getByRole("heading", { name: `${stain} slides`, exact: true })).toBeVisible();
-      await expect(page.getByTestId("pathology-slide-card")).toHaveCount(associated.length);
-      await expect(page.getByLabel("Select slide", { exact: true }).locator("option")).toHaveCount(associated.length);
-      await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", associated[0].slideId);
-      await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-render-status", "ready");
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    }
+test("old stain links select the correct tab within the full date collection", async ({ page }) => {
+  await fixture(page, dateCatalog);
+  for (const stain of new Set(octoberStains)) {
+    await page.goto(`/tools/pathology-viewer?${new URLSearchParams({ stain, collection: `${stain}:2026-10-13` })}`);
+    const count = octoberStains.filter(s => s === stain).length;
+    await expect(page.getByRole("tab")).toHaveCount(7);
+    await expect(page.getByRole("tab", { name: `${stain} (${count})`, exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("pathology-slide-card")).toHaveCount(count);
+    await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-render-status", "ready");
   }
 });
 

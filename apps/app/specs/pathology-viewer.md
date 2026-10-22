@@ -1,20 +1,21 @@
 # Whole-slide pathology review
 
 `/tools/pathology-viewer` opens the site-scoped Convex slide collection without
-initializing the wiki's SQLite/OPFS reader. Pathology appears in the imaging
-list alongside radiology studies. Slides of the same stain and scan date share
-one collection row, with a slide count. The July and October scans remain
-separate sets; slides without a valid scan date remain separate records.
-Images opens that row's collection; Comparisons opens its first two slides.
-Slide dates are explicitly labeled as scan dates, not specimen dates.
-`?stain=H%26E&collection=H%26E%3A2026-10-13` scopes browsing, comparison,
-navigation and copied links to the October set. Legacy links without a
-collection parameter continue to support browsing all matching slides. The
-slide selector and thumbnails cover the complete collection, newest scans first,
-with each slide's scan date shown separately.
-H&E and protein stains (including PanKera, ER, PR, HER2, MIB1 and p63) use
-the same image viewer, with separate collections by source stain and scan date.
-Stain labels describe the supplied image; no expression score is inferred.
+initializing the wiki's SQLite/OPFS reader. Pathology appears alongside radiology
+studies, with one collection row per scan date regardless of stain. October 13
+contains all 19 H&E and protein-stain images; July 9 stays a separate set of two.
+Unknown scan dates remain separate records. Dates are scan dates, not specimen dates.
+Images opens that date's collection; Comparisons opens its first two slides.
+`?collection=2026-10-13` scopes all browsing and comparison to October.
+The sidebar has a counted tab for each stain and thumbnails for the selected tab;
+there is no slide dropdown. Stain tabs remain visible while desktop thumbnails
+scroll. Arrow keys, Home and End switch tabs; mobile tabs have touch-sized targets.
+Switching stains remembers the last selected slide during the visit. Previous/next
+stays within the selected stain, while comparison can use any stain in that date.
+Copied links preserve date, stain, primary slide and comparison. Legacy stain-based
+collection links still open the original date with the requested stain selected.
+A direct immutable slide link opens its scan date; the default is the newest date.
+Stain labels describe the supplied source image; no expression score is inferred.
 `?slide=<id>` selects the exact immutable source; missing IDs show an error.
 `compare=<id>` opens a second independent slide. Copy View includes the primary
 slide's image-pixel center, image zoom, rotation, and saved region ID.
