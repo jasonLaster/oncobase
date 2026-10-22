@@ -8,7 +8,7 @@ const slides: PathologySlide[] = ["a", "b"].map((letter, index) => ({
   mppX: .25, mppY: .25, objectivePower: 40, scanner: "Synthetic scanner", scanDate: "07/09/2026", colorProfile: "sRGB",
 }));
 
-async function fixture(page: Page) {
+async function fixture(page: Page, collection = slides) {
   const png = await page.evaluate(() => {
     const canvas = document.createElement("canvas"); canvas.width = 1026; canvas.height = 1026;
     const ctx = canvas.getContext("2d")!; ctx.fillStyle = "#fffaf7"; ctx.fillRect(0, 0, 1026, 1026);
@@ -24,7 +24,7 @@ async function fixture(page: Page) {
   const behavior = { conflict: false, saveFailure: false, tilesFailure: false, saveBarrier: null as Promise<void> | null };
   await page.route("**/api/**", async route => {
     const request = route.request(), url = new URL(request.url());
-    if (url.pathname === "/api/pathology/slides") return route.fulfill({ json: { slides } });
+    if (url.pathname === "/api/pathology/slides") return route.fulfill({ json: { slides: collection } });
     const slideId = url.pathname.split("/")[4];
     if (url.pathname.endsWith("/regions")) {
       const current = notes.get(slideId) ?? { regions: [], version: 0 };
@@ -33,7 +33,7 @@ async function fixture(page: Page) {
       if (behavior.saveFailure) return route.fulfill({ status: 503, json: { error: "Unavailable" } });
       if (behavior.conflict) return route.fulfill({ status: 409, json: { conflict: true, version: current.version + 1 } });
       const body = request.postDataJSON();
-      expect(body.sourceSha256).toBe(slides.find(s => s.slideId === slideId)?.sourceSha256);
+      expect(body.sourceSha256).toBe(collection.find(s => s.slideId === slideId)?.sourceSha256);
       expect(body.expectedVersion).toBe(current.version);
       notes.set(slideId, { regions: body.regions, version: current.version + 1 });
       return route.fulfill({ json: { conflict: false, version: current.version + 1 } });
@@ -91,6 +91,35 @@ test("opens independently of the wiki database, supports calibrated magnificatio
   expect(state.notes.get(slides[0].slideId)?.regions[0]).toEqual(before);
   expect(before?.kind).toBe("ruler");
   expect(failures).toEqual([]);
+});
+
+test("a collection opens all eleven associated slides and keeps navigation, comparison and copied links scoped", async ({ page }) => {
+  const collection = Array.from({ length: 11 }, (_, index) => ({
+    ...slides[0], slideId: `he-${(index + 1).toString(16).repeat(20)}`,
+    label: `H&E slide ${String(index + 1).padStart(2, "0")}`, sourceSha256: (index + 1).toString(16).repeat(64),
+    scanDate: index < 9 ? "10/13/2026" : "07/09/2026",
+  }));
+  await fixture(page, [...collection, { ...slides[1], stain: "HER2" }]);
+  for (const width of [1440, 393]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/tools/pathology-viewer?stain=H%26E");
+    await expect(page.getByTestId("pathology-slide-card")).toHaveCount(11);
+    await expect(page.getByLabel("Select slide", { exact: true }).locator("option")).toHaveCount(11);
+    await page.getByLabel("Select slide", { exact: true }).selectOption(collection[10].slideId);
+    await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", collection[10].slideId);
+    await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-render-status", "ready");
+    await expect(page.getByRole("button", { name: "Next slide", exact: true })).toBeDisabled();
+    await page.getByRole("button", { name: "Previous slide", exact: true }).click();
+    await expect(page.getByLabel("Select slide", { exact: true })).toHaveValue(collection[9].slideId);
+    await page.getByLabel("Compare with slide", { exact: true }).selectOption(collection[0].slideId);
+    await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
+    await page.getByRole("button", { name: "Copy current view link" }).click();
+    expect(new URL(page.url()).searchParams.get("stain")).toBe("H&E");
+    await page.reload();
+    await expect(page.getByTestId("pathology-slide-card")).toHaveCount(11);
+    await expect(page.getByLabel("Select slide", { exact: true })).toHaveValue(collection[9].slideId);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
 });
 
 test("regions and notes save, reload, and stay tied to their own slide, and a failed save keeps the reviewer's draft", async ({ page }) => {

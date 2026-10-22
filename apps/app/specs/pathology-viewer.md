@@ -2,8 +2,12 @@
 
 `/tools/pathology-viewer` opens the site-scoped Convex slide collection without
 initializing the wiki's SQLite/OPFS reader. Each slide appears in the imaging
-list alongside radiology studies, with source-specific Images and Comparisons
-actions. Slide dates are explicitly labeled as scan dates.
+list alongside radiology studies. Slides of the same stain share one collection
+row, with a slide count and scan-date range. Images opens the full collection;
+Comparisons opens its first two slides. Slide dates are explicitly labeled as
+scan dates. `?stain=H%26E` scopes browsing and comparison to H&E slides. The
+slide selector and thumbnails cover the complete collection, newest scans first,
+with each slide's scan date shown separately.
 `?slide=<id>` selects the exact immutable source; missing IDs show an error.
 `compare=<id>` opens a second independent slide. Copy View includes the primary
 slide's image-pixel center, image zoom, rotation, and saved region ID.

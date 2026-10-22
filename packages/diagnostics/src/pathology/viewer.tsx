@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Columns2, Copy, Expand, Hand, Hom
 import useSWR from "swr";
 import { formatLength, readCamera, regionLengthMicrons, type PathologyRegion, type PathologySlide, type SlideCamera } from "./model";
 import { SlideCanvas, type SlideControls, type SlideTool } from "./slide-canvas";
+import { slideScanDate, sortPathologySlides } from "./collection";
 import "./styles.css";
 
 async function json<T>(url: string): Promise<T> {
@@ -17,6 +18,7 @@ export function PathologyViewer() {
   const params = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
   const [slideId, setSlideId] = useState(() => params.get("slide"));
   const [compareId, setCompareId] = useState(() => params.get("compare"));
+  const [stain, setStain] = useState(() => params.get("stain"));
   const initialCamera = readCamera(params);
   const [tool, setTool] = useState<SlideTool>("pan");
   const [selectedRegion, setSelectedRegion] = useState(() => params.get("region") ?? "");
@@ -27,8 +29,9 @@ export function PathologyViewer() {
   const [linked, setLinked] = useState(false);
   const primary = useRef<SlideControls | null>(null), comparison = useRef<SlideControls | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
-  const slides = data?.slides ?? [];
+  const slides = sortPathologySlides((data?.slides ?? []).filter(s => !stain || s.stain === stain));
   const slide = slides.find(s => s.slideId === slideId) ?? slides[0];
+  const activeSlideId = slide?.slideId;
   const missingSlide = Boolean(data && slideId && !slides.some(s => s.slideId === slideId));
   const compare = slides.find(s => s.slideId === compareId && s.slideId !== slide?.slideId);
   const notesUrl = slide ? `/api/pathology/slides/${slide.slideId}/regions` : null;
@@ -43,6 +46,7 @@ export function PathologyViewer() {
     const update = () => {
       const next = new URLSearchParams(window.location.search);
       setSlideId(next.get("slide")); setCompareId(next.get("compare"));
+      setStain(next.get("stain"));
     };
     window.addEventListener("popstate", update);
     return () => window.removeEventListener("popstate", update);
@@ -53,11 +57,17 @@ export function PathologyViewer() {
     window.addEventListener("beforeunload", prevent);
     return () => window.removeEventListener("beforeunload", prevent);
   }, [dirty]);
+  useEffect(() => {
+    if (!activeSlideId) return;
+    const card = workspace.current?.querySelector(`[data-slide-card-id="${activeSlideId}"]`);
+    card?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeSlideId]);
 
   function navigate(id: string, compareNext = compareId) {
     setSlideId(id); setCompareId(compareNext); setSelectedRegion(""); setTool("pan");
     const url = new URL(window.location.href);
     url.search = ""; url.searchParams.set("slide", id);
+    if (stain) url.searchParams.set("stain", stain);
     if (compareNext && compareNext !== id) url.searchParams.set("compare", compareNext);
     window.history.pushState(null, "", url);
   }
@@ -93,6 +103,7 @@ export function PathologyViewer() {
     if (!slide) return;
     const camera = primary.current?.camera();
     const url = new URL(window.location.href); url.search = ""; url.searchParams.set("slide", slide.slideId);
+    if (stain) url.searchParams.set("stain", stain);
     if (compare) url.searchParams.set("compare", compare.slideId);
     if (selectedRegion && !draft?.dirty) url.searchParams.set("region", selectedRegion);
     if (camera) for (const [key, value] of Object.entries(camera)) url.searchParams.set(key, value.toFixed(6));
@@ -107,7 +118,7 @@ export function PathologyViewer() {
   return <div className="pathology-workspace" ref={workspace} data-test-id="pathology-workspace">
     <header className="pathology-header">
       <a href="/diagnostics/imaging" className="pathology-back" aria-label="Back to imaging"><ArrowLeft size={18} /><span>Imaging</span></a>
-      <div className="pathology-heading"><span className="pathology-eyebrow">Digital pathology</span><h1>H&E slides</h1></div>
+      <div className="pathology-heading"><span className="pathology-eyebrow">Digital pathology</span><h1>{stain ?? "H&E"} slides</h1></div>
       <div className="pathology-header-actions">
         {button("Copy current view link", () => void share(), <Copy size={18} />)}
         {button("Full screen", () => { if (document.fullscreenElement) void document.exitFullscreen(); else void workspace.current?.requestFullscreen(); }, <Expand size={18} />)}
@@ -121,10 +132,15 @@ export function PathologyViewer() {
       : <div className="pathology-layout">
         <aside className="pathology-slide-rail" aria-label="Slide collection">
           <div className="pathology-rail-title"><h2>Slides</h2><span>{slides.length}</span></div>
+          <label className="pathology-slide-picker">Select slide
+            <select aria-label="Select slide" value={slide.slideId} onChange={event => navigate(event.target.value)}>
+              {slides.map((s, i) => <option key={s.slideId} value={s.slideId}>{i + 1}. {s.label} · {slideScanDate(s.scanDate).label}</option>)}
+            </select>
+          </label>
           <div className="pathology-slide-list">{slides.map((s, i) => <button key={s.slideId} className={`pathology-slide-card ${slide.slideId === s.slideId ? "is-selected" : ""}`}
-            onClick={() => navigate(s.slideId)} aria-pressed={slide.slideId === s.slideId} data-test-id="pathology-slide-card">
+            onClick={() => navigate(s.slideId)} aria-pressed={slide.slideId === s.slideId} data-test-id="pathology-slide-card" data-slide-card-id={s.slideId}>
             <img src={`/api/pathology/slides/${s.slideId}/thumbnail`} alt={`Tissue overview for ${s.label}`} loading="lazy" />
-            <span><strong>{s.label}</strong><small>{s.stain} · {s.objectivePower ? `${s.objectivePower}× scan` : "Whole slide"}{drafts[s.slideId]?.dirty ? " · unsaved notes" : ""}</small></span><b>{i + 1}</b>
+            <span><strong>{s.label}</strong><small>{s.stain} · {s.objectivePower ? `${s.objectivePower}× scan` : "Whole slide"}{drafts[s.slideId]?.dirty ? " · unsaved notes" : ""}</small><small>{slideScanDate(s.scanDate).label}</small></span><b>{i + 1}</b>
           </button>)}</div>
           <details className="pathology-details"><summary>Slide information</summary><dl>
             <dt>Accession</dt><dd>{slide.accession ?? "Not supplied"}</dd><dt>Stain</dt><dd>{slide.stain}</dd>

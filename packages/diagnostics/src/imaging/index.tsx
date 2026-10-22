@@ -13,6 +13,7 @@ import {
   type DiagnosticStudy,
 } from "../studies/data.ts";
 import type { PathologySlide } from "../pathology/model.ts";
+import { pathologyCollectionHref, pathologyCollections } from "../pathology/collection.ts";
 
 export interface DiagnosticImagingProps {
   comparisons: DiagnosticComparisonManifest[];
@@ -36,26 +37,6 @@ interface ImagingEntry {
   downloadHref?: string;
 }
 
-const scanDateFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
-});
-
-function getScanDate(scanDate?: string) {
-  const match = scanDate?.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  const isoDate = match ? `${match[3]}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}` : "";
-  const date = new Date(`${isoDate}T00:00:00Z`);
-  if (isoDate && !Number.isNaN(date.getTime()) && date.toISOString().startsWith(isoDate)) {
-    return { isoDate, dateLabel: `${scanDateFormatter.format(date)} (scan)` };
-  }
-  return { isoDate: "", dateLabel: scanDate ? `${scanDate} (scan)` : "Scan date unavailable" };
-}
-
-function getPathologyHref(slideId: string, compareId?: string) {
-  const params = new URLSearchParams({ slide: slideId });
-  if (compareId) params.set("compare", compareId);
-  return `/tools/pathology-viewer?${params.toString()}`;
-}
-
 export function DiagnosticImaging({
   comparisons,
   studies,
@@ -73,17 +54,19 @@ export function DiagnosticImaging({
         .filter((comparison) => comparison.leftStudyId === study.id || comparison.rightStudyId === study.id)
         .map((comparison) => ({ href: getDicomCompareHref(comparison.id, studySet), label: comparison.label })),
     })),
-    ...pathologySlides.map((slide) => ({
-      id: slide.slideId,
-      title: `${slide.stain} slide · ${slide.accession ?? slide.label}`,
-      ...getScanDate(slide.scanDate),
-      modality: slide.stain,
-      focus: `Whole-slide microscopy${slide.objectivePower ? ` · ${slide.objectivePower}× scan` : ""}`,
-      viewerHref: getPathologyHref(slide.slideId),
+    ...pathologyCollections(pathologySlides).map((collection) => ({
+      id: `pathology-${collection.stain}`,
+      title: `${collection.stain} slides`,
+      isoDate: collection.isoDate,
+      dateLabel: collection.dateLabel,
+      modality: collection.stain,
+      focus: `${collection.slides.length} whole-slide ${collection.slides.length === 1 ? "image" : "images"}${collection.unknownDates ? ` · ${collection.unknownDates} scan ${collection.unknownDates === 1 ? "date" : "dates"} unavailable` : ""}`,
+      viewerHref: pathologyCollectionHref(collection.stain),
       reportLinks: [],
-      comparisonLinks: pathologySlides
-        .filter((other) => other.slideId !== slide.slideId)
-        .map((other) => ({ href: getPathologyHref(slide.slideId, other.slideId), label: other.accession ?? other.label })),
+      comparisonLinks: collection.slides.length > 1 ? [{
+        href: pathologyCollectionHref(collection.stain, collection.slides[0].slideId, collection.slides[1].slideId),
+        label: "Compare slides",
+      }] : [],
     })),
   ].sort((left, right) => right.isoDate.localeCompare(left.isoDate));
 
