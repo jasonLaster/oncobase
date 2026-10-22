@@ -31,8 +31,9 @@ export function PathologyViewer() {
   const primary = useRef<SlideControls | null>(null), comparison = useRef<SlideControls | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
   const lastSlideByStain = useRef<Record<string, string>>({});
-  const collections = pathologyCollections(data?.slides ?? []);
-  const requestedSlide = data?.slides.find(s => s.slideId === slideId);
+  const allSlides = data?.slides ?? [];
+  const collections = pathologyCollections(allSlides);
+  const requestedSlide = allSlides.find(s => s.slideId === slideId);
   const collection = collectionId
     ? collections.find(c => c.id === collectionId)
     : requestedSlide ? collections.find(c => c.id === pathologyCollectionId(requestedSlide)) : collections[0];
@@ -43,7 +44,7 @@ export function PathologyViewer() {
   const slide = slides.find(s => s.slideId === slideId) ?? slides[0];
   const activeSlideId = slide?.slideId;
   const missingSlide = Boolean(data && slideId && !selectedSlide);
-  const compare = collectionSlides.find(s => s.slideId === compareId && s.slideId !== slide?.slideId);
+  const compare = allSlides.find(s => s.slideId === compareId && s.slideId !== slide?.slideId);
   const notesUrl = slide ? `/api/pathology/slides/${slide.slideId}/regions` : null;
   const { data: notes, error: notesError, mutate: reloadNotes } = useSWR<{ regions: PathologyRegion[]; version: number }>(notesUrl, json, { revalidateOnFocus: false });
   const draft = slide ? drafts[slide.slideId] : undefined;
@@ -75,20 +76,22 @@ export function PathologyViewer() {
   }, [activeSlideId]);
 
   function navigate(id: string, compareNext = compareId) {
-    const next = collectionSlides.find(s => s.slideId === id);
+    const next = allSlides.find(s => s.slideId === id);
     if (!next) return;
-    if (slide) lastSlideByStain.current[slide.stain] = slide.slideId;
+    const nextCollectionId = pathologyCollectionId(next);
+    if (slide) lastSlideByStain.current[`${collection?.id}:${slide.stain}`] = slide.slideId;
+    setCollectionId(nextCollectionId);
     setSlideId(id); setStain(next.stain); setCompareId(compareNext === id ? null : compareNext); setSelectedRegion(""); setTool("pan");
     const url = new URL(window.location.href);
     url.search = ""; url.searchParams.set("slide", id);
     url.searchParams.set("stain", next.stain);
-    if (collection) url.searchParams.set("collection", collection.id);
+    url.searchParams.set("collection", nextCollectionId);
     if (compareNext && compareNext !== id) url.searchParams.set("compare", compareNext);
     window.history.pushState(null, "", url);
   }
   function chooseStain(next: string) {
     const candidates = collectionSlides.filter(s => s.stain === next);
-    const remembered = candidates.find(s => s.slideId === lastSlideByStain.current[next]);
+    const remembered = candidates.find(s => s.slideId === lastSlideByStain.current[`${collection?.id}:${next}`]);
     const target = remembered ?? candidates[0];
     if (target) navigate(target.slideId);
   }
@@ -213,7 +216,9 @@ export function PathologyViewer() {
             </div>
             <label className="pathology-compare-label"><Columns2 size={16} /><span>Compare</span><select aria-label="Compare with slide" value={compare?.slideId ?? ""}
               onChange={event => { setCompareId(event.target.value || null); const url = new URL(window.location.href); if (event.target.value) url.searchParams.set("compare", event.target.value); else url.searchParams.delete("compare"); window.history.replaceState(null, "", url); }}>
-              <option value="">Single slide</option>{collectionSlides.filter(s => s.slideId !== slide.slideId).map(s => <option key={s.slideId} value={s.slideId}>{s.label}</option>)}
+              <option value="">Single slide</option>{collections.map(c => <optgroup key={c.id} label={c.dateLabel}>
+                {c.slides.filter(s => s.slideId !== slide.slideId).map(s => <option key={s.slideId} value={s.slideId}>{s.label}</option>)}
+              </optgroup>)}
             </select></label>
           </div>
           {tool !== "pan" && <div className="pathology-tool-hint" role="status">{tool === "region" ? "Drag a box around a region of interest." : "Drag between two points to measure distance."} <button onClick={() => setTool("pan")}>Return to pan</button></div>}

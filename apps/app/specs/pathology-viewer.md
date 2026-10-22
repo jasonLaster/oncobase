@@ -6,12 +6,14 @@ studies, with one collection row per scan date regardless of stain. October 13
 contains all 19 H&E and protein-stain images; July 9 stays a separate set of two.
 Unknown scan dates remain separate records. Dates are scan dates, not specimen dates.
 Images opens that date's collection; Comparisons opens its first two slides.
-`?collection=2026-10-13` scopes all browsing and comparison to October.
+`?collection=2026-10-13` scopes the sidebar to October. Comparison can use any
+registered slide, grouped by scan date in its selector, including July slides.
 The sidebar has a counted tab for each stain and thumbnails for the selected tab;
 there is no slide dropdown. Stain tabs remain visible while desktop thumbnails
 scroll. Arrow keys, Home and End switch tabs; mobile tabs have touch-sized targets.
 Switching stains remembers the last selected slide during the visit. Previous/next
-stays within the selected stain, while comparison can use any stain in that date.
+stays within the selected stain. Swapping comparison panes updates the sidebar
+to the new primary slide's scan date and stain without losing either source.
 Copied links preserve date, stain, primary slide and comparison. Legacy stain-based
 collection links still open the original date with the requested stain selected.
 A direct immutable slide link opens its scan date; the default is the newest date.

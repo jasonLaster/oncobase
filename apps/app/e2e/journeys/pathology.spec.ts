@@ -141,10 +141,62 @@ test("October stain tabs browse all nineteen slides while July stays separate", 
     await page.goto("/tools/pathology-viewer?collection=2026-07-09");
     await expect(page.getByRole("tab")).toHaveCount(1);
     await expect(page.getByTestId("pathology-slide-card")).toHaveCount(2);
-    await expect(page.getByLabel("Compare with slide", { exact: true }).locator("option")).toHaveCount(2);
+    await expect(page.getByLabel("Compare with slide", { exact: true }).locator("option")).toHaveCount(21);
   }
   await page.goto(`/tools/pathology-viewer?collection=2026-07-09&slide=${dateCatalog[0].slideId}`);
   await expect(page.getByText("This slide is unavailable", { exact: true })).toBeVisible();
+});
+
+test("comparison across scan dates survives sharing, swapping, and browser history", async ({ page }) => {
+  await fixture(page, dateCatalog);
+  const october = dateCatalog[16], july = dateCatalog[19];
+  await page.goto(`/tools/pathology-viewer?collection=2026-10-13&slide=${october.slideId}&compare=${july.slideId}`);
+  await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
+  for (const canvas of await page.getByTestId("pathology-canvas").all()) await expect(canvas).toHaveAttribute("data-render-status", "ready");
+  await expect(page.getByRole("tab", { name: "HER2 (1)", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByLabel("Compare with slide", { exact: true }).locator("optgroup")).toHaveCount(2);
+  await page.getByRole("button", { name: "Copy current view link" }).click();
+  await page.reload();
+  await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
+  await expect(page.getByLabel("Compare with slide", { exact: true })).toHaveValue(july.slideId);
+  await page.getByRole("button", { name: "Swap slides", exact: true }).click();
+  await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", july.slideId);
+  expect(new URL(page.url()).searchParams.get("collection")).toBe("2026-07-09");
+  await expect(page.getByRole("tab")).toHaveCount(1);
+  await expect(page.getByTestId("pathology-slide-card")).toHaveCount(2);
+  await expect(page.getByLabel("Compare with slide", { exact: true })).toHaveValue(october.slideId);
+  await page.goBack();
+  await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", october.slideId);
+  await expect(page.getByRole("tab")).toHaveCount(7);
+  await page.goForward();
+  await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", july.slideId);
+  await page.getByRole("button", { name: "Close comparison", exact: true }).click();
+  await expect(page.getByTestId("pathology-canvas")).toHaveCount(1);
+  await page.getByLabel("Compare with slide", { exact: true }).selectOption(october.slideId);
+  await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
+});
+
+test("annotation drafts stay attached to their source across stain tabs and scan dates", async ({ page }) => {
+  const { notes } = await fixture(page, dateCatalog);
+  await page.goto(`/tools/pathology-viewer?slide=${dateCatalog[1].slideId}`);
+  await expect(page.getByTestId("pathology-canvas")).toHaveAttribute("data-render-status", "ready");
+  await draw(page);
+  await page.getByLabel("Region label", { exact: true }).fill("October H&E draft");
+  await page.getByRole("tab", { name: "HER2 (1)", exact: true }).click();
+  await expect(page.getByText("Mark a region or take a measurement, then add a note.")).toBeVisible();
+  await page.getByLabel("Compare with slide", { exact: true }).selectOption(dateCatalog[19].slideId);
+  await page.getByRole("button", { name: "Swap slides", exact: true }).click();
+  await expect(page.getByText("Mark a region or take a measurement, then add a note.")).toBeVisible();
+  await page.getByLabel("Compare with slide", { exact: true }).selectOption(dateCatalog[1].slideId);
+  await page.getByRole("button", { name: "Swap slides", exact: true }).click();
+  await expect(page.locator(".pathology-region-list")).toContainText("October H&E draft");
+  await page.locator(".pathology-region-list button").filter({ hasText: "October H&E draft" }).click();
+  await expect(page.getByLabel("Region label", { exact: true })).toHaveValue("October H&E draft");
+  await page.getByTestId("pathology-save-notes").click();
+  await expect(page.getByText("All changes saved", { exact: true })).toBeVisible();
+  expect(notes.get(dateCatalog[1].slideId)?.regions[0].label).toBe("October H&E draft");
+  expect(notes.has(dateCatalog[16].slideId)).toBe(false);
+  expect(notes.has(dateCatalog[19].slideId)).toBe(false);
 });
 
 test("old stain links select the correct tab within the full date collection", async ({ page }) => {
