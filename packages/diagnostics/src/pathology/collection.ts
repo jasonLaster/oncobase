@@ -20,8 +20,12 @@ export function sortPathologySlides(slides: PathologySlide[]) {
     || left.slideId.localeCompare(right.slideId));
 }
 
-export function pathologyCollectionHref(stain: string, slideId?: string, compareId?: string) {
-  const params = new URLSearchParams({ stain });
+export function pathologyCollectionId(slide: PathologySlide) {
+  return `${slide.stain}:${slideScanDate(slide.scanDate).isoDate || slide.slideId}`;
+}
+
+export function pathologyCollectionHref(collection: { id: string; stain: string }, slideId?: string, compareId?: string) {
+  const params = new URLSearchParams({ stain: collection.stain, collection: collection.id });
   if (slideId) params.set("slide", slideId);
   if (compareId) params.set("compare", compareId);
   return `/tools/pathology-viewer?${params}`;
@@ -30,22 +34,17 @@ export function pathologyCollectionHref(stain: string, slideId?: string, compare
 export function pathologyCollections(slides: PathologySlide[]) {
   const groups = new Map<string, PathologySlide[]>();
   for (const slide of sortPathologySlides(slides)) {
-    const group = groups.get(slide.stain) ?? [];
+    const id = pathologyCollectionId(slide);
+    const group = groups.get(id) ?? [];
     group.push(slide);
-    groups.set(slide.stain, group);
+    groups.set(id, group);
   }
-  return [...groups].map(([stain, associatedSlides]) => {
-    const dates = associatedSlides.map(slide => slideScanDate(slide.scanDate));
-    const known = dates.filter(date => date.isoDate);
-    const newest = known[0], oldest = known.at(-1);
-    const firstLabel = oldest && newest && oldest.isoDate.slice(0, 4) === newest.isoDate.slice(0, 4)
-      ? oldest.label.replace(/, \d{4}$/, "") : oldest?.label;
-    const dateLabel = newest && oldest
-      ? oldest.isoDate === newest.isoDate ? `${newest.label} (scan)` : `${firstLabel} – ${newest.label} (scans)`
-      : "Scan date unavailable";
+  return [...groups].map(([id, associatedSlides]) => {
+    const date = slideScanDate(associatedSlides[0].scanDate);
     return {
-      stain, slides: associatedSlides, isoDate: newest?.isoDate ?? "", dateLabel,
-      unknownDates: dates.length - known.length,
+      id, stain: associatedSlides[0].stain, slides: associatedSlides, isoDate: date.isoDate,
+      dateLabel: date.isoDate ? `${date.label} (scan)` : date.label,
+      unknownDates: date.isoDate ? 0 : associatedSlides.length,
     };
   });
 }

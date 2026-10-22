@@ -3,7 +3,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Columns2, Copy, Expand, Hand, Hom
 import useSWR from "swr";
 import { formatLength, readCamera, regionLengthMicrons, type PathologyRegion, type PathologySlide, type SlideCamera } from "./model";
 import { SlideCanvas, type SlideControls, type SlideTool } from "./slide-canvas";
-import { slideScanDate, sortPathologySlides } from "./collection";
+import { pathologyCollectionId, slideScanDate, sortPathologySlides } from "./collection";
 import "./styles.css";
 
 async function json<T>(url: string): Promise<T> {
@@ -19,6 +19,7 @@ export function PathologyViewer() {
   const [slideId, setSlideId] = useState(() => params.get("slide"));
   const [compareId, setCompareId] = useState(() => params.get("compare"));
   const [stain, setStain] = useState(() => params.get("stain"));
+  const [collectionId, setCollectionId] = useState(() => params.get("collection"));
   const initialCamera = readCamera(params);
   const [tool, setTool] = useState<SlideTool>("pan");
   const [selectedRegion, setSelectedRegion] = useState(() => params.get("region") ?? "");
@@ -29,7 +30,8 @@ export function PathologyViewer() {
   const [linked, setLinked] = useState(false);
   const primary = useRef<SlideControls | null>(null), comparison = useRef<SlideControls | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
-  const slides = sortPathologySlides((data?.slides ?? []).filter(s => !stain || s.stain === stain));
+  const slides = sortPathologySlides((data?.slides ?? []).filter(s =>
+    (!stain || s.stain === stain) && (!collectionId || pathologyCollectionId(s) === collectionId)));
   const slide = slides.find(s => s.slideId === slideId) ?? slides[0];
   const activeSlideId = slide?.slideId;
   const missingSlide = Boolean(data && slideId && !slides.some(s => s.slideId === slideId));
@@ -47,6 +49,7 @@ export function PathologyViewer() {
       const next = new URLSearchParams(window.location.search);
       setSlideId(next.get("slide")); setCompareId(next.get("compare"));
       setStain(next.get("stain"));
+      setCollectionId(next.get("collection"));
     };
     window.addEventListener("popstate", update);
     return () => window.removeEventListener("popstate", update);
@@ -68,6 +71,7 @@ export function PathologyViewer() {
     const url = new URL(window.location.href);
     url.search = ""; url.searchParams.set("slide", id);
     if (stain) url.searchParams.set("stain", stain);
+    if (collectionId) url.searchParams.set("collection", collectionId);
     if (compareNext && compareNext !== id) url.searchParams.set("compare", compareNext);
     window.history.pushState(null, "", url);
   }
@@ -104,6 +108,7 @@ export function PathologyViewer() {
     const camera = primary.current?.camera();
     const url = new URL(window.location.href); url.search = ""; url.searchParams.set("slide", slide.slideId);
     if (stain) url.searchParams.set("stain", stain);
+    if (collectionId) url.searchParams.set("collection", collectionId);
     if (compare) url.searchParams.set("compare", compare.slideId);
     if (selectedRegion && !draft?.dirty) url.searchParams.set("region", selectedRegion);
     if (camera) for (const [key, value] of Object.entries(camera)) url.searchParams.set(key, value.toFixed(6));

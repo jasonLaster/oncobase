@@ -1,11 +1,15 @@
 # Whole-slide H&E review
 
 `/tools/pathology-viewer` opens the site-scoped Convex slide collection without
-initializing the wiki's SQLite/OPFS reader. Each slide appears in the imaging
-list alongside radiology studies. Slides of the same stain share one collection
-row, with a slide count and scan-date range. Images opens the full collection;
-Comparisons opens its first two slides. Slide dates are explicitly labeled as
-scan dates. `?stain=H%26E` scopes browsing and comparison to H&E slides. The
+initializing the wiki's SQLite/OPFS reader. Pathology appears in the imaging
+list alongside radiology studies. Slides of the same stain and scan date share
+one collection row, with a slide count. The July and October scans remain
+separate sets; slides without a valid scan date remain separate records.
+Images opens that row's collection; Comparisons opens its first two slides.
+Slide dates are explicitly labeled as scan dates, not specimen dates.
+`?stain=H%26E&collection=H%26E%3A2026-10-13` scopes browsing, comparison,
+navigation and copied links to the October set. Legacy links without a
+collection parameter continue to support browsing all matching slides. The
 slide selector and thumbnails cover the complete collection, newest scans first,
 with each slide's scan date shown separately.
 `?slide=<id>` selects the exact immutable source; missing IDs show an error.

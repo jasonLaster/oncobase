@@ -93,33 +93,40 @@ test("opens independently of the wiki database, supports calibrated magnificatio
   expect(failures).toEqual([]);
 });
 
-test("a collection opens all eleven associated slides and keeps navigation, comparison and copied links scoped", async ({ page }) => {
-  const collection = Array.from({ length: 11 }, (_, index) => ({
+test("July and October collections keep navigation, comparison and copied links in their own set", async ({ page }) => {
+  const catalog = Array.from({ length: 11 }, (_, index) => ({
     ...slides[0], slideId: `he-${(index + 1).toString(16).repeat(20)}`,
     label: `H&E slide ${String(index + 1).padStart(2, "0")}`, sourceSha256: (index + 1).toString(16).repeat(64),
     scanDate: index < 9 ? "10/13/2026" : "07/09/2026",
   }));
-  await fixture(page, [...collection, { ...slides[1], stain: "HER2" }]);
+  await fixture(page, [...catalog, { ...slides[1], stain: "HER2", scanDate: "10/13/2026" }]);
   for (const width of [1440, 393]) {
     await page.setViewportSize({ width, height: 1000 });
-    await page.goto("/tools/pathology-viewer?stain=H%26E");
-    await expect(page.getByTestId("pathology-slide-card")).toHaveCount(11);
-    await expect(page.getByLabel("Select slide", { exact: true }).locator("option")).toHaveCount(11);
-    await page.getByLabel("Select slide", { exact: true }).selectOption(collection[10].slideId);
-    await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", collection[10].slideId);
-    await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-render-status", "ready");
-    await expect(page.getByRole("button", { name: "Next slide", exact: true })).toBeDisabled();
-    await page.getByRole("button", { name: "Previous slide", exact: true }).click();
-    await expect(page.getByLabel("Select slide", { exact: true })).toHaveValue(collection[9].slideId);
-    await page.getByLabel("Compare with slide", { exact: true }).selectOption(collection[0].slideId);
-    await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
-    await page.getByRole("button", { name: "Copy current view link" }).click();
-    expect(new URL(page.url()).searchParams.get("stain")).toBe("H&E");
-    await page.reload();
-    await expect(page.getByTestId("pathology-slide-card")).toHaveCount(11);
-    await expect(page.getByLabel("Select slide", { exact: true })).toHaveValue(collection[9].slideId);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    for (const [date, collectionId] of [["10/13/2026", "H&E:2026-10-13"], ["07/09/2026", "H&E:2026-07-09"]]) {
+      const associated = catalog.filter(s => s.scanDate === date);
+      await page.goto(`/tools/pathology-viewer?${new URLSearchParams({ stain: "H&E", collection: collectionId })}`);
+      await expect(page.getByTestId("pathology-slide-card")).toHaveCount(associated.length);
+      await expect(page.getByLabel("Select slide", { exact: true }).locator("option")).toHaveCount(associated.length);
+      await expect(page.getByLabel("Compare with slide", { exact: true }).locator("option")).toHaveCount(associated.length);
+      await page.getByLabel("Select slide", { exact: true }).selectOption(associated.at(-1)!.slideId);
+      await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", associated.at(-1)!.slideId);
+      await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-render-status", "ready");
+      await expect(page.getByRole("button", { name: "Next slide", exact: true })).toBeDisabled();
+      await page.getByRole("button", { name: "Previous slide", exact: true }).click();
+      await expect(page.getByLabel("Select slide", { exact: true })).toHaveValue(associated.at(-2)!.slideId);
+      await page.getByLabel("Compare with slide", { exact: true }).selectOption(associated.at(-1)!.slideId);
+      await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
+      await page.getByRole("button", { name: "Copy current view link" }).click();
+      expect(new URL(page.url()).searchParams.get("collection")).toBe(collectionId);
+      await page.reload();
+      await expect(page.getByTestId("pathology-slide-card")).toHaveCount(associated.length);
+      await expect(page.getByLabel("Select slide", { exact: true })).toHaveValue(associated.at(-2)!.slideId);
+      await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
   }
+  await page.goto(`/tools/pathology-viewer?${new URLSearchParams({ stain: "H&E", collection: "H&E:2026-07-09", slide: catalog[0].slideId })}`);
+  await expect(page.getByText("This slide is unavailable", { exact: true })).toBeVisible();
 });
 
 test("regions and notes save, reload, and stay tied to their own slide, and a failed save keeps the reviewer's draft", async ({ page }) => {
