@@ -47,12 +47,12 @@
 .pathology-comparison-tools label, .pathology-note-controls label { display: flex; gap: 5px; align-items: center; }
 .pathology-viewports { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; background: #e9e7e4; }
 .pathology-viewports.is-comparing { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
-.pathology-canvas { position: relative; min-height: 0; min-width: 0; overflow: hidden; background: #e9e7e4; }
+.pathology-canvas { position: relative; min-height: 0; min-width: 0; overflow: hidden; background: #e9e7e4; container-type: inline-size; --p-navigator-height: 110px; }
 .pathology-osd, .pathology-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
 .pathology-overlay { pointer-events: none; z-index: 2; }.pathology-overlay.is-drawing { pointer-events: auto; cursor: crosshair; touch-action: none; }
 .pathology-view-label { position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 10px; z-index: 3; background: #ffffffed; box-shadow: 0 1px 4px #0001; border-radius: 5px; padding: 5px 9px; font-size: 11px; pointer-events: none; }
 .pathology-view-label strong { font-weight: 600; }
-.pathology-navigator { position: absolute !important; right: 12px; bottom: 12px; width: 160px !important; height: 110px !important; z-index: 4; border-radius: 4px; box-shadow: 0 1px 5px #0002; }
+.pathology-navigator { position: absolute !important; right: 12px; bottom: 12px; width: 160px !important; height: var(--p-navigator-height) !important; z-index: 4; border-radius: 4px; box-shadow: 0 1px 5px #0002; }
 .pathology-scalebar { position: absolute; left: 14px; bottom: 14px; padding: 6px 9px; border-radius: 3px; background: #fffc; z-index: 3; font-size: 11px; text-align: center; pointer-events: none; }
 .pathology-scalebar i { display: block; height: 6px; border: solid #172033; border-width: 0 2px 2px; margin-top: 3px; }
 .pathology-canvas-status { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 12px 18px; background: #fff; border: 1px solid var(--p-border); border-radius: 6px; z-index: 5; display: flex; gap: 10px; align-items: center; }
@@ -71,7 +71,8 @@
 .pathology-region-editor input[type="color"] { display: block; margin-top: 4px; width: 40px; height: 28px; border: 0; background: none; }
 .pathology-empty { margin: auto; text-align: center; padding: 24px; }.pathology-empty h2 { font-size: 20px; }.pathology-empty a { margin-left: 12px; }
 @media (min-width: 1800px) { .pathology-layout { grid-template-columns: 250px minmax(0, 1fr) 280px; } }
-@media (max-width: 1150px) { .pathology-layout { grid-template-columns: 185px minmax(0, 1fr) 218px; }.pathology-slide-card img { height: 96px; }.pathology-compare-label { margin-left: 0; }.pathology-toolbar { gap: 5px; }.pathology-navigator { width: 125px !important; height: 88px !important; } }
+@media (max-width: 1150px) { .pathology-layout { grid-template-columns: 185px minmax(0, 1fr) 218px; }.pathology-slide-card img { height: 96px; }.pathology-compare-label { margin-left: 0; }.pathology-toolbar { gap: 5px; }.pathology-canvas { --p-navigator-height: 88px; }.pathology-navigator { width: 125px !important; } }
+@container (max-width: 340px) { .pathology-scalebar { bottom: calc(var(--p-navigator-height) + 24px); } }
 @media (max-width: 860px) {
   .pathology-workspace { height: auto; min-height: 100dvh; overflow: visible; }.pathology-header { position: sticky; top: 0; z-index: 10; min-height: 60px; gap: 12px; padding: 8px 12px; }
   .pathology-layout { display: flex; flex-direction: column; }.pathology-slide-rail { border-right: 0; padding: 10px 12px; }.pathology-rail-body { flex: none; overflow: visible; }.pathology-rail-navigation .pathology-rail-title { margin-bottom: 12px; }

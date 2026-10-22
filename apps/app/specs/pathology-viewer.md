@@ -36,6 +36,8 @@ pan/zoom are available. Comparison keeps separate navigators and cameras;
 optional linked magnification is driven by the primary pane. It does not imply
 registration or anatomically matched coordinates. Swap changes the primary.
 Mobile stacks comparison panes and moves regions below the viewer.
+In narrow panes, the scale bar moves above the overview navigator so both remain
+visible with at least 12 pixels between them.
 
 Regions and rulers are stored in original full-resolution image coordinates,
 not screen coordinates. Select a saved region to return to it, edit its label,

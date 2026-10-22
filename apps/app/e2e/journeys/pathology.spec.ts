@@ -199,6 +199,28 @@ test("annotation drafts stay attached to their source across stain tabs and scan
   expect(notes.has(dateCatalog[19].slideId)).toBe(false);
 });
 
+test("scale bars and overview navigators remain separate in narrow comparison panes", async ({ page }) => {
+  await fixture(page, dateCatalog);
+  for (const width of [320, 393, 860, 861, 1150, 1151, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`/tools/pathology-viewer?slide=${dateCatalog[1].slideId}&compare=${dateCatalog[19].slideId}`);
+    await expect(page.getByTestId("pathology-canvas")).toHaveCount(2);
+    for (const canvas of await page.getByTestId("pathology-canvas").all()) {
+      await expect(canvas).toHaveAttribute("data-render-status", "ready");
+      const scale = await canvas.getByTestId("pathology-scalebar").boundingBox();
+      const overview = await canvas.getByLabel("Tissue overview navigator", { exact: true }).boundingBox();
+      const bounds = await canvas.boundingBox();
+      expect(scale!.x).toBeGreaterThanOrEqual(bounds!.x);
+      expect(scale!.x + scale!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
+      expect(scale!.y).toBeGreaterThanOrEqual(bounds!.y);
+      expect(scale!.y + scale!.height).toBeLessThanOrEqual(bounds!.y + bounds!.height);
+      const horizontalGap = overview!.x - (scale!.x + scale!.width);
+      const verticalGap = overview!.y - (scale!.y + scale!.height);
+      expect(Math.max(horizontalGap, verticalGap)).toBeGreaterThanOrEqual(8);
+    }
+  }
+});
+
 test("old stain links select the correct tab within the full date collection", async ({ page }) => {
   await fixture(page, dateCatalog);
   for (const stain of new Set(octoberStains)) {
