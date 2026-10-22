@@ -84,6 +84,8 @@ jobs:
       # key and a fixture site seeded through the real publish path.
       - name: Start local Convex stack
         working-directory: apps/app
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bun run local:stack
 
       - name: Verify standalone server
@@ -222,11 +224,66 @@ jobs:
           path: apps/app/test-summary.json
           retention-days: 7
 
+  webkit-durable:
+    name: Vite Native WebKit Cache
+    runs-on: macos-latest
+    timeout-minutes: 25
+    needs: preview-url
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+      - run: bun install --frozen-lockfile
+      - name: Install native WebKit
+        working-directory: apps/app
+        run: bunx playwright install webkit
+      - name: Measure native WebKit storage capabilities
+        working-directory: apps/app
+        run: node scripts/probe-webkit-storage.mjs > webkit-storage-probe.json
+      - name: Exercise every durable-cache assertion on the local production build
+        working-directory: apps/app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAYWRIGHT_BROWSER: webkit
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:62003
+          WIKI_VITE_PREVIEW_LOGIN_PASSWORD: diana
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
+        run: |
+          set -euo pipefail
+          rm -f test-results/results.json
+          bun run local:stack
+          bun run local:stack serve > local-cache-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; bun run local:stack stop' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:62003/api/wiki/session > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          bun run local:stack exec -- bunx playwright test e2e/resilience/runtime.spec.ts --reporter=json > playwright-runner.log 2>&1
+      - name: Publish durable-cache outcomes
+        if: always()
+        working-directory: apps/app
+        run: bun scripts/summarize-playwright.ts test-results/results.json test-summary.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wiki-vite-webkit-durable-report
+          path: |
+            apps/app/test-summary.json
+            apps/app/webkit-storage-probe.json
+          retention-days: 7
+
   browser-smoke:
     name: Vite Browser Smoke (${{ matrix.browser }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: preview-url
+    needs: [preview-url, webkit-durable]
+    # Run even if native durability fails: retain Linux coverage and explicitly
+    # fail this existing required check, rather than letting it become skipped.
+    if: always()
     strategy:
       fail-fast: false
       matrix:
@@ -239,9 +296,16 @@ jobs:
         with:
           bun-version: 1.3.12
       - run: bun install --frozen-lockfile
+      - name: Require the exact preview to have resolved
+        env:
+          PREVIEW_RESULT: ${{ needs.preview-url.result }}
+        run: test "$PREVIEW_RESULT" = success
       - name: Install browser
         working-directory: apps/app
         run: bunx playwright install --with-deps ${{ matrix.browser }}
+      - name: Measure WebKit storage capabilities without application traffic
+        working-directory: apps/app
+        run: node scripts/probe-webkit-storage.mjs > webkit-storage-probe.json
       - name: Check anonymous and synthetic browser startup
         working-directory: apps/app
         env:
@@ -259,16 +323,23 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           TEST_ENV: prod
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/results.json
-        run: bun run test:e2e e2e/accessibility.spec.ts e2e/journeys/markdown.spec.ts e2e/journeys/clinical-tools.spec.ts e2e/journeys/search.spec.ts e2e/resilience/runtime.spec.ts --reporter=json > playwright-runner.log 2>&1
-      - name: Publish content-free test outcomes
+        run: bun run test:e2e e2e/accessibility.spec.ts e2e/journeys/markdown.spec.ts e2e/journeys/clinical-tools.spec.ts e2e/journeys/search.spec.ts --reporter=json > playwright-runner.log 2>&1
+      - name: Publish deployed WebKit outcomes
         if: always()
         working-directory: apps/app
-        run: bun scripts/summarize-playwright.ts test-results/results.json test-summary.json
+        run: bun scripts/summarize-playwright.ts test-results/results.json test-summary-deployed.json
+      - name: Require native durable-cache success in this existing check
+        if: always()
+        env:
+          NATIVE_RESULT: ${{ needs.webkit-durable.result }}
+        run: test "$NATIVE_RESULT" = success
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wiki-vite-${{ matrix.browser }}-report
-          path: apps/app/test-summary.json
+          path: |
+            apps/app/test-summary-deployed.json
+            apps/app/webkit-storage-probe.json
           retention-days: 7
 
   visual:
