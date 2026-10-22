@@ -19,3 +19,18 @@ test("July and October H&E sets have separate rows, cards, counts and viewer lin
   expect(html).toContain("Compare slides");
   expect(html).not.toContain("H&amp;E slide ·");
 });
+
+
+test("protein stains get separate rows without changing the H&E sets", () => {
+  const pathologySlides = ["H&E", "H&E", "PanKera", "PanKera", "ER", "PR", "HER2", "MIB1", "p63"].map((stain, i) => ({
+    slideId: `he-${i}`, label: `Slide ${i}`, stain, scanDate: i === 0 ? "07/09/2026" : "10/13/2026",
+  })) as PathologySlide[];
+  const html = renderToStaticMarkup(<DiagnosticImaging studies={[]} comparisons={[]} pathologySlides={pathologySlides} />);
+  expect((html.match(/<tr>/g) ?? []).length).toBe(9);
+  for (const stain of ["PanKera", "ER", "PR", "HER2", "MIB1", "p63"]) {
+    expect(html).toContain(`${stain} slides`);
+    expect(html).toContain(`collection=${stain}%3A2026-10-13`);
+  }
+  expect(html).toContain("collection=H%26E%3A2026-07-09");
+  expect(html).toContain("collection=H%26E%3A2026-10-13");
+});

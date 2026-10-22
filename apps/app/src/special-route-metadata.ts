@@ -118,7 +118,7 @@ function routeDefinition(pathname: string): RouteDefinition | null {
     return { routeTitle: "DICOM Viewer" };
   }
   if (pathname === "/tools/pathology-viewer") {
-    return { routeTitle: "H&E Slide Viewer" };
+    return { routeTitle: "Pathology Slide Viewer" };
   }
   if (pathname === "/tools/pdf-viewer") return { routeTitle: "PDF Viewer" };
   if (pathname === "/tools/dicom-compare") {

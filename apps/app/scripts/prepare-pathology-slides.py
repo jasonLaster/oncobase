@@ -25,12 +25,17 @@ def digest(path):
         return hashlib.file_digest(file, "sha256").hexdigest()
 
 
-def prepare(source, destination, source_prefix, workers):
+def prepare(source, destination, source_prefix, workers, stain="H&E"):
+    if not stain.strip():
+        raise ValueError("A stain label is required")
+    stain = stain.strip()
     sha = digest(source)
     slide_id = "he-" + sha[:20]
     out = destination / slide_id
     out.mkdir(parents=True, exist_ok=True)
     if (out / "prepared.json").exists():
+        if json.loads((out / "prepared.json").read_text())["stain"] != stain:
+            raise ValueError(f"Prepared stain does not match requested stain for {slide_id}")
         print(f"Already prepared {slide_id}", flush=True)
         return
     slide = openslide.OpenSlide(str(source))
@@ -104,7 +109,7 @@ def prepare(source, destination, source_prefix, workers):
         return float(value) if value and math.isfinite(float(value)) and float(value) > 0 else None
 
     record = {
-        "slideId": slide_id, "label": accession or source.stem, "stain": "H&E",
+        "slideId": slide_id, "label": accession or source.stem, "stain": stain,
         "sourceFileName": source.name, "sourceUri": source_prefix.rstrip("/") + "/" + source.name,
         "sourceBytes": source.stat().st_size, "sourceSha256": sha,
         "width": width, "height": height, "tileSize": tile_size, "overlap": overlap,
@@ -133,10 +138,11 @@ if __name__ == "__main__":
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source-prefix", required=True)
+    parser.add_argument("--stain", default="H&E", help="Exact source stain label (for example H&E, HER2, ER, PR or PanKera)")
     parser.add_argument("--workers", type=int, default=6)
     args = parser.parse_args()
     sources = sorted(args.source.glob("*.svs")) if args.source.is_dir() else [args.source]
     if not sources:
         raise SystemExit("No SVS files found")
     for source in sources:
-        prepare(source, args.output, args.source_prefix, max(1, min(args.workers, 12)))
+        prepare(source, args.output, args.source_prefix, max(1, min(args.workers, 12)), args.stain)

@@ -69,7 +69,7 @@ async function draw(page: Page, label = "Draw region") {
 test("opens independently of the wiki database, supports calibrated magnification and rotation, and keeps measurements calibrated through rotate and pan", async ({ page }) => {
   const state = await fixture(page); await open(page);
   const failures: string[] = []; page.on("pageerror", e => failures.push(e.message));
-  await expect(page.getByRole("heading", { name: "H&E slides" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pathology slides" })).toBeVisible();
   await expect(page.getByTestId("pathology-slide-card")).toHaveCount(2);
   await page.getByRole("button", { name: "20× magnification", exact: true }).click();
   await expect(page.getByTestId("pathology-magnification")).toHaveText("20.0×");
@@ -127,6 +127,28 @@ test("July and October collections keep navigation, comparison and copied links 
   }
   await page.goto(`/tools/pathology-viewer?${new URLSearchParams({ stain: "H&E", collection: "H&E:2026-07-09", slide: catalog[0].slideId })}`);
   await expect(page.getByText("This slide is unavailable", { exact: true })).toBeVisible();
+});
+
+test("protein stains use the same viewer with distinct stain collections", async ({ page }) => {
+  const stains = ["PanKera", "PanKera", "PanKera", "PanKera", "PanKera", "ER", "PR", "HER2", "MIB1", "p63"];
+  const protein = stains.map((stain, index) => ({ ...slides[0],
+    slideId: `he-${(index + 1).toString(16).repeat(20)}`, label: `Synthetic ${stain} ${index + 1}`,
+    sourceSha256: (index + 1).toString(16).repeat(64), stain, scanDate: "10/13/2026",
+  }));
+  await fixture(page, [...slides, ...protein]);
+  for (const width of [1440, 393]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const stain of new Set(stains)) {
+      const associated = protein.filter(slide => slide.stain === stain);
+      await page.goto(`/tools/pathology-viewer?${new URLSearchParams({ stain, collection: `${stain}:2026-10-13` })}`);
+      await expect(page.getByRole("heading", { name: `${stain} slides`, exact: true })).toBeVisible();
+      await expect(page.getByTestId("pathology-slide-card")).toHaveCount(associated.length);
+      await expect(page.getByLabel("Select slide", { exact: true }).locator("option")).toHaveCount(associated.length);
+      await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-slide-id", associated[0].slideId);
+      await expect(page.getByTestId("pathology-canvas").first()).toHaveAttribute("data-render-status", "ready");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
+  }
 });
 
 test("regions and notes save, reload, and stay tied to their own slide, and a failed save keeps the reviewer's draft", async ({ page }) => {

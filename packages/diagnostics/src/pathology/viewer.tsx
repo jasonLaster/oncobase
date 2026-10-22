@@ -123,7 +123,7 @@ export function PathologyViewer() {
   return <div className="pathology-workspace" ref={workspace} data-test-id="pathology-workspace">
     <header className="pathology-header">
       <a href="/diagnostics/imaging" className="pathology-back" aria-label="Back to imaging"><ArrowLeft size={18} /><span>Imaging</span></a>
-      <div className="pathology-heading"><span className="pathology-eyebrow">Digital pathology</span><h1>{stain ?? "H&E"} slides</h1></div>
+      <div className="pathology-heading"><span className="pathology-eyebrow">Digital pathology</span><h1>{stain ? `${stain} slides` : "Pathology slides"}</h1></div>
       <div className="pathology-header-actions">
         {button("Copy current view link", () => void share(), <Copy size={18} />)}
         {button("Full screen", () => { if (document.fullscreenElement) void document.exitFullscreen(); else void workspace.current?.requestFullscreen(); }, <Expand size={18} />)}
@@ -133,7 +133,7 @@ export function PathologyViewer() {
     {error ? <div className="pathology-empty" role="alert"><h2>Slides could not load</h2><p>Check your connection or sign in again.</p><button onClick={() => void mutate()}>Retry</button><a href="/sign-in">Sign in</a></div>
       : !data ? <div className="pathology-empty" role="status">Loading slide collection…</div>
       : missingSlide ? <div className="pathology-empty" role="alert"><h2>This slide is unavailable</h2><p>The shared slide is not in this collection.</p>{slides[0] && <button onClick={() => navigate(slides[0].slideId)}>Open slide collection</button>}</div>
-      : !slide ? <div className="pathology-empty"><h2>No slides available</h2><p>Prepared H&E slides will appear here.</p></div>
+      : !slide ? <div className="pathology-empty"><h2>No slides available</h2><p>Prepared pathology slides will appear here.</p></div>
       : <div className="pathology-layout">
         <aside className="pathology-slide-rail" aria-label="Slide collection">
           <div className="pathology-rail-title"><h2>Slides</h2><span>{slides.length}</span></div>

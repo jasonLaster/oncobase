@@ -1,4 +1,4 @@
-# Whole-slide H&E review
+# Whole-slide pathology review
 
 `/tools/pathology-viewer` opens the site-scoped Convex slide collection without
 initializing the wiki's SQLite/OPFS reader. Pathology appears in the imaging
@@ -12,6 +12,9 @@ navigation and copied links to the October set. Legacy links without a
 collection parameter continue to support browsing all matching slides. The
 slide selector and thumbnails cover the complete collection, newest scans first,
 with each slide's scan date shown separately.
+H&E and protein stains (including PanKera, ER, PR, HER2, MIB1 and p63) use
+the same image viewer, with separate collections by source stain and scan date.
+Stain labels describe the supplied image; no expression score is inferred.
 `?slide=<id>` selects the exact immutable source; missing IDs show an error.
 `compare=<id>` opens a second independent slide. Copy View includes the primary
 slide's image-pixel center, image zoom, rotation, and saved region ID.
@@ -51,7 +54,8 @@ tissue labels, specimen dates, or report associations are inferred.
    python apps/app/scripts/prepare-pathology-slides.py \
      --source /absolute/path/to/svs-directory \
      --output /absolute/path/to/prepared-directory \
-     --source-prefix s3://bucket/authorized-prefix/
+     --source-prefix s3://bucket/authorized-prefix/ \
+     --stain 'H&E'
    ```
 
    OpenSlide reads bounded tissue tiles, converts embedded ICC colors to sRGB,
@@ -60,6 +64,10 @@ tissue labels, specimen dates, or report associations are inferred.
    scanner source is preserved as the full-resolution pyramid level; JPEG
    derivatives are not byte-identical to source pixels. Packs and the tile index
    have SHA-256 hashes. The prepared manifest is written only after all tiles.
+   Supply the source's exact `--stain` for protein stains; the default is H&E
+   for existing H&E workflows. A prepared manifest with a different stain
+   cannot be silently reused. The legacy `he-` source-hash ID is opaque and
+   remains unchanged for compatibility; the record's `stain` controls labeling.
 3. Run `bun --cwd apps/app pathology:upload --source /absolute/prepared/path
    --site diana`. Configure the usual server/publisher credentials. The operator
    deploy key can impersonate the service identity without exporting a signing

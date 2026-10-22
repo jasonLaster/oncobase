@@ -82,7 +82,7 @@ export function DiagnosticImaging({
 
       {pathologyError ? (
         <p className="diagnostics-load-error" role="alert">
-          H&E slides could not load. {onRetryPathology ? <button onClick={onRetryPathology} type="button">Retry</button> : null}
+          Pathology slides could not load. {onRetryPathology ? <button onClick={onRetryPathology} type="button">Retry</button> : null}
         </p>
       ) : null}
       <DiagnosticStudiesTable studies={entries} />
