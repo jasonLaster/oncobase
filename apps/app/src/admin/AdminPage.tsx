@@ -11,6 +11,7 @@ import {
   type RoleRules,
 } from "./access-rule-utils";
 import { useWikiViteAuth } from "../shell/Header";
+import { AdminStats } from "./AdminStats";
 
 type AccessRole = RoleRules & {
   _id: string;
@@ -106,7 +107,7 @@ function AdminHomePage() {
     <AdminLayout>
       <section className="admin-section">
         <h1>Admin</h1>
-        <p className="admin-muted">Manage the operational controls for the wiki.</p>
+        <p className="admin-muted">What the wiki holds, and the controls for who can read it.</p>
         <nav aria-label="Admin sections" className="admin-card-grid">
           <Link to="/admin/pages" className="admin-card-link">
             <strong>Pages</strong>
@@ -121,6 +122,7 @@ function AdminHomePage() {
             <span>Create and edit path and tag based access rules.</span>
           </Link>
         </nav>
+        <AdminStats />
       </section>
     </AdminLayout>
   );

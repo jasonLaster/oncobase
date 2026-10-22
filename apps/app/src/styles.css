@@ -255,6 +255,147 @@
   background: var(--accent);
 }
 
+.admin-stats {
+  display: grid;
+  gap: 32px;
+  margin-top: 32px;
+}
+
+.admin-stats h2 {
+  font-size: 1.125rem;
+  margin: 0 0 12px;
+}
+
+.admin-stats h3 {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+
+.admin-stat-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.admin-stat {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 14px 16px;
+}
+
+.admin-stat-label {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.admin-stat-value {
+  font-size: 1.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.admin-stat-detail {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.admin-month-grid,
+.admin-stats-columns {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  margin-top: 16px;
+}
+
+.admin-stats-columns h3:first-child {
+  margin-top: 0;
+}
+
+.admin-month-chart {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0;
+  padding: 14px 16px 10px;
+}
+
+.admin-month-chart figcaption {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.admin-month-bars {
+  align-items: end;
+  display: flex;
+  gap: 2px;
+  height: 140px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-month-bars li {
+  align-items: center;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  height: 100%;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.admin-month-bar {
+  background: var(--brand);
+  border-radius: 4px 4px 0 0;
+  max-width: 40px;
+  width: 100%;
+}
+
+.admin-month-bars li:hover .admin-month-bar {
+  opacity: 0.8;
+}
+
+.admin-month-value,
+.admin-month-label {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-month-label {
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  text-align: center;
+  width: 100%;
+}
+
+.admin-table-wrap.admin-stats-table table {
+  min-width: 0;
+}
+
+.admin-stats > section,
+.admin-stats-columns > div {
+  min-width: 0;
+}
+
+.admin-stats-table td:not(:first-child),
+.admin-stats-table th:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.admin-stats-footnote {
+  font-size: 0.75rem;
+  margin: 0;
+}
+
 .admin-heading-row,
 .admin-toolbar,
 .admin-filter-row,

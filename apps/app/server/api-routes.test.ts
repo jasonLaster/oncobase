@@ -76,7 +76,7 @@ test("privatized responses are the four previously wrapped routes", () => {
 
 test("tracing names only fixed route strings", () => {
   expect([...TRACED_API_ROUTES].sort()).toEqual([
-    "/api/admin/access", "/api/admin/roles", "/api/admin/session", "/api/admin/users", "/api/admin/users/role",
+    "/api/admin/access", "/api/admin/roles", "/api/admin/session", "/api/admin/stats", "/api/admin/users", "/api/admin/users/role",
     "/api/page-shares/read", "/api/page-shares/asset",
     ...CLAIMED_EXACT, "/api/wiki/manifest", "/api/wiki/pages", "/api/wiki/prefetch", "/api/wiki/session", "/api/wiki/convex-token",
     ...RAW_API_ROUTES.map(route => route.path), ...PUBLISH_API_ROUTES,

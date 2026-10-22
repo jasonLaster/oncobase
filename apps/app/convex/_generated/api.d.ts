@@ -9,6 +9,7 @@
  */
 
 import type * as access from "../access.js";
+import type * as adminStats from "../adminStats.js";
 import type * as cleanup from "../cleanup.js";
 import type * as commentRooms from "../commentRooms.js";
 import type * as conversations from "../conversations.js";
@@ -48,6 +49,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   access: typeof access;
+  adminStats: typeof adminStats;
   cleanup: typeof cleanup;
   commentRooms: typeof commentRooms;
   conversations: typeof conversations;

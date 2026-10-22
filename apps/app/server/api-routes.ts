@@ -86,7 +86,7 @@ export const API_ROUTES: readonly ApiRoute[] = [
       m.handlePublishRequest({ request, client, step: pathname.slice("/api/publish/".length) })),
   },
   {
-    prefix: "/api/admin/", gate: "exempt", tracedSubpaths: ["access", "roles", "session", "users", "users/role"],
+    prefix: "/api/admin/", gate: "exempt", tracedSubpaths: ["access", "roles", "session", "stats", "users", "users/role"],
     load: () => import("./api/admin").then(m => legacy(m.handleAdminRequest)),
   },
 

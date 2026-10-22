@@ -11,6 +11,7 @@ import {
   setUsersRole,
   updateRole,
 } from "../admin-data.js";
+import { getAdminStats } from "../admin-stats.js";
 import { getSessionUser, sessionTokenFromCookie, withSiteSlug } from "../reader-access";
 import { hashSessionToken } from "../user-auth";
 import { publicSessionUser } from "./common";
@@ -59,6 +60,17 @@ export async function handleAdminRequest(
     return Response.json(await getAccessPagesData(client, siteSlug), {
       headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" },
     });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/admin/stats") {
+    const [stats, { users, roles }] = await Promise.all([
+      getAdminStats(client, siteSlug),
+      getAccessUsersAndRoles(client, siteSlug),
+    ]);
+    return Response.json(
+      { ...stats, people: { users: users.length, roles: roles.length } },
+      { headers: { "Cache-Control": "private, no-store", Vary: "Cookie, Host" } },
+    );
   }
 
   if (request.method === "POST" && url.pathname === "/api/admin/roles") {
