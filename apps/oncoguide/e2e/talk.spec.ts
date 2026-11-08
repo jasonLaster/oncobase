@@ -263,7 +263,134 @@ for (const [status, message, retry] of [[429, "busy", true], [503, "isn’t avai
   });
 }
 
-test("Talk fits a phone and stays clear of chat's composer", async ({ page }) => {
+const chat = "/education/chat/";
+const adcId = adcSection;
+const boardRequests = (page: Page) => page.evaluate(() => window.__talk.sent.filter(event => (event as { response?: { metadata?: { talk_purpose?: string } } }).response?.metadata?.talk_purpose === "board").length);
+const emitBoard = (page: Page, calls: Array<[string, unknown]>) => page.evaluate(next => window.__talk.emit({ type: "response.done", response: { status: "completed", metadata: { talk_purpose: "board" }, output: next.map(([name, args], index) => ({ type: "function_call", call_id: `b${index}`, name, arguments: JSON.stringify(args) })) } }), calls);
+const startBoard = async (page: Page) => {
+  await page.getByRole("button", { name: /^Talk/ }).click();
+  await page.getByRole("button", { name: "Start talking" }).click();
+  await expect(page.getByRole("region", { name: "Conversation board" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__talk.peers)).toBe(1);
+  await page.evaluate(() => window.__talk.emit({ type: "session.created" }));
+  await expect(page.getByRole("status").filter({ hasText: "Listening" })).toBeVisible();
+};
+
+test("chat becomes a board of real lesson visuals as you talk, with no transcript", async ({ page }) => {
+  await open(page, chat);
+  await expect(page.locator(".edu-talk-launcher")).toBeHidden();
+  await startBoard(page);
+  await expect(page.locator(".session-chat-composer")).toBeHidden();
+
+  const emit = (event: unknown) => page.evaluate(next => window.__talk.emit(next), event);
+  await emit({ type: "input_audio_buffer.speech_started" });
+  await emit({ type: "conversation.item.input_audio_transcription.completed", transcript: "What is an antibody-drug conjugate?" });
+  await emitTool(page, "read_section", { section_id: adcId }, "read");
+
+  // The lesson's own diagram shows at once, before the voice replies.
+  const diagram = page.locator('[data-card-kind="diagram"]');
+  await expect(diagram.locator(".mermaid-diagram svg")).toBeVisible();
+  await expect(diagram.getByRole("link", { name: "ADC (antibody-drug conjugate)" })).toBeVisible();
+  await expect.poll(async () => (await toolOutput(page, "read"))?.now_showing).toContain("ADC (antibody-drug conjugate)");
+
+  await emit({ type: "response.created" });
+  await emit({ type: "response.output_audio_transcript.delta", delta: "It links an antibody to a drug." });
+  await emit({ type: "response.done", response: { status: "completed", output: [{ type: "message" }] } });
+  await expect.poll(() => boardRequests(page)).toBe(1);
+
+  // Nothing the reader or the voice said appears as text.
+  const board = page.getByRole("region", { name: "Conversation board" });
+  await expect(page.getByTestId("talk-caption")).toHaveCount(0);
+  await expect(board).not.toContainText("What is an antibody-drug conjugate?");
+  await expect(board).not.toContainText("It links an antibody to a drug.");
+
+  // Captions are available for anyone who needs them.
+  await page.getByRole("button", { name: "Show captions" }).click();
+  await expect(page.getByTestId("talk-caption")).toHaveText("It links an antibody to a drug.");
+  await page.getByRole("button", { name: "Show captions" }).click();
+  await expect(page.getByTestId("talk-caption")).toHaveCount(0);
+  expect(await stayedInPage(page)).toBe(true);
+});
+
+test("written cards are labeled, cited, rendered as plain text and limited to real sources", async ({ page }) => {
+  await open(page, chat);
+  await startBoard(page);
+  await emitTool(page, "read_section", { section_id: adcId }, "read");
+  await expect(page.locator('[data-card-kind="diagram"]')).toBeVisible();
+  await emitBoard(page, [
+    ["show_steps", { title: "How an ADC reaches a cell", steps: ["Antibody binds", "Cell takes it in", "Payload released"], source_section_id: adcId }],
+    ["show_comparison", { title: "<img src=x onerror=window.__pwned=1>", columns: ["Part", "Job"], rows: [["Antibody", "Finds the target"], ["Payload", "Damages the cell"]], source_section_id: adcId }],
+  ]);
+  const steps = page.locator('[data-card-kind="steps"]');
+  await expect(steps.getByRole("listitem")).toHaveCount(3);
+  await expect(steps).toContainText("AI summary of");
+  await expect(steps.getByRole("link", { name: "ADC (antibody-drug conjugate)" })).toHaveAttribute("href", /antibody-drug-conjugate/);
+  const comparison = page.locator('[data-card-kind="comparison"]');
+  await expect(comparison.getByRole("heading")).toHaveText("<img src=x onerror=window.__pwned=1>");
+  expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
+
+  const count = await page.locator(".edu-talk-board-card").count();
+  await emitBoard(page, [
+    ["show_visual", { visual_id: "https://attacker.test/x.png" }],
+    ["show_key_points", { title: "Unsourced", points: ["A claim"], source_section_id: "/education/invented/" }],
+    ["show_key_points", { title: "Never read", points: ["A claim"], source_section_id: `${start}#where-this-step-sits` }],
+  ]);
+  await page.waitForTimeout(200);
+  await expect(page.locator(".edu-talk-board-card")).toHaveCount(count);
+});
+
+test("the board survives a trip to a lesson, and typed chat is intact afterward", async ({ page }) => {
+  await open(page, chat);
+  await page.evaluate(() => sessionStorage.setItem("oncoguide:learning-chat", JSON.stringify({ version: 1, messages: [{ id: "1", role: "user", parts: [{ type: "text", text: "What is a payload?" }] }] })));
+  await page.reload();
+  await page.evaluate(() => { window.__sameDocument = true; });
+  await expect(page.locator(".session-chat-user")).toContainText("What is a payload?");
+  await startBoard(page);
+  await expect.poll(() => notes(page)).toContainEqual(expect.stringContaining("Reader: What is a payload?"));
+  await emitTool(page, "read_section", { section_id: adcId }, "read");
+  await expect(page.locator('[data-card-kind="diagram"]')).toBeVisible();
+
+  await page.locator('[data-card-kind="diagram"]').getByRole("link").click();
+  await expect(page).toHaveURL(new RegExp(`${adcSection}$`));
+  await expect(page.getByRole("region", { name: "Conversation board" })).toHaveCount(0);
+  expect(await stayedInPage(page)).toBe(true);
+
+  await page.getByRole("button", { name: "Back to board" }).click();
+  await expect(page).toHaveURL(new RegExp(`${chat}$`));
+  await expect(page.locator('[data-card-kind="diagram"]')).toBeVisible();
+  expect(await stayedInPage(page)).toBe(true);
+
+  await page.getByRole("button", { name: "End talk" }).click();
+  await expect(page.locator('[data-card-kind="diagram"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Talk again" })).toBeVisible();
+  await page.getByRole("button", { name: "Back to typing" }).click();
+  await expect(page.getByRole("region", { name: "Conversation board" })).toHaveCount(0);
+  await expect(page.locator(".session-chat-user")).toContainText("What is a payload?");
+  await expect(page.locator(".session-chat-composer")).toBeVisible();
+});
+
+test("a failed start from chat keeps the typed conversation in place", async ({ page }) => {
+  await open(page, chat);
+  await page.evaluate(() => { window.__micFailure = "NotAllowedError"; localStorage.setItem("oncoguide:talk-consent", "1"); });
+  await page.getByRole("button", { name: /^Talk/ }).click();
+  await expect(page.locator(".edu-talk-card[role=alert]")).toContainText("needs your microphone");
+  await expect(page.locator(".session-chat-composer")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Conversation board" })).toHaveCount(0);
+});
+
+test("the board fits a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, chat);
+  await startBoard(page);
+  await emitTool(page, "read_section", { section_id: adcId }, "read");
+  await expect(page.locator('[data-card-kind="diagram"]')).toBeVisible();
+  await emitBoard(page, [["show_comparison", { title: "Parts", columns: ["Part", "Job", "Open question"], rows: [["Antibody", "Finds the target on a cell", "Reach in living tissue"]], source_section_id: adcId }]]);
+  await expect(page.locator('[data-card-kind="comparison"]')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  for (const name of ["Mute microphone", "End talk", "Show captions"]) await expect(page.getByRole("button", { name })).toBeInViewport({ ratio: 1 });
+});
+
+test("Talk fits a phone and chat starts it from the composer", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
   await startCall(page);
@@ -275,8 +402,8 @@ test("Talk fits a phone and stays clear of chat's composer", async ({ page }) =>
   for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/education/chat/");
-    const launcher = await page.getByRole("button", { name: "Talk with OncoGuide" }).boundingBox();
-    const composer = await page.locator(".session-chat-input-row").boundingBox();
-    expect(launcher!.y + launcher!.height).toBeLessThanOrEqual(composer!.y);
+    await expect(page.locator(".edu-talk-launcher")).toBeHidden();
+    await expect(page.locator(".session-chat-input-row").getByRole("button", { name: /^Talk/ })).toBeInViewport({ ratio: 1 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });

@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { buildEducationCorpus } from "@oncobase/education/chat-index";
+import { buildEducationVisuals } from "@oncobase/education/talk-visuals";
 import { compileEducation, type SourcePage, staticAssetHref } from "../lib/content-format";
 const lock = JSON.parse(fs.readFileSync(new URL("../content.lock.json", import.meta.url), "utf8"));
 const root = path.resolve(process.env.ONCOGUIDE_CONTENT_DIR || ".generated/content");
@@ -38,5 +39,6 @@ if (!contentCommit) {
   catch { contentCommit = "local"; }
 }
 fs.writeFileSync("public/chat-index.json", JSON.stringify(buildEducationCorpus(pages, contentCommit)));
+fs.writeFileSync("public/talk-visuals.json", JSON.stringify(buildEducationVisuals(pages)));
 fs.writeFileSync("public/build-info.json", JSON.stringify({ contentCommit, appCommit: process.env.ONCOGUIDE_APP_SHA || "local" }));
 console.info(`Prepared ${pages.length} static lessons and ${assets.size} local assets (${contentCommit})`);

@@ -11,7 +11,8 @@
     "./theme-control": "./src/theme-control.tsx",
     "./chat": "./src/chat.ts",
     "./chat-index": "./src/chat-index.ts",
-    "./talk": "./src/talk.ts"
+    "./talk": "./src/talk.ts",
+    "./talk-visuals": "./src/talk-visuals.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

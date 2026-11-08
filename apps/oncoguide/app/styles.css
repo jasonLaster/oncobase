@@ -184,7 +184,7 @@ button { cursor: pointer; }
 @keyframes edu-talk-pulse { 0%, 100% { opacity: 0.12; transform: scale(1.02); } 50% { opacity: 0.32; transform: scale(1.18); } }
 @keyframes edu-talk-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .edu-talk-avatar *, .edu-talk-suggestion, .edu-talk-launcher { animation: none !important; transition: none !important; }
+  .edu-talk-avatar *, .edu-talk-suggestion, .edu-talk-launcher, .edu-talk-board-card { animation: none !important; transition: none !important; }
 }
 @media (max-width: 640px) {
   .edu-talk { right: 16px; bottom: 16px; }
@@ -192,6 +192,57 @@ button { cursor: pointer; }
   .edu-talk-launcher > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 }
 @media print { .edu-talk { display: none; } }
-/* Chat keeps its composer at the bottom of the page. */
-.education-app:has(.edu-learning-chat) .edu-talk { bottom: 140px; }
-@media (max-width: 640px) { .education-app:has(.edu-learning-chat) .edu-talk { bottom: 160px; } }
+/* Chat starts a call from its composer, so the floating launcher steps aside. */
+.education-app:has(.edu-learning-chat) .edu-talk-launcher { display: none; }
+.edu-chat-typed { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.edu-chat-typed[hidden] { display: none; }
+.session-chat-input-row .edu-chat-talk { display: inline-flex; align-items: center; gap: 6px; background: var(--background); color: var(--foreground); border-color: var(--sidebar-border); white-space: nowrap; }
+.session-chat-input-row .edu-chat-talk:hover:not(:disabled) { background: var(--accent-light); color: var(--foreground); border-color: var(--brand); filter: none; }
+
+/* The board that replaces the transcript during a call. */
+.edu-talk-board { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.edu-talk-board-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 24px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.edu-talk-board-header h1 { margin: 12px 0 8px; font-size: clamp(28px, 4vw, 38px); font-weight: 500; letter-spacing: -1px; }
+.edu-talk-board-header p { margin: 0; color: var(--text-muted); line-height: 1.6; }
+.edu-talk-board-header[data-compact] h1 { margin: 4px 0 0; font-size: 20px; letter-spacing: -0.3px; }
+.edu-talk-board-header[data-compact] p { display: none; }
+.edu-talk-board-header[data-compact] .edu-talk-board-actions { padding-top: 0; }
+.edu-talk-board-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 14px; }
+.edu-talk-board-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 1px solid var(--sidebar-border); border-radius: 8px; background: var(--background); color: var(--foreground); font-size: 14px; }
+.edu-talk-board-actions button:hover { border-color: var(--brand); background: var(--accent-light); }
+.edu-talk-board-actions .edu-talk-board-primary, .edu-talk-board-actions .edu-talk-board-primary:hover { background: var(--brand); border-color: var(--brand); color: var(--background); }
+.edu-talk-board-feed { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 14px; padding: 18px 2px 96px; }
+.edu-talk-board-feed:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.edu-talk-board-feed > * { flex-shrink: 0; }
+.edu-talk-board-empty { color: var(--text-muted); font-size: 15px; line-height: 1.7; }
+.edu-talk-board-empty p { margin: 0 0 6px; }
+.edu-talk-board-empty ul { margin: 0; padding-left: 20px; }
+.edu-talk-board-card { margin: 0; padding: 18px; border: 1px solid var(--sidebar-border); border-radius: 12px; background: var(--background); animation: edu-talk-rise 0.25s ease-out; }
+.edu-talk-board-card h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; line-height: 1.4; }
+.edu-talk-board-card ul { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.6; }
+.edu-talk-board-card li + li { margin-top: 6px; }
+.edu-talk-board-figure > img { display: block; width: 100%; max-height: 440px; object-fit: contain; cursor: zoom-in; border-radius: 8px; }
+.edu-talk-board-figure > img:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.edu-talk-board-figure .wiki-markdown { overflow-x: auto; }
+.edu-talk-board-figure .mermaid-diagram { margin: 0; }
+.edu-talk-board-figure .mermaid-diagram svg { display: block; margin: 0 auto; max-width: 100%; max-height: 460px; width: auto; height: auto; }
+.edu-talk-board-figure figcaption { margin-top: 12px; font-size: 14px; line-height: 1.5; font-weight: 500; }
+.edu-talk-board-source { margin: 10px 0 0; font-size: 12px; color: var(--text-muted); }
+.edu-talk-board-source a { display: inline-flex; align-items: center; gap: 3px; color: var(--brand); text-underline-offset: 3px; }
+.edu-talk-board-steps { list-style: none; margin: 0; padding: 0; counter-reset: edu-step; }
+.edu-talk-board-steps li { position: relative; margin: 0; padding: 0 0 14px 38px; counter-increment: edu-step; font-size: 15px; line-height: 1.5; min-height: 38px; }
+.edu-talk-board-steps li + li { margin-top: 0; }
+.edu-talk-board-steps li::before { content: counter(edu-step); position: absolute; left: 0; top: -1px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-light); color: var(--brand); font-size: 13px; font-weight: 600; }
+.edu-talk-board-steps li:not(:last-child)::after { content: ""; position: absolute; left: 12.5px; top: 27px; bottom: 1px; width: 1px; background: var(--sidebar-border); }
+.edu-talk-board-steps li:last-child { padding-bottom: 0; min-height: 0; }
+.edu-talk-board-table { overflow-x: auto; }
+.edu-talk-board-table table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.45; }
+.edu-talk-board-table :is(th, td) { padding: 8px 10px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+.edu-talk-board-table th { background: var(--sidebar-bg); font-weight: 600; }
+.edu-talk-board-lesson { display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-decoration: none; color: var(--foreground); }
+.edu-talk-board-lesson:hover { border-color: var(--brand); }
+.edu-talk-board-lesson > span { flex: 1; min-width: 0; }
+.edu-talk-board-lesson strong { display: block; font-size: 14px; font-weight: 600; }
+.edu-talk-board-lesson small { display: block; font-size: 12px; color: var(--text-muted); }
+.edu-talk-board-lesson svg { flex-shrink: 0; color: var(--brand); }
+@media (max-width: 640px) { .edu-chat-talk-label { display: none; } }

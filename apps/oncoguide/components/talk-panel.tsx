@@ -1,8 +1,11 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Mic, MicOff, PhoneOff, X } from "lucide-react";
+import { ArrowRight, Captions, LayoutGrid, Mic, MicOff, PhoneOff, X } from "lucide-react";
 import { EducationCorpusSchema, type EducationCorpus } from "@oncobase/education/chat";
+import { normalizeEducationPath, TALK_BOARD_PATH } from "@oncobase/education/talk";
+import type { TalkVisual } from "@oncobase/education/talk-visuals";
+import { addBoardCards, boardCardIds, setTalkLive, useTalkState } from "../lib/talk-store";
 import { TalkConversation, type TalkStatus, type TalkView } from "../lib/talk-conversation";
 import { connectTalk, TalkStartError, type TalkEvent, type TalkFailure, type TalkTransport } from "../lib/talk-transport";
 import { TalkAvatar } from "./talk-avatar";
@@ -11,7 +14,7 @@ const CONSENT_KEY = "oncoguide:talk-consent";
 const IDLE_LIMIT_MS = 5 * 60_000;
 const CALL_LIMIT_MS = 30 * 60_000;
 const talkApiUrl = () => process.env.NEXT_PUBLIC_ONCOGUIDE_TALK_API || (["localhost", "127.0.0.1"].includes(window.location.hostname) ? "/api/education/talk" : "https://diana-tnbc.com/api/education/talk");
-const STATUS_LABEL: Record<TalkStatus, string> = { connecting: "Connecting…", listening: "Listening", hearing: "Listening", thinking: "Thinking…", searching: "Checking the lessons…", speaking: "Speaking" };
+const STATUS_LABEL: Record<TalkStatus, string> = { connecting: "Connecting…", listening: "Listening", hearing: "Listening", thinking: "Thinking…", searching: "Checking lessons…", speaking: "Speaking" };
 const FAILURE_MESSAGE: Record<TalkFailure, string> = {
   unsupported: "This browser can’t make voice calls. Try a recent version of Chrome, Safari, Edge or Firefox.",
   "mic-denied": "OncoGuide needs your microphone to talk. Allow it in your browser’s site settings, then try again.",
@@ -21,6 +24,17 @@ const FAILURE_MESSAGE: Record<TalkFailure, string> = {
   network: "Talk couldn’t connect. Check your connection and try again.",
 };
 type Ended = { message: string; retry: boolean };
+const CHAT_STORAGE_KEY = "oncoguide:learning-chat";
+/** The last typed turns, so a call started from chat can pick up where it left off. */
+function typedHistory() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(CHAT_STORAGE_KEY) ?? "null") as { messages?: Array<{ role: string; parts: Array<{ type: string; text?: string }> }> } | null;
+    return (saved?.messages ?? []).slice(-6).map(message => {
+      const text = message.parts.filter(part => part.type === "text").map(part => part.text ?? "").join(" ").slice(0, 500);
+      return text ? `${message.role === "user" ? "Reader" : "OncoGuide"}: ${text}` : "";
+    }).filter(Boolean).join("\n");
+  } catch { return ""; }
+}
 const readConsent = () => { try { return localStorage.getItem(CONSENT_KEY) === "1"; } catch { return false; } };
 const saveConsent = () => { try { localStorage.setItem(CONSENT_KEY, "1"); } catch { /* Ask again next time. */ } };
 
@@ -64,10 +78,18 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
   const [view, setView] = useState<TalkView | null>(null);
   const [muted, setMuted] = useState(false);
   const [ended, setEnded] = useState<Ended | null>(null);
+  const [captionsOnBoard, setCaptionsOnBoard] = useState(false);
+  const { cards } = useTalkState();
+  const onBoardPage = normalizeEducationPath(pathname) === TALK_BOARD_PATH;
   const avatar = useRef<HTMLSpanElement>(null);
   const transport = useRef<TalkTransport | null>(null);
   const conversation = useRef<TalkConversation | null>(null);
   const live = consented && !ended;
+
+  useEffect(() => {
+    setTalkLive(live);
+    return () => setTalkLive(false);
+  }, [live]);
 
   useEffect(() => {
     if (!live) return;
@@ -94,6 +116,14 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
       return corpus;
     };
     void loadCorpus().catch(() => {});
+    let visuals: Promise<TalkVisual[]> | undefined;
+    const loadVisuals = () => {
+      visuals ??= fetch("/talk-visuals.json").then(async response => {
+        if (!response.ok) throw Error("Visuals unavailable");
+        return await response.json() as TalkVisual[];
+      }).catch(error => { visuals = undefined; throw error; });
+      return visuals;
+    };
 
     // session.created can arrive before connectTalk resolves, so early events
     // from the conversation wait here until the transport is in hand.
@@ -104,6 +134,10 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
       corpus: loadCorpus,
       onChange: setView,
       onActivity: resetIdle,
+      visuals: loadVisuals,
+      onBoardCards: addBoardCards,
+      boardCardIds,
+      typedHistory,
     }, window.location.pathname);
     conversation.current = current;
     setView({ status: "connecting", readerCaption: "", voiceCaption: "", suggestion: null });
@@ -165,7 +199,7 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
     <section className="edu-talk-card" role="dialog" aria-label="Talk with OncoGuide" onKeyDown={event => { if (event.key === "Escape") onClose(); }}>
       <h2>Talk with OncoGuide</h2>
       <p>Have a spoken conversation about the lessons with an AI voice. It can offer to open the pages you’re discussing.</p>
-      <p>Your microphone audio goes to OpenAI to generate replies. OncoGuide doesn’t save your conversation. This is for learning, not medical advice.</p>
+      <p>Your microphone audio goes to OpenAI to generate replies, along with your typed messages if you start from chat. OncoGuide doesn’t save your conversation. This is for learning, not medical advice.</p>
       <div className="edu-talk-actions">
         <button type="button" className="edu-talk-primary" autoFocus onClick={() => { saveConsent(); setConsented(true); }}><Mic size={15} aria-hidden="true" />Start talking</button>
         <button type="button" onClick={onClose}>Not now</button>
@@ -183,7 +217,8 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
 
   const status = view?.status ?? "connecting";
   const suggestion = view?.suggestion;
-  const caption = view?.voiceCaption || view?.readerCaption;
+  // The board replaces the transcript, so captions there are opt-in.
+  const caption = onBoardPage && !captionsOnBoard ? "" : view?.voiceCaption || view?.readerCaption;
   return <div className="edu-talk" data-talk-status={status}>
     {suggestion ? <section className="edu-talk-card edu-talk-suggestion" role="status" aria-label="Suggested page">
       <span className="edu-talk-eyebrow">Open this page?</span>
@@ -202,6 +237,9 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
         <strong role="status">{muted ? "Muted" : STATUS_LABEL[status]}</strong>
         <small>AI voice · OncoGuide</small>
       </span>
+      {onBoardPage
+        ? <button type="button" className="edu-talk-icon" aria-label="Show captions" aria-pressed={captionsOnBoard} onClick={() => setCaptionsOnBoard(value => !value)}><Captions size={17} aria-hidden="true" /></button>
+        : cards.length ? <button type="button" className="edu-talk-icon" aria-label="Back to board" onClick={() => router.push(TALK_BOARD_PATH)}><LayoutGrid size={17} aria-hidden="true" /></button> : null}
       <button type="button" className="edu-talk-icon" aria-label={muted ? "Unmute microphone" : "Mute microphone"} aria-pressed={muted} onClick={toggleMute}>{muted ? <MicOff size={17} aria-hidden="true" /> : <Mic size={17} aria-hidden="true" />}</button>
       <button type="button" className="edu-talk-icon edu-talk-end" aria-label="End talk" onClick={onClose}><PhoneOff size={17} aria-hidden="true" /></button>
     </div>
