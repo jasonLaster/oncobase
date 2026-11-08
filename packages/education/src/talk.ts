@@ -1,4 +1,4 @@
-import { searchEducation, type EducationCorpus, type EducationSection } from "./chat";
+import { searchEducation, type EducationCorpus, type EducationSection } from "@oncobase/education/chat";
 
 /** The contract for OncoGuide Talk, shared by the server that opens a Realtime
  * call and the browser that answers its tool calls. Readers cannot pick a
