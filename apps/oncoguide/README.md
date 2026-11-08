@@ -111,6 +111,49 @@ personal questions or conversations. Append a scenario ID, such as
 the fixture and snapshot diff together before committing. The ordinary E2E
 command never records or updates snapshots.
 
+## Talk
+
+A floating avatar on every page starts a spoken conversation with OncoGuide over
+the OpenAI Realtime API. It lives in the root layout, so a call continues across
+client-side navigation. As the conversation moves, it offers the most relevant
+page in a prompt that the reader can answer by tapping or by voice.
+
+- **Connection.** The browser sends a WebRTC offer to Oncobase's
+  `/api/education/talk`, which adds the API key, model, prompt and tools and
+  returns OpenAI's answer. Audio then flows directly between the browser and
+  OpenAI. Readers never receive a credential.
+- **Tools.** The browser answers tool calls against the public `/chat-index.json`
+  with the same `searchEducation` ranking as chat. Only real corpus sections can
+  become a prompt or a navigation target. `packages/education/src/talk.ts` holds
+  the prompt, tools and session configuration.
+- **Page prompts.** Reading a section on another page raises its prompt
+  automatically, because live testing showed the model won't reliably call
+  `suggest_page` by itself. A declined page isn't offered again.
+- **Privacy.** The first launch explains that microphone audio goes to OpenAI.
+  Transcripts stay in memory for the current turn's captions and aren't stored.
+- **Bundle.** Only the launcher and avatar are in the initial reader bundle. The
+  call code and corpus load when a reader opens Talk.
+
+Talk is off until `ONCOGUIDE_TALK_OPENAI_API_KEY` is set on the Oncobase server.
+**Use a key from a dedicated OpenAI project with a monthly spend limit.** Talk is
+public and speech is costly, and the throttles (6 calls per client and 60 overall
+per 10 minutes) only apply per function instance. Idle (5 minute) and length
+(30 minute) limits run in the browser, so someone calling OpenAI's session
+directly could exceed them. The project spend limit is the actual ceiling.
+`ONCOGUIDE_CHAT_ORIGINS` also lists allowed preview origins for Talk, and
+`NEXT_PUBLIC_ONCOGUIDE_TALK_API` overrides the browser endpoint for staging.
+
+To try a real call locally after building (this spends real money):
+
+```sh
+ONCOGUIDE_TALK_LOCAL=1 bun --env-file=../../.env.local scripts/serve-export.ts
+```
+
+`e2e/talk.spec.ts` runs in the normal static suite with a fake Realtime peer, so
+it needs no credentials and costs nothing. The panel, tools, search and routing
+are real. It cannot catch a change in OpenAI's protocol or how the model behaves,
+so try a real call after changing the prompt, tools or model.
+
 Release the Oncobase backend and update the content repository's renderer pin
 together. The new static build must provide `chat-index.json` before live chat
 can use it. For a staged preview, point the backend at that preview's public
