@@ -6,6 +6,7 @@ import { ArrowRight, BookOpen, ChevronDown, Menu, MessageCircle, Search, X } fro
 import { TopicLogo } from "@oncobase/education/topic-logo";
 import { PublicThemeControl } from "@oncobase/education/theme-control";
 import { EducationFilePalette } from "./file-palette";
+import { TalkLauncher } from "./talk-launcher";
 import { educationHref, type GuidePage } from "../lib/routes";
 
 type NavPage = Pick<GuidePage, "slug" | "title">;
@@ -59,6 +60,7 @@ export function EducationFrame({ topics, children }: { topics: Topic[]; children
       </aside>
       <main id="education-main" ref={main} className="edu-main" tabIndex={-1}>{children}</main>
     </div>
+    <TalkLauncher />
     {paletteOpen ? <EducationFilePalette pages={topics.flatMap(topic => topic.pages)} onOpenChange={setPaletteOpen} /> : null}
   </div>;
 }

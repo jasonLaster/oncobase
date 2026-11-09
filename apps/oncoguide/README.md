@@ -111,6 +111,74 @@ personal questions or conversations. Append a scenario ID, such as
 the fixture and snapshot diff together before committing. The ordinary E2E
 command never records or updates snapshots.
 
+## Talk
+
+A floating avatar on every page starts a spoken conversation with OncoGuide over
+the OpenAI Realtime API. It lives in the root layout, so a call continues across
+client-side navigation. As the conversation moves, it offers the most relevant
+page in a prompt that the reader can answer by tapping or by voice.
+
+- **Connection.** The browser sends a WebRTC offer to Oncobase's
+  `/api/education/talk`, which adds the API key, model, prompt and tools and
+  returns OpenAI's answer. Audio then flows directly between the browser and
+  OpenAI. Readers never receive a credential.
+- **Tools.** The browser answers tool calls against the public `/chat-index.json`
+  with the same `searchEducation` ranking as chat. Only real corpus sections can
+  become a prompt or a navigation target. `packages/education/src/talk.ts` holds
+  the prompt, tools and session configuration.
+- **Page prompts.** Reading a section on another page raises its prompt
+  automatically, because live testing showed the model won't reliably call
+  `suggest_page` by itself. A declined page isn't offered again.
+- **Privacy.** The first launch explains that microphone audio goes to OpenAI,
+  along with recent typed messages when a call starts from chat. Transcripts stay
+  in memory for the current turn's captions, and board cards stay in memory for the
+  tab. Neither is stored.
+- **Bundle.** Only the launcher, avatar and a small store are in the initial reader
+  bundle. The call code, corpus and visuals load when a reader opens Talk.
+
+### The conversation board
+
+Starting a call from `/education/chat/` replaces the transcript with a board that
+makes the conversation easier to follow. Nothing the reader or voice says is
+written down unless the reader turns captions on. Typed chat stays mounted beneath
+it and returns intact.
+
+- **Real visuals first.** The content build emits `/talk-visuals.json`: every
+  lesson diagram and table, by exact section, separate from `chat-index.json`
+  because the chat replay fixtures pin that file's hash. When the voice reads a
+  section, the client immediately shows that lesson's best cartoon or diagram and
+  tells the voice, so it doesn't depend on the model asking and it can point to it.
+- **A silent board request.** After each spoken reply, the client sends a text-only
+  Realtime response with `conversation: "none"` and `tool_choice: "required"`. It
+  picks another lesson visual, or writes steps, a comparison or key points. It adds
+  no speech and doesn't delay the voice. Transcripts finish before their audio, so
+  cards arrive while the voice is talking. See `lib/talk-board.ts`.
+- **Limits on written cards.** They render as plain text with bounded lengths, carry
+  an "AI summary of" label, and must cite a section retrieved during the call.
+  Models pick visuals by id and never supply markup. Each reply adds one text
+  request's tokens to the call's cost.
+
+Talk is off until `ONCOGUIDE_TALK_OPENAI_API_KEY` is set on the Oncobase server.
+**Use a key from a dedicated OpenAI project with a monthly spend limit.** Talk is
+public and speech is costly, and the throttles (6 calls per client and 60 overall
+per 10 minutes) only apply per function instance. Idle (5 minute) and length
+(30 minute) limits run in the browser, so someone calling OpenAI's session
+directly could exceed them. The project spend limit is the actual ceiling.
+`ONCOGUIDE_CHAT_ORIGINS` also lists allowed preview origins for Talk, and
+`NEXT_PUBLIC_ONCOGUIDE_TALK_API` overrides the browser endpoint for staging.
+
+To try a real call locally after building (this spends real money), add
+`ONCOGUIDE_TALK_OPENAI_API_KEY` to `.env.local`, then run:
+
+```sh
+ONCOGUIDE_TALK_LOCAL=1 bun --env-file=../../.env.local scripts/serve-export.ts
+```
+
+`e2e/talk.spec.ts` runs in the normal static suite with a fake Realtime peer, so
+it needs no credentials and costs nothing. The panel, tools, search and routing
+are real. It cannot catch a change in OpenAI's protocol or how the model behaves,
+so try a real call after changing the prompt, tools or model.
+
 Release the Oncobase backend and update the content repository's renderer pin
 together. The new static build must provide `chat-index.json` before live chat
 can use it. For a staged preview, point the backend at that preview's public

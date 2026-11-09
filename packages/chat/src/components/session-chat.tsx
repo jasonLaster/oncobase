@@ -10,13 +10,15 @@ import { Conversation, ConversationContent, ConversationScrollButton } from "./a
 
 /** Shared Oncobase streaming UI for public, unsaved learning sessions. Hosts
  * supply their content cards without pulling in the care/Convex runtime. */
-export function SessionChat({ apiPath, body, initialQuestion, storageKey, title, description, suggestions, renderData, assistantName = "Assistant", footnote, MarkdownRenderer = StreamingMarkdown }: {
+export function SessionChat({ apiPath, body, initialQuestion, storageKey, title, description, suggestions, renderData, assistantName = "Assistant", footnote, composerAction, MarkdownRenderer = StreamingMarkdown }: {
   apiPath: string; body?: Record<string, unknown>; initialQuestion?: string;
   storageKey?: string;
   title: string; description: string; suggestions: string[];
   renderData?: (message: UIMessage) => ReactNode;
   MarkdownRenderer?: ChatMarkdownRenderer;
   assistantName?: string; footnote?: string;
+  /** An extra control beside the send button, such as starting a voice call. */
+  composerAction?: ReactNode;
 }) {
   const transport = useMemo(() => new DefaultChatTransport({ api: apiPath, credentials: "omit", body,
     prepareSendMessagesRequest: ({ messages, body }) => ({ body: { ...body, messages: sessionModelMessages(messages) } }),
@@ -85,6 +87,7 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, title,
       <div className="session-chat-input-row"><textarea ref={inputRef} id="learning-question" value={input} maxLength={4000} rows={2} placeholder="What would you like to understand?" onChange={event => setInput(event.target.value)} onKeyDown={event => {
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(input); }
       }} />
+      {composerAction}
       {busy ? <button type="button" onClick={() => void stop()}>Stop</button> : <button type="submit" disabled={!input.trim()}>Ask <span aria-hidden="true">↑</span></button>}</div>
       {footnote && <p className="session-chat-note">{footnote}</p>}
     </form>

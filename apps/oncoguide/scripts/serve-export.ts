@@ -10,6 +10,8 @@ const localChat = process.env.ONCOGUIDE_CHAT_LOCAL === "1" ? import("../../app/s
   const { EducationCorpusSchema } = await import("@oncobase/education/chat");
   return createEducationChatHandler({ getCorpus: async () => EducationCorpusSchema.parse(await Bun.file(path.join(root, "chat-index.json")).json()) });
 }) : undefined;
+// Optional local preview of Talk, which opens real, paid OpenAI Realtime calls.
+const localTalk = process.env.ONCOGUIDE_TALK_LOCAL === "1" ? import("../../app/server/education-talk").then(({ handleEducationTalk }) => handleEducationTalk) : undefined;
 const mime: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".xml": "application/xml", ".txt": "text/plain", ".zip": "application/zip" };
 Bun.serve({ port: Number(process.env.PORT || 62009), hostname: replay ? "127.0.0.1" : undefined, async fetch(request) {
   if (replay) {
@@ -17,6 +19,7 @@ Bun.serve({ port: Number(process.env.PORT || 62009), hostname: replay ? "127.0.0
     if (response) return response;
   }
   if (localChat && new URL(request.url).pathname === "/api/education/chat") return (await localChat)(request);
+  if (localTalk && new URL(request.url).pathname === "/api/education/talk") return (await localTalk)(request);
   let urlPath: string;
   try { urlPath = decodeURIComponent(new URL(request.url).pathname); } catch { return new Response("Bad request", { status: 400 }); }
   const filePath = path.resolve(root, `.${urlPath}${path.extname(urlPath) ? "" : `${urlPath.endsWith("/") ? "" : "/"}index.html`}`);

@@ -6,8 +6,10 @@ import { SessionChat } from "@oncobase/chat/components/session-chat";
 import { StreamingMarkdown } from "@oncobase/chat/components/streaming-markdown";
 import type { ChatMarkdownRendererProps } from "@oncobase/chat/types";
 import type { EducationReference, EducationSection } from "@oncobase/education/chat";
-import { BookOpen, ArrowUpRight } from "lucide-react";
+import { AudioLines, BookOpen, ArrowUpRight } from "lucide-react";
 import { ImageTheater } from "@oncobase/wiki-markdown/image-theater";
+import { requestTalk, useTalkState } from "../lib/talk-store";
+import { TalkBoard } from "./talk-board";
 
 type Resources = { sections: EducationReference[]; illustrations: Array<EducationSection["images"][number] & { href: string; pageTitle: string }> };
 function EducationCitation({ href, children }: ComponentProps<"a">) {
@@ -18,7 +20,11 @@ export function LearningChat({ contentCommit }: { contentCommit: string }) {
   const params = useSearchParams();
   const currentSlug = params.get("lesson") ?? undefined;
   const body = useMemo(() => ({ currentSlug, contentCommit }), [currentSlug, contentCommit]);
-  return <><SessionChat
+  const { live, cards } = useTalkState();
+  const showBoard = live || cards.length > 0;
+  // Typed chat stays mounted under the board so returning restores it untouched.
+  return <>{showBoard ? <TalkBoard /> : null}<div className="edu-chat-typed" hidden={showBoard}><SessionChat
+    composerAction={<button type="button" className="edu-chat-talk" onClick={requestTalk}><AudioLines size={16} aria-hidden="true" />Talk<span className="edu-chat-talk-label"> with OncoGuide</span></button>}
     apiPath={process.env.NEXT_PUBLIC_ONCOGUIDE_CHAT_API || (["localhost", "127.0.0.1"].includes(window.location.hostname) ? "/api/education/chat" : "https://diana-tnbc.com/api/education/chat")}
     body={body} initialQuestion={params.get("q") ?? undefined} storageKey="oncoguide:learning-chat"
     MarkdownRenderer={EducationMarkdown}
@@ -41,5 +47,5 @@ export function LearningChat({ contentCommit }: { contentCommit: string }) {
         </figure>)}</div></>}
       </div>;
     }}
-  /><ImageTheater scopeSelector=".session-chat" /></>;
+  /><ImageTheater scopeSelector=".session-chat" /></div></>;
 }

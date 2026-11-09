@@ -212,6 +212,11 @@ test("sensitive conversation and chat endpoints sit behind the password gate", a
     body: JSON.stringify({ messages: [{ role: "user", content: "x" }] }),
   }));
   expect(untrustedChat?.status).toBe(403);
+  // Public voice calls also have their own handler, and refuse other origins.
+  const untrustedTalk = await handler(new Request("http://127.0.0.1/api/education/talk", {
+    method: "POST", headers: { origin: "https://untrusted.example", "content-type": "application/sdp" }, body: "v=0",
+  }));
+  expect(untrustedTalk?.status).toBe(403);
   // Other public aliases never expose tools or private credentials.
   for (const path of ["/api/education/tools", "/api/education/convex-token"]) {
     const response = await handler(new Request(`http://127.0.0.1${path}`, { headers: { host: "127.0.0.1" } }));
