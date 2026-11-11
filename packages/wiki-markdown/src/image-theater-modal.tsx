@@ -47,6 +47,8 @@ export function ImageTheaterModal({
   });
 
   useEffect(() => {
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onModalKeyDown);
@@ -56,11 +58,20 @@ export function ImageTheaterModal({
     }
 
     return () => {
+      const focusedOnCleanup = document.activeElement;
+      const shouldRestoreFocus =
+        !focusedOnCleanup ||
+        focusedOnCleanup === document.body ||
+        focusedOnCleanup === previouslyFocused ||
+        Boolean(dialog?.contains(focusedOnCleanup));
       if (dialog?.open) {
         dialog.close();
       }
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onModalKeyDown);
+      if (shouldRestoreFocus && previouslyFocused?.isConnected) {
+        previouslyFocused.focus({ preventScroll: true });
+      }
     };
   }, []);
 

@@ -255,12 +255,17 @@ export async function handleFileRequest(
       "X-Wiki-Cache-Scope": cacheScope,
     });
   const contentLength = upstream.headers.get("content-length");
+  const contentEncoding = upstream.headers.get("content-encoding");
   if (ext === ".html") {
     // Curriculum labs can run their scripts without receiving the wiki origin.
     headers.set("Content-Security-Policy", "sandbox allow-scripts allow-popups");
     headers.set("Content-Disposition", `inline; filename="${filename.replace(/["\r\n]/g, "")}"`);
   }
-  if (contentLength) headers.set("Content-Length", contentLength);
+  // Fetch decodes compressed bodies; their upstream length describes wire
+  // bytes and would truncate this decoded stream in the Node response adapter.
+  if (contentLength && (!contentEncoding || contentEncoding === "identity")) {
+    headers.set("Content-Length", contentLength);
+  }
   const acceptRanges = upstream.headers.get("accept-ranges");
   if (acceptRanges) headers.set("Accept-Ranges", acceptRanges);
   const contentRange = upstream.headers.get("content-range");

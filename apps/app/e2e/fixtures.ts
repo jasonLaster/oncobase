@@ -391,13 +391,24 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
       // Downloads navigate to /api/* too; let them stream untouched.
       if (route.request().resourceType() !== "document" ||
         new URL(route.request().url()).pathname.startsWith("/api/")) return route.fallback();
-      const response = await route.fetch({ maxRedirects: 0 });
-      // WebKit cannot fulfill a redirect, so let the browser follow those (and
-      // any other non-HTML answer) itself.
-      if (response.status() !== 200 || !response.headers()["content-type"]?.includes("text/html")) {
-        return route.continue();
+      try {
+        const response = await route.fetch({ maxRedirects: 0 });
+        // WebKit cannot fulfill a redirect, so let the browser follow those (and
+        // any other non-HTML answer) itself.
+        if (response.status() !== 200 || !response.headers()["content-type"]?.includes("text/html")) {
+          return await route.continue();
+        }
+        await route.fulfill({ response, body: bareReaderShell(await response.text()) });
+      } catch (error) {
+        // A document interception can finish after test teardown closes its
+        // page. Preserve every failure while the page is still live.
+        if (!page.isClosed() && error instanceof Error && error.message.includes("Target page, context or browser has been closed")) {
+          // The transport rejection can precede the page-close notification.
+          // Require that actual notification; a live-page failure still throws.
+          await page.waitForEvent("close", { timeout: 250 }).catch(() => undefined);
+        }
+        if (!page.isClosed()) throw error;
       }
-      await route.fulfill({ response, body: bareReaderShell(await response.text()) });
     });
   }
   // Synthetic reader visits must never update real popularity statistics.

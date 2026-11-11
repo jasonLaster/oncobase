@@ -1,7 +1,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { READER_STORE_PATHS } from "../shared/reader-telemetry";
 
 type Result = { status?: string; startTime?: string; duration?: number; error?: unknown; errors?: unknown[] };
 export const publicReaderHealthFlags = ["page-loading", "store-boot-retry", "document-article", "search-page", "search-ai-loading", "search-ai-error", "search-ai-empty", "search-ai-summary", "search-text-summary", "mobile-page-header", "session-recovery", "login-route", "empty-root"] as const;
+const persistentContextFlags = ["launched", "state-copied", "body-passed", "body-failed", "pages-closed", "cleanup-page-created", "cleanup-page-loaded", "storage-cleaned", "closed-during-setup", "closed-during-test", "closed-during-page-cleanup", "closed-during-cleanup-page", "closed-during-storage-cleanup", "closed-during-context-cleanup"] as const;
+const storeAdapterPaths = READER_STORE_PATHS;
 
 /** Extract only fixed categories, timing, and locations in known test sources. */
 export function safeFailureDetails(result: Result, file: string) {
@@ -12,7 +15,7 @@ export function safeFailureDetails(result: Result, file: string) {
     return [value.message, value.stack].filter((text): text is string => typeof text === "string");
   }).join("\n");
   const locations = new Set<string>();
-  for (const source of [file.split("/").at(-1)!, "fixtures.ts"]) {
+  for (const source of [file.split("/").at(-1)!, "fixtures.ts", "persistent-reader-fixture.ts"]) {
     const escaped = source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     for (const match of messages.matchAll(new RegExp(`${escaped}:(\\d+):\\d+`, "g"))) {
       locations.add(`${source}:${Number(match[1])}`);
@@ -23,7 +26,7 @@ export function safeFailureDetails(result: Result, file: string) {
     durationMs: Number.isFinite(result.duration) ? result.duration : undefined,
     startTime: typeof result.startTime === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(result.startTime) ? result.startTime : undefined,
     locations: [...locations],
-    categories: ["NS_BINDING_ABORTED", "ETIMEDOUT", "page.goto", "waitForRequest", "toBeVisible", "toHaveCount", "toHaveURL", "Test timeout", "TimeoutError", "interrupted by another navigation", "Target page, context or browser has been closed", "Page crashed", "Navigation interrupted", "Internal error", "ERR_ABORTED", "Could not connect to the server"].filter((token) => messages.includes(token)),
+    categories: ["NS_BINDING_ABORTED", "ETIMEDOUT", "page.goto", "page.evaluate", "browserContext.newPage", "browserContext.setStorageState", "browserContext.close", "createWritable", "createSyncAccessHandle", "getDirectory", "TypeError", "waitForRequest", "toBeVisible", "toHaveCount", "toHaveURL", "Test timeout", "TimeoutError", "interrupted by another navigation", "Target page, context or browser has been closed", "Page crashed", "Navigation interrupted", "Internal error", "ERR_ABORTED", "Could not connect to the server"].filter((token) => messages.includes(token)),
   };
 }
 
@@ -44,7 +47,7 @@ type Report = {
 /** Raw reports may contain protected page text, cookies and API responses.
  * Only publish known test names and outcomes to this public repository. */
 export function summarizePlaywright(report: Report) {
-  const tests: Array<{ file: string; title: string; browser: string; status: string; failures?: Array<NonNullable<ReturnType<typeof safeFailureDetails>>>; readerHealth?: string[] }> = [];
+  const tests: Array<{ file: string; title: string; browser: string; status: string; failures?: Array<NonNullable<ReturnType<typeof safeFailureDetails>>>; readerHealth?: string[]; persistentContext?: string[]; storeAdapter?: string[] }> = [];
   function visit(suite: Suite) {
     for (const spec of suite.specs ?? []) {
       for (const test of spec.tests) {
@@ -53,7 +56,9 @@ export function summarizePlaywright(report: Report) {
           return details ? [details] : [];
         });
         const readerHealth = publicReaderHealthFlags.filter((flag) => test.annotations?.some((annotation) => annotation.type === `qa-health:${flag}`));
-        tests.push({ file: spec.file, title: spec.title, browser: test.projectName, status: test.status, ...(failures.length ? { failures } : {}), ...(readerHealth.length ? { readerHealth } : {}) });
+        const persistentContext = persistentContextFlags.filter((flag) => test.annotations?.some((annotation) => annotation.type === `qa-persistent:${flag}`));
+        const storeAdapter = storeAdapterPaths.filter((path) => test.annotations?.some((annotation) => annotation.type === `qa-store:${path}`));
+        tests.push({ file: spec.file, title: spec.title, browser: test.projectName, status: test.status, ...(failures.length ? { failures } : {}), ...(readerHealth.length ? { readerHealth } : {}), ...(persistentContext.length ? { persistentContext } : {}), ...(storeAdapter.length ? { storeAdapter } : {}) });
       }
     }
     for (const child of suite.suites ?? []) visit(child);

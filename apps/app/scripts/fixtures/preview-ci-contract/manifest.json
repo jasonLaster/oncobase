@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "status": "proposed-not-published",
+  "target": {
+    "deploymentName": "wonderful-bandicoot-428",
+    "deploymentType": "dev",
+    "siteSlug": "diana"
+  },
+  "provenance": {
+    "kind": "original-synthetic-software-test-data",
+    "contractCommit": "edf887621dc778ae9d6726999b92953bebc6688a",
+    "clinicalSourceCopied": false,
+    "patientDataCopied": false
+  },
+  "documents": [
+    {
+      "path": "wiki/education/oncology-101/index.md",
+      "slug": "wiki/education/oncology-101/index",
+      "title": "Oncology 101 — synthetic CI fixture",
+      "sensitive": false,
+      "tags": [
+        "education",
+        "synthetic-fixture"
+      ],
+      "sensitiveInclude": [],
+      "contentHash": "98771464385cdf83",
+      "bytes": 771,
+      "sha256": "15a5f3a054025394aded04179beed87cb89fcd50f9ab4093e45d2612b7ace28f",
+      "educationSubset": true
+    },
+    {
+      "path": "wiki/logistics/insurance.md",
+      "slug": "wiki/logistics/insurance",
+      "title": "Insurance & supplemental benefits Planning",
+      "sensitive": false,
+      "tags": [
+        "synthetic-fixture"
+      ],
+      "sensitiveInclude": [],
+      "contentHash": "209e592c408edafe",
+      "bytes": 454,
+      "sha256": "d1d18d2c68fc4bcc5424fb9c0744ea6ff3fa689fe9e44c4046636491b52a98cd",
+      "educationSubset": false
+    }
+  ],
+  "assets": [
+    {
+      "path": "wiki/education/oncology-101/images/recognition-fixture.svg",
+      "kind": "file",
+      "contentType": "image/svg+xml",
+      "sensitive": false,
+      "sensitiveInclude": [],
+      "ownerSlugs": [
+        "wiki/education/oncology-101/index"
+      ],
+      "contentHash": "fbd4993015db5d8c",
+      "visibilityHash": "3ee0738a1f55c6f4",
+      "bytes": 588,
+      "sha256": "fbd4993015db5d8c144d55787a55020a1cab7865ee8b5613c101048d4515b3e0"
+    }
+  ],
+  "scope": {
+    "addDocuments": 2,
+    "addAssets": 1,
+    "changeExistingDocuments": 0,
+    "changeExistingSensitivity": 0,
+    "deletions": 0,
+    "existingW11Documents": 3,
+    "existingW11Assets": 8,
+    "resultingTotalDocuments": 5,
+    "resultingEducationDocuments": 4,
+    "resultingAssets": 9
+  }
+}
