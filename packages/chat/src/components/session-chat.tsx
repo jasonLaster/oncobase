@@ -20,7 +20,7 @@ export type SessionChatActions = {
 
 /** Shared Oncobase streaming UI for public, unsaved learning sessions. Hosts
  * supply their content cards without pulling in the care/Convex runtime. */
-export function SessionChat({ apiPath, body, initialQuestion, storageKey, title, description, suggestions, renderData, renderText, assistantName = "Assistant", footnote, composerAction, MarkdownRenderer = StreamingMarkdown }: {
+export function SessionChat({ apiPath, body, initialQuestion, storageKey, title, description, suggestions, renderData, renderText, assistantName = "Assistant", footnote, composerAction, welcomeAction, MarkdownRenderer = StreamingMarkdown }: {
   apiPath: string; body?: Record<string, unknown>; initialQuestion?: string;
   storageKey?: string;
   title: string; description: string; suggestions: string[];
@@ -31,6 +31,8 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, title,
   assistantName?: string; footnote?: string;
   /** An extra control beside the send button, such as starting a voice call. */
   composerAction?: ReactNode;
+  /** A larger invitation shown with the starter questions before the first message. */
+  welcomeAction?: ReactNode;
 }) {
   const transport = useMemo(() => new DefaultChatTransport({ api: apiPath, credentials: "omit", body,
     prepareSendMessagesRequest: ({ messages, body }) => ({ body: { ...body, messages: sessionModelMessages(messages) } }),
@@ -81,13 +83,14 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, title,
     clearError(); setInput(""); void sendMessage({ text: text.trim() }, fields ? { body: fields } : undefined);
   };
   const actions = (index: number): SessionChatActions => ({ ask: submit, busy, latest: index === messages.length - 1 });
-  return <div className="session-chat">
+  return <div className="session-chat" data-started={messages.length > 0 ? "" : undefined}>
     <div className="session-chat-heading"><div><h1>{title}</h1><p>{description}</p></div>
       {messages.length > 0 && <button type="button" className="session-chat-reset" onClick={() => { void stop(); setMessages([]); clearError(); withNext.current = undefined; inputRef.current?.focus(); }}>New chat</button>}
     </div>
+    {/* Outside the stick-to-bottom scroller, so the welcome opens at its top. */}
+    {messages.length === 0 && <div className="session-chat-welcome">{welcomeAction}<p>Start with something you’re curious about.</p><div className="session-chat-suggestions">{suggestions.map(question => <button type="button" key={question} onClick={() => submit(question)}>{question}<span aria-hidden="true">↗</span></button>)}</div></div>}
     <Conversation className="session-chat-conversation" aria-label="Learning conversation" aria-live="polite" aria-relevant="additions">
       <ConversationContent className="session-chat-conversation-content" scrollClassName="session-chat-scroll">
-      {messages.length === 0 && <div className="session-chat-welcome"><p>Start with something you’re curious about.</p><div className="session-chat-suggestions">{suggestions.map(question => <button type="button" key={question} onClick={() => submit(question)}>{question}<span aria-hidden="true">↗</span></button>)}</div></div>}
       {messages.map((message, index) => <article key={message.id} className={`session-chat-message session-chat-${message.role}`} aria-label={message.role === "user" ? "You" : assistantName}>
         <div className="session-chat-speaker">{message.role === "user" ? "You" : assistantName}</div>
         {message.parts.filter(part => part.type === "text").map((part, i) => part.type === "text" && (message.role === "user" ? <p key={i}>{part.text}</p> : renderText
@@ -106,7 +109,7 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, title,
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(input); }
       }} />
       {composerAction}
-      {busy ? <button type="button" onClick={() => void stop()}>Stop</button> : <button type="submit" disabled={!input.trim()}>Ask <span aria-hidden="true">↑</span></button>}</div>
+      {busy ? <button type="button" onClick={() => void stop()}>Stop</button> : <button type="submit" disabled={!input.trim()} aria-label="Ask"><span className="session-chat-send-label">Ask </span><span aria-hidden="true">↑</span></button>}</div>
       {footnote && <p className="session-chat-note">{footnote}</p>}
     </form>
   </div>;

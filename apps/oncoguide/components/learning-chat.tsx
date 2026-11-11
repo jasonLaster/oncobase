@@ -10,6 +10,7 @@ import { ImageTheater } from "@oncobase/wiki-markdown/image-theater";
 import { requestTalk, useTalkState } from "../lib/talk-store";
 import { TalkBoard } from "./talk-board";
 import { AnswerResources, AnswerText } from "./chat-resources";
+import { TalkAvatar } from "./talk-avatar";
 
 function EducationCitation({ href, children }: ComponentProps<"a">) {
   return href?.startsWith("/education/") ? <Link href={href}>{children}</Link> : <span>{children}</span>;
@@ -24,6 +25,11 @@ export function LearningChat({ contentCommit }: { contentCommit: string }) {
   // Typed chat stays mounted under the board so returning restores it untouched.
   return <>{showBoard ? <TalkBoard /> : null}<div className="edu-chat-typed" hidden={showBoard}><SessionChat
     composerAction={<button type="button" className="edu-chat-talk" onClick={requestTalk}><AudioLines size={16} aria-hidden="true" />Talk<span className="edu-chat-talk-label"> with OncoGuide</span></button>}
+    welcomeAction={<button type="button" className="edu-chat-talk-invite" onClick={requestTalk}>
+      <TalkAvatar state="idle" />
+      <span><strong>Prefer to talk it through?</strong><small>Start a voice conversation. OncoGuide answers out loud and puts lesson cartoons on screen as you go.</small></span>
+      <AudioLines size={18} aria-hidden="true" />
+    </button>}
     apiPath={process.env.NEXT_PUBLIC_ONCOGUIDE_CHAT_API || (["localhost", "127.0.0.1"].includes(window.location.hostname) ? "/api/education/chat" : "https://diana-tnbc.com/api/education/chat")}
     body={body} initialQuestion={params.get("q") ?? undefined} storageKey="oncoguide:learning-chat"
     MarkdownRenderer={EducationMarkdown}

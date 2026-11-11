@@ -56,7 +56,7 @@ button { cursor: pointer; }
 .edu-curiosity-card p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-muted); }
 .edu-lesson-ask { display: inline-flex; gap: 12px; color: var(--brand); font-size: 14px; margin-top: 12px; text-underline-offset: 4px; }
 .edu-main:has(.edu-learning-chat) { overflow: hidden; display: flex; flex-direction: column; padding-bottom: 16px; }
-.edu-learning-chat { max-width: 880px; margin: 0 auto; width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.edu-learning-chat { container: learning-chat / inline-size; max-width: 880px; margin: 0 auto; width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; }
 .session-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .session-chat-heading { display: flex; align-items: baseline; gap: 24px; }
 .session-chat-heading h1 { font-size: clamp(28px, 4vw, 38px); font-weight: 500; letter-spacing: -1px; margin: 12px 0; }
@@ -71,6 +71,8 @@ button { cursor: pointer; }
 .session-chat .session-chat-scroll-button { position: absolute; right: 12px; bottom: 14px; left: auto; width: 34px; height: 34px; transform: none; border-radius: 50%; display: grid; place-items: center; }
 .session-chat-scroll-button svg { width: 16px; height: 16px; }
 .session-chat-welcome > p { color: var(--text-muted); font-size: 14px; }
+.session-chat-welcome { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-top: 24px; padding-bottom: 16px; }
+.session-chat:not([data-started]) .session-chat-conversation { flex: 0 0 auto; margin-top: 0; }
 .session-chat-suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .session-chat-suggestions button { display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 16px; padding: 18px; font-size: 14px; line-height: 1.55; }
 .session-chat-suggestions button span { color: var(--brand); }
@@ -289,3 +291,57 @@ button { cursor: pointer; }
 .edu-talk-board-lesson small { display: block; font-size: 12px; color: var(--text-muted); }
 .edu-talk-board-lesson svg { flex-shrink: 0; color: var(--brand); }
 @media (max-width: 640px) { .edu-chat-talk-label { display: none; } }
+
+/* An obvious way into Talk before the first typed question. */
+.session-chat .edu-chat-talk-invite { display: flex; align-items: center; gap: 14px; width: 100%; margin: 4px 0 20px; padding: 14px 16px 14px 12px; text-align: left; border-color: var(--brand); background: var(--accent-light); color: var(--foreground); }
+.session-chat .edu-chat-talk-invite:hover:not(:disabled) { background: var(--accent-light); filter: brightness(1.06); }
+.edu-chat-talk-invite .edu-talk-avatar { width: 44px; height: 44px; }
+.edu-chat-talk-invite > span:not(.edu-talk-avatar) { flex: 1; min-width: 0; }
+.edu-chat-talk-invite strong { display: block; font-size: 15px; font-weight: 600; line-height: 1.35; }
+.edu-chat-talk-invite small { display: block; margin-top: 3px; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+.edu-chat-talk-invite > svg { flex-shrink: 0; color: var(--brand); }
+
+/* Phones: give the conversation the screen. Lesson pages keep the full header. */
+@media (max-width: 700px) {
+  .education-app:has(.edu-learning-chat) .edu-header { padding-block: 10px; }
+  .education-app:has(.edu-learning-chat) .edu-search { display: none; }
+  .edu-main:has(.edu-learning-chat) { padding: 12px 16px calc(8px + env(safe-area-inset-bottom)); }
+  .edu-learning-chat > .edu-eyebrow { display: none; }
+  .session-chat-heading { align-items: center; gap: 12px; }
+  .session-chat-heading h1 { font-size: 26px; letter-spacing: -0.6px; margin: 4px 0 6px; }
+  .session-chat-heading p { font-size: 14px; line-height: 1.5; }
+  .session-chat-reset, .session-chat .session-chat-reset { margin-top: 0; }
+  .session-chat[data-started] .session-chat-heading h1 { font-size: 17px; letter-spacing: -0.2px; margin: 0; }
+  .session-chat[data-started] .session-chat-heading p { display: none; }
+  .session-chat-conversation, .session-chat[data-started] .session-chat-conversation { margin-top: 10px; }
+  .session-chat-welcome { margin-top: 14px; }
+  .session-chat-welcome > p { margin: 0 0 10px; }
+  .session-chat-suggestions { gap: 8px; }
+  .session-chat-suggestions button { padding: 12px 14px; }
+  .session-chat-message { margin-bottom: 22px; }
+  .session-chat-user { padding: 12px 14px; }
+  .session-chat-composer { padding-top: 10px; }
+  .session-chat-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .session-chat-input-row { align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 22px; }
+  /* 16px stops iOS zooming the page when the field takes focus. */
+  .session-chat-input-row textarea { font-size: 16px; resize: none; max-height: 120px; }
+  .session-chat-input-row button { min-height: 44px; padding: 0 12px; border-radius: 999px; }
+  .session-chat-input-row button[type="submit"] { width: 44px; padding: 0; }
+  .session-chat-send-label { display: none; }
+  .session-chat-input-row .edu-chat-talk { border-color: var(--brand); color: var(--brand); background: var(--accent-light); }
+  .session-chat-note { margin: 6px 0 0; }
+  .edu-chat-talk-invite small { font-size: 12.5px; }
+}
+
+/* Reflow by available chat width, including beside the desktop sidebar. */
+@container learning-chat (max-width: 700px) {
+  .session-chat .edu-chat-talk-invite { gap: 12px; padding: 14px; border-color: transparent; border-radius: 16px; }
+  .edu-chat-talk-invite .edu-talk-avatar { flex-shrink: 0; width: 36px; height: 36px; }
+  .edu-chat-talk-invite > svg { display: none; }
+  .session-chat-input-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px; border-radius: 18px; }
+  .session-chat-input-row textarea { grid-column: 1 / -1; font-size: 16px; resize: none; padding: 2px 4px; height: 44px; min-height: 44px; }
+  .session-chat-input-row .edu-chat-talk { justify-self: start; }
+  .session-chat-input-row > button { min-height: 44px; }
+  .session-chat-input-row > button:last-child { grid-column: 2; }
+  .session-chat .session-chat-reset { min-height: 44px; }
+}
