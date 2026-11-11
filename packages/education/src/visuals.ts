@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { localPath, queryTerms, searchTokens, type LessonNames } from "./chat";
+import { localPath, queryTerms, searchTokens, type LessonNames } from "./chat.ts";
 
 /** One catalog of what lessons show: cartoons, diagrams and tables. Typed chat
  * and Talk both choose from it by id, so neither can invent a picture. Diagram

@@ -1,4 +1,4 @@
-import type { EducationLesson, EducationVisual } from "./visuals";
+import type { EducationLesson, EducationVisual } from "./visuals.ts";
 
 /** What the tutor shows beside an answer besides visuals: a card about the
  * lesson, and next steps drawn from the lesson's own front matter and from the

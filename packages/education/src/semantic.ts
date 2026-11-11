@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { EducationSection } from "./chat";
+import type { EducationSection } from "./chat.ts";
 
 /** Meaning-based search over lesson sections, as an optional layer on keyword
  * search. The content build writes one short vector per section when it has

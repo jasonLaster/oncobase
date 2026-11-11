@@ -2,8 +2,8 @@
  * model scores each one against the reader's message in a single fast request;
  * fixed rules turn the scores into what appears. The writing model never chooses. */
 import { z } from "zod";
-import type { EducationSection } from "./chat";
-import { visualForModel, type EducationVisual } from "./visuals";
+import type { EducationSection } from "./chat.ts";
+import { visualForModel, type EducationVisual } from "./visuals.ts";
 
 export type DecisionQuestion =
   | { type: "predicate"; name: string; instructions: string }
