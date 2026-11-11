@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { ArrowUpRight, BookOpen, Mic } from "lucide-react";
 import { ImageTheater } from "@oncobase/wiki-markdown/image-theater";
-import { clearBoard, requestTalk, useTalkState, type BoardCard } from "../lib/talk-store";
+import { askAboutCard, clearBoard, requestTalk, useTalkState, type BoardCard } from "../lib/talk-store";
+import { LessonVisual, VisualZoom, type ShownVisual } from "./lesson-visual";
 
 function Source({ card, written }: { card: BoardCard; written?: boolean }) {
   return <p className="edu-talk-board-source">
@@ -12,24 +13,24 @@ function Source({ card, written }: { card: BoardCard; written?: boolean }) {
   </p>;
 }
 
-function Card({ card }: { card: BoardCard }) {
+function Card({ card, live }: { card: BoardCard; live: boolean }) {
   switch (card.kind) {
-    case "image": {
-      const image = (src: string, className?: string) => <img src={src} alt={card.caption} className={className} data-theater-image role="button" tabIndex={0} aria-label={`Enlarge: ${card.caption}`} />;
-      return <figure className="edu-talk-board-card edu-talk-board-figure" data-card-kind="image">
-        {card.darkSrc ? <>{image(card.src, "dark:hidden")}{image(card.darkSrc, "hidden dark:block")}</> : image(card.src)}
+    case "image":
+    case "diagram":
+    case "table": {
+      const visual: ShownVisual = card.kind === "image" ? { kind: "cartoon", alt: card.alt, src: card.src, darkSrc: card.darkSrc } : { kind: card.kind, alt: card.caption, fragment: card.fragment };
+      return <figure className="edu-talk-board-card edu-talk-board-figure" data-card-kind={card.kind}>
+        <LessonVisual visual={visual} />
         <figcaption>{card.caption}</figcaption>
-        <Source card={card} />
+        <div className="edu-talk-board-foot">
+          <Source card={card} />
+          <span className="edu-chat-visual-actions">
+            <VisualZoom visual={visual} title={card.caption} />
+            {live ? <button type="button" className="edu-visual-action" onClick={() => askAboutCard(card)}><Mic size={13} aria-hidden="true" />Ask about this</button> : null}
+          </span>
+        </div>
       </figure>;
     }
-    case "diagram":
-    case "table":
-      // Same first-party HTML the lesson renders. Models choose an id, never markup.
-      return <figure className="edu-talk-board-card edu-talk-board-figure" data-card-kind={card.kind}>
-        <div className="wiki-markdown" dangerouslySetInnerHTML={{ __html: card.html }} />
-        <figcaption>{card.caption}</figcaption>
-        <Source card={card} />
-      </figure>;
     case "key_points":
       return <article className="edu-talk-board-card" data-card-kind="key_points">
         <h2>{card.title}</h2>
@@ -85,7 +86,7 @@ export function TalkBoard() {
     </header>
     <div ref={feed} className="edu-talk-board-feed" role="log" aria-live="polite" aria-relevant="additions" tabIndex={0} aria-label="Visuals from your conversation"
       onScroll={event => { const element = event.currentTarget; pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120; }}>
-      {cards.length ? cards.map(card => <Card key={card.id} card={card} />) : <div className="edu-talk-board-empty">
+      {cards.length ? cards.map(card => <Card key={card.id} card={card} live={live} />) : <div className="edu-talk-board-empty">
         <p>Ask about anything in the lessons. For example:</p>
         <ul><li>What does an antibody-drug conjugate do?</li><li>How does the immune system recognize cancer?</li><li>What can a ctDNA test tell us?</li></ul>
       </div>}

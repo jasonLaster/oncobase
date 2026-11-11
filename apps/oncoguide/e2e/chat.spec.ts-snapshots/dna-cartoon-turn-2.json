@@ -2,7 +2,7 @@
   "gateway": [
     {
       "status": 200,
-      "text": "## DNA repair, very simply\n\nThink of DNA as a **book of instructions**:\n\n```text\n📖 DNA book\n      ↓\n💥 A letter is damaged or missing\n      ↓\n🚨 The cell notices the mistake\n      ↓\n🛑 The cell pauses\n      ↓\n🧰 A repair tool fixes it\n      ↓\n✅ The cell checks the repair\n```\n\nDifferent problems need different tools:\n\n- **Small mistake:** replace one damaged DNA “letter.”\n- **Copying mistake:** correct the wrong letter.\n- **Large damaged section:** cut it out and replace it.\n- **DNA break:** reconnect the broken pieces, sometimes using an undamaged matching copy as a guide.\n\nThe **DNA damage response**, or **DDR**, is the cell’s repair-and-safety system. It detects damage and may pause cell division while repair happens. If the damage cannot be handled, the cell may stop dividing or die [DNA damage and repair overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you prefer an even simpler cartoon about **one broken DNA strand** or **two broken DNA strands**?",
+      "text": "DNA repair is like the cell’s **DNA repair crew**.\n\n- DNA can get damaged in different ways.\n- The cell checks what went wrong.\n- It chooses a repair method that fits the problem.\n- It may replace a damaged “letter,” remove a damaged piece, or fix a broken strand.\n- The cell can pause copying DNA while repairs happen.\n\nThe **DNA damage response** is the alarm and coordination system. But an alarm does not guarantee the repair worked: the cell might repair the damage, stop dividing, or die. [DNA damage and repair](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works)\n\nWould you prefer an even simpler explanation of **DNA breaks** or of **BRCA and PARP**?",
       "tools": [],
       "finishReason": {
         "unified": "stop"
@@ -10,12 +10,30 @@
     }
   ],
   "explanations": [
-    "## DNA repair, very simply\n\nThink of DNA as a **book of instructions**:\n\n```text\n📖 DNA book\n      ↓\n💥 A letter is damaged or missing\n      ↓\n🚨 The cell notices the mistake\n      ↓\n🛑 The cell pauses\n      ↓\n🧰 A repair tool fixes it\n      ↓\n✅ The cell checks the repair\n```\n\nDifferent problems need different tools:\n\n- **Small mistake:** replace one damaged DNA “letter.”\n- **Copying mistake:** correct the wrong letter.\n- **Large damaged section:** cut it out and replace it.\n- **DNA break:** reconnect the broken pieces, sometimes using an undamaged matching copy as a guide.\n\nThe **DNA damage response**, or **DDR**, is the cell’s repair-and-safety system. It detects damage and may pause cell division while repair happens. If the damage cannot be handled, the cell may stop dividing or die [DNA damage and repair overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you prefer an even simpler cartoon about **one broken DNA strand** or **two broken DNA strands**?"
+    "DNA repair is like the cell’s **DNA repair crew**.\n\n- DNA can get damaged in different ways.\n- The cell checks what went wrong.\n- It chooses a repair method that fits the problem.\n- It may replace a damaged “letter,” remove a damaged piece, or fix a broken strand.\n- The cell can pause copying DNA while repairs happen.\n\nThe **DNA damage response** is the alarm and coordination system. But an alarm does not guarantee the repair worked: the cell might repair the damage, stop dividing, or die. [DNA damage and repair](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works)\n\nWould you prefer an even simpler explanation of **DNA breaks** or of **BRCA and PARP**?"
   ],
   "citations": [
     "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
   ],
   "sections": [
+    {
+      "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#in-one-sentence",
+      "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
+      "pageTitle": "DNA damage and repair: an overview",
+      "heading": "In one sentence",
+      "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#in-one-sentence",
+      "images": [],
+      "excerpt": "DNA repair is a collection of processes that recognize and correct damage to genetic material, with different routes for different kinds of damage."
+    },
+    {
+      "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
+      "pageTitle": "DNA damage and repair: an overview",
+      "heading": "How it works",
+      "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "images": [],
+      "excerpt": "The route depends on the problem. This is a map of major jobs, rather than an exhaustive list. Alberts 2002, Brown 2002.\n\nProblem\tA repair routeAn altered individual base\tBase excision repair (BER) removes the damaged base and rebuilds the "
+    },
     {
       "id": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#how-it-works",
       "slug": "wiki/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors",
@@ -24,104 +42,22 @@
       "href": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#how-it-works",
       "images": [],
       "excerpt": "DNA damage response (DDR) includes more than repair enzymes. DNA means deoxyribonucleic acid, the information-bearing molecule described in the central dogma. Replication stress means difficulty copying DNA; the moving copying machinery can"
-    },
-    {
-      "id": "/education/guides/from-variant-to-drug/02-connect-repair-biology-to-parp-sensitivity/#follow-the-repair-team-not-just-one-name",
-      "slug": "wiki/education/guides/from-variant-to-drug/02-connect-repair-biology-to-parp-sensitivity",
-      "pageTitle": "Connect repair biology to PARP sensitivity",
-      "heading": "Follow the repair team, not just one name",
-      "href": "/education/guides/from-variant-to-drug/02-connect-repair-biology-to-parp-sensitivity/#follow-the-repair-team-not-just-one-name",
-      "images": [],
-      "excerpt": "Homologous recombination (HR) uses a matching DNA template to repair certain lesions. BRCA1 and BRCA2, PALB2, RAD51, and other proteins cooperate in this process. Homologous recombination deficiency (HRD) means the process is impaired. It i"
-    },
-    {
-      "id": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#in-one-sentence",
-      "slug": "wiki/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors",
-      "pageTitle": "DNA damage response inhibitors: which repair dependency?",
-      "heading": "In one sentence",
-      "href": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#in-one-sentence",
-      "images": [],
-      "excerpt": "DNA damage response inhibitors interfere with proteins that detect, signal, tolerate, or repair DNA damage, and their effects depend on the particular target and repair state."
     }
   ],
-  "illustrations": [
-    {
-      "src": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-light.png",
-      "darkSrc": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-dark.png",
-      "alt": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome",
-      "href": "/education/guides/from-variant-to-drug/06-pi3k-akt-mtor-and-repair/#follow-the-signal-then-look-for-the-brakes",
-      "pageTitle": "PI3K, AKT, and mTOR: competing effects on repair and recycling"
-    },
-    {
-      "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-light.png",
-      "darkSrc": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-dark.png",
-      "alt": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP",
-      "href": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle",
-      "pageTitle": "PARP trapping and recycling"
-    },
-    {
-      "src": "/assets/wiki/education/concepts/breast-cancer/receptors-and-subtypes/images/three-different-questions-light.png",
-      "darkSrc": "/assets/wiki/education/concepts/breast-cancer/receptors-and-subtypes/images/three-different-questions-dark.png",
-      "alt": "Three panels separate the TNBC receptor category, four TNBCtype-4 RNA research profiles, and cancer, immune and stromal contributions to a tissue sample",
-      "href": "/education/concepts/breast-cancer/receptors-and-subtypes/tnbc-molecular-subtypes/#how-it-works",
-      "pageTitle": "TNBC molecular subtypes: four research profiles, with tissue context"
-    }
-  ],
+  "visuals": [],
+  "illustrations": [],
   "finishReason": "stop",
   "errors": [],
   "rendered": {
     "explanation": [
-      "DNA repair, very simply Think of DNA as a book of instructions: text📖 DNA book ↓💥 A letter is damaged or missing ↓🚨 The cell notices the mistake ↓🛑 The cell pauses ↓🧰 A repair tool fixes it ↓✅ The cell checks the repair Different problems need different tools: Small mistake: replace one damaged DNA “letter.” Copying mistake: correct the wrong letter. Large damaged section: cut it out and replace it. DNA break: reconnect the broken pieces, sometimes using an undamaged matching copy as a guide. The DNA damage response, or DDR, is the cell’s repair-and-safety system. It detects damage and may pause cell division while repair happens. If the damage cannot be handled, the cell may stop dividing or die DNA damage and repair overview. Would you prefer an even simpler cartoon about one broken DNA strand or two broken DNA strands?"
+      "DNA repair is like the cell’s DNA repair crew. DNA can get damaged in different ways. The cell checks what went wrong. It chooses a repair method that fits the problem. It may replace a damaged “letter,” remove a damaged piece, or fix a broken strand. The cell can pause copying DNA while repairs happen. The DNA damage response is the alarm and coordination system. But an alarm does not guarantee the repair worked: the cell might repair the damage, stop dividing, or die. DNA damage and repair Would you prefer an even simpler explanation of DNA breaks or of BRCA and PARP?"
     ],
     "citations": [
       {
-        "text": "DNA damage and repair overview",
+        "text": "DNA damage and repair",
         "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
       }
     ],
-    "cartoons": [
-      {
-        "caption": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome",
-        "href": "/education/guides/from-variant-to-drug/06-pi3k-akt-mtor-and-repair/#follow-the-signal-then-look-for-the-brakes",
-        "images": [
-          {
-            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-light.png",
-            "alt": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome"
-          },
-          {
-            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-dark.png",
-            "alt": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome"
-          }
-        ]
-      },
-      {
-        "caption": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP",
-        "href": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle",
-        "images": [
-          {
-            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-light.png",
-            "alt": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP"
-          },
-          {
-            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-dark.png",
-            "alt": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP"
-          }
-        ]
-      },
-      {
-        "caption": "Three panels separate the TNBC receptor category, four TNBCtype-4 RNA research profiles, and cancer, immune and stromal contributions to a tissue sample",
-        "href": "/education/concepts/breast-cancer/receptors-and-subtypes/tnbc-molecular-subtypes/#how-it-works",
-        "images": [
-          {
-            "src": "/assets/wiki/education/concepts/breast-cancer/receptors-and-subtypes/images/three-different-questions-light.png",
-            "alt": "Three panels separate the TNBC receptor category, four TNBCtype-4 RNA research profiles, and cancer, immune and stromal contributions to a tissue sample"
-          },
-          {
-            "src": "/assets/wiki/education/concepts/breast-cancer/receptors-and-subtypes/images/three-different-questions-dark.png",
-            "alt": "Three panels separate the TNBC receptor category, four TNBCtype-4 RNA research profiles, and cancer, immune and stromal contributions to a tissue sample"
-          }
-        ]
-      }
-    ]
+    "visuals": []
   }
 }

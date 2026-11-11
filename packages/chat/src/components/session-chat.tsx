@@ -8,13 +8,25 @@ import type { ChatMarkdownRenderer } from "../types";
 import { sessionModelMessages } from "../session-messages";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./ai-elements/conversation";
 
+/** What a host's cards can do: ask a question for the reader, optionally with
+ * extra request fields for that one message, and fields to send with whatever
+ * the reader types next (to answer a question the assistant just asked). */
+export type SessionChatActions = {
+  ask: (text: string, body?: Record<string, unknown>, withNextMessage?: Record<string, unknown>) => void;
+  busy: boolean;
+  /** Whether this is the newest message in the conversation. */
+  latest: boolean;
+};
+
 /** Shared Oncobase streaming UI for public, unsaved learning sessions. Hosts
  * supply their content cards without pulling in the care/Convex runtime. */
-export function SessionChat({ apiPath, body, initialQuestion, storageKey, title, description, suggestions, renderData, assistantName = "Assistant", footnote, composerAction, MarkdownRenderer = StreamingMarkdown }: {
+export function SessionChat({ apiPath, body, initialQuestion, storageKey, title, description, suggestions, renderData, renderText, assistantName = "Assistant", footnote, composerAction, MarkdownRenderer = StreamingMarkdown }: {
   apiPath: string; body?: Record<string, unknown>; initialQuestion?: string;
   storageKey?: string;
   title: string; description: string; suggestions: string[];
-  renderData?: (message: UIMessage) => ReactNode;
+  renderData?: (message: UIMessage, actions: SessionChatActions) => ReactNode;
+  /** Renders one piece of an assistant's text, for hosts that place their own content inside it. */
+  renderText?: (message: UIMessage, text: string, isStreaming: boolean, actions: SessionChatActions) => ReactNode;
   MarkdownRenderer?: ChatMarkdownRenderer;
   assistantName?: string; footnote?: string;
   /** An extra control beside the send button, such as starting a voice call. */
@@ -61,21 +73,27 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, title,
     started.current = true;
     void sendMessage({ text: initialQuestion });
   }, [initialQuestion, sendMessage]);
-  const submit = (text: string) => {
+  const withNext = useRef<Record<string, unknown> | undefined>(undefined);
+  const submit = (text: string, extra?: Record<string, unknown>, withNextMessage?: Record<string, unknown>) => {
     if (!text.trim() || busy) return;
-    clearError(); setInput(""); void sendMessage({ text: text.trim() });
+    const fields = extra ?? withNext.current;
+    withNext.current = withNextMessage;
+    clearError(); setInput(""); void sendMessage({ text: text.trim() }, fields ? { body: fields } : undefined);
   };
+  const actions = (index: number): SessionChatActions => ({ ask: submit, busy, latest: index === messages.length - 1 });
   return <div className="session-chat">
     <div className="session-chat-heading"><div><h1>{title}</h1><p>{description}</p></div>
-      {messages.length > 0 && <button type="button" className="session-chat-reset" onClick={() => { void stop(); setMessages([]); clearError(); inputRef.current?.focus(); }}>New chat</button>}
+      {messages.length > 0 && <button type="button" className="session-chat-reset" onClick={() => { void stop(); setMessages([]); clearError(); withNext.current = undefined; inputRef.current?.focus(); }}>New chat</button>}
     </div>
     <Conversation className="session-chat-conversation" aria-label="Learning conversation" aria-live="polite" aria-relevant="additions">
       <ConversationContent className="session-chat-conversation-content" scrollClassName="session-chat-scroll">
       {messages.length === 0 && <div className="session-chat-welcome"><p>Start with something you’re curious about.</p><div className="session-chat-suggestions">{suggestions.map(question => <button type="button" key={question} onClick={() => submit(question)}>{question}<span aria-hidden="true">↗</span></button>)}</div></div>}
       {messages.map((message, index) => <article key={message.id} className={`session-chat-message session-chat-${message.role}`} aria-label={message.role === "user" ? "You" : assistantName}>
         <div className="session-chat-speaker">{message.role === "user" ? "You" : assistantName}</div>
-        {message.parts.filter(part => part.type === "text").map((part, i) => part.type === "text" && (message.role === "user" ? <p key={i}>{part.text}</p> : <MarkdownRenderer key={i} content={part.text} isStreaming={busy && index === messages.length - 1} />))}
-        {renderData?.(message)}
+        {message.parts.filter(part => part.type === "text").map((part, i) => part.type === "text" && (message.role === "user" ? <p key={i}>{part.text}</p> : renderText
+          ? <div key={i} className="session-chat-text">{renderText(message, part.text, busy && index === messages.length - 1, actions(index))}</div>
+          : <MarkdownRenderer key={i} content={part.text} isStreaming={busy && index === messages.length - 1} />))}
+        {renderData?.(message, actions(index))}
       </article>)}
       {status === "submitted" && <p className="session-chat-working" role="status">Finding helpful lessons…</p>}
       </ConversationContent>

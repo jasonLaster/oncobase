@@ -12,7 +12,11 @@
     "./chat": "./src/chat.ts",
     "./chat-index": "./src/chat-index.ts",
     "./talk": "./src/talk.ts",
-    "./talk-visuals": "./src/talk-visuals.ts"
+    "./visuals": "./src/visuals.ts",
+    "./visual-index": "./src/visual-index.ts",
+    "./semantic": "./src/semantic.ts",
+    "./tutor": "./src/tutor.ts",
+    "./decisions": "./src/decisions.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

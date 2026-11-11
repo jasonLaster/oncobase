@@ -1,0 +1,91 @@
+{
+  "gateway": [
+    {
+      "status": 200,
+      "text": "Cells repair damaged DNA through a coordinated **DNA damage response (DDR)**—a system that detects a problem, signals it, chooses a repair route, and checks the result.\n\nA useful analogy is a library with several repair teams: one fixes a damaged letter, another replaces a stained strip, and another reconnects a torn page. In cells:\n\n- **Base excision repair (BER)** fixes a single damaged DNA base.\n- **Nucleotide excision repair (NER)** removes a short section containing a bulky lesion.\n- **Mismatch repair (MMR)** corrects copying mistakes.\n- **Homologous recombination (HR)** can repair breaks in both DNA strands using a matching template.\n- **End joining** reconnects broken DNA ends by another route.\n\n  \n[[visual:1]]\n\nIn this cartoon, the sequence runs from **DNA lesion → recognition and signaling → repair route → checkpoint response → assessment**. A checkpoint may pause the cell cycle to allow repair. If repair fails, the cell may tolerate the damage, stop dividing, or die [DNA damage and repair: an overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works). Damage is not the same as a mutation: damage can be repaired before it becomes a lasting sequence change [The intuition](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition).\n\nWould you like to zoom in on **double-strand-break repair** or on **how cancer treatments exploit repair weaknesses**?",
+      "tools": [],
+      "finishReason": {
+        "unified": "stop"
+      }
+    }
+  ],
+  "explanations": [
+    "Cells repair damaged DNA through a coordinated **DNA damage response (DDR)**—a system that detects a problem, signals it, chooses a repair route, and checks the result.\n\nA useful analogy is a library with several repair teams: one fixes a damaged letter, another replaces a stained strip, and another reconnects a torn page. In cells:\n\n- **Base excision repair (BER)** fixes a single damaged DNA base.\n- **Nucleotide excision repair (NER)** removes a short section containing a bulky lesion.\n- **Mismatch repair (MMR)** corrects copying mistakes.\n- **Homologous recombination (HR)** can repair breaks in both DNA strands using a matching template.\n- **End joining** reconnects broken DNA ends by another route.\n\n  \n[[visual:1]]\n\nIn this cartoon, the sequence runs from **DNA lesion → recognition and signaling → repair route → checkpoint response → assessment**. A checkpoint may pause the cell cycle to allow repair. If repair fails, the cell may tolerate the damage, stop dividing, or die [DNA damage and repair: an overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works). Damage is not the same as a mutation: damage can be repaired before it becomes a lasting sequence change [The intuition](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition).\n\nWould you like to zoom in on **double-strand-break repair** or on **how cancer treatments exploit repair weaknesses**?"
+  ],
+  "citations": [
+    "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+    "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition"
+  ],
+  "sections": [
+    {
+      "id": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#the-intuition",
+      "slug": "wiki/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors",
+      "pageTitle": "DNA damage response inhibitors: which repair dependency?",
+      "heading": "The intuition",
+      "href": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#the-intuition",
+      "images": [],
+      "excerpt": "A workshop can pause a damaged production line, stabilize unfinished work, or repair a broken part. Removing one of those services matters most when the workshop relies on it. Cells have several such services. The analogy stops at the idea "
+    },
+    {
+      "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition",
+      "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
+      "pageTitle": "DNA damage and repair: an overview",
+      "heading": "The intuition",
+      "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition",
+      "images": [],
+      "excerpt": "Picture a library with several repair teams: one fixes a damaged letter, another replaces a stained strip, and another reconnects a torn page. Cells likewise need several ways to maintain deoxyribonucleic acid (DNA). The analogy stops at th"
+    },
+    {
+      "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
+      "pageTitle": "DNA damage and repair: an overview",
+      "heading": "How it works",
+      "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "images": [],
+      "excerpt": "The route depends on the problem. This is a map of major jobs, rather than an exhaustive list. Alberts 2002, Brown 2002.\n\nProblem\tA repair routeAn altered individual base\tBase excision repair (BER) removes the damaged base and rebuilds the "
+    }
+  ],
+  "visuals": [
+    {
+      "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works::diagram-0",
+      "kind": "diagram",
+      "sectionId": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
+      "pageTitle": "DNA damage and repair: an overview",
+      "heading": "How it works",
+      "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "label": "DNA lesion · Recognition and signaling · Repair route · Checkpoint response · Assess the outcome",
+      "caption": "",
+      "fragment": "/visuals/acc1135c750bc001.json",
+      "marker": "[[visual:1]]"
+    }
+  ],
+  "illustrations": [],
+  "finishReason": "stop",
+  "errors": [],
+  "rendered": {
+    "explanation": [
+      "Cells repair damaged DNA through a coordinated DNA damage response (DDR)—a system that detects a problem, signals it, chooses a repair route, and checks the result. A useful analogy is a library with several repair teams: one fixes a damaged letter, another replaces a stained strip, and another reconnects a torn page. In cells: Base excision repair (BER) fixes a single damaged DNA base. Nucleotide excision repair (NER) removes a short section containing a bulky lesion. Mismatch repair (MMR) corrects copying mistakes. Homologous recombination (HR) can repair breaks in both DNA strands using a matching template. End joining reconnects broken DNA ends by another route.",
+      "In this cartoon, the sequence runs from DNA lesion → recognition and signaling → repair route → checkpoint response → assessment. A checkpoint may pause the cell cycle to allow repair. If repair fails, the cell may tolerate the damage, stop dividing, or die DNA damage and repair: an overview. Damage is not the same as a mutation: damage can be repaired before it becomes a lasting sequence change The intuition. Would you like to zoom in on double-strand-break repair or on how cancer treatments exploit repair weaknesses?"
+    ],
+    "citations": [
+      {
+        "text": "DNA damage and repair: an overview",
+        "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
+      },
+      {
+        "text": "The intuition",
+        "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition"
+      }
+    ],
+    "visuals": [
+      {
+        "kind": "diagram",
+        "caption": "How it works",
+        "lesson": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+        "images": [],
+        "markup": "svg"
+      }
+    ]
+  }
+}

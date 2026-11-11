@@ -2,7 +2,28 @@
   "gateway": [
     {
       "status": 200,
-      "text": "The immune system does not recognize “cancer” with one universal detector. Different immune cells use different clues and rules.\n\nFor conventional T cells, a cancer cell—or another cell that has taken up tumor material—can display a short protein fragment on a surface molecule called **HLA** (human leukocyte antigen). A **T-cell receptor (TCR)** checks the combined HLA–fragment feature. If the match is suitable, and the required activation signals are present, the T cell may become able to attack. This is a chain of steps: a DNA change must affect a protein, a fragment must be produced and displayed, and a T cell must recognize it [Follow the route to immune recognition](/education/guides/start-here/02-follow-immune-recognition/#think-of-a-team-with-different-jobs).\n\nOther immune systems work differently. Antibodies recognize accessible molecular shapes, while natural killer cells weigh activating and inhibitory signals. Even finding T cells in a tumor does not prove they recognize cancer or can kill it [The map](/education/guides/how-the-immune-system-fights-cancer/index/#the-map).\n\nWould you like to explore **T-cell recognition**, **antibodies**, or **how tumors evade recognition** next?",
+      "text": "",
+      "tools": [
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"How immune system recognizes cancer antigen HLA TCR natural killer cells immune recognition cancer-immunity cycle\"}"
+        },
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"cancer-immunity cycle antigen presentation T cell priming tumor recognition immune escape\"}"
+        },
+        {
+          "name": "search_education",
+          "input": "{\"query\":\"T-cell receptor HLA antigen recognition natural killer missing self cancer\"}"
+        }
+      ],
+      "finishReason": {
+        "unified": "tool-calls"
+      }
+    },
+    {
+      "status": 200,
+      "text": "The immune system does not recognize “cancer” as one universal label. It detects unusual signals on or around cells.\n\nFor conventional T cells, a cancer cell’s proteins can be broken into short fragments called **peptides**. **HLA** molecules display those fragments on the cell surface, like holding up small samples for inspection. A T-cell receptor (TCR) checks the combined **peptide–HLA** surface—not the peptide alone. A tumor-specific change may create a **neoantigen**, a new potential target. But the target must be produced, displayed, and recognized by a matching T cell. [TCR recognition](/education/concepts/immunology/t-cells/t-cell-receptor/#the-intuition)\n\n[[visual:1]]\n\nIn this cartoon, the cancer-immunity cycle is shown as linked jobs: tumor material becomes available, immune cells display it, T cells are activated, travel into the tumor, recognize susceptible cells, and kill them; the process can repeat. [Cancer-immunity cycle](/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works)\n\nOther immune cells use different rules. Natural killer cells weigh activating signals against inhibitory “self” signals; reduced HLA display can create a possible “missing-self” signal, but it does not guarantee killing. [NK recognition](/education/concepts/immunology/innate-and-unconventional-cells/nk-cell-and-missing-self/#how-it-works)\n\nWould you like to explore **T-cell recognition**, **NK-cell recognition**, or **how tumors escape detection** next?",
       "tools": [],
       "finishReason": {
         "unified": "stop"
@@ -10,11 +31,12 @@
     }
   ],
   "explanations": [
-    "The immune system does not recognize “cancer” with one universal detector. Different immune cells use different clues and rules.\n\nFor conventional T cells, a cancer cell—or another cell that has taken up tumor material—can display a short protein fragment on a surface molecule called **HLA** (human leukocyte antigen). A **T-cell receptor (TCR)** checks the combined HLA–fragment feature. If the match is suitable, and the required activation signals are present, the T cell may become able to attack. This is a chain of steps: a DNA change must affect a protein, a fragment must be produced and displayed, and a T cell must recognize it [Follow the route to immune recognition](/education/guides/start-here/02-follow-immune-recognition/#think-of-a-team-with-different-jobs).\n\nOther immune systems work differently. Antibodies recognize accessible molecular shapes, while natural killer cells weigh activating and inhibitory signals. Even finding T cells in a tumor does not prove they recognize cancer or can kill it [The map](/education/guides/how-the-immune-system-fights-cancer/index/#the-map).\n\nWould you like to explore **T-cell recognition**, **antibodies**, or **how tumors evade recognition** next?"
+    "The immune system does not recognize “cancer” as one universal label. It detects unusual signals on or around cells.\n\nFor conventional T cells, a cancer cell’s proteins can be broken into short fragments called **peptides**. **HLA** molecules display those fragments on the cell surface, like holding up small samples for inspection. A T-cell receptor (TCR) checks the combined **peptide–HLA** surface—not the peptide alone. A tumor-specific change may create a **neoantigen**, a new potential target. But the target must be produced, displayed, and recognized by a matching T cell. [TCR recognition](/education/concepts/immunology/t-cells/t-cell-receptor/#the-intuition)\n\n[[visual:1]]\n\nIn this cartoon, the cancer-immunity cycle is shown as linked jobs: tumor material becomes available, immune cells display it, T cells are activated, travel into the tumor, recognize susceptible cells, and kill them; the process can repeat. [Cancer-immunity cycle](/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works)\n\nOther immune cells use different rules. Natural killer cells weigh activating signals against inhibitory “self” signals; reduced HLA display can create a possible “missing-self” signal, but it does not guarantee killing. [NK recognition](/education/concepts/immunology/innate-and-unconventional-cells/nk-cell-and-missing-self/#how-it-works)\n\nWould you like to explore **T-cell recognition**, **NK-cell recognition**, or **how tumors escape detection** next?"
   ],
   "citations": [
-    "/education/guides/start-here/02-follow-immune-recognition/#think-of-a-team-with-different-jobs",
-    "/education/guides/how-the-immune-system-fights-cancer/index/#the-map"
+    "/education/concepts/immunology/t-cells/t-cell-receptor/#the-intuition",
+    "/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works",
+    "/education/concepts/immunology/innate-and-unconventional-cells/nk-cell-and-missing-self/#how-it-works"
   ],
   "sections": [
     {
@@ -45,87 +67,50 @@
       "excerpt": "Engineered TCR therapy installs selected receptor instructions. Expanding native antigen-reactive T cells does not itself do that. The distinction matters when a paper moves from finding a receptor sequence to proposing a cell product: sequ"
     }
   ],
-  "illustrations": [
+  "visuals": [
     {
-      "src": "/assets/wiki/education/local-treatment-modalities/images/local-injury-gates-light.png",
-      "darkSrc": "/assets/wiki/education/local-treatment-modalities/images/local-injury-gates-dark.png",
-      "alt": "Four panels show local tumor injury, a dendritic cell collecting and presenting fragments, T-cell activation with supporting signals, and travel toward a distant tumor whose recognition remains a question; dashed arrows mark conditional steps",
-      "href": "/education/local-treatment-modalities/01-mechanism/#how-immune-learning-could-follow-injury",
-      "pageTitle": "Separate local injury from immune learning"
-    },
-    {
-      "src": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-light.png",
-      "darkSrc": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-dark.png",
-      "alt": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment.",
-      "href": "/education/concepts/immunology/tumor-immunology/abscopal-effect/#how-it-works",
-      "pageTitle": "The abscopal effect"
-    },
-    {
-      "src": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-light.png",
-      "darkSrc": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-dark.png",
-      "alt": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex.",
-      "href": "/education/concepts/therapeutics/antibody-based/tcr-mimics-and-tcr-engagers/#how-it-works",
-      "pageTitle": "TCR mimics and soluble TCR engagers"
+      "id": "/education/guides/how-the-immune-system-fights-cancer/index/#the-map::diagram-0",
+      "kind": "diagram",
+      "sectionId": "/education/guides/how-the-immune-system-fights-cancer/index/#the-map",
+      "slug": "wiki/education/guides/how-the-immune-system-fights-cancer/index",
+      "pageTitle": "Understand how the immune system recognizes cancer",
+      "heading": "The map",
+      "href": "/education/guides/how-the-immune-system-fights-cancer/index/#the-map",
+      "label": "1. Signals and binding · 2. Antigen display and priming · 3. T-cell states and function · 4. Cell location in tissue · 5. Measurements and their limits · 6. Failure points and escape · 7. Compare recognition systems",
+      "caption": "The map is a learning order. The biological cancer-immunity cycle overlaps and repeats these jobs.",
+      "fragment": "/visuals/e1b539a7636c62c0.json",
+      "marker": "[[visual:1]]"
     }
   ],
+  "illustrations": [],
   "finishReason": "stop",
   "errors": [],
   "rendered": {
     "explanation": [
-      "The immune system does not recognize “cancer” with one universal detector. Different immune cells use different clues and rules. For conventional T cells, a cancer cell—or another cell that has taken up tumor material—can display a short protein fragment on a surface molecule called HLA (human leukocyte antigen). A T-cell receptor (TCR) checks the combined HLA–fragment feature. If the match is suitable, and the required activation signals are present, the T cell may become able to attack. This is a chain of steps: a DNA change must affect a protein, a fragment must be produced and displayed, and a T cell must recognize it Follow the route to immune recognition. Other immune systems work differently. Antibodies recognize accessible molecular shapes, while natural killer cells weigh activating and inhibitory signals. Even finding T cells in a tumor does not prove they recognize cancer or can kill it The map. Would you like to explore T-cell recognition, antibodies, or how tumors evade recognition next?"
+      "The immune system does not recognize “cancer” as one universal label. It detects unusual signals on or around cells. For conventional T cells, a cancer cell’s proteins can be broken into short fragments called peptides. HLA molecules display those fragments on the cell surface, like holding up small samples for inspection. A T-cell receptor (TCR) checks the combined peptide–HLA surface—not the peptide alone. A tumor-specific change may create a neoantigen, a new potential target. But the target must be produced, displayed, and recognized by a matching T cell. TCR recognition",
+      "In this cartoon, the cancer-immunity cycle is shown as linked jobs: tumor material becomes available, immune cells display it, T cells are activated, travel into the tumor, recognize susceptible cells, and kill them; the process can repeat. Cancer-immunity cycle Other immune cells use different rules. Natural killer cells weigh activating signals against inhibitory “self” signals; reduced HLA display can create a possible “missing-self” signal, but it does not guarantee killing. NK recognition Would you like to explore T-cell recognition, NK-cell recognition, or how tumors escape detection next?"
     ],
     "citations": [
       {
-        "text": "Follow the route to immune recognition",
-        "href": "/education/guides/start-here/02-follow-immune-recognition/#think-of-a-team-with-different-jobs"
+        "text": "TCR recognition",
+        "href": "/education/concepts/immunology/t-cells/t-cell-receptor/#the-intuition"
       },
       {
-        "text": "The map",
-        "href": "/education/guides/how-the-immune-system-fights-cancer/index/#the-map"
+        "text": "Cancer-immunity cycle",
+        "href": "/education/concepts/immunology/tumor-immunology/cancer-immunity-cycle/#how-it-works"
+      },
+      {
+        "text": "NK recognition",
+        "href": "/education/concepts/immunology/innate-and-unconventional-cells/nk-cell-and-missing-self/#how-it-works"
       }
     ],
-    "cartoons": [
+    "visuals": [
       {
-        "caption": "Four panels show local tumor injury, a dendritic cell collecting and presenting fragments, T-cell activation with supporting signals, and travel toward a distant tumor whose recognition remains a question; dashed arrows mark conditional steps",
-        "href": "/education/local-treatment-modalities/01-mechanism/#how-immune-learning-could-follow-injury",
-        "images": [
-          {
-            "src": "/assets/wiki/education/local-treatment-modalities/images/local-injury-gates-light.png",
-            "alt": "Four panels show local tumor injury, a dendritic cell collecting and presenting fragments, T-cell activation with supporting signals, and travel toward a distant tumor whose recognition remains a question; dashed arrows mark conditional steps"
-          },
-          {
-            "src": "/assets/wiki/education/local-treatment-modalities/images/local-injury-gates-dark.png",
-            "alt": "Four panels show local tumor injury, a dendritic cell collecting and presenting fragments, T-cell activation with supporting signals, and travel toward a distant tumor whose recognition remains a question; dashed arrows mark conditional steps"
-          }
-        ]
-      },
-      {
-        "caption": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment.",
-        "href": "/education/concepts/immunology/tumor-immunology/abscopal-effect/#how-it-works",
-        "images": [
-          {
-            "src": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-light.png",
-            "alt": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment."
-          },
-          {
-            "src": "/assets/wiki/education/concepts/immunology/tumor-immunology/images/local-control-and-distant-assessment-dark.png",
-            "alt": "A fictional irradiated lesion and a lesion outside the field are paired with separate follow-up report cards: treated-site control and independent distant-site assessment."
-          }
-        ]
-      },
-      {
-        "caption": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex.",
-        "href": "/education/concepts/therapeutics/antibody-based/tcr-mimics-and-tcr-engagers/#how-it-works",
-        "images": [
-          {
-            "src": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-light.png",
-            "alt": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex."
-          },
-          {
-            "src": "/assets/wiki/education/concepts/therapeutics/antibody-based/images/same-displayed-target-different-products-dark.png",
-            "alt": "Three panels compare an antibody-derived peptide–HLA/CD3 protein, a soluble TCR/CD3 protein and a living TCR-T cell recognizing the same displayed complex."
-          }
-        ]
+        "kind": "diagram",
+        "caption": "The map is a learning order. The biological cancer-immunity cycle overlaps and repeats these jobs.",
+        "lesson": "/education/guides/how-the-immune-system-fights-cancer/index/#the-map",
+        "images": [],
+        "markup": "svg"
       }
     ]
   }

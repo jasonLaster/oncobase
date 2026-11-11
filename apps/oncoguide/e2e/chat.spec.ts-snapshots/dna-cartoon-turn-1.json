@@ -2,20 +2,7 @@
   "gateway": [
     {
       "status": 200,
-      "text": "",
-      "tools": [
-        {
-          "name": "search_education",
-          "input": "{\"query\":\"DNA repair cartoon illustration damage repair checkpoint DNA damage response\"}"
-        }
-      ],
-      "finishReason": {
-        "unified": "tool-calls"
-      }
-    },
-    {
-      "status": 200,
-      "text": "## DNA repair, as a cartoon\n\nImagine DNA as a **zipper containing instructions**:\n\n```text\nNormal DNA zipper\n   A—T\n   C—G\n   G—C\n   T—A\n\n        💥 Something goes wrong\n   A—T\n   C—?\n   G—C     ← damaged or mismatched letter\n   T—A\n\n        🚨 DNA damage response\n   “Stop copying! Find the problem!”\n\n        🧰 Repair crew chooses a tool\n   • BER: replaces one damaged letter\n   • MMR: fixes a copying mismatch\n   • NER: cuts out a bulky damaged stretch\n   • HR: repairs a two-strand break using a matching template\n   • End joining: reconnects broken ends without that template\n\n        ✅ Then the cell checks the result\n   Repair, temporary tolerance, stopped growth—or cell death\n```\n\nDNA repair is not one mechanism; it is a set of processes matched to different kinds of damage. The **DNA damage response (DDR)** is the larger coordination system: it detects trouble, sends warning signals, activates checkpoints, and helps choose what happens next. A checkpoint is like a **red traffic light** that pauses the cell cycle, but seeing the red light does not prove the road has been repaired [DNA damage and repair overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you like a cartoon next about **BRCA/HR repair**, **PARP inhibitors**, or **how DNA breaks happen**?",
+      "text": "DNA repair is the cell’s system for finding and fixing damage in DNA—the molecule that stores genetic instructions. Different problems use different repair routes: a damaged DNA “letter” may be replaced, a bulky distortion may be cut out, or a break in both strands may be repaired by using a matching template or by joining the ends.\n\nDNA damage response (DDR) is the larger coordination system. It detects the problem, sends signals, pauses the cell cycle, and helps decide what happens next. Importantly, a warning signal does not prove the damage was successfully repaired; the cell may instead tolerate the damage, stop dividing, or die. [DNA damage and repair](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works)\n\n[[visual:1]]\n\nIn this cartoon, PARP first responds to DNA damage. It can then become a physical obstacle at a DNA-copying fork; repairing the resulting damage and removing the trapped obstacle are separate tasks. [PARP trapping and recycling](/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle)\n\nWould you like a cartoon explanation of **PARP trapping** or **BRCA-related repair** next?",
       "tools": [],
       "finishReason": {
         "unified": "stop"
@@ -23,21 +10,13 @@
     }
   ],
   "explanations": [
-    "## DNA repair, as a cartoon\n\nImagine DNA as a **zipper containing instructions**:\n\n```text\nNormal DNA zipper\n   A—T\n   C—G\n   G—C\n   T—A\n\n        💥 Something goes wrong\n   A—T\n   C—?\n   G—C     ← damaged or mismatched letter\n   T—A\n\n        🚨 DNA damage response\n   “Stop copying! Find the problem!”\n\n        🧰 Repair crew chooses a tool\n   • BER: replaces one damaged letter\n   • MMR: fixes a copying mismatch\n   • NER: cuts out a bulky damaged stretch\n   • HR: repairs a two-strand break using a matching template\n   • End joining: reconnects broken ends without that template\n\n        ✅ Then the cell checks the result\n   Repair, temporary tolerance, stopped growth—or cell death\n```\n\nDNA repair is not one mechanism; it is a set of processes matched to different kinds of damage. The **DNA damage response (DDR)** is the larger coordination system: it detects trouble, sends warning signals, activates checkpoints, and helps choose what happens next. A checkpoint is like a **red traffic light** that pauses the cell cycle, but seeing the red light does not prove the road has been repaired [DNA damage and repair overview](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you like a cartoon next about **BRCA/HR repair**, **PARP inhibitors**, or **how DNA breaks happen**?"
+    "DNA repair is the cell’s system for finding and fixing damage in DNA—the molecule that stores genetic instructions. Different problems use different repair routes: a damaged DNA “letter” may be replaced, a bulky distortion may be cut out, or a break in both strands may be repaired by using a matching template or by joining the ends.\n\nDNA damage response (DDR) is the larger coordination system. It detects the problem, sends signals, pauses the cell cycle, and helps decide what happens next. Importantly, a warning signal does not prove the damage was successfully repaired; the cell may instead tolerate the damage, stop dividing, or die. [DNA damage and repair](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works)\n\n[[visual:1]]\n\nIn this cartoon, PARP first responds to DNA damage. It can then become a physical obstacle at a DNA-copying fork; repairing the resulting damage and removing the trapped obstacle are separate tasks. [PARP trapping and recycling](/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle)\n\nWould you like a cartoon explanation of **PARP trapping** or **BRCA-related repair** next?"
   ],
   "citations": [
-    "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
+    "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+    "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle"
   ],
   "sections": [
-    {
-      "id": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#in-one-sentence",
-      "slug": "wiki/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors",
-      "pageTitle": "DNA damage response inhibitors: which repair dependency?",
-      "heading": "In one sentence",
-      "href": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#in-one-sentence",
-      "images": [],
-      "excerpt": "DNA damage response inhibitors interfere with proteins that detect, signal, tolerate, or repair DNA damage, and their effects depend on the particular target and repair state."
-    },
     {
       "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#in-one-sentence",
       "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
@@ -55,61 +34,64 @@
       "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
       "images": [],
       "excerpt": "The route depends on the problem. This is a map of major jobs, rather than an exhaustive list. Alberts 2002, Brown 2002.\n\nProblem\tA repair routeAn altered individual base\tBase excision repair (BER) removes the damaged base and rebuilds the "
+    },
+    {
+      "id": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#in-one-sentence",
+      "slug": "wiki/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors",
+      "pageTitle": "DNA damage response inhibitors: which repair dependency?",
+      "heading": "In one sentence",
+      "href": "/education/concepts/therapeutics/targeted-small-molecules/ddr-inhibitors/#in-one-sentence",
+      "images": [],
+      "excerpt": "DNA damage response inhibitors interfere with proteins that detect, signal, tolerate, or repair DNA damage, and their effects depend on the particular target and repair state."
+    }
+  ],
+  "visuals": [
+    {
+      "id": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle::parp-obstacle-and-clearance",
+      "kind": "cartoon",
+      "sectionId": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle",
+      "slug": "wiki/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling",
+      "pageTitle": "PARP trapping and recycling",
+      "heading": "The repair worker can become an obstacle",
+      "href": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle",
+      "label": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP",
+      "caption": "Creating an obstacle, repairing its damage, and removing it are separate parts of the response.",
+      "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-light.png",
+      "darkSrc": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-dark.png",
+      "marker": "[[visual:1]]"
     }
   ],
   "illustrations": [
-    {
-      "src": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-light.png",
-      "darkSrc": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-dark.png",
-      "alt": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome",
-      "href": "/education/guides/from-variant-to-drug/06-pi3k-akt-mtor-and-repair/#follow-the-signal-then-look-for-the-brakes",
-      "pageTitle": "PI3K, AKT, and mTOR: competing effects on repair and recycling"
-    },
     {
       "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-light.png",
       "darkSrc": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-dark.png",
       "alt": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP",
       "href": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle",
       "pageTitle": "PARP trapping and recycling"
-    },
-    {
-      "src": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-light.png",
-      "darkSrc": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-dark.png",
-      "alt": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement.",
-      "href": "/education/molecular-profiling/ctdna-ppm-and-mri/#two-windows-onto-different-evidence",
-      "pageTitle": "Compare blood results with imaging"
     }
   ],
   "finishReason": "stop",
   "errors": [],
   "rendered": {
     "explanation": [
-      "DNA repair, as a cartoon Imagine DNA as a zipper containing instructions: textNormal DNA zipper A—T C—G G—C T—A 💥 Something goes wrong A—T C—? G—C ← damaged or mismatched letter T—A 🚨 DNA damage response “Stop copying! Find the problem!” 🧰 Repair crew chooses a tool • BER: replaces one damaged letter • MMR: fixes a copying mismatch • NER: cuts out a bulky damaged stretch • HR: repairs a two-strand break using a matching template • End joining: reconnects broken ends without that template ✅ Then the cell checks the result Repair, temporary tolerance, stopped growth—or cell death DNA repair is not one mechanism; it is a set of processes matched to different kinds of damage. The DNA damage response (DDR) is the larger coordination system: it detects trouble, sends warning signals, activates checkpoints, and helps choose what happens next. A checkpoint is like a red traffic light that pauses the cell cycle, but seeing the red light does not prove the road has been repaired DNA damage and repair overview. Would you like a cartoon next about BRCA/HR repair, PARP inhibitors, or how DNA breaks happen?"
+      "DNA repair is the cell’s system for finding and fixing damage in DNA—the molecule that stores genetic instructions. Different problems use different repair routes: a damaged DNA “letter” may be replaced, a bulky distortion may be cut out, or a break in both strands may be repaired by using a matching template or by joining the ends. DNA damage response (DDR) is the larger coordination system. It detects the problem, sends signals, pauses the cell cycle, and helps decide what happens next. Importantly, a warning signal does not prove the damage was successfully repaired; the cell may instead tolerate the damage, stop dividing, or die. DNA damage and repair",
+      "In this cartoon, PARP first responds to DNA damage. It can then become a physical obstacle at a DNA-copying fork; repairing the resulting damage and removing the trapped obstacle are separate tasks. PARP trapping and recycling Would you like a cartoon explanation of PARP trapping or BRCA-related repair next?"
     ],
     "citations": [
       {
-        "text": "DNA damage and repair overview",
+        "text": "DNA damage and repair",
         "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
-      }
-    ],
-    "cartoons": [
-      {
-        "caption": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome",
-        "href": "/education/guides/from-variant-to-drug/06-pi3k-akt-mtor-and-repair/#follow-the-signal-then-look-for-the-brakes",
-        "images": [
-          {
-            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-light.png",
-            "alt": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome"
-          },
-          {
-            "src": "/assets/wiki/education/guides/from-variant-to-drug/images/pi3k-repair-recycling-tradeoff-dark.png",
-            "alt": "Panels connect PI3K, AKT, and mTORC1 signaling to DNA repair and an autophagy initiation brake, then show that competing effects require a measured outcome"
-          }
-        ]
       },
       {
-        "caption": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP",
-        "href": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle",
+        "text": "PARP trapping and recycling",
+        "href": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle"
+      }
+    ],
+    "visuals": [
+      {
+        "kind": "cartoon",
+        "caption": "Creating an obstacle, repairing its damage, and removing it are separate parts of the response.",
+        "lesson": "/education/guides/from-variant-to-drug/04-parp-trapping-and-recycling/#the-repair-worker-can-become-an-obstacle",
         "images": [
           {
             "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-light.png",
@@ -119,21 +101,8 @@
             "src": "/assets/wiki/education/guides/from-variant-to-drug/images/parp-obstacle-and-clearance-dark.png",
             "alt": "Four panels show PARP responding to DNA damage, a trapped PARP obstacle at a replication fork, repair capacity, and selective clearance of trapped PARP"
           }
-        ]
-      },
-      {
-        "caption": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement.",
-        "href": "/education/molecular-profiling/ctdna-ppm-and-mri/#two-windows-onto-different-evidence",
-        "images": [
-          {
-            "src": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-light.png",
-            "alt": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement."
-          },
-          {
-            "src": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-dark.png",
-            "alt": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement."
-          }
-        ]
+        ],
+        "markup": null
       }
     ]
   }

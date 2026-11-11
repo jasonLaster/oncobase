@@ -31,6 +31,30 @@ export function localAssetPath(value: string, currentSlug?: string): string | nu
   return path;
 }
 
+/** What each lesson says about itself in its front matter: the one-line summary,
+ * level, other names, what to learn first and where it is used. Links to pages
+ * outside the public library are dropped. */
+export function educationLessons(sources: SourcePage[]) {
+  const slugs = new Set(sources.map(source => source.path.slice(0, -3)));
+  const list = (value: unknown): unknown[] => Array.isArray(value) ? value : value === undefined || value === null || value === "" ? [] : [value];
+  const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : undefined;
+  const links = (value: unknown) => [...new Set(list(value).map(item => String(item).replace(/^\[\[|\]\]$/g, "").split("|")[0]!.trim()).filter(slug => slugs.has(slug)))];
+  return sources.map(({ path, raw }) => {
+    const { data, content } = matter(raw);
+    const slug = path.slice(0, -3);
+    const heading = content.match(/^#\s+(.+)$/m);
+    const level = text(data.level)?.toLowerCase();
+    const number = (value: unknown) => Number.isFinite(Number(value)) && value !== undefined && value !== null && value !== "" ? Number(value) : undefined;
+    return {
+      slug, title: markdownTitleToText(String(data.title || heading?.[1] || path.split("/").pop())), href: `${educationHref(slug)}/`,
+      summary: text(data.summary), level: level && ["foundation", "intermediate", "advanced"].includes(level) ? level : undefined,
+      aliases: list(data.aliases).map(alias => String(alias).trim()).filter(Boolean), prerequisites: links(data.prerequisites), usedBy: links(data.used_by),
+      guide: text(data.guide), step: Number.isInteger(number(data.step)) ? number(data.step) : undefined, minutes: number(data.minutes),
+      objectives: list(data.objectives).map(objective => String(objective).trim()).filter(Boolean),
+    };
+  });
+}
+
 export function compileEducation(sources: SourcePage[], onAsset: (path: string) => void) {
   const parsed = sources.map(({ path, raw }) => {
     if (!path.startsWith(PREFIX) || !path.endsWith(".md")) throw Error(`Unexpected content path: ${path}`);

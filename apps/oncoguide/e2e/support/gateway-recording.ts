@@ -8,16 +8,24 @@ export const learningScenarios = [
   { id: "immune-recognition", questions: ["How does the immune system recognize cancer?"] },
   { id: "ctdna-lesson", currentSlug: "wiki/education/molecular-profiling/06-ctdna-and-mrd", questions: ["What can this tell us, and what can’t it tell us?"] },
   { id: "across-the-library", questions: ["Read the overview and target-selection sections of both the personalized cancer vaccine guide (wiki/education/guides/personalized-cancer-vaccine/index) and engineered cell therapy guide (wiki/education/guides/engineered-cell-therapy/index). Compare how they recognize a tumor, simply."] },
+  // The second turn is the reader tapping "Explain this" on the visual the first answer showed.
+  // Its wording names that visual, so it is written at recording time and read back from the recording.
+  { id: "explain-visual", questions: ["How do cells repair damaged DNA? Show me a diagram."], thenTapVisual: true },
 ] as const;
 export type LearningScenario = (typeof learningScenarios)[number];
 export type GatewayExchange = {
   request: { model: string; body: unknown };
   response: { status: number; headers: Record<string, string>; body: string };
 };
+/** One call to the decision model: what was asked about, and what it answered. */
+export type DecisionExchange = {
+  request: { input: unknown; questions: unknown };
+  response: { model: string; answers: Array<{ type: string; name: string; probability?: number; score?: number }> };
+};
 export type GatewayRecording = {
   version: 1; scenario: string; recordedAt: string; model: string;
   contentCommit: string; corpusSha256: string; sdk: { ai: string; gateway: string };
-  turns: Array<{ question: string; exchanges: GatewayExchange[] }>;
+  turns: Array<{ question: string; exchanges: GatewayExchange[]; decisions?: DecisionExchange[] }>;
 };
 export const fixtureDirectory = path.resolve(import.meta.dirname, "../fixtures/gateway");
 export const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -46,7 +54,7 @@ export function responseSnapshot(sse: string, exchanges: GatewayExchange[]) {
     if (part.type === "text-start") explanations.push("");
     if (part.type === "text-delta") explanations[explanations.length - 1] += part.delta;
   }
-  const resources = parts.findLast(part => part.type === "data-education")?.data as { sections: unknown[]; illustrations: unknown[] } | undefined;
+  const resources = parts.findLast(part => part.type === "data-education")?.data as { sections: unknown[]; visuals?: unknown[]; illustrations: unknown[] } | undefined;
   return {
     gateway: exchanges.map(exchange => {
       const events = sseParts(exchange.response.body);
@@ -59,7 +67,7 @@ export function responseSnapshot(sse: string, exchanges: GatewayExchange[]) {
     }),
     explanations,
     citations: [...new Set(explanations.join("\n").match(/\/education\/[^\s)]+/g) ?? [])],
-    sections: resources?.sections ?? [], illustrations: resources?.illustrations ?? [],
+    sections: resources?.sections ?? [], visuals: resources?.visuals ?? [], illustrations: resources?.illustrations ?? [],
     finishReason: parts.findLast(part => part.type === "finish")?.finishReason,
     errors: parts.filter(part => part.type === "error").map(part => part.errorText),
   };

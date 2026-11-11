@@ -45,10 +45,19 @@ async function checkReply(page: Page, response: Response, scenario: LearningScen
   await expect(assistant.locator(".prose").first()).toBeVisible();
   expect(await assistant.locator(".prose a").evaluateAll(elements => [...new Set(elements.map(element => element.getAttribute("href")))])).toEqual(snapshot.citations);
   expect(await assistant.locator(".edu-chat-section-card").evaluateAll(elements => elements.map(element => element.getAttribute("href")))).toEqual(sections.map(section => section.href));
+  // The reader sees exactly the visuals the tutor chose, drawn from the lesson's own files.
+  const visuals = snapshot.visuals as Array<{ id: string; kind: string; href: string }>;
+  await expect(assistant.locator(".edu-chat-visual")).toHaveCount(visuals.length);
+  await expect(assistant.locator(".edu-visual-loading, .edu-visual-missing")).toHaveCount(0);
+  expect(await assistant.locator(".edu-chat-visual").evaluateAll(elements => elements.map(element => [element.getAttribute("data-visual-kind"), element.querySelector(".edu-chat-visual-foot > a")?.getAttribute("href")]))).toEqual(visuals.map(visual => [visual.kind, visual.href]));
   const rendered = {
     explanation: (await assistant.locator(".prose").allTextContents()).map(text => text.replace(/\s+/g, " ").trim()),
     citations: await assistant.locator(".prose a").evaluateAll(elements => elements.map(element => ({ text: element.textContent, href: element.getAttribute("href") }))),
-    cartoons: await assistant.locator(".edu-chat-illustration").evaluateAll(elements => elements.map(element => ({ caption: element.querySelector("a")?.textContent, href: element.querySelector("a")?.getAttribute("href"), images: [...element.querySelectorAll("img")].map(image => ({ src: image.getAttribute("src"), alt: image.alt })) }))),
+    visuals: await assistant.locator(".edu-chat-visual").evaluateAll(elements => elements.map(element => ({
+      kind: element.getAttribute("data-visual-kind"), caption: element.querySelector("figcaption")?.textContent, lesson: element.querySelector(".edu-chat-visual-foot > a")?.getAttribute("href"),
+      images: [...element.querySelectorAll("img")].map(image => ({ src: image.getAttribute("src"), alt: image.alt })),
+      markup: element.querySelector(".wiki-markdown svg, .wiki-markdown table")?.tagName.toLowerCase() ?? null,
+    }))),
   };
   expect(JSON.stringify({ ...snapshot, rendered }, null, 2)).toMatchSnapshot(`${scenario.id}-turn-${turn + 1}.json`);
   return snapshot;
@@ -66,15 +75,11 @@ test("curiosity → DNA explanation and cartoon → simpler follow-up → exact 
   await page.getByRole("link", { name: "What are you curious about?" }).click();
   await expect(page.getByRole("heading", { name: "Follow your curiosity." })).toBeVisible();
   const first = await checkReply(page, await submit(page, dna.questions[0], true), dna);
-  const images = page.locator(".edu-chat-illustration img");
-  expect(await images.count()).toBeGreaterThan(0);
-  expect(await images.evaluateAll(async elements => Promise.all(elements.map(async element => {
-    const image = element as HTMLImageElement; image.loading = "eager";
-    await image.decode(); return image.complete && image.naturalWidth > 0;
-  })))).not.toContain(false);
-  await page.locator(".edu-chat-illustration img:visible").first().click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "Close image preview", exact: true }).click();
+  // The decision step chose this lesson visual before the tutor wrote; the tutor only placed it, with no visual tools.
+  expect(first.gateway.flatMap(step => step.tools).filter(tool => /visual/.test(String(tool.name)))).toEqual([]);
+  expect((first.visuals as unknown[]).length).toBeGreaterThan(0);
+  expect(first.explanations.join("\n")).toContain("[[visual:1]]");
+  await expect(page.locator(".edu-chat-visual").first().locator("img:visible, .mermaid-diagram svg, table").first()).toBeVisible();
   const followUpResponse = await submit(page, dna.questions[1]);
   const second = await checkReply(page, followUpResponse, dna, 1);
   const body = followUpResponse.request().postDataJSON();
@@ -94,6 +99,38 @@ test("curiosity → DNA explanation and cartoon → simpler follow-up → exact 
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await expect(page.getByRole("button", { name: dna.questions[0], exact: true })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test("visuals sit inside the answer, enlarge, and can be tapped for an explanation of that exact figure", async ({ page }) => {
+  const scenario = learningScenarios[4];
+  await page.goto("/education/chat/");
+  const first = await checkReply(page, await submit(page, scenario.questions[0]), scenario);
+  const shown = (first.visuals as Array<{ id: string; kind: string; marker: string }>)[0]!;
+  // The tutor placed the figure with a marker, which the reader never sees.
+  expect(first.explanations.join("\n")).toContain(shown.marker);
+  const answer = page.getByRole("article", { name: "OncoGuide", exact: true }).last();
+  await expect(answer.locator(".session-chat-text .edu-chat-visual")).toHaveCount(1);
+  await expect(answer).not.toContainText("[[visual");
+  // A lesson card and next steps come from the lesson's own front matter.
+  await expect(answer.locator(".edu-chat-lesson")).toBeVisible();
+  await expect(answer.getByRole("group", { name: "Next steps" }).getByRole("button").first()).toBeVisible();
+  // Cartoons open in the image viewer when clicked. Diagrams and tables get an Enlarge button.
+  if (shown.kind !== "cartoon") {
+    await answer.getByRole("button", { name: "Enlarge" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.locator(".mermaid-diagram svg, table").first()).toBeVisible();
+    await dialog.getByRole("button", { name: "Close enlarged view" }).click();
+    await expect(dialog).toBeHidden();
+  }
+  const pending = page.waitForResponse(response => new URL(response.url()).pathname === "/api/education/chat" && response.request().method() === "POST");
+  await answer.getByRole("button", { name: "Explain this" }).click();
+  const tapped = await pending;
+  expect(tapped.request().postDataJSON()).toMatchObject({ focusVisual: shown.id, focusMode: "explain" });
+  const second = await checkReply(page, tapped, scenario, 1);
+  expect((second.visuals as Array<{ id: string }>).map(visual => visual.id)).toEqual([shown.id]);
+  await expect(page.getByRole("article", { name: "You", exact: true }).last()).toContainText(readRecording(scenario.id).turns[1].question);
+  // Next steps belong to the newest answer only.
+  await expect(page.getByRole("group", { name: "Next steps" })).toHaveCount(1);
 });
 
 test("immune recognition teaches the requested concept using real library citations", async ({ page }) => {
@@ -125,9 +162,22 @@ test("a lesson supplies context; retry preserves it; dark cartoons and mobile co
   const snapshot = await checkReply(page, response, scenario);
   expect(snapshot.explanations.join(" ")).toMatch(/ctDNA|circulating tumor DNA/i);
   expect(snapshot.explanations.join(" ")).toMatch(/cannot|can’t|does not|doesn’t|not prove|negative/i);
+  // Whatever the tutor showed is drawn from the lesson's own files.
+  await expect(page.locator(".edu-chat-visual").first().locator("img:visible, .mermaid-diagram svg, table").first()).toBeVisible();
+  const images = page.locator(".edu-chat-visual img");
+  const cartoon = await images.count() > 0;
+  expect(await images.evaluateAll(async elements => Promise.all(elements.map(async element => {
+    const image = element as HTMLImageElement; image.loading = "eager";
+    await image.decode(); return image.complete && image.naturalWidth > 0;
+  })))).not.toContain(false);
+  if (cartoon) {
+    await page.locator(".edu-chat-visual img:visible").first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: "Close image preview", exact: true }).click();
+  }
   await page.getByRole("button", { name: "Dark theme", exact: true }).click();
-  const visible = page.locator(".edu-chat-illustration img:visible");
-  expect(await visible.count()).toBeGreaterThan(0);
+  const visible = page.locator(".edu-chat-visual img:visible");
+  expect(await visible.count() > 0).toBe(cartoon);
   for (const src of await visible.evaluateAll(elements => elements.map(element => element.getAttribute("src")))) expect(src).toContain("-dark.");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("textbox", { name: "Your question" })).toBeInViewport();

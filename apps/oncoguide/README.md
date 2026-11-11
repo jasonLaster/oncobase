@@ -48,6 +48,73 @@ corpus is available to the tutor. The browser sends text history, the optional
 lesson slug and content commit; client tool outputs and source content are never
 accepted as evidence. Mismatched content commits ask the reader to reload.
 
+### The visual catalog
+
+The content build also emits `/visual-catalog.json`: every lesson cartoon, diagram
+and table, by exact section, with what it shows (alt text, diagram labels or table
+cells) and the lesson's own caption when it has one. Markup for diagrams and tables
+is one small file each under `/visuals/`, fetched only when shown, so the catalog
+stays metadata. The build prints how many of each kind it found. It is a separate
+file from `chat-index.json` because both chat and Talk load that index first.
+
+Each cartoon also carries the words drawn on it, read from its SVG, and the brief
+it was drawn from (`images/prompts/<name>.txt`). The words are shown to the model.
+The brief is used for search only, at low weight, because it states intent rather
+than the final picture; it never reaches the reader's page. A table is described
+by its columns, row names and the sentence that introduces it. Where a lesson
+follows a visual with "Read the illustration" and "Answer", both are kept for the
+picture quiz. The catalog also holds each lesson's front matter: summary, level,
+other names, what to learn first, where it is used, and its place in a guide.
+
+Typed chat and Talk both choose from this catalog by id, so a model can never
+supply an image URL or markup. In typed chat:
+
+- Retrieved sections list their visuals, and `search_visuals` finds others by what
+  they show, optionally by kind. The tutor calls `show_visual` for at most two per
+  answer and may show only visuals listed to it in that reply.
+- `show_visual` returns a marker such as `[[visual:1]]`. The tutor puts it where
+  the reader should look and the page draws the figure there. A visual with no
+  marker in the text appears under the answer.
+- Until the tutor chooses, the reader sees the cartoon that best matches the
+  question, but only if it covers at least 70% of the question's meaning.
+- "Explain this" on a figure, and the next-step chips, send that visual's id as
+  `focusVisual` with `focusMode` `explain`, `quiz` or `check`. The id is looked up
+  in the catalog; an unknown id is ignored.
+- A lesson card and up to four next steps come from front matter and from visuals
+  not yet shown. No model writes them.
+
+Both surfaces render through `components/lesson-visual.tsx`. Ids are a section
+anchor plus the cartoon's file name, or a per-section count for diagrams and
+tables, so adding a visual elsewhere on a page does not change them.
+
+### Search
+
+Lesson search prepares its index once per corpus instead of tokenising every
+section per question. With the catalog loaded it also knows each lesson's other
+names, so "T-DXd" finds the antibody-drug conjugate lesson even where the text
+never uses that name.
+
+Search by meaning is an optional layer. Building with `ONCOGUIDE_SEMANTIC_SEARCH=1`
+and AI Gateway credentials writes `/search-vectors.json`: one 256-dimension vector
+per section from `openai/text-embedding-3-small`, a byte per dimension. Unchanged
+sections are read from `.generated/search-vectors-cache.json`. The server embeds
+each question (1.2 s limit, then keywords only) and blends the two rankings: a
+lesson named in the question comes first and the rankings then alternate;
+otherwise meaning leads. `ONCOGUIDE_SEARCH_VECTORS_URL` overrides where the server
+looks. Talk searches in the browser and uses keywords and lesson names only.
+
+`bun scripts/eval-search.ts` measures all of this against questions with known
+answers: 40 natural questions, every lesson alias and 35 requests for a picture.
+Add `--semantic` to measure the blend, `--verbose` to list misses, and
+`--min-lesson` / `--min-visual` to fail below a top-3 rate. Run it after changing
+ranking, the catalog fields or the prompts that feed search.
+
+The server's `ONCOGUIDE_VISUAL_CATALOG_URL` defaults to
+`https://oncoguide.cc/visual-catalog.json`. The catalog is optional: if it is
+missing, or built from a different content commit than the index, the tutor
+answers as before with cartoons found by lesson search. This lets the Oncobase
+server and the static site deploy in either order.
+
 The server's `ONCOGUIDE_CHAT_INDEX_URL` defaults to
 `https://oncoguide.cc/chat-index.json`. `ONCOGUIDE_CHAT_ORIGINS` can list additional
 preview origins, separated by commas. `NEXT_PUBLIC_ONCOGUIDE_CHAT_API` overrides
@@ -111,6 +178,31 @@ personal questions or conversations. Append a scenario ID, such as
 the fixture and snapshot diff together before committing. The ordinary E2E
 command never records or updates snapshots.
 
+### Deciding what to show
+
+Before the tutor writes, the chat server asks a decision model what to show.
+Search proposes up to 12 figures and 6 sections; one request scores each from 0
+(unrelated) to 3 (exact) against the reader's message and asks whether the
+reader asked for a figure. Fixed rules in `packages/education/src/decisions.ts`
+turn the scores into the answer's content:
+
+- The best figure shows at a score of 2, or 1.5 when the reader asked for one.
+- A second figure shows only at 2.5 and only if it is a different kind.
+- Section cards keep search order and are withheld when no section reaches 1.25.
+
+The tutor is told what is showing and only places the markers. It has no visual
+tools on these answers. A tapped visual skips the decision.
+
+The request goes to `typesafe-ai/jev` through the AI Gateway, then to
+`openai/gpt-6-luna-decisions` if Jev is down, slow (1.5 s), refuses or answers
+incompletely. If both fail, the tutor chooses with `search_visuals` and
+`show_visual` as before. `ONCOGUIDE_DECISION_MODELS` replaces the list; an empty
+value turns the step off.
+
+`bun --env-file=<.env.local> scripts/eval-decisions.ts --verbose` measures the
+step on current content with paid requests. Chat fixtures record each decision
+next to the model exchanges, and replay rejects a decision request that differs.
+
 ## Talk
 
 A floating avatar on every page starts a spoken conversation with OncoGuide over
@@ -143,11 +235,17 @@ makes the conversation easier to follow. Nothing the reader or voice says is
 written down unless the reader turns captions on. Typed chat stays mounted beneath
 it and returns intact.
 
-- **Real visuals first.** The content build emits `/talk-visuals.json`: every
-  lesson diagram and table, by exact section, separate from `chat-index.json`
-  because the chat replay fixtures pin that file's hash. When the voice reads a
+- **Real visuals first.** The board chooses from the visual catalog described
+  under "The visual catalog" below. When the voice reads a
   section, the client immediately shows that lesson's best cartoon or diagram and
   tells the voice, so it doesn't depend on the model asking and it can point to it.
+- **Tap to ask, and enlarge.** A figure on the board has "Ask about this", which
+  tells the voice which card the reader tapped, and diagrams and tables can be
+  enlarged.
+- **The page as the board.** Away from the chat page there is no board. When the
+  voice reads a section of the lesson the reader is on, the page scrolls there and
+  outlines that section's first picture, diagram or table for a few seconds, and
+  the voice is told so it can point to it. See `lib/talk-point.ts`.
 - **A silent board request.** After each spoken reply, the client sends a text-only
   Realtime response with `conversation: "none"` and `tool_choice: "required"`. It
   picks another lesson visual, or writes steps, a comparison or key points. It adds

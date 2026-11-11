@@ -407,3 +407,40 @@ test("Talk fits a phone and chat starts it from the composer", async ({ page }) 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });
+
+test("on a lesson, the page is the board: reading a section scrolls to it and marks its visual", async ({ page }) => {
+  await open(page, adc);
+  await startCall(page);
+  await page.evaluate(() => scrollTo(0, 0));
+  await emitTool(page, "read_section", { section_id: adcSection }, "read");
+  await expect.poll(async () => (await toolOutput(page, "read"))?.on_screen).toContain("How it works");
+  const pointed = page.locator(".edu-talk-pointed");
+  await expect(pointed).toHaveCount(1);
+  await expect(pointed).toBeInViewport();
+  // The mark sits on something in that section, after its heading and before the next.
+  expect(await pointed.evaluate(element => {
+    const heading = document.getElementById("how-it-works")!;
+    const next = [...document.querySelectorAll('[data-test-id="education-article"] h2')].find(other => heading.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return Boolean(heading.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING) && (!next || Boolean(next.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_PRECEDING));
+  })).toBe(true);
+  // No prompt to open the page the reader is already on, and the call carries on.
+  await expect(page.getByRole("status", { name: "Suggested page" })).toHaveCount(0);
+  expect(await stayedInPage(page)).toBe(true);
+});
+
+test("a board card can be enlarged and tapped to hear about it", async ({ page }) => {
+  await open(page, "/education/chat/");
+  await page.getByRole("button", { name: "Talk with OncoGuide" }).click();
+  await page.getByRole("button", { name: "Start talking" }).click();
+  await expect.poll(() => page.evaluate(() => window.__talk.peers)).toBe(1);
+  await page.evaluate(() => window.__talk.emit({ type: "session.created" }));
+  await emitTool(page, "read_section", { section_id: adcSection }, "read");
+  const card = page.locator(".edu-talk-board-figure").first();
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: "Ask about this" }).click();
+  await expect.poll(() => notes(page)).toContainEqual(expect.stringContaining("on the board and wants it explained"));
+  if (await card.getByRole("button", { name: "Enlarge" }).count()) {
+    await card.getByRole("button", { name: "Enlarge" }).click();
+    await expect(page.getByRole("dialog").locator(".mermaid-diagram svg, table").first()).toBeVisible();
+  }
+});

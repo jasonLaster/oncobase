@@ -6,9 +6,16 @@ const replay = process.env.ONCOGUIDE_CHAT_REPLAY === "1" ? import("../e2e/suppor
 if (replay) await replay;
 // Optional local preview uses the same Oncobase handler and the exported corpus.
 // Enable explicitly and provide the existing server AI Gateway configuration.
-const localChat = process.env.ONCOGUIDE_CHAT_LOCAL === "1" ? import("../../app/server/education-chat").then(async ({ createEducationChatHandler }) => {
+const localChat = process.env.ONCOGUIDE_CHAT_LOCAL === "1" ? import("../../app/server/education-chat").then(async ({ createEducationChatHandler, gatewayDecide }) => {
   const { EducationCorpusSchema } = await import("@oncobase/education/chat");
-  return createEducationChatHandler({ getCorpus: async () => EducationCorpusSchema.parse(await Bun.file(path.join(root, "chat-index.json")).json()) });
+  const { EducationVisualCatalogSchema } = await import("@oncobase/education/visuals");
+  return createEducationChatHandler({
+    decide: gatewayDecide,
+    getCorpus: async () => EducationCorpusSchema.parse(await Bun.file(path.join(root, "chat-index.json")).json()),
+    getVisuals: async () => EducationVisualCatalogSchema.parse(await Bun.file(path.join(root, "visual-catalog.json")).json()),
+    // Present only when the build was run with ONCOGUIDE_SEMANTIC_SEARCH=1.
+    getSemantic: async () => await Bun.file(path.join(root, "search-vectors.json")).exists() ? (await import("@oncobase/education/semantic")).parseSemanticIndex(await Bun.file(path.join(root, "search-vectors.json")).json()) : null,
+  });
 }) : undefined;
 // Optional local preview of Talk, which opens real, paid OpenAI Realtime calls.
 const localTalk = process.env.ONCOGUIDE_TALK_LOCAL === "1" ? import("../../app/server/education-talk").then(({ handleEducationTalk }) => handleEducationTalk) : undefined;

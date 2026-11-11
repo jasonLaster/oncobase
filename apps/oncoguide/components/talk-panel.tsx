@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Captions, LayoutGrid, Mic, MicOff, PhoneOff, X } from "lucide-react";
 import { EducationCorpusSchema, type EducationCorpus } from "@oncobase/education/chat";
 import { normalizeEducationPath, TALK_BOARD_PATH } from "@oncobase/education/talk";
-import type { TalkVisual } from "@oncobase/education/talk-visuals";
+import { EducationVisualCatalogSchema, type EducationVisualCatalog } from "@oncobase/education/visuals";
 import { addBoardCards, boardCardIds, setTalkLive, useTalkState } from "../lib/talk-store";
+import { pointAtSection } from "../lib/talk-point";
 import { TalkConversation, type TalkStatus, type TalkView } from "../lib/talk-conversation";
 import { connectTalk, TalkStartError, type TalkEvent, type TalkFailure, type TalkTransport } from "../lib/talk-transport";
 import { TalkAvatar } from "./talk-avatar";
@@ -79,7 +80,13 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
   const [muted, setMuted] = useState(false);
   const [ended, setEnded] = useState<Ended | null>(null);
   const [captionsOnBoard, setCaptionsOnBoard] = useState(false);
-  const { cards } = useTalkState();
+  const { cards, asked } = useTalkState();
+  const answered = useRef(asked?.count ?? 0);
+  useEffect(() => {
+    if (!asked || asked.count === answered.current) return;
+    answered.current = asked.count;
+    conversation.current?.askAbout(asked.card);
+  }, [asked]);
   const onBoardPage = normalizeEducationPath(pathname) === TALK_BOARD_PATH;
   const avatar = useRef<HTMLSpanElement>(null);
   const transport = useRef<TalkTransport | null>(null);
@@ -116,14 +123,15 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
       return corpus;
     };
     void loadCorpus().catch(() => {});
-    let visuals: Promise<TalkVisual[]> | undefined;
-    const loadVisuals = () => {
-      visuals ??= fetch("/talk-visuals.json").then(async response => {
+    let catalog: Promise<EducationVisualCatalog> | undefined;
+    const loadCatalog = () => {
+      catalog ??= fetch("/visual-catalog.json").then(async response => {
         if (!response.ok) throw Error("Visuals unavailable");
-        return await response.json() as TalkVisual[];
-      }).catch(error => { visuals = undefined; throw error; });
-      return visuals;
+        return EducationVisualCatalogSchema.parse(await response.json());
+      }).catch(error => { catalog = undefined; throw error; });
+      return catalog;
     };
+    const loadVisuals = () => loadCatalog().then(loaded => loaded.visuals);
 
     // session.created can arrive before connectTalk resolves, so early events
     // from the conversation wait here until the transport is in hand.
@@ -135,9 +143,11 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
       onChange: setView,
       onActivity: resetIdle,
       visuals: loadVisuals,
+      lessons: () => loadCatalog().then(loaded => loaded.lessons),
       onBoardCards: addBoardCards,
       boardCardIds,
       typedHistory,
+      pointAt: section => pointAtSection(section.href),
     }, window.location.pathname);
     conversation.current = current;
     setView({ status: "connecting", readerCaption: "", voiceCaption: "", suggestion: null });

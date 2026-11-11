@@ -1,5 +1,7 @@
 import { createGateway } from "ai";
 import { EducationCorpusSchema } from "@oncobase/education/chat";
+import type { Decide } from "@oncobase/education/decisions";
+import { EducationVisualCatalogSchema } from "@oncobase/education/visuals";
 import { chatTextModel } from "@oncobase/wiki-content/chat-route";
 import { createEducationChatHandler } from "../../../app/server/education-chat";
 import { canonicalJson, learningScenarios, readRecording, sha256 } from "./gateway-recording";
@@ -7,6 +9,7 @@ import { canonicalJson, learningScenarios, readRecording, sha256 } from "./gatew
 export async function createGatewayReplay() {
   const text = await Bun.file("out/chat-index.json").text();
   const corpus = EducationCorpusSchema.parse(JSON.parse(text));
+  const catalog = EducationVisualCatalogSchema.parse(await Bun.file("out/visual-catalog.json").json());
   const model = chatTextModel({ VERCEL_ENV: "production" });
   const recordings = learningScenarios.map(scenario => ({ scenario, recording: readRecording(scenario.id) }));
   for (const { scenario, recording } of recordings) {
@@ -21,7 +24,7 @@ export async function createGatewayReplay() {
     if (request.method === "OPTIONS") return new Response(null, { status: 204 });
     const body = await request.clone().json();
     const questions = body.messages.filter((message: { role: string }) => message.role === "user").map((message: { parts: Array<{ type: string; text?: string }> }) => message.parts.filter(part => part.type === "text").map(part => part.text ?? "").join("\n"));
-    const match = recordings.find(({ scenario }) => canonicalJson(scenario.questions.slice(0, questions.length)) === canonicalJson(questions) && body.currentSlug === ("currentSlug" in scenario ? scenario.currentSlug : undefined));
+    const match = recordings.find(({ scenario, recording }) => canonicalJson(recording.turns.map(turn => turn.question).slice(0, questions.length)) === canonicalJson(questions) && body.currentSlug === ("currentSlug" in scenario ? scenario.currentSlug : undefined));
     const turn = match?.recording.turns[questions.length - 1];
     if (!match || !turn) return Response.json({ error: "No recorded public learning scenario matches this request" }, { status: 422 });
     const id = crypto.randomUUID();
@@ -37,7 +40,17 @@ export async function createGatewayReplay() {
       // No network fallback. Feed genuine captured provider SSE through the SDK.
       return new Response(exchange.response.body, { status: exchange.response.status, headers: exchange.response.headers });
     }, { preconnect: () => {} }) });
-    const handler = createEducationChatHandler({ getCorpus: async () => corpus, model: gateway(model) });
+    // Decisions replay the same way: the request must match, and the recorded answers come back.
+    let decided = 0;
+    const decide: Decide = async (input, questions) => {
+      const exchange = turn.decisions?.[decided++];
+      if (!exchange || canonicalJson({ input, questions }) !== canonicalJson(exchange.request)) {
+        receipt.error = `Decision request ${decided} differs from the recording; review search, the decision questions or the catalog and re-record intentionally.`;
+        throw Error(receipt.error);
+      }
+      return { model: exchange.response.model, answers: new Map(exchange.response.answers.map(answer => [answer.name, answer])) };
+    };
+    const handler = createEducationChatHandler({ getCorpus: async () => corpus, getVisuals: async () => catalog, decide, model: gateway(model) });
     const response = await handler(request);
     void response.clone().text().then(sse => { receipt.sse = sse; }).catch(() => { receipt.error ??= "The handler stream did not complete"; });
     response.headers.set("x-oncoguide-e2e-id", id);

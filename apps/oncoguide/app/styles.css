@@ -108,6 +108,46 @@ button { cursor: pointer; }
 .session-chat .edu-chat-section-card h3 { display: flex; gap: 8px; justify-content: space-between; align-items: start; font-size: 14px; line-height: 1.5; margin: 8px 0; }
 .edu-chat-section-card h3 svg { flex-shrink: 0; margin-top: 3px; }
 .session-chat .edu-chat-section-card p { font-size: 12px; line-height: 1.6; color: var(--text-muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.edu-chat-visuals { display: grid; gap: 12px; }
+.edu-chat-visual { margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--background); min-width: 0; }
+.edu-chat-visual > img { display: block; width: 100%; max-height: 380px; object-fit: contain; cursor: zoom-in; border-radius: 6px; }
+.edu-chat-visual > img:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.edu-chat-visual .wiki-markdown { overflow-x: auto; }
+.edu-chat-visual .mermaid-diagram { margin: 0; }
+.edu-chat-visual .mermaid-diagram svg { display: block; margin: 0 auto; max-width: 100%; max-height: 420px; width: auto; height: auto; }
+.session-chat .edu-chat-visual figcaption { margin-top: 10px; font-size: 13px; line-height: 1.55; }
+.edu-chat-visual-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-top: 8px; }
+.edu-chat-visual-foot > a { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); }
+.edu-chat-visual-foot > a:hover { color: var(--brand); }
+.edu-chat-visual-actions { display: inline-flex; gap: 6px; }
+.edu-visual-action { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-muted); font-size: 12px; line-height: 1.4; cursor: pointer; }
+.edu-visual-action:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
+.edu-visual-action:disabled { opacity: 0.5; cursor: default; }
+.edu-visual-action:focus-visible, .edu-chat-followups button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.session-chat-text > .edu-chat-visual { margin: 14px 0; }
+.edu-visual-dialog { width: min(1100px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--background); color: var(--foreground); }
+.edu-visual-dialog::backdrop { background: rgb(0 0 0 / 0.6); }
+.edu-visual-dialog-body { padding: 16px 20px 20px; overflow: auto; max-height: calc(100vh - 50px); }
+.edu-visual-dialog header { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+.edu-visual-dialog header button { flex-shrink: 0; display: inline-flex; padding: 6px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+.edu-visual-dialog .wiki-markdown { overflow-x: auto; }
+.edu-visual-dialog .mermaid-diagram { margin: 0; }
+.edu-visual-dialog .mermaid-diagram svg { display: block; margin: 0 auto; width: 100%; height: auto; max-height: calc(100vh - 160px); }
+.edu-chat-lesson { margin: 0 0 4px; padding: 14px 16px; border: 1px solid var(--border); border-left: 3px solid var(--brand); border-radius: 9px; background: var(--sidebar-bg); }
+.edu-chat-lesson-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.edu-chat-lesson-head > a { display: inline-flex; align-items: center; gap: 5px; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.edu-chat-level { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 11px; line-height: 1.5; color: var(--text-muted); text-transform: capitalize; }
+.session-chat .edu-chat-lesson p { margin: 8px 0 0; font-size: 13px; line-height: 1.6; }
+.session-chat .edu-chat-lesson .edu-chat-path { color: var(--text-muted); }
+.edu-chat-lesson-links { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.edu-chat-lesson-links > span { color: var(--text-muted); }
+.edu-chat-lesson a { color: var(--brand); text-decoration: none; }
+.edu-chat-lesson a:hover { text-decoration: underline; }
+.edu-chat-followups { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.edu-chat-followups button { padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--background); color: var(--foreground); font-size: 13px; line-height: 1.4; cursor: pointer; }
+.edu-chat-followups button:hover { border-color: var(--brand); color: var(--brand); }
+.edu-visual-loading { height: 160px; border-radius: 6px; background: var(--sidebar-bg); }
+.edu-visual-missing { margin: 0; font-size: 13px; color: var(--text-muted); }
 .edu-chat-illustrations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .edu-chat-illustration { display: block; margin: 0; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; text-decoration: none; }
 .edu-chat-illustration:hover { border-color: var(--brand); }
@@ -226,6 +266,9 @@ button { cursor: pointer; }
 .edu-talk-board-figure .wiki-markdown { overflow-x: auto; }
 .edu-talk-board-figure .mermaid-diagram { margin: 0; }
 .edu-talk-board-figure .mermaid-diagram svg { display: block; margin: 0 auto; max-width: 100%; max-height: 460px; width: auto; height: auto; }
+.edu-talk-board-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.edu-talk-pointed { outline: 3px solid var(--brand); outline-offset: 6px; border-radius: 6px; transition: outline-color 0.3s ease; scroll-margin: 90px; }
+@media (prefers-reduced-motion: reduce) { .edu-talk-pointed { transition: none; } }
 .edu-talk-board-figure figcaption { margin-top: 12px; font-size: 14px; line-height: 1.5; font-weight: 500; }
 .edu-talk-board-source { margin: 10px 0 0; font-size: 12px; color: var(--text-muted); }
 .edu-talk-board-source a { display: inline-flex; align-items: center; gap: 3px; color: var(--brand); text-underline-offset: 3px; }

@@ -1,4 +1,4 @@
-import { searchEducation, type EducationCorpus, type EducationSection } from "@oncobase/education/chat";
+import { searchEducation, type EducationCorpus, type EducationSection, type LessonNames } from "@oncobase/education/chat";
 
 /** The contract for OncoGuide Talk, shared by the server that opens a Realtime
  * call and the browser that answers its tool calls. Readers cannot pick a
@@ -76,11 +76,11 @@ const summarize = (section: EducationSection, maxText: number) => ({
 
 /** Run a read-only library tool against the same public corpus and ranking as
  * chat. Returns undefined for tools that the caller handles itself. */
-export function runTalkLibraryTool(corpus: EducationCorpus, name: string, args: Record<string, unknown>) {
+export function runTalkLibraryTool(corpus: EducationCorpus, name: string, args: Record<string, unknown>, lessons?: LessonNames[]) {
   const text = (key: string) => typeof args[key] === "string" ? (args[key] as string).slice(0, 500) : "";
   switch (name) {
     case "search_education": {
-      const results = searchEducation(corpus.sections, text("query"), 5).map(section => summarize(section, 800));
+      const results = searchEducation(corpus.sections, text("query"), 5, { lessons }).map(section => summarize(section, 800));
       return { results, note: results.length ? SPOKEN_REMINDER : "Nothing in the library matched. Try other terms, or say it is not covered." };
     }
     case "read_section": {

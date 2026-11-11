@@ -1,6 +1,6 @@
-import { searchEducation, type EducationCorpus, type EducationSection } from "@oncobase/education/chat";
+import type { EducationCorpus, EducationSection } from "@oncobase/education/chat";
 import { normalizeEducationPath } from "@oncobase/education/talk";
-import type { TalkVisual } from "@oncobase/education/talk-visuals";
+import { searchVisuals, visualCaption, type EducationVisual } from "@oncobase/education/visuals";
 import type { BoardCard, BoardSource } from "./talk-store";
 
 /** What a call can put on the board beside the conversation. The board gets its
@@ -49,22 +49,12 @@ export const boardRequest = (instructions: string) => ({
 
 export const sourceOf = (section: EducationSection): BoardSource => ({ sectionId: section.id, href: section.href, pageTitle: section.pageTitle });
 
-type AnyVisual = Pick<TalkVisual, "id" | "sectionId" | "pageTitle" | "heading" | "label"> & { kind: "image" | TalkVisual["kind"] };
-
-/** Lesson visuals in one list: cartoons from the corpus plus the visuals file. */
-export function allVisuals(corpus: EducationCorpus, visuals: TalkVisual[]): AnyVisual[] {
-  const images = corpus.sections.flatMap(section => section.images.map(image => ({
-    id: image.src, kind: "image" as const, sectionId: section.id, pageTitle: section.pageTitle, heading: section.heading, label: image.alt,
-  })));
-  return [...images, ...visuals];
-}
-
 /** The lesson's own visual for a section the model chose to read: its cartoon
  * or diagram first, then the rest of the page. A table counts only if it sits in
  * that section, since a table elsewhere on the page is often about something else. */
-export function bestPageVisual(visuals: AnyVisual[], section: EducationSection, exclude: Set<string>): AnyVisual | undefined {
+export function bestPageVisual(visuals: EducationVisual[], section: EducationSection, exclude: Set<string>): EducationVisual | undefined {
   const page = normalizeEducationPath(section.id);
-  const rank = (visual: AnyVisual) => (visual.sectionId === section.id ? 0 : 4) + (visual.kind === "image" ? 0 : visual.kind === "diagram" ? 1 : 2) - (/^how it works/i.test(visual.heading) ? 1 : 0);
+  const rank = (visual: EducationVisual) => (visual.sectionId === section.id ? 0 : 4) + (visual.kind === "cartoon" ? 0 : visual.kind === "diagram" ? 1 : 2) - (/^how it works/i.test(visual.heading) ? 1 : 0);
   return visuals
     .filter(visual => !exclude.has(visual.id) && normalizeEducationPath(visual.sectionId) === page && (visual.kind !== "table" || visual.sectionId === section.id))
     .sort((a, b) => rank(a) - rank(b))[0];
@@ -73,22 +63,18 @@ export function bestPageVisual(visuals: AnyVisual[], section: EducationSection, 
 /** Visuals from the pages just retrieved come first, then the best matches for
  * what was asked. The model picks among these by their text descriptions. */
 export function visualCandidates({ visuals, query, sectionIds, exclude, limit = 8 }: {
-  visuals: AnyVisual[]; query: string; sectionIds: string[]; exclude: Set<string>; limit?: number;
-}): AnyVisual[] {
+  visuals: EducationVisual[]; query: string; sectionIds: string[]; exclude: Set<string>; limit?: number;
+}): EducationVisual[] {
   const fresh = visuals.filter(visual => !exclude.has(visual.id));
-  const order = { image: 0, diagram: 1, table: 2 };
+  const order = { cartoon: 0, diagram: 1, table: 2 };
   const direct = [...new Set(sectionIds.map(normalizeEducationPath))].flatMap(page =>
     fresh.filter(visual => normalizeEducationPath(visual.sectionId) === page).sort((a, b) => order[a.kind] - order[b.kind]));
-  const documents: EducationSection[] = fresh.map(visual => ({
-    id: visual.id, slug: `wiki/education/${visual.sectionId.replace(/[^a-zA-Z0-9_/-]/g, "-")}`, pageTitle: visual.pageTitle, heading: visual.heading,
-    href: "/education/", text: visual.label, images: [],
-  }));
-  const ranked = searchEducation(documents, query, limit).map(document => fresh.find(visual => visual.id === document.id)!);
+  const ranked = searchVisuals(fresh, query, limit);
   return [...new Map([...direct, ...ranked].map(visual => [visual.id, visual])).values()].slice(0, limit);
 }
 
-export const describeVisual = (visual: AnyVisual) =>
-  `${visual.id} | ${visual.kind === "image" ? "cartoon" : visual.kind} in "${visual.pageTitle}", section "${visual.heading}": ${visual.label}`;
+export const describeVisual = (visual: EducationVisual) =>
+  `${visual.id} | ${visual.kind} in "${visual.pageTitle}", section "${visual.heading}": ${visual.label}${visual.caption ? ` Caption: ${visual.caption.slice(0, 200)}` : ""}`;
 
 const text = (value: unknown, max: number) => typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
 const list = (value: unknown, maxItems: number, maxText: number) => Array.isArray(value) ? value.map(item => text(item, maxText)).filter(Boolean).slice(0, maxItems) : [];
@@ -97,21 +83,16 @@ const list = (value: unknown, maxItems: number, maxText: number) => Array.isArra
  * must exist in the library. Written cards must cite a section retrieved during
  * this call, so a card always links back to text the model actually received. */
 export function cardFromTool(name: string, args: Record<string, unknown>, context: {
-  corpus: EducationCorpus; visuals: TalkVisual[]; retrieved: Set<string>;
+  corpus: EducationCorpus; visuals: EducationVisual[]; retrieved: Set<string>;
 }): BoardCard | null {
   const section = (id: unknown) => context.corpus.sections.find(candidate => candidate.id === id);
   if (name === "show_visual") {
-    const id = args.visual_id;
-    const lesson = context.visuals.find(visual => visual.id === id);
-    if (lesson) {
-      const source = section(lesson.sectionId);
-      return source ? { id: lesson.id, kind: lesson.kind, html: lesson.html, caption: lesson.heading, source: sourceOf(source) } : null;
-    }
-    for (const candidate of context.corpus.sections) {
-      const image = candidate.images.find(item => item.src === id);
-      if (image) return { id: image.src, kind: "image", src: image.src, darkSrc: image.darkSrc, caption: image.alt, source: sourceOf(candidate) };
-    }
-    return null;
+    const visual = context.visuals.find(candidate => candidate.id === args.visual_id);
+    const source = visual && section(visual.sectionId);
+    if (!visual || !source) return null;
+    const caption = visualCaption(visual);
+    if (visual.kind === "cartoon") return visual.src ? { id: visual.id, kind: "image", src: visual.src, darkSrc: visual.darkSrc, alt: visual.label, caption, source: sourceOf(source) } : null;
+    return visual.fragment ? { id: visual.id, kind: visual.kind, fragment: visual.fragment, caption, source: sourceOf(source) } : null;
   }
   if (!context.retrieved.has(String(args.source_section_id))) return null;
   const source = section(args.source_section_id);

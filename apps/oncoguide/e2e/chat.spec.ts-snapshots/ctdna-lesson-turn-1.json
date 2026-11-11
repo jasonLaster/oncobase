@@ -2,28 +2,7 @@
   "gateway": [
     {
       "status": 200,
-      "text": "",
-      "tools": [
-        {
-          "name": "search_education",
-          "input": "{\"query\":\"ctDNA MRD what can blood measurement tell us detection location treatment decision viability prognosis predictive\"}"
-        },
-        {
-          "name": "search_education",
-          "input": "{\"query\":\"minimal residual disease ctDNA assay detection limit false negative positive imaging discordance\"}"
-        },
-        {
-          "name": "search_education",
-          "input": "{\"query\":\"blood result time series ctDNA interpretation date denominator limit of detection\"}"
-        }
-      ],
-      "finishReason": {
-        "unified": "tool-calls"
-      }
-    },
-    {
-      "status": 200,
-      "text": "A blood test for **ctDNA/MRD** can tell us whether the assay detected a tumor-associated molecular signal in that particular sample. Repeated results can show a **trend**—for example, whether a qualifying signal is appearing, disappearing, or changing over time. In some studied settings, a positive result is associated with a higher chance of later recurrence, so it may provide **prognostic** information (forecasting risk) [MRD: how it works](/education/concepts/measurement/liquid-biopsy/mrd/#how-it-works).\n\nIt **cannot**, by itself, tell us:\n\n- **Where** cancer is located or how much tumor is present.\n- That every detected DNA fragment came from a currently living cancer cell.\n- That a negative result proves there is no residual disease; the tumor may shed little DNA, the sample may be limited, or the signal may be below the assay’s detection limit.\n- That recurrence is certain after a positive result.\n- Which treatment will help, or that treatment should be changed based on the result alone.\n\nThink of it as a **smoke detector**, not a map: it can signal that something may be present, but it does not show the room, the size of the fire, or the best response. Interpretation must keep the sample date, assay, targets, units, denominator, and detection rule attached [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/).\n\nWould you like to explore **what a positive result means**, **what a negative result means**, or **how to compare it with imaging**?",
+      "text": "A blood-based ctDNA or MRD result tells you what a **particular assay detected in that blood sample, on that date**. Repeated samples can show whether the measured signal is rising, falling, or staying undetectable. That may provide information about molecular disease burden or change over time—especially when interpreted with the assay’s units, denominator, detection limit, and sampling schedule [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/).\n\nIt **cannot, by itself, tell you**:\n\n- where any cancer is located;\n- whether detected DNA comes from living, treatment-sensitive tumor cells;\n- whether undetectable means “no cancer anywhere”;\n- whether a scan finding is cancer or treatment-related change;\n- which treatment will help, or whether changing treatment will improve survival.\n\n[[visual:1]]\n\nIn this cartoon, the key warning is that each measured layer—or blood snapshot—answers only its own question; detection is not the same as location, biological activity, or clinical benefit. A useful way to think about it is a **smoke alarm**: a signal may warn that something needs checking, but it does not show where the fire is or prove that putting out one room’s smoke will solve the problem.\n\nWould you like to focus next on **a rising result, an undetectable result, or disagreement between ctDNA and imaging**?",
       "tools": [],
       "finishReason": {
         "unified": "stop"
@@ -31,22 +10,12 @@
     }
   ],
   "explanations": [
-    "A blood test for **ctDNA/MRD** can tell us whether the assay detected a tumor-associated molecular signal in that particular sample. Repeated results can show a **trend**—for example, whether a qualifying signal is appearing, disappearing, or changing over time. In some studied settings, a positive result is associated with a higher chance of later recurrence, so it may provide **prognostic** information (forecasting risk) [MRD: how it works](/education/concepts/measurement/liquid-biopsy/mrd/#how-it-works).\n\nIt **cannot**, by itself, tell us:\n\n- **Where** cancer is located or how much tumor is present.\n- That every detected DNA fragment came from a currently living cancer cell.\n- That a negative result proves there is no residual disease; the tumor may shed little DNA, the sample may be limited, or the signal may be below the assay’s detection limit.\n- That recurrence is certain after a positive result.\n- Which treatment will help, or that treatment should be changed based on the result alone.\n\nThink of it as a **smoke detector**, not a map: it can signal that something may be present, but it does not show the room, the size of the fire, or the best response. Interpretation must keep the sample date, assay, targets, units, denominator, and detection rule attached [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/).\n\nWould you like to explore **what a positive result means**, **what a negative result means**, or **how to compare it with imaging**?"
+    "A blood-based ctDNA or MRD result tells you what a **particular assay detected in that blood sample, on that date**. Repeated samples can show whether the measured signal is rising, falling, or staying undetectable. That may provide information about molecular disease burden or change over time—especially when interpreted with the assay’s units, denominator, detection limit, and sampling schedule [Read blood measurements as a time series](/education/molecular-profiling/06-ctdna-and-mrd/).\n\nIt **cannot, by itself, tell you**:\n\n- where any cancer is located;\n- whether detected DNA comes from living, treatment-sensitive tumor cells;\n- whether undetectable means “no cancer anywhere”;\n- whether a scan finding is cancer or treatment-related change;\n- which treatment will help, or whether changing treatment will improve survival.\n\n[[visual:1]]\n\nIn this cartoon, the key warning is that each measured layer—or blood snapshot—answers only its own question; detection is not the same as location, biological activity, or clinical benefit. A useful way to think about it is a **smoke alarm**: a signal may warn that something needs checking, but it does not show where the fire is or prove that putting out one room’s smoke will solve the problem.\n\nWould you like to focus next on **a rising result, an undetectable result, or disagreement between ctDNA and imaging**?"
   ],
   "citations": [
-    "/education/concepts/measurement/liquid-biopsy/mrd/#how-it-works",
     "/education/molecular-profiling/06-ctdna-and-mrd/"
   ],
   "sections": [
-    {
-      "id": "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway",
-      "slug": "wiki/education/molecular-profiling/06-ctdna-and-mrd",
-      "pageTitle": "Read blood measurements as a time series",
-      "heading": "Takeaway",
-      "href": "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway",
-      "images": [],
-      "excerpt": "Read a blood result with its date, assay, denominator and limit attached.\n\nNext: Build an integrated claim without skipping the clinical question."
-    },
     {
       "id": "/education/molecular-profiling/06-ctdna-and-mrd/",
       "slug": "wiki/education/molecular-profiling/06-ctdna-and-mrd",
@@ -55,6 +24,15 @@
       "href": "/education/molecular-profiling/06-ctdna-and-mrd/",
       "images": [],
       "excerpt": "A blood result is an assay-specific snapshot in a time series. Detection, location and useful intervention remain different questions.\n\nBefore you start: Circulating tumor DNA (ctDNA) and its units distinguishes fractions and concentrations"
+    },
+    {
+      "id": "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway",
+      "slug": "wiki/education/molecular-profiling/06-ctdna-and-mrd",
+      "pageTitle": "Read blood measurements as a time series",
+      "heading": "Takeaway",
+      "href": "/education/molecular-profiling/06-ctdna-and-mrd/#takeaway",
+      "images": [],
+      "excerpt": "Read a blood result with its date, assay, denominator and limit attached.\n\nNext: Build an integrated claim without skipping the clinical question."
     },
     {
       "id": "/education/cellular-therapies/06-in-vivo-delivery/#read-the-measurement-chain",
@@ -66,87 +44,42 @@
       "excerpt": "Assay card — the cells produced after administration\n\nInput and consumption: A carrier-lot aliquot tests the administered product. Blood or tissue collected at specified times samples the cells produced later. These samples represent limite"
     }
   ],
-  "illustrations": [
+  "visuals": [
     {
-      "src": "/assets/wiki/education/local-treatment-modalities/images/finite-tissue-budget-light.png",
-      "darkSrc": "/assets/wiki/education/local-treatment-modalities/images/finite-tissue-budget-dark.png",
-      "alt": "Three panels show archived tissue, sections taken onto slides, and a smaller amount of tissue remaining after use",
-      "href": "/education/local-treatment-modalities/05-tissue-and-sample-budget/#how-tissue-planning-changes-the-answer",
-      "pageTitle": "Match each measurement to its claim"
-    },
-    {
-      "src": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-light.png",
-      "darkSrc": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-dark.png",
-      "alt": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark",
-      "href": "/education/guides/personalized-cancer-vaccine/08-dosing-and-measuring-response/#match-each-assay-to-a-claim",
-      "pageTitle": "Dose a vaccine and measure its response"
-    },
-    {
-      "src": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-light.png",
-      "darkSrc": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-dark.png",
-      "alt": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement.",
-      "href": "/education/molecular-profiling/ctdna-ppm-and-mri/#two-windows-onto-different-evidence",
-      "pageTitle": "Compare blood results with imaging"
+      "id": "/education/reading-a-tumor/omics-and-multi-omics/#the-map::diagram-0",
+      "kind": "diagram",
+      "sectionId": "/education/reading-a-tumor/omics-and-multi-omics/#the-map",
+      "slug": "wiki/education/reading-a-tumor/omics-and-multi-omics",
+      "pageTitle": "Understand multi-omics, one question at a time",
+      "heading": "The map",
+      "href": "/education/reading-a-tumor/omics-and-multi-omics/#the-map",
+      "label": "Foundations: molecules and cells · DNA: change and copy state · RNA: message and form · Protein: product and state · Function: controlled response · Clinical evidence and benefit",
+      "caption": "The arrows name questions to investigate. A measured box does not guarantee the next one. Check cell identity, location and sample time at every layer. Blood time series add repeated assay-specific snapshots; eligibility and benefit still need their own clinical evidence. Use the lesson table for each linked step.",
+      "fragment": "/visuals/9db2cf126cdf4e08.json",
+      "marker": "[[visual:1]]"
     }
   ],
+  "illustrations": [],
   "finishReason": "stop",
   "errors": [],
   "rendered": {
     "explanation": [
-      "A blood test for ctDNA/MRD can tell us whether the assay detected a tumor-associated molecular signal in that particular sample. Repeated results can show a trend—for example, whether a qualifying signal is appearing, disappearing, or changing over time. In some studied settings, a positive result is associated with a higher chance of later recurrence, so it may provide prognostic information (forecasting risk) MRD: how it works. It cannot, by itself, tell us: Where cancer is located or how much tumor is present. That every detected DNA fragment came from a currently living cancer cell. That a negative result proves there is no residual disease; the tumor may shed little DNA, the sample may be limited, or the signal may be below the assay’s detection limit. That recurrence is certain after a positive result. Which treatment will help, or that treatment should be changed based on the result alone. Think of it as a smoke detector, not a map: it can signal that something may be present, but it does not show the room, the size of the fire, or the best response. Interpretation must keep the sample date, assay, targets, units, denominator, and detection rule attached Read blood measurements as a time series. Would you like to explore what a positive result means, what a negative result means, or how to compare it with imaging?"
+      "A blood-based ctDNA or MRD result tells you what a particular assay detected in that blood sample, on that date. Repeated samples can show whether the measured signal is rising, falling, or staying undetectable. That may provide information about molecular disease burden or change over time—especially when interpreted with the assay’s units, denominator, detection limit, and sampling schedule Read blood measurements as a time series. It cannot, by itself, tell you: where any cancer is located; whether detected DNA comes from living, treatment-sensitive tumor cells; whether undetectable means “no cancer anywhere”; whether a scan finding is cancer or treatment-related change; which treatment will help, or whether changing treatment will improve survival.",
+      "In this cartoon, the key warning is that each measured layer—or blood snapshot—answers only its own question; detection is not the same as location, biological activity, or clinical benefit. A useful way to think about it is a smoke alarm: a signal may warn that something needs checking, but it does not show where the fire is or prove that putting out one room’s smoke will solve the problem. Would you like to focus next on a rising result, an undetectable result, or disagreement between ctDNA and imaging?"
     ],
     "citations": [
-      {
-        "text": "MRD: how it works",
-        "href": "/education/concepts/measurement/liquid-biopsy/mrd/#how-it-works"
-      },
       {
         "text": "Read blood measurements as a time series",
         "href": "/education/molecular-profiling/06-ctdna-and-mrd/"
       }
     ],
-    "cartoons": [
+    "visuals": [
       {
-        "caption": "Three panels show archived tissue, sections taken onto slides, and a smaller amount of tissue remaining after use",
-        "href": "/education/local-treatment-modalities/05-tissue-and-sample-budget/#how-tissue-planning-changes-the-answer",
-        "images": [
-          {
-            "src": "/assets/wiki/education/local-treatment-modalities/images/finite-tissue-budget-light.png",
-            "alt": "Three panels show archived tissue, sections taken onto slides, and a smaller amount of tissue remaining after use"
-          },
-          {
-            "src": "/assets/wiki/education/local-treatment-modalities/images/finite-tissue-budget-dark.png",
-            "alt": "Three panels show archived tissue, sections taken onto slides, and a smaller amount of tissue remaining after use"
-          }
-        ]
-      },
-      {
-        "caption": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark",
-        "href": "/education/guides/personalized-cancer-vaccine/08-dosing-and-measuring-response/#match-each-assay-to-a-claim",
-        "images": [
-          {
-            "src": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-light.png",
-            "alt": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark"
-          },
-          {
-            "src": "/assets/wiki/education/guides/personalized-cancer-vaccine/images/immune-assay-questions-dark.png",
-            "alt": "Four panels show a T cell binding a test reagent, releasing signals, killing in a lab dish, and a separate clinical comparison with a question mark"
-          }
-        ]
-      },
-      {
-        "caption": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement.",
-        "href": "/education/molecular-profiling/ctdna-ppm-and-mri/#two-windows-onto-different-evidence",
-        "images": [
-          {
-            "src": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-light.png",
-            "alt": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement."
-          },
-          {
-            "src": "/assets/wiki/education/molecular-profiling/images/blood-and-imaging-windows-v2-dark.png",
-            "alt": "Two stacked physical scenes compare DNA fragments outside cells in a finite plasma sample with a diffuse imaging feature inside the examined breast MRI region; no individual cancer cell is shown in either measurement."
-          }
-        ]
+        "kind": "diagram",
+        "caption": "The arrows name questions to investigate. A measured box does not guarantee the next one. Check cell identity, location and sample time at every layer. Blood time series add repeated assay-specific snapshots; eligibility and benefit still need their own clinical evidence. Use the lesson table for each linked step.",
+        "lesson": "/education/reading-a-tumor/omics-and-multi-omics/#the-map",
+        "images": [],
+        "markup": "svg"
       }
     ]
   }

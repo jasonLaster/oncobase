@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { buildEducationCorpus } from "@oncobase/education/chat-index";
+import { buildEducationVisuals } from "@oncobase/education/visual-index";
 import { TalkConversation, type TalkView } from "./talk-conversation";
 import { visualCandidates } from "./talk-board";
 import type { BoardCard } from "./talk-store";
@@ -234,17 +235,19 @@ test("nothing is sent after the call closes", async () => {
 });
 
 // The board: the chat page's replacement for a transcript.
-const boardCorpus = buildEducationCorpus([
+const boardPages = [
   { slug: "wiki/education/adcs", title: "Antibody-drug conjugates", html: '<h2 id="payload">The payload</h2><p>An antibody drug conjugate delivers a toxic payload.</p><img src="/assets/wiki/education/images/adc-light.png" alt="ADC cartoon of an antibody carrying a payload">' },
-], "commit-a");
-const diagramVisual = { id: "/education/adcs/#payload::diagram-0", sectionId: "/education/adcs/#payload", slug: "wiki/education/adcs", pageTitle: "Antibody-drug conjugates", heading: "The payload", href: "/education/adcs/#payload", kind: "diagram" as const, label: "Antibody · Linker · Payload", html: "<svg></svg>" };
+];
+const boardCorpus = buildEducationCorpus(boardPages, "commit-a");
+const [cartoonVisual] = buildEducationVisuals(boardPages, "commit-a").catalog.visuals;
+const diagramVisual = { id: "/education/adcs/#payload::diagram-0", sectionId: "/education/adcs/#payload", slug: "wiki/education/adcs", pageTitle: "Antibody-drug conjugates", heading: "The payload", href: "/education/adcs/#payload", kind: "diagram" as const, label: "Antibody · Linker · Payload", caption: "", fragment: "/visuals/0123456789abcdef.json" };
 
 function boardHarness(path = "/education/chat/", typed = "") {
   const sent: TalkEvent[] = [];
   const cards: BoardCard[] = [];
   const conversation = new TalkConversation({
     send: event => sent.push(event), navigate: () => {}, corpus: async () => boardCorpus, onChange: () => {},
-    visuals: async () => [diagramVisual], onBoardCards: added => cards.push(...added), boardCardIds: () => new Set(cards.map(card => card.id)), typedHistory: () => typed,
+    visuals: async () => [cartoonVisual!, diagramVisual], onBoardCards: added => cards.push(...added), boardCardIds: () => new Set(cards.map(card => card.id)), typedHistory: () => typed,
   }, path);
   const spokenReply = async () => { conversation.handle({ type: "response.done", response: { status: "completed", output: [{ type: "message" }] } }); await settle(); };
   const tool = async (name: string, args: unknown, callId = name) => { conversation.handle({ type: "response.done", response: { status: "completed", output: [{ type: "function_call", call_id: callId, name, arguments: JSON.stringify(args) }] } }); await settle(); };
@@ -419,4 +422,33 @@ test("a call started from chat carries over typed turns as background", async ()
   elsewhere.conversation.handle({ type: "session.created" });
   await settle();
   expect(elsewhere.notes().join(" ")).not.toContain("What is a payload");
+});
+
+test("on the lesson being read, the page itself scrolls to the section and the voice is told", async () => {
+  const sent: TalkEvent[] = [];
+  const pointed: string[] = [];
+  const conversation = new TalkConversation({
+    send: event => sent.push(event), navigate: () => {}, corpus: async () => boardCorpus, onChange: () => {},
+    pointAt: section => { pointed.push(section.id); return "visual"; },
+  }, "/education/adcs/");
+  conversation.handle({ type: "session.created" });
+  await settle();
+  conversation.handle({ type: "response.done", response: { status: "completed", output: [{ type: "function_call", call_id: "r", name: "read_section", arguments: JSON.stringify({ section_id: "/education/adcs/#payload" }) }] } });
+  await settle();
+  expect(pointed).toEqual(["/education/adcs/#payload"]);
+  const output = sent.find(event => (event as { item?: { call_id?: string } }).item?.call_id === "r") as unknown as { item: { output: string } };
+  expect(JSON.parse(output.item.output).on_screen).toContain("the picture there is highlighted");
+  // No prompt to open a page the reader is already on.
+  expect(JSON.parse(output.item.output).page_prompt).toBeUndefined();
+});
+
+test("tapping a board card asks the voice to explain that card from its lesson section", async () => {
+  const board = boardHarness();
+  await board.tool("read_section", { section_id: "/education/adcs/#payload" }, "r1");
+  const before = board.sent.length;
+  board.conversation.askAbout(board.cards[0]!);
+  const [note, reply] = board.sent.slice(before) as Array<{ type: string; item?: { content: Array<{ text: string }> } }>;
+  expect(note!.item!.content[0]!.text).toContain("tapped the cartoon");
+  expect(note!.item!.content[0]!.text).toContain("/education/adcs/#payload");
+  expect(reply!.type).toBe("response.create");
 });

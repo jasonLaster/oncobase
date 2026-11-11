@@ -1,0 +1,85 @@
+{
+  "gateway": [
+    {
+      "status": 200,
+      "text": "[[visual:1]]\n\nThis diagram shows DNA repair as a **sequence of jobs**:\n\n1. **DNA lesion** — DNA has a physical or chemical problem, such as a damaged base, a bulky distortion, a copying mismatch, or a break in both strands.\n2. **Recognition and signaling** — The cell detects the problem and activates signaling proteins. This broader detection-and-coordination system is called the **DNA damage response (DDR)**.\n3. **Repair route** — The cell selects a pathway suited to the damage. For example, base excision repair handles an altered individual base; mismatch repair corrects copying errors; homologous recombination can use a matching template to repair certain double-strand breaks.\n4. **Checkpoint response** — A checkpoint may pause the cell cycle, giving the repair machinery time to work.\n5. **Assess the outcome** — The cell determines what happened next: the damage may be repaired, temporarily tolerated, or lead to stopped division or cell death.\n\nThe key point is that a warning signal or checkpoint marker shows that damage was detected—not necessarily that repair succeeded [How it works](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you like to follow one example—**a copying mismatch** or **a double-strand break**?",
+      "tools": [],
+      "finishReason": {
+        "unified": "stop"
+      }
+    }
+  ],
+  "explanations": [
+    "[[visual:1]]\n\nThis diagram shows DNA repair as a **sequence of jobs**:\n\n1. **DNA lesion** — DNA has a physical or chemical problem, such as a damaged base, a bulky distortion, a copying mismatch, or a break in both strands.\n2. **Recognition and signaling** — The cell detects the problem and activates signaling proteins. This broader detection-and-coordination system is called the **DNA damage response (DDR)**.\n3. **Repair route** — The cell selects a pathway suited to the damage. For example, base excision repair handles an altered individual base; mismatch repair corrects copying errors; homologous recombination can use a matching template to repair certain double-strand breaks.\n4. **Checkpoint response** — A checkpoint may pause the cell cycle, giving the repair machinery time to work.\n5. **Assess the outcome** — The cell determines what happened next: the damage may be repaired, temporarily tolerated, or lead to stopped division or cell death.\n\nThe key point is that a warning signal or checkpoint marker shows that damage was detected—not necessarily that repair succeeded [How it works](/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works).\n\nWould you like to follow one example—**a copying mismatch** or **a double-strand break**?"
+  ],
+  "citations": [
+    "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
+  ],
+  "sections": [
+    {
+      "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
+      "pageTitle": "DNA damage and repair: an overview",
+      "heading": "How it works",
+      "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "images": [],
+      "excerpt": "The route depends on the problem. This is a map of major jobs, rather than an exhaustive list. Alberts 2002, Brown 2002.\n\nProblem\tA repair routeAn altered individual base\tBase excision repair (BER) removes the damaged base and rebuilds the "
+    },
+    {
+      "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#in-one-sentence",
+      "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
+      "pageTitle": "DNA damage and repair: an overview",
+      "heading": "In one sentence",
+      "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#in-one-sentence",
+      "images": [],
+      "excerpt": "DNA repair is a collection of processes that recognize and correct damage to genetic material, with different routes for different kinds of damage."
+    },
+    {
+      "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition",
+      "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
+      "pageTitle": "DNA damage and repair: an overview",
+      "heading": "The intuition",
+      "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#the-intuition",
+      "images": [],
+      "excerpt": "Picture a library with several repair teams: one fixes a damaged letter, another replaces a stained strip, and another reconnects a torn page. Cells likewise need several ways to maintain deoxyribonucleic acid (DNA). The analogy stops at th"
+    }
+  ],
+  "visuals": [
+    {
+      "id": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works::diagram-0",
+      "kind": "diagram",
+      "sectionId": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "slug": "wiki/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview",
+      "pageTitle": "DNA damage and repair: an overview",
+      "heading": "How it works",
+      "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+      "label": "DNA lesion · Recognition and signaling · Repair route · Checkpoint response · Assess the outcome",
+      "caption": "",
+      "fragment": "/visuals/acc1135c750bc001.json",
+      "marker": "[[visual:1]]"
+    }
+  ],
+  "illustrations": [],
+  "finishReason": "stop",
+  "errors": [],
+  "rendered": {
+    "explanation": [
+      "This diagram shows DNA repair as a sequence of jobs: DNA lesion — DNA has a physical or chemical problem, such as a damaged base, a bulky distortion, a copying mismatch, or a break in both strands. Recognition and signaling — The cell detects the problem and activates signaling proteins. This broader detection-and-coordination system is called the DNA damage response (DDR). Repair route — The cell selects a pathway suited to the damage. For example, base excision repair handles an altered individual base; mismatch repair corrects copying errors; homologous recombination can use a matching template to repair certain double-strand breaks. Checkpoint response — A checkpoint may pause the cell cycle, giving the repair machinery time to work. Assess the outcome — The cell determines what happened next: the damage may be repaired, temporarily tolerated, or lead to stopped division or cell death. The key point is that a warning signal or checkpoint marker shows that damage was detected—not necessarily that repair succeeded How it works. Would you like to follow one example—a copying mismatch or a double-strand break?"
+    ],
+    "citations": [
+      {
+        "text": "How it works",
+        "href": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works"
+      }
+    ],
+    "visuals": [
+      {
+        "kind": "diagram",
+        "caption": "How it works",
+        "lesson": "/education/concepts/cancer-biology/genome-instability-and-repair/dna-damage-and-repair-overview/#how-it-works",
+        "images": [],
+        "markup": "svg"
+      }
+    ]
+  }
+}

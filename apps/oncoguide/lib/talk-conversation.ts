@@ -1,7 +1,7 @@
-import type { EducationCorpus, EducationSection } from "@oncobase/education/chat";
+import type { EducationCorpus, EducationSection, LessonNames } from "@oncobase/education/chat";
 import { lessonAtPath, normalizeEducationPath, runTalkLibraryTool, TALK_BOARD_PATH, TALK_GREETING_INSTRUCTIONS } from "@oncobase/education/talk";
-import type { TalkVisual } from "@oncobase/education/talk-visuals";
-import { allVisuals, bestPageVisual, boardInstructions, boardRequest, cardFromTool, describeVisual, sourceOf, visualCandidates } from "./talk-board";
+import type { EducationVisual } from "@oncobase/education/visuals";
+import { bestPageVisual, boardInstructions, boardRequest, cardFromTool, describeVisual, sourceOf, visualCandidates } from "./talk-board";
 import type { BoardCard } from "./talk-store";
 import type { TalkEvent } from "./talk-transport";
 
@@ -49,10 +49,14 @@ export class TalkConversation {
     onChange: (view: TalkView) => void;
     onActivity?: () => void;
     /** Board support, used only on the chat page. */
-    visuals?: () => Promise<TalkVisual[]>;
+    visuals?: () => Promise<EducationVisual[]>;
     onBoardCards?: (cards: BoardCard[]) => void;
     boardCardIds?: () => Set<string>;
     typedHistory?: () => string;
+    /** Lessons' other names, so a spoken abbreviation finds its lesson. */
+    lessons?: () => Promise<LessonNames[]>;
+    /** On a lesson page, scrolls to a section and marks its visual. Says what it found. */
+    pointAt?: (section: EducationSection) => "visual" | "section" | null;
   }, path: string) { this.path = normalizeEducationPath(path); }
 
   close() { this.closed = true; }
@@ -119,6 +123,15 @@ export class TalkConversation {
       this.note(`The reader tapped Yes and is now viewing ${describe(section)}. Continue the same conversation and connect it to this page in one short sentence. Do not greet them again.`);
       this.reply();
     });
+  }
+
+  /** The reader tapped a card on the board to hear about it. */
+  askAbout(card: BoardCard) {
+    if (this.closed) return;
+    const what = "title" in card ? `the card "${card.title}"` : `the ${card.kind === "image" ? "cartoon" : card.kind} from "${card.source.pageTitle}" (${card.caption.slice(0, 200)})`;
+    this.note(`The reader tapped ${what} on the board and wants it explained. Explain what it shows in a short spoken answer, using the lesson section ${card.source.sectionId}. Read that section first if you have not.`);
+    this.deps.onActivity?.();
+    this.reply();
   }
 
   dismissSuggestion() {
@@ -197,7 +210,8 @@ export class TalkConversation {
     let corpus: EducationCorpus;
     try { corpus = await this.deps.corpus(); }
     catch { return { error: "The library could not load. Tell the reader you cannot check the lessons right now." }; }
-    const library = runTalkLibraryTool(corpus, call.name, args);
+    const lessons = call.name === "search_education" ? await this.deps.lessons?.().catch(() => undefined) : undefined;
+    const library = runTalkLibraryTool(corpus, call.name, args, lessons);
     if (library) {
       if (call.name === "search_education") {
         this.turnQuery = String(args.query ?? "");
@@ -222,7 +236,12 @@ export class TalkConversation {
       // conversation is. Offer its page here instead of hoping for a second call.
       const section = corpus.sections.find(candidate => candidate.id === args.section_id)!;
       const page = normalizeEducationPath(section.href);
-      if (page === this.path || this.declined.has(page) || this.offered.has(page)) return library;
+      if (page === this.path) {
+        // The reader is on this lesson, so the page is the board: show them the place.
+        const pointed = this.deps.pointAt?.(section);
+        return pointed ? { ...library, on_screen: `The reader's page has scrolled to "${section.heading}"${pointed === "visual" ? " and the picture there is highlighted" : ""}. Point to it in a few words as you explain.` } : library;
+      }
+      if (this.declined.has(page) || this.offered.has(page)) return library;
       this.offer(section, "");
       this.offered.add(page);
       return { ...library, page_prompt: `The reader now sees a prompt to open ${describe(section)}. End your short answer by asking in a few words if they want to go there. Do not call suggest_page for it.` };
@@ -265,7 +284,7 @@ export class TalkConversation {
     if (this.turnVisualShown) return null;
     const visuals = await this.deps.visuals?.().catch(() => []) ?? [];
     const onBoard = this.deps.boardCardIds?.() ?? new Set<string>();
-    const best = bestPageVisual(allVisuals(corpus, visuals), section, onBoard);
+    const best = bestPageVisual(visuals, section, onBoard);
     const card = best ? cardFromTool("show_visual", { visual_id: best.id }, { corpus, visuals, retrieved: this.retrieved }) : null;
     if (!card || !("caption" in card)) { this.addLessonCard(section); return null; }
     this.turnVisualShown = true;
@@ -289,7 +308,7 @@ export class TalkConversation {
       const { corpus, visuals } = await this.boardContext();
       if (this.closed) return;
       const onBoard = this.deps.boardCardIds?.() ?? new Set<string>();
-      const candidates = visualCandidates({ visuals: allVisuals(corpus, visuals), query: this.turnQuery || this.readerSaid, sectionIds: this.turnSections, exclude: onBoard });
+      const candidates = visualCandidates({ visuals, query: this.turnQuery || this.readerSaid, sectionIds: this.turnSections, exclude: onBoard });
       this.deps.send(boardRequest(boardInstructions({ candidates: candidates.map(describeVisual), retrieved: [...this.retrieved].slice(-20), onBoard: [...onBoard].slice(-20), visualShowing: this.turnVisualShown })));
     } catch { this.boardInFlight = false; }
   }
