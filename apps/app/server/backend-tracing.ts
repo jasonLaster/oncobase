@@ -264,7 +264,10 @@ export type BackendPhase = "manifest.snapshot-read"
   // API router preamble shared by every gated route.
   | "api.gate"
   // Outbound non-Convex dependencies, by peer. Never URLs or object keys.
-  | "external.blob" | "external.liveblocks" | "external.openai" | "external.ai-gateway";
+  | "external.blob" | "external.liveblocks" | "external.openai" | "external.ai-gateway"
+  // Education chat: load the library, search it, decide what to show (one
+  // `education.decide.attempt` per decision model tried), then the tutor's answer.
+  | "education.library" | "education.search" | "education.decide" | "education.decide.attempt" | "education.answer";
 
 /** Fixed names only; record phase timing without recording user data. */
 export async function traceBackendPhase<T>(name: BackendPhase, run: () => T | Promise<T>): Promise<T> {

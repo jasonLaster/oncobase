@@ -199,6 +199,14 @@ incompletely. If both fail, the tutor chooses with `search_visuals` and
 `show_visual` as before. `ONCOGUIDE_DECISION_MODELS` replaces the list; an empty
 value turns the step off.
 
+On Vercel each chat request is one trace: `wiki /api/education/chat` with child
+spans `education.library`, `education.search`, `education.decide` (one
+`education.decide.attempt` per model tried, so a fallback shows as a failed
+attempt then a successful one) and `education.answer`. The request span says
+who decided (`education.decision`, `education.decision.model`) and how much was
+shown; the answer span counts model steps and tool calls. Spans never carry the
+question, the answer or what was found.
+
 `bun --env-file=<.env.local> scripts/eval-decisions.ts --verbose` measures the
 step on current content with paid requests. Chat fixtures record each decision
 next to the model exchanges, and replay rejects a decision request that differs.

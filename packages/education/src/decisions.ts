@@ -23,8 +23,10 @@ const ResponseSchema = z.object({
 
 /** Tries each model in turn, so a model that is down, slow or refusing costs
  * one timeout and the next one answers. */
-export function createDecider({ token, models = DECISION_MODELS, fetch: send = fetch, timeoutMs = 1500 }: {
+export function createDecider({ token, models = DECISION_MODELS, fetch: send = fetch, timeoutMs = 1500, attempt = (_model, run) => run() }: {
   token: () => Promise<string | undefined> | string | undefined; models?: string[]; fetch?: typeof fetch; timeoutMs?: number;
+  /** Wraps each model's attempt, for timing. It must return what `run` returns and let its errors through. */
+  attempt?: (model: string, run: () => Promise<Decision>) => Promise<Decision>;
 }): Decide {
   return async (input, questions, signal) => {
     const bearer = await token();
@@ -32,6 +34,7 @@ export function createDecider({ token, models = DECISION_MODELS, fetch: send = f
     let failure: unknown = Error("No decision model is configured");
     for (const model of models) {
       try {
+        return await attempt(model, async () => {
         const response = await send(DECISIONS_URL, {
           method: "POST", headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model, input: [{ role: "user", content: [{ type: "input_json", data: input }] }], questions }),
@@ -42,6 +45,7 @@ export function createDecider({ token, models = DECISION_MODELS, fetch: send = f
         const answers = new Map(body.answers.flatMap(answer => answer.name && answer.type !== "refusal" ? [[answer.name, { ...answer, name: answer.name }] as const] : []));
         if (answers.size < questions.length) throw Error(`${model} left ${questions.length - answers.size} questions unanswered`);
         return { model: body.model ?? model, answers };
+        });
       } catch (error) {
         if (signal?.aborted) throw error;
         failure = error;

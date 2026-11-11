@@ -7,6 +7,7 @@ import { followUps, lessonCard } from "@oncobase/education/tutor";
 import { EducationVisualCatalogSchema, rankVisuals, visualCaption, visualForModel, type EducationVisual, type EducationVisualCatalog } from "@oncobase/education/visuals";
 import { chatTextModel } from "@oncobase/wiki-content/chat-route";
 import { runAfterResponse } from "./background";
+import { traceBackendAttributes, traceBackendPhase } from "./backend-tracing";
 
 const RequestSchema = z.object({
   messages: z.array(z.object({
@@ -103,6 +104,8 @@ const decisionModels = () => (process.env.ONCOGUIDE_DECISION_MODELS ?? DECISION_
 export const gatewayDecide: Decide = (input, questions, signal) => createDecider({
   models: decisionModels(),
   token: async () => process.env.AI_GATEWAY_API_KEY || await import("@vercel/oidc").then(({ getVercelOidcToken }) => getVercelOidcToken()).catch(() => undefined),
+  // One span per model tried, so a fallback shows as a failed attempt followed by the one that answered.
+  attempt: (model, run) => traceBackendPhase("education.decide.attempt", () => { traceBackendAttributes({ "education.decision.attempt.model": model }); return run(); }),
 })(input, questions, signal);
 
 const MAX_VISUALS = 2;
@@ -155,12 +158,14 @@ export function createEducationChatHandler({
     const messages = body.messages.map(message => ({ role: message.role, content: message.parts.filter(part => part.type === "text").map(part => part.text ?? "").join("\n") })).filter(message => message.content.trim());
     const latest = messages.at(-1);
     if (!latest || latest.role !== "user" || messages.reduce((sum, message) => sum + message.content.length, 0) > 32_000) return fail("A user question is required, within the conversation limit", 400);
+    // Spans carry fixed names, counts and model names only: never the question, the answer or what was found.
+    traceBackendAttributes({ "education.chat.turns": messages.length, "education.chat.focus": body.focusMode ?? (body.focusVisual ? "explain" : "none") });
     let corpus: EducationCorpus;
-    try { corpus = await getCorpus(); } catch { return fail("The education library couldn’t load. Please try again shortly", 503); }
+    try { corpus = await traceBackendPhase("education.library", getCorpus); } catch { return fail("The education library couldn’t load. Please try again shortly", 503); }
     if (body.contentCommit && body.contentCommit !== corpus.contentCommit) return fail("The library has changed. Please reload this page and try again", 409);
 
     // A catalog built from other content could name sections this corpus doesn't have.
-    const catalog = await getVisuals().catch(() => null);
+    const catalog = await traceBackendPhase("education.library", () => getVisuals().catch(() => null));
     const visuals = catalog?.contentCommit === corpus.contentCommit ? catalog.visuals : null;
     const lessons = visuals ? catalog!.lessons : [];
     const visualsBySection = new Map<string, EducationVisual[]>();
@@ -178,16 +183,17 @@ export function createEducationChatHandler({
     };
 
     // Keywords always. Meaning as well when the build supplied vectors and the question embeds in time.
-    const semantic = await getSemantic().then(index => index?.contentCommit === corpus.contentCommit ? index : null).catch(() => null);
+    const semantic = await traceBackendPhase("education.library", () => getSemantic().then(index => index?.contentCommit === corpus.contentCommit ? index : null).catch(() => null));
     const sectionById = semantic ? new Map(corpus.sections.map(section => [section.id, section])) : undefined;
-    const search = async (question: string, limit = 6) => {
+    const search = (question: string, limit = 6) => traceBackendPhase("education.search", async () => {
       const keyword = searchEducation(corpus.sections, question, semantic ? 12 : limit, { lessons });
       if (!semantic) return keyword;
       const vector = await embedQuery(semantic, question).catch(() => null);
       if (!vector) return keyword.slice(0, limit);
       const meaning = nearestSections(semantic, vector, 24).map(id => sectionById!.get(id)).filter((section): section is EducationSection => Boolean(section));
+      traceBackendAttributes({ "education.search.by_meaning": true });
       return blendSections(keyword, meaning, namesALesson(lessons, question), limit);
-    };
+    });
 
     const current = corpus.sections.find(section => section.slug === body.currentSlug);
     const previousQuestion = [...messages.slice(0, -1)].reverse().find(message => message.role === "user")?.content ?? "";
@@ -203,9 +209,15 @@ export function createEducationChatHandler({
     let plan: ContentPlan | null = null;
     if (decide && visuals && !focus) {
       const candidates = [...new Map([...rankVisuals(visuals, query, { limit: 8, lessons }).map(row => row.visual), ...found.slice(0, 3).flatMap(section => visualsBySection.get(section.id) ?? [])].map(visual => [visual.id, visual])).values()].slice(0, MAX_CANDIDATES);
-      plan = await decide(decisionInput(latest.content, needsContext ? context : undefined), contentQuestions(candidates, found), request.signal)
+      plan = await traceBackendPhase("education.decide", () => decide(decisionInput(latest.content, needsContext ? context : undefined), contentQuestions(candidates, found), request.signal))
         .then(decision => planContent(candidates, found, decision)).catch(() => null);
+      traceBackendAttributes({ "education.decision.candidates": candidates.length });
     }
+    // On the request's span, so traces can be filtered by who decided and what showed.
+    traceBackendAttributes({
+      "education.decision": plan ? "decided" : focus ? "tapped" : decide && visuals ? "failed" : "off",
+      ...(plan ? { "education.decision.model": plan.model, "education.decision.asked_for_figure": plan.asked, "education.visuals.shown": plan.visuals.length, "education.cards.shown": plan.cards.length } : {}),
+    });
     const relevant = focusSection ? [focusSection, ...found.filter(section => section.id !== focusSection.id)].slice(0, 6) : found;
     const pageIndex = [...new Map(corpus.sections.map(section => [section.slug, `${section.pageTitle}: ${section.slug}`])).values()].join("\n");
     const initialContext = relevant.map(section => forModel(section, 3000));
@@ -295,8 +307,18 @@ export function createEducationChatHandler({
             } : {}),
           },
         });
-        const result = await agent.stream({ messages, abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)]) });
-        writer.merge(result.toUIMessageStream({ sendStart: false, sendReasoning: false, onError: () => "The reply couldn’t finish. Please try again." }));
+        // The span covers the whole answer, which outlives the response headers.
+        await traceBackendPhase("education.answer", async () => {
+          const result = await agent.stream({ messages, abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)]) });
+          writer.merge(result.toUIMessageStream({ sendStart: false, sendReasoning: false, onError: () => "The reply couldn’t finish. Please try again." }));
+          // A reply that fails or is cut off still reports through the stream; here it only ends the span.
+          const steps = await Promise.resolve(result.steps).catch(() => null);
+          if (steps) traceBackendAttributes({
+            "education.answer.steps": steps.length, "education.answer.tool_calls": steps.reduce((sum, step) => sum + step.toolCalls.length, 0),
+            "education.answer.visuals_shown": shown.size, "education.answer.finish": steps.at(-1)?.finishReason ?? "unknown",
+          });
+          else traceBackendAttributes({ "education.answer.finish": "interrupted" });
+        });
       },
     });
     return createUIMessageStreamResponse({ stream, headers,

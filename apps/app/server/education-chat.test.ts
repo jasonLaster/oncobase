@@ -222,3 +222,49 @@ test("with a decision step the library chooses what shows, the tutor only places
   expect(failed.prompt).toContain("show_visual with its id");
   expect(failed.sent[0]!.visuals!.map(visual => visual.id)).toEqual(["/education/dna/#repair::dna"]);
 });
+
+test("a chat request traces library, search, each decision attempt and the answer, without the reader's words", async () => {
+  const { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } = await import("@opentelemetry/sdk-trace-base");
+  const { traceBackendHandler } = await import("./backend-tracing");
+  const { gatewayDecide } = await import("./education-chat");
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const realFetch = globalThis.fetch;
+  const env = { key: process.env.AI_GATEWAY_API_KEY, models: process.env.ONCOGUIDE_DECISION_MODELS };
+  process.env.AI_GATEWAY_API_KEY = "test-key";
+  process.env.ONCOGUIDE_DECISION_MODELS = "typesafe-ai/jev,openai/gpt-6-luna-decisions";
+  // Jev is down; Luna scores every figure and section as an exact match.
+  globalThis.fetch = (async (_url: unknown, init: RequestInit) => {
+    const { model, questions } = JSON.parse(String(init.body)) as { model: string; questions: Array<{ type: string; name: string }> };
+    if (model === "typesafe-ai/jev") return new Response("down", { status: 503 });
+    return Response.json({ model, answers: questions.map(question => question.type === "predicate" ? { ...question, probability: 0.9 } : { type: "score", name: question.name, score: 3 }) });
+  }) as never;
+  try {
+    const scripted = scriptedModel([[{ name: "read_section", input: { id: "/education/dna/#routes" } }]]);
+    const handle = traceBackendHandler(createEducationChatHandler({ getCorpus: async () => lessons, getVisuals: async () => fullCatalog, decide: gatewayDecide, model: scripted.model as never }), { tracer: provider.getTracer("education-test") });
+    const secret = "PRIVATE-QUESTION about DNA repair";
+    const response = await handle(new Request("https://diana-tnbc.com/api/education/chat", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://oncoguide.cc" }, body: JSON.stringify(payload(secret)) }));
+    await response!.text();
+    const spans = exporter.getFinishedSpans();
+    const named = (name: string) => spans.filter(span => span.name === name);
+    const root = named("wiki /api/education/chat")[0]!;
+    expect(root.attributes).toMatchObject({ "education.chat.turns": 1, "education.chat.focus": "none", "education.decision": "decided", "education.decision.model": "openai/gpt-6-luna-decisions", "education.visuals.shown": 2 });
+    for (const name of ["education.library", "education.search", "education.decide", "education.answer"]) expect(named(name)[0]!.parentSpanContext?.spanId).toBe(root.spanContext().spanId);
+    // The failed model and the one that answered are separate spans under the decision.
+    const attempts = named("education.decide.attempt");
+    expect(attempts.map(span => [span.attributes["education.decision.attempt.model"], span.status.code])).toEqual([["typesafe-ai/jev", 2], ["openai/gpt-6-luna-decisions", 0]]);
+    expect(attempts.every(span => span.parentSpanContext?.spanId === named("education.decide")[0]!.spanContext().spanId)).toBe(true);
+    expect(named("education.answer")[0]!.attributes).toMatchObject({ "education.answer.steps": 2, "education.answer.tool_calls": 1, "education.answer.visuals_shown": 2, "education.answer.finish": "stop" });
+    // Every span passes the sampler that keeps unreviewed spans out of Vercel.
+    expect(spans.every(span => span.attributes["oncobase.safe"] === true)).toBe(true);
+    const exported = JSON.stringify(spans.map(span => ({ name: span.name, attributes: span.attributes, events: span.events })));
+    expect(exported).not.toContain("PRIVATE");
+    expect(exported).not.toContain("DNA repair");
+    expect(exported).not.toContain("test-key");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (env.key === undefined) delete process.env.AI_GATEWAY_API_KEY; else process.env.AI_GATEWAY_API_KEY = env.key;
+    if (env.models === undefined) delete process.env.ONCOGUIDE_DECISION_MODELS; else process.env.ONCOGUIDE_DECISION_MODELS = env.models;
+    await provider.shutdown();
+  }
+});
