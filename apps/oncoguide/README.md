@@ -264,8 +264,9 @@ it and returns intact.
   Models pick visuals by id and never supply markup. Each reply adds one text
   request's tokens to the call's cost.
 
-Talk is off until `ONCOGUIDE_TALK_OPENAI_API_KEY` is set on the Oncobase server.
-**Use a key from a dedicated OpenAI project with a monthly spend limit.** Talk is
+Talk uses the Oncobase server’s existing `OPENAI_API_KEY` by default. Set
+`ONCOGUIDE_TALK_OPENAI_API_KEY` to give Talk a separate key; it takes precedence.
+A dedicated OpenAI project can give voice its own monthly spend limit. Talk is
 public and speech is costly, and the throttles (6 calls per client and 60 overall
 per 10 minutes) only apply per function instance. Idle (5 minute) and length
 (30 minute) limits run in the browser, so someone calling OpenAI's session

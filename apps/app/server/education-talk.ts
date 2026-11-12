@@ -10,11 +10,11 @@ const WINDOW_MS = 10 * 60_000;
  * only from the server, so this cannot be used as a general Realtime proxy at
  * call setup.
  *
- * Talk is public and audio is costly, so it stays off until a dedicated key is
- * configured. Use a key from an OpenAI project with a spend limit: that limit is
- * the real ceiling, since these throttles only cover one function instance. */
+ * A dedicated Talk key takes precedence over the existing server OpenAI key.
+ * A dedicated project can give voice its own spend limit; these throttles only
+ * cover one function instance. Both credentials stay on the server. */
 export function createEducationTalkHandler({
-  apiKey = () => process.env.ONCOGUIDE_TALK_OPENAI_API_KEY,
+  apiKey = () => process.env.ONCOGUIDE_TALK_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
   fetchImpl = fetch,
   allowedOrigins,
   perClientLimit = 6,

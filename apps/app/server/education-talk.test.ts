@@ -41,7 +41,7 @@ test("relays the offer with a server-defined session and returns only the answer
   expect(session.tools.map((tool: { name: string }) => tool.name)).toEqual(["search_education", "read_section", "lesson_sections", "suggest_page", "open_page", "dismiss_suggestion"]);
 });
 
-test("stays off without its dedicated key, before any upstream work", async () => {
+test("stays off without a configured key, before any upstream work", async () => {
   const { handler, calls } = harness(undefined, { apiKey: () => undefined });
   const response = await handler(request());
   expect(response.status).toBe(503);
@@ -94,4 +94,33 @@ test("hides provider errors from readers", async () => {
   const thrown = await harness(() => { throw Error("socket hang up"); }).handler(request());
   expect(thrown.status).toBe(502);
   expect(await thrown.text()).not.toContain("socket");
+});
+
+
+test("uses the existing server OpenAI key unless a dedicated Talk key is configured", async () => {
+  const savedTalkKey = process.env.ONCOGUIDE_TALK_OPENAI_API_KEY;
+  const savedOpenAIKey = process.env.OPENAI_API_KEY;
+  try {
+    delete process.env.ONCOGUIDE_TALK_OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "sk-existing-test";
+    const shared = harness(undefined, { apiKey: undefined });
+    expect((await shared.handler(request())).status).toBe(200);
+    expect(new Headers(shared.calls[0]!.init.headers).get("authorization")).toBe("Bearer sk-existing-test");
+
+    process.env.ONCOGUIDE_TALK_OPENAI_API_KEY = "sk-dedicated-test";
+    const dedicated = harness(undefined, { apiKey: undefined });
+    expect((await dedicated.handler(request())).status).toBe(200);
+    expect(new Headers(dedicated.calls[0]!.init.headers).get("authorization")).toBe("Bearer sk-dedicated-test");
+
+    delete process.env.ONCOGUIDE_TALK_OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    const missing = harness(undefined, { apiKey: undefined });
+    expect((await missing.handler(request())).status).toBe(503);
+    expect(missing.calls).toHaveLength(0);
+  } finally {
+    if (savedTalkKey === undefined) delete process.env.ONCOGUIDE_TALK_OPENAI_API_KEY;
+    else process.env.ONCOGUIDE_TALK_OPENAI_API_KEY = savedTalkKey;
+    if (savedOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = savedOpenAIKey;
+  }
 });
