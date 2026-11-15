@@ -1,0 +1,75 @@
+name: Reader Perf Lab
+
+# Loads, interactions and polling against a local stack with a synthetic
+# 2,300-page vault. See apps/app/scripts/perf-lab/README.md.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "apps/app/**"
+      - "packages/**"
+      - ".github/workflows/perf-lab.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: perf-lab-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  perf-lab:
+    name: Reader Perf Lab
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
+
+      - name: Install Playwright browsers
+        working-directory: apps/app
+        run: bunx playwright install --with-deps chromium
+
+      # Starts and stops its own local Convex stack (no secrets), publishes the
+      # synthetic vault, and measures through a gzip proxy.
+      #
+      # The budget check is report-only: runner hardware differs from the
+      # laptop the budgets were set on, and a shared runner is noisier. The
+      # step still fails if the harness breaks or a scenario never becomes
+      # ready. To make the budgets blocking once a few runs have calibrated
+      # them: set the budgets in apps/app/scripts/perf-lab/budgets.json from
+      # the medians of several CI runs (download the perf-lab-results
+      # artifacts) plus headroom, then remove --report-only below.
+      - name: Run perf lab
+        working-directory: apps/app
+        run: bun run perf:lab --report-only --out "$RUNNER_TEMP/perf-lab/results.json" --summary "$RUNNER_TEMP/perf-lab/summary.md"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/perf-lab/summary.md" ]; then cat "$RUNNER_TEMP/perf-lab/summary.md" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      # Numbers only: the JSON results and the Markdown table. No screenshots,
+      # traces or server logs (this repository is public).
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-lab-results
+          path: |
+            ${{ runner.temp }}/perf-lab/results.json
+            ${{ runner.temp }}/perf-lab/summary.md
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Stop local Convex stack
+        if: always()
+        working-directory: apps/app
+        run: bun run local:stack stop

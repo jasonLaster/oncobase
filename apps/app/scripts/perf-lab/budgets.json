@@ -1,0 +1,23 @@
+{
+  "note": "Set 2026-11-14 from laptop medians (macOS arm64, 5 load / 3 interaction iterations, two full runs) plus headroom. `baseline` is the median the budget was set from. Tighten both as fixes land. CI runs this check report-only until CI-hardware budgets are calibrated (see .github/workflows/perf-lab.yml).",
+  "budgets": {
+    "load.mobile.signed-in-cold.articleMs": {
+      "max": 8500,
+      "unit": "ms",
+      "baseline": 7423,
+      "description": "Time to article (first paragraph in the DOM), cold, signed-in, mobile profile. Run-to-run spread under 1%; ~15% headroom."
+    },
+    "load.mobile.signed-in-cold.bytesBeforeArticle": {
+      "max": 1350000,
+      "unit": "bytes",
+      "baseline": 1263382,
+      "description": "Bytes received before the article first appeared on that same load (867 KB JS in 52 files, 295 KB wasm, CSS, document, API). Nearly deterministic; ~85 KB headroom catches a real bundle regression."
+    },
+    "interaction.cpu4.navLargeLongestTaskMs": {
+      "max": 750,
+      "unit": "ms",
+      "baseline": 629,
+      "description": "Longest task while navigating by tree click to the 279 KB page (30 tables) at 4x CPU, first visit (body fetched). ~20% headroom."
+    }
+  }
+}
