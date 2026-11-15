@@ -249,6 +249,39 @@ export function WikiTree({
     }
   });
 
+  // Reveal the current page's row once per page: after a deep link, a search
+  // or an in-article link it can sit far outside the sidebar's viewport (or,
+  // virtualized, not be rendered at all). Only the nearest scroll that shows
+  // it, and never again for the same page, so it cannot fight the reader.
+  const activeIndex = useMemo(() => activeSlug ? rows.findIndex(row => row.node.slug === activeSlug && row.node.type !== "directory") : -1, [rows, activeSlug]);
+  const revealedSlug = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeIndex < 0 || !activeSlug || revealedSlug.current === activeSlug) return;
+    // After this frame's layout: the virtual list measures its offset first.
+    const frame = requestAnimationFrame(() => {
+      const scroller = rootRef.current?.parentElement;
+      if (!scroller) return;
+      // Marked only once it ran: a cancelled frame (an effect re-run) must retry.
+      revealedSlug.current = activeSlug;
+      if (virtualized) {
+        virtualizer.scrollToIndex(activeIndex, { align: "auto" });
+        return;
+      }
+      const row = rootRef.current?.querySelector<HTMLElement>(`[data-tree-index="${activeIndex}"]`);
+      if (!row) return;
+      // Scroll the sidebar only. scrollIntoView would also move every other
+      // scrollable ancestor, including the page behind an off-canvas sheet.
+      const view = scroller.getBoundingClientRect();
+      const box = row.getBoundingClientRect();
+      const margin = Math.min(48, view.height / 4);
+      if (box.top < view.top + margin) scroller.scrollTop -= view.top + margin - box.top;
+      else if (box.bottom > view.bottom - margin) scroller.scrollTop += box.bottom - (view.bottom - margin);
+    });
+    return () => cancelAnimationFrame(frame);
+    // The virtualizer instance changes every render; the index and mode decide.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, activeSlug, virtualized]);
+
   const visibleRows = virtualized
     ? virtualizer.getVirtualItems().map(item => ({ row: rows[item.index], index: item.index, start: item.start - scrollMargin }))
     : rows.map((row, index) => ({ row, index, start: 0 }));

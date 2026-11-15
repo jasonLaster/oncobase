@@ -1,5 +1,6 @@
 import { WikiMarkdown, type WikiMarkdownLinkProps } from "@oncobase/wiki-markdown";
 import { buildExampleTablesDocument } from "@oncobase/smart-table/examples";
+import { WikiPageFrame, WikiPageHeader } from "@oncobase/wiki-shell/page-chrome";
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
@@ -23,22 +24,15 @@ export function TableExamplesPage() {
   );
 
   return (
-    <div className="page-layout">
-      <article className="page-shell" data-test-id="document-article">
-        <header className="page-header">
-          <div>
-            <h1>Table Examples</h1>
-            <p>Smart table layout fixtures for reader parity checks.</p>
-          </div>
-        </header>
-        <WikiMarkdown
-          content={content}
-          currentSlug="table-examples"
-          LinkComponent={routeLink}
-          routeAdapter={routeAdapter}
-          tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
-        />
-      </article>
-    </div>
+    <WikiPageFrame className="page-shell" data-test-id="document-article">
+      <WikiPageHeader title="Table Examples" description="Smart table layout fixtures for reader parity checks." />
+      <WikiMarkdown
+        content={content}
+        currentSlug="table-examples"
+        LinkComponent={routeLink}
+        routeAdapter={routeAdapter}
+        tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
+      />
+    </WikiPageFrame>
   );
 }

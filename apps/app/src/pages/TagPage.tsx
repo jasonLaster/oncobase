@@ -4,6 +4,7 @@ import {
   type TaggedPageTreeNode,
 } from "@oncobase/wiki-content/tag-page-groups";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
+import { WikiPageFrame, WikiPageHeader } from "@oncobase/wiki-shell/page-chrome";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import { ChevronRight } from "lucide-react";
 import { useEffect, useMemo } from "react";
@@ -85,32 +86,26 @@ export function TagPage() {
 
   if (waitingForManifest) {
     return (
-      <article className="page-shell tag-page-shell" data-test-id="tag-page">
+      <WikiPageFrame className="page-shell tag-page-shell" data-test-id="tag-page">
         <WikiPageLoading
           data-test-id="page-loading"
           label="Loading page"
         />
-      </article>
+      </WikiPageFrame>
     );
   }
 
   return (
-    <article className="page-shell tag-page-shell" data-test-id="tag-page">
-      <header className="page-header">
-        <div className="wiki-shell-page-header-main">
-          <div className="wiki-shell-page-title-row">
-            <h1>Tag: {decodedTag}</h1>
-          </div>
-          <p>
-            {taggedPages.length} {taggedPages.length === 1 ? "page" : "pages"}
-          </p>
-        </div>
-      </header>
+    <WikiPageFrame className="page-shell tag-page-shell" data-test-id="tag-page">
+      <WikiPageHeader
+        title={`Tag: ${decodedTag}`}
+        description={`${taggedPages.length} ${taggedPages.length === 1 ? "page" : "pages"}`}
+      />
       {taggedPages.length === 0 ? (
         <p className="muted">No pages found with this tag.</p>
       ) : (
         <TaggedPageTree node={pageTree} />
       )}
-    </article>
+    </WikiPageFrame>
   );
 }

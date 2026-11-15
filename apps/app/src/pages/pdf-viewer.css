@@ -18,7 +18,12 @@
 .pdf-viewer-message { padding: 24px; text-align: center; line-height: 1.6; }
 .pdf-viewer-message a { text-decoration: underline; }
 .pdf-viewer-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.pdf-viewer :is(a, button, input, [tabindex]):focus-visible { outline: 2px solid var(--accent, #47765e); outline-offset: 3px; }
+/* --accent is the palette's pale tint (#eef2ff): as a focus ring it was invisible. */
+.pdf-viewer :is(a, button, input, [tabindex]):focus-visible { outline: 2px solid var(--ring, #4f46e5); outline-offset: 3px; }
+/* --bg and --text are defined nowhere, so the fallbacks above always applied
+   and dark mode drew light chrome with white-on-white button labels. */
+.dark .pdf-viewer { --bg: var(--background, #0f0f1a); --text: var(--foreground, #e5e5e5); }
+.pdf-viewer-toolbar button { color: inherit; }
 @media (max-width: 600px) {
   .pdf-viewer-header { padding: 8px 12px; gap: 12px; }
   .pdf-viewer-header h1 { font-size: 13px; }

@@ -64,7 +64,7 @@ export type WikiMermaidRendererProps = {
 };
 
 const FONT_STACK =
-  'Geist, "Geist Fallback", ui-sans-serif, system-ui, -apple-system, sans-serif';
+  'ui-sans-serif, system-ui, -apple-system, sans-serif';
 
 const MONTHS: Record<string, number> = {
   Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,

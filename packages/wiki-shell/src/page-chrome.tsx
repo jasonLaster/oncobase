@@ -58,6 +58,23 @@ export function WikiBreadcrumbs({
   );
 }
 
+export type WikiPageFrameProps = ComponentProps<"article">;
+
+/**
+ * The column every in-app page sits in: the same centered measure, gutters and
+ * top offset as a wiki article. A route that renders outside it starts flush
+ * against the sidebar with unstyled headings.
+ */
+export function WikiPageFrame({ className, children, ...props }: WikiPageFrameProps) {
+  return (
+    <div className="wiki-shell-page-frame">
+      <article className={cn("wiki-shell-document-article", className)} {...props}>
+        {children}
+      </article>
+    </div>
+  );
+}
+
 export type WikiPageHeaderProps = Omit<ComponentProps<"header">, "children" | "title"> & {
   actions?: ReactNode;
   badges?: ReactNode;

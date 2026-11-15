@@ -162,7 +162,9 @@
 }
 
 :root {
-  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+  /* Named fonts that exist: "Geist Mono" was never loaded and Chrome ignores
+     ui-monospace, so everything set in this stack fell through to Courier. */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   font-family: ui-sans-serif, system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -704,7 +706,6 @@ a {
 .wiki-vite-sidebar-workspace:hover,
 .wiki-vite-sidebar-workspace:focus-visible {
   background: var(--accent-light);
-  outline: none;
 }
 
 .wiki-vite-sidebar-workspace span:nth-child(2) {
@@ -783,7 +784,6 @@ a {
 .wiki-vite-sidebar-footer-pills button:focus-visible {
   background: var(--accent-light);
   color: var(--foreground);
-  outline: none;
 }
 
 .wiki-vite-sidebar-footer-pills kbd {
@@ -795,10 +795,6 @@ a {
   font-weight: 600;
   line-height: 1;
   padding: 2px 6px;
-}
-
-.tag-page-shell {
-  max-width: 860px;
 }
 
 .tag-tree-root,
@@ -1596,7 +1592,6 @@ a {
   .wiki-vite-mobile-page-header button:focus-visible {
     border-color: var(--brand);
     color: var(--foreground);
-    outline: none;
   }
 
   .wiki-vite-mobile-sheet-tabs {
@@ -1627,7 +1622,6 @@ a {
   .wiki-vite-mobile-sheet-tabs button.active {
     background: var(--accent-light);
     color: var(--brand);
-    outline: none;
   }
 
   .wiki-vite-mobile-outline-list {
@@ -1656,7 +1650,6 @@ a {
   .wiki-vite-mobile-outline-list button[aria-current="location"] {
     background: var(--accent-light);
     color: var(--brand);
-    outline: none;
   }
 
   .wiki-vite-mobile-outline-empty {
@@ -1818,6 +1811,48 @@ a {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  /* The one focus indicator. In the base layer so a component that draws its
+     own ring with utilities (the chat inputs) can still opt out; hand-written
+     CSS must not remove it without drawing something as visible. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Reached by script, not by Tab: the page title after a route change, and the
+   content region after "Skip to content". A ring around a whole page or its
+   heading would only be noise. */
+#main-content:focus-visible,
+#main-content h1[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
+.skip-link {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px rgb(15 23 42 / 0.16);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  left: 12px;
+  padding: 8px 12px;
+  position: fixed;
+  top: 12px;
+  transform: translateY(calc(-100% - 24px));
+  z-index: 1000;
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
   }
 }
 

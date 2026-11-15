@@ -187,7 +187,6 @@
 .wiki-shell-resizable-layout .sidebar-collapse-button:focus-visible {
   background: var(--accent-light);
   color: var(--foreground);
-  outline: none;
 }
 
 .wiki-shell-resizable-layout .sidebar-rail-button {
@@ -340,7 +339,11 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-actions-item:hover,
 .wiki-shell-actions-item:focus-visible {
   background: var(--accent-light);
-  outline: none;
+}
+
+/* Inside the menu's clipped panel: draw the ring within the row. */
+.wiki-shell-actions-item:focus-visible {
+  outline-offset: -2px;
 }
 
 .wiki-shell-actions-item:disabled,
@@ -472,7 +475,8 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-actions-auth-form input:focus-visible {
   border-color: var(--ring, var(--brand));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring, var(--brand)) 50%, transparent);
-  outline: none;
+  /* The shadow is the ring; a transparent outline keeps one in forced colors. */
+  outline: 2px solid transparent;
 }
 
 .wiki-shell-actions-auth-error {
@@ -650,7 +654,6 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-sidebar-sign-in button:hover,
 .wiki-shell-sidebar-sign-in button:focus-visible {
   background: color-mix(in srgb, var(--brand) 88%, black);
-  outline: none;
 }
 
 .wiki-shell-tree-directory,
@@ -1277,7 +1280,8 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-search-input:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent);
-  outline: 0;
+  /* The border and shadow are the ring; a transparent outline keeps one in forced colors. */
+  outline: 2px solid transparent;
 }
 
 .wiki-shell-search-submit {
@@ -1502,7 +1506,6 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-command-search button:focus-visible {
   background: var(--surface-muted);
   color: var(--foreground);
-  outline: none;
 }
 
 .wiki-shell-command-tabs {
@@ -1880,6 +1883,21 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-outline-content-inner {
   flex: 1;
   min-width: 0;
+}
+
+/* The article column for routes without the outline rail (WikiPageFrame).
+   Same measure and gutters as .wiki-shell-outline-content with the rail
+   collapsed, so a page title sits in the same place on every route. */
+.wiki-shell-page-frame {
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: 1rem 1.5rem calc(4rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  .wiki-shell-page-frame {
+    padding: 2rem 4rem 2rem 2rem;
+  }
 }
 
 .wiki-shell-document-article {

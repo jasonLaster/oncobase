@@ -22,6 +22,7 @@ import { useWikiScope, useWikiIdentityPending } from "./wiki-context";
 import { useBrowserOnline } from "./shell/ReaderStatus";
 import { PageActivity } from "./shell/PageActivity";
 import { RouteErrorBoundary } from "./shell/RouteErrorBoundary";
+import { MAIN_CONTENT_ID, RouteFocus, SkipLink } from "./shell/RouteFocus";
 import type { NavigationFreshness } from "./types";
 
 const initialMetrics: Metrics = {
@@ -156,11 +157,13 @@ export function App({
       {store ? <WikiSync onMetrics={bumpMetrics} /> : null}
       <ReaderAgentTools />
       <div className="prototype-shell" data-reader-store-ready={store ? "true" : "false"} data-reader-identity-pending={identityPending ? "true" : "false"}>
+        <SkipLink />
+        <RouteFocus />
         <SpecialRouteMetadata />
         <HeaderAuthDialogHost />
         <HeaderCommandPaletteHost />
         <ResizableAppShell sidebar={<Sidebar freshness={navigationFreshness} />}>
-          <main className="content-shell">
+          <main className="content-shell" id={MAIN_CONTENT_ID}>
             <RouteErrorBoundary>
               <Suspense fallback={<PageFallback />}>
                 <Routes>

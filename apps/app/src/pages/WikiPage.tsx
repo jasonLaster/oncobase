@@ -38,7 +38,8 @@ import {
   useState,
 } from "react";
 import type { WikiMermaidGanttMarker } from "@oncobase/wiki-markdown/mermaid";
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate, useNavigationType } from "react-router";
+import { savedScrollPosition } from "../shell/scroll-memory";
 import {
   assets$,
   pageContentBySlug$,
@@ -200,6 +201,7 @@ export const WikiPage = memo(function WikiPage({
   const initial = useInitialReaderData();
   const location = useLocation();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
   const scope = useWikiScope();
   const identity = useWikiSession();
   const identityPending = useWikiIdentityPending();
@@ -231,9 +233,11 @@ export const WikiPage = memo(function WikiPage({
     // Wait for the destination article, including delayed body fetches. Hash
     // links keep their heading target; startup and same-page updates keep position.
     if (!location.hash) {
-      document.querySelector(".content-shell")?.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      // Back and Forward return to where the reader was; a new visit starts at the top.
+      const top = navigationType === "POP" ? savedScrollPosition(location.key) ?? 0 : 0;
+      document.querySelector(".content-shell")?.scrollTo({ top, left: 0, behavior: "instant" });
     }
-  }, [displayedRouteSlug, location.hash]);
+  }, [displayedRouteSlug, location.hash, location.key, navigationType]);
   const page = useReaderQuery(pageContentBySlug$(displayedSlug), initialReaderPage(initial, displayedSlug)) as PageContentRow | null;
   const index = useReaderQuery(pageIndexBySlug$(displayedSlug), initial?.pages.find(page => page.slug === displayedSlug) ?? null) as PageIndexRow | null;
   const routeIndex = useReaderQuery(pageIndexBySlug$(slug), initial?.pages.find(page => page.slug === slug) ?? null) as PageIndexRow | null;
@@ -514,7 +518,7 @@ export const WikiPage = memo(function WikiPage({
   const isHomePage = displayedRouteSlug === "index" && page.slug === "index";
   const pageBody = (
     <>
-      <span hidden data-reader-ready={page.contentStatus === "fresh" && !routePending ? "true" : undefined} />
+      <span hidden data-reader-ready={page.contentStatus === "fresh" && !routePending ? "true" : undefined} data-route-pending={routePending ? "true" : undefined} />
       {routePending ? <PageActivity key={slug} label="Opening page…" transferSlug={slug} onRetry={retryPage} /> : null}
       {toast ? <WikiToast>{toast}</WikiToast> : null}
       {syncStatus === "error" && pageIndex.length === 0 ? (
