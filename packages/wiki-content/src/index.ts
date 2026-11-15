@@ -21,6 +21,29 @@ export type WikiScope = "public" | "session";
 export const WIKI_SESSION_CACHE_VERSION = "v1";
 export const WIKI_MANIFEST_SCHEMA_VERSION = 1 as const;
 
+/**
+ * Content-addressed reads (P11). A page or file request may carry
+ * `?v=<contentHash>` (for a page batch, one hash per slug, comma separated
+ * and in the same order). When the server finds that `v` is exactly what the
+ * requester may read right now, it answers with the long private cache and
+ * marks the response with `X-Wiki-Version: match`; any other answer is the
+ * unversioned one. The URL changes whenever the content does, so a cached
+ * response is never stale, and sign-out clears the HTTP cache.
+ */
+export const WIKI_VERSION_PARAM = "v";
+export const WIKI_VERSION_HEADER = "X-Wiki-Version";
+export const VERSIONED_PRIVATE_CACHE_CONTROL = "private, max-age=31536000, immutable";
+
+/** `url` with `v` set, or unchanged when there is no usable hash. */
+export function withContentVersion(url: string, contentHash: string | null | undefined) {
+  if (!contentHash) return url;
+  const hashIndex = url.indexOf("#");
+  const base = hashIndex === -1 ? url : url.slice(0, hashIndex);
+  const fragment = hashIndex === -1 ? "" : url.slice(hashIndex);
+  if (/[?&]v=/.test(base)) return url;
+  return `${base}${base.includes("?") ? "&" : "?"}${WIKI_VERSION_PARAM}=${encodeURIComponent(contentHash)}${fragment}`;
+}
+
 // Keep the current and N-1 reader generations together. A schema bump must
 // advance both the reader namespace and schema version, and carry the former
 // current generation into `previous`. The Vite build validates this contract
@@ -174,6 +197,12 @@ export type FetchPagesOptions = {
   cursor?: string | null;
   limit?: number;
   slugs?: string[];
+  /**
+   * The content hash the caller expects for each slug, in order. Sent as
+   * `?v=` only when every slug has one, and the request may then be answered
+   * from the HTTP cache (the URL is content-addressed).
+   */
+  versions?: (string | null | undefined)[];
 };
 
 function childSlug(parentSlug: string, name: string) {
@@ -1172,13 +1201,17 @@ export function createWikiContentClient({
         signal,
       );
     },
-    async fetchPages({ cursor, limit, slugs, signal, onProgress }: FetchPagesOptions = {}) {
+    async fetchPages({ cursor, limit, slugs, versions, signal, onProgress }: FetchPagesOptions = {}) {
       const params: Record<string, string> = { scope };
       if (cursor) params.cursor = cursor;
       if (limit) params.limit = String(limit);
       if (slugs?.length) params.slugs = slugs.join(",");
+      const versioned = Boolean(slugs?.length && !cursor && versions?.length === slugs.length &&
+        versions.every(version => typeof version === "string" && version.length > 0 && !version.includes(",")));
+      if (versioned) params[WIKI_VERSION_PARAM] = versions!.join(",");
       const url = urlWithParams(baseUrl, "/api/wiki/pages", params);
-      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials, cache, requestTimeoutMs, signal, response => readWikiJson(response, onProgress)));
+      // A versioned URL names one immutable body: let the HTTP cache answer it.
+      return parseWikiPageBatch(await fetchJson(fetchFn, url, credentials, versioned ? "default" : cache, requestTimeoutMs, signal, response => readWikiJson(response, onProgress)));
     },
   };
 }

@@ -23,8 +23,11 @@ import {
   compactWikiManifest,
   makePublicWikiSessionIdentity,
   parseWikiManifest,
+  VERSIONED_PRIVATE_CACHE_CONTROL,
   WIKI_MANIFEST_SCHEMA_VERSION,
   WIKI_SESSION_CACHE_VERSION,
+  WIKI_VERSION_HEADER,
+  WIKI_VERSION_PARAM,
 } from "./index.ts";
 
 const PUBLIC_CACHE_CONTROL =
@@ -354,6 +357,23 @@ function cacheHeaders(scope: WikiScope, etag: string) {
     ETag: `W/"${etag}"`,
     "X-Wiki-Cache-Scope": scope,
   };
+}
+
+/**
+ * P11: a versioned read answered with exactly the requested content. Only the
+ * handler that checked access and the hash builds these; the gate keeps the
+ * long cache for them alone (apps/app/server/api/gate.ts).
+ */
+export function versionedCacheHeaders(headers: Record<string, string>) {
+  const { "CDN-Cache-Control": _cdn, ...rest } = headers;
+  return { ...rest, "Cache-Control": VERSIONED_PRIVATE_CACHE_CONTROL, [WIKI_VERSION_HEADER]: "match" };
+}
+
+/** `?v=` for a slug batch: one hash per slug, in order. */
+function parseVersions(url: URL) {
+  const raw = url.searchParams.get(WIKI_VERSION_PARAM);
+  if (raw === null) return null;
+  return raw.split(",").map((value) => value.trim());
 }
 
 function provisionalManifestHeaders(scope: WikiScope, etag: string) {
@@ -1370,12 +1390,23 @@ export async function createWikiPagesResponse(
     continueCursor,
   });
 
+  // P11: the long cache only when every requested slug was served, readable,
+  // with exactly the hash the request named. A mismatch, a stub, a missing
+  // page or a list request gets today's headers.
+  const versions = parseVersions(url);
+  const versionMatch = versions !== null && slugs.length > 0 && unavailable.length === 0 &&
+    versions.length === slugs.length && pages.length === slugs.length &&
+    pages.every((page, index) => page.contentHash !== null && page.contentHash === versions[index]);
+  const headers = versionMatch
+    ? versionedCacheHeaders(cacheHeaders(scope, etag))
+    : { ...cacheHeaders(scope, etag), ...(versions !== null ? { [WIKI_VERSION_HEADER]: "mismatch" } : {}) };
+
   if (request.headers.get("if-none-match")?.includes(etag)) {
     return new Response(null, {
       status: 304,
-      headers: representationHeaders(decorate(context, cacheHeaders(scope, etag))),
+      headers: representationHeaders(decorate(context, headers)),
     });
   }
 
-  return contentResponse(request, JSON.stringify(body), decorate(context, cacheHeaders(scope, etag)));
+  return contentResponse(request, JSON.stringify(body), decorate(context, headers));
 }

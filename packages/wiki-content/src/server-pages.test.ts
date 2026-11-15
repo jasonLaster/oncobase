@@ -95,3 +95,51 @@ test("timed-out paginated work stops issuing reads after the deadline", async ()
   expect(reads - atDeadline).toBeLessThanOrEqual(1);
   expect(atDeadline).toBeGreaterThan(0);
 });
+
+// P11: content-addressed page reads.
+const YEAR = "private, max-age=31536000, immutable";
+
+test("a versioned read of exactly the readable content gets the year-long private cache", async () => {
+  const { context } = pagesContext({ _id: "reader" });
+  const response = await createWikiPagesResponse(request("scope=session&slugs=private/allowed,folder&v=a,f"), context);
+  expect(response.headers.get("Cache-Control")).toBe(YEAR);
+  expect(response.headers.get("X-Wiki-Version")).toBe("match");
+  expect(response.headers.get("CDN-Cache-Control")).toBeNull();
+  expect(response.headers.get("Vary")).toContain("Cookie");
+  expect((await response.json()).pages.map((page: { slug: string }) => page.slug)).toEqual(["private/allowed", "folder/index"]);
+});
+
+test("an unversioned read keeps today's headers", async () => {
+  const { context } = pagesContext({ _id: "reader" });
+  const response = await createWikiPagesResponse(request("scope=session&slugs=private/allowed"), context);
+  expect(response.headers.get("Cache-Control")).toBe("private, max-age=30, stale-while-revalidate=300");
+  expect(response.headers.get("X-Wiki-Version")).toBeNull();
+});
+
+for (const [label, query, user] of [
+  ["a mismatched hash", "scope=session&slugs=private/allowed&v=old", { _id: "reader" }],
+  ["a page the reader may not read", "scope=session&slugs=private/denied&v=d", { _id: "reader" }],
+  ["a restricted page on the public scope", "slugs=private/allowed&v=a", null],
+  ["a missing page", "scope=session&slugs=missing&v=x", { _id: "reader" }],
+  ["fewer hashes than slugs", "scope=session&slugs=public,folder&v=p", { _id: "reader" }],
+  ["one stale hash in a batch", "scope=session&slugs=public,folder&v=p,old", { _id: "reader" }],
+] as const) {
+  test(`${label} is answered as if unversioned`, async () => {
+    const { context } = pagesContext(user);
+    const response = await createWikiPagesResponse(request(query), context);
+    expect(response.headers.get("Cache-Control")).not.toContain("immutable");
+    expect(response.headers.get("Cache-Control")).not.toContain("31536000");
+    expect(response.headers.get("X-Wiki-Version")).toBe("mismatch");
+    const body = await response.json();
+    expect(JSON.stringify(body)).not.toContain("secret-d");
+  });
+}
+
+test("a matching versioned 304 keeps the versioned headers", async () => {
+  const { context } = pagesContext({ _id: "reader" });
+  const first = await createWikiPagesResponse(request("scope=session&slugs=private/allowed&v=a"), context);
+  const etag = first.headers.get("ETag")!;
+  const second = await createWikiPagesResponse(new Request("https://alpha.test/api/wiki/pages?scope=session&slugs=private/allowed&v=a", { headers: { "If-None-Match": etag } }), context);
+  expect(second.status).toBe(304);
+  expect(second.headers.get("Cache-Control")).toBe(YEAR);
+});

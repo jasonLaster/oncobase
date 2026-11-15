@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import {
   buildCompactTreeFromManifest,
   createWikiContentClient,
+  withContentVersion,
   expandCompactFileTree,
   assertWikiReaderCacheGenerations,
   isHiddenFileTreeAssetPath,
@@ -953,4 +954,26 @@ describe("wiki content contracts", () => {
       await new Promise<void>(resolve => server.close(() => resolve()));
     }
   });
+});
+
+test("withContentVersion appends v before the fragment and never twice", () => {
+  expect(withContentVersion("/api/file?path=a.png", "h1")).toBe("/api/file?path=a.png&v=h1");
+  expect(withContentVersion("/api/file?path=a.pdf#page=2", "h1")).toBe("/api/file?path=a.pdf&v=h1#page=2");
+  expect(withContentVersion("/api/file?path=a.png&v=old", "h1")).toBe("/api/file?path=a.png&v=old");
+  expect(withContentVersion("/api/file?path=a.png", null)).toBe("/api/file?path=a.png");
+});
+
+test("fetchPages sends v only when every slug has a hash, and lets the HTTP cache answer it", async () => {
+  const calls: Array<{ url: string; cache?: RequestCache }> = [];
+  const batch = { siteSlug: "s", generatedAt: "now", scope: "session", pages: [], isDone: true, continueCursor: null };
+  const client = createWikiContentClient({ scope: "session", fetch: (async (url: string, init?: RequestInit) => {
+    calls.push({ url, cache: init?.cache });
+    return Response.json(batch);
+  }) as typeof fetch });
+  await client.fetchPages({ slugs: ["a", "b"], versions: ["h1", "h2"] });
+  await client.fetchPages({ slugs: ["a", "b"], versions: ["h1", null] });
+  await client.fetchPages({ slugs: ["a"] });
+  expect(calls[0]).toEqual({ url: "/api/wiki/pages?scope=session&slugs=a%2Cb&v=h1%2Ch2", cache: "default" });
+  expect(calls[1]).toEqual({ url: "/api/wiki/pages?scope=session&slugs=a%2Cb", cache: "no-cache" });
+  expect(calls[2]).toEqual({ url: "/api/wiki/pages?scope=session&slugs=a", cache: "no-cache" });
 });
