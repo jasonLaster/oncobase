@@ -29,7 +29,7 @@ permissions:
 jobs:
   static:
     name: Vite Static
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
@@ -46,7 +46,7 @@ jobs:
 
   unit:
     name: Vite Unit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
@@ -63,7 +63,7 @@ jobs:
 
   server:
     name: Vite Server
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -107,7 +107,7 @@ jobs:
 
   preview-url:
     name: Resolve Vite Deployment URL
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       url: ${{ steps.resolve.outputs.url }}
     steps:
@@ -178,7 +178,7 @@ jobs:
 
   e2e-preview:
     name: Vite E2E (Deployed ${{ matrix.shard }}/4)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: preview-url
     strategy:
@@ -224,7 +224,7 @@ jobs:
 
   browser-smoke:
     name: Vite Browser Smoke (${{ matrix.browser }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: preview-url
     strategy:
