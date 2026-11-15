@@ -17,6 +17,7 @@
     "content:copy": "bun scripts/copy-content.ts"
   },
   "dependencies": {
+    "@oncobase/safe-storage": "workspace:*",
     "@oncobase/education": "workspace:*",
     "@oncobase/wiki-content": "workspace:*",
     "@oncobase/wiki-markdown": "workspace:*",

@@ -54,6 +54,7 @@
     "local:chat-audit": "bun scripts/local-chat-audit.ts"
   },
   "dependencies": {
+    "@oncobase/safe-storage": "workspace:*",
     "@liveblocks/client": "^3.18.1",
     "@liveblocks/node": "^3.18.1",
     "@liveblocks/react": "^3.18.1",

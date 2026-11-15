@@ -12,6 +12,7 @@ Reusable Oncobase code lives at the repository top level under `packages/`. Apps
 | [`@oncobase/wiki-comments`](wiki-comments/README.md) | Liveblocks-backed document comments, page timeline helpers, and thread metadata utilities. |
 | [`@oncobase/smart-table`](smart-table/README.md) | Adaptive markdown/prose tables with sizing, resize handles, and overlay expansion. |
 | [`@oncobase/chat`](chat/README.md) | Configurable full-stack chat UI, route helpers, runtime provider, and Convex persistence adapters. |
+| [`@oncobase/safe-storage`](safe-storage/README.md) | Never-throwing `localStorage`/`sessionStorage` facades; the only module allowed to touch Web Storage directly. |
 
 ## Boundary Rule
 

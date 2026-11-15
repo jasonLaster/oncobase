@@ -98,6 +98,7 @@
     "test:unit": "bun test ./src"
   },
   "dependencies": {
+    "@oncobase/safe-storage": "workspace:*",
     "@oncobase/chat": "workspace:*",
     "@tanstack/react-virtual": "3.13.24",
     "fuzzysort": "^3.1.0"

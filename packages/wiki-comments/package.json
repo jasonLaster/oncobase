@@ -66,6 +66,7 @@
     "test:unit": "bun test ./src"
   },
   "dependencies": {
+    "@oncobase/safe-storage": "workspace:*",
     "@oncobase/wiki-shell": "workspace:*"
   },
   "peerDependencies": {

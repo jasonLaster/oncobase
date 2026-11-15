@@ -40,6 +40,7 @@
         "@oncobase/diagnostics": "workspace:*",
         "@oncobase/education": "workspace:*",
         "@oncobase/oncobase": "workspace:*",
+        "@oncobase/safe-storage": "workspace:*",
         "@oncobase/smart-table": "workspace:*",
         "@oncobase/wiki-comments": "workspace:*",
         "@oncobase/wiki-content": "workspace:*",
@@ -105,6 +106,7 @@
       "dependencies": {
         "@oncobase/chat": "workspace:*",
         "@oncobase/education": "workspace:*",
+        "@oncobase/safe-storage": "workspace:*",
         "@oncobase/smart-table": "workspace:*",
         "@oncobase/wiki-content": "workspace:*",
         "@oncobase/wiki-markdown": "workspace:*",
@@ -134,6 +136,7 @@
       "dependencies": {
         "@ai-sdk/react": "^3.0.149",
         "@base-ui/react": "^1.3.0",
+        "@oncobase/safe-storage": "workspace:*",
         "ai": "^6.0.168",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -165,6 +168,7 @@
         "@cornerstonejs/core": "^4.22.13",
         "@cornerstonejs/dicom-image-loader": "^4.22.13",
         "@cornerstonejs/tools": "^4.22.13",
+        "@oncobase/safe-storage": "workspace:*",
         "@oncobase/wiki-shell": "workspace:*",
         "dicom-parser": "^1.8.21",
         "lucide-react": "^1.11.0",
@@ -224,6 +228,14 @@
         "typescript": "^5",
       },
     },
+    "packages/safe-storage": {
+      "name": "@oncobase/safe-storage",
+      "version": "0.1.0",
+      "devDependencies": {
+        "bun-types": "^1.3.12",
+        "typescript": "^5",
+      },
+    },
     "packages/smart-table": {
       "name": "@oncobase/smart-table",
       "version": "0.1.0",
@@ -232,6 +244,7 @@
         "clsx": "^2.1.1",
       },
       "devDependencies": {
+        "@oncobase/safe-storage": "workspace:*",
         "@types/react": "^19",
         "@types/react-dom": "^19",
         "bun-types": "^1.3.12",
@@ -247,6 +260,7 @@
       "name": "@oncobase/wiki-comments",
       "version": "0.1.0",
       "dependencies": {
+        "@oncobase/safe-storage": "workspace:*",
         "@oncobase/wiki-shell": "workspace:*",
       },
       "devDependencies": {
@@ -281,6 +295,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@base-ui/react": "^1.3.0",
+        "@oncobase/safe-storage": "workspace:*",
         "@oncobase/smart-table": "workspace:*",
         "beautiful-mermaid": "^1.1.3",
         "entities": "6.0.1",
@@ -314,6 +329,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@oncobase/chat": "workspace:*",
+        "@oncobase/safe-storage": "workspace:*",
         "@tanstack/react-virtual": "3.13.24",
         "fuzzysort": "^3.1.0",
       },
@@ -897,6 +913,8 @@
     "@oncobase/oncobase": ["@oncobase/oncobase@workspace:packages/oncobase"],
 
     "@oncobase/oncoguide": ["@oncobase/oncoguide@workspace:apps/oncoguide"],
+
+    "@oncobase/safe-storage": ["@oncobase/safe-storage@workspace:packages/safe-storage"],
 
     "@oncobase/smart-table": ["@oncobase/smart-table@workspace:packages/smart-table"],
 

@@ -2,9 +2,9 @@ name: OncoGuide static checks
 on:
   push:
     branches: [main]
-    paths: ["apps/oncoguide/**", "apps/app/server/education-*", "packages/education/**", "packages/chat/**", "packages/wiki-markdown/**", "packages/wiki-content/**", "packages/wiki-shell/**", "packages/smart-table/**", "package.json", "bun.lock", "turbo.json", "eslint.config.mjs", "scripts/lint-ratchet.ts", ".github/workflows/oncoguide.yml"]
+    paths: ["apps/oncoguide/**", "apps/app/server/education-*", "packages/education/**", "packages/chat/**", "packages/wiki-markdown/**", "packages/wiki-content/**", "packages/wiki-shell/**", "packages/smart-table/**", "packages/safe-storage/**", "package.json", "bun.lock", "turbo.json", "eslint.config.mjs", "scripts/lint-ratchet.ts", ".github/workflows/oncoguide.yml"]
   pull_request:
-    paths: ["apps/oncoguide/**", "apps/app/server/education-*", "packages/education/**", "packages/chat/**", "packages/wiki-markdown/**", "packages/wiki-content/**", "packages/wiki-shell/**", "packages/smart-table/**", "package.json", "bun.lock", "turbo.json", "eslint.config.mjs", "scripts/lint-ratchet.ts", ".github/workflows/oncoguide.yml"]
+    paths: ["apps/oncoguide/**", "apps/app/server/education-*", "packages/education/**", "packages/chat/**", "packages/wiki-markdown/**", "packages/wiki-content/**", "packages/wiki-shell/**", "packages/smart-table/**", "packages/safe-storage/**", "package.json", "bun.lock", "turbo.json", "eslint.config.mjs", "scripts/lint-ratchet.ts", ".github/workflows/oncoguide.yml"]
   workflow_dispatch:
 permissions:
   contents: read
