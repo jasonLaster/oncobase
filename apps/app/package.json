@@ -21,7 +21,7 @@
     "test:e2e:preview": "playwright test --config playwright.preview.config.ts",
     "test:e2e:production": "playwright test --config playwright.production.config.ts",
     "surfaces:test": "bun scripts/local-stack.ts exec -- bunx playwright test --config playwright.surfaces.config.ts",
-    "surfaces:gates": "bun scripts/local-stack.ts exec -- bunx playwright test --config playwright.surfaces.config.ts accessibility.spec.ts keyboard.spec.ts",
+    "surfaces:gates": "bun scripts/local-stack.ts exec -- bunx playwright test --config playwright.surfaces.config.ts accessibility.spec.ts keyboard.spec.ts layout-shift.spec.ts",
     "surfaces:ratchet": "SURFACES_RATCHET=update bun scripts/local-stack.ts exec -- bunx playwright test --config playwright.surfaces.config.ts accessibility.spec.ts keyboard.spec.ts",
     "surfaces:update": "bash surface-gates/docker/run.sh visual.spec.ts --update-snapshots",
     "surfaces:docker": "bash surface-gates/docker/run.sh",

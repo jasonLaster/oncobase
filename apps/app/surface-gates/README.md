@@ -13,13 +13,14 @@ This suite lives outside `e2e/` on purpose: CI also runs `e2e/` against deployme
 | `visual.spec.ts` | One screenshot per surface × theme × viewport against `__screenshots__/linux`. | Report only: diffs are uploaded, the job stays green. |
 | `accessibility.spec.ts` | axe-core, every impact level, tags `wcag2a wcag2aa wcag21a wcag21aa wcag22aa`, ratcheted by `known-axe-violations.json`. | Blocking. |
 | `keyboard.spec.ts` | Tab count to `<main>`, skip link, focus and announcement after client navigation, scroll restoration on Back, overlay focus trap / Escape / focus return, no invisible focus stops. Ratcheted by `known-keyboard-failures.json`. | Blocking. |
+| `layout-shift.spec.ts` | Cumulative layout shift during a cold load with the CPU slowed 4x, per surface (light theme), under 0.1. | Blocking. |
 
 ## Running
 
 From `apps/app`, with the stack up (`bun run local:stack`):
 
 ```sh
-bun run surfaces:gates        # accessibility + keyboard (fast, any OS)
+bun run surfaces:gates        # accessibility + keyboard + layout shift (fast, any OS)
 bun run surfaces:test         # all three; visual compares only on Linux
 bun run surfaces:ratchet      # rewrite the known-*.json ratchet files from the current run
 bun run surfaces:typecheck    # tsc over this directory and the config
