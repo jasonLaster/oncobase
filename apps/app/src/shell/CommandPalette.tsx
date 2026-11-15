@@ -505,7 +505,9 @@ export function CommandPalette({
       <WikiFilePalette
         footer={false}
         initialSearch={pageInitialQuery}
-        loading={!manifestTree && !initialTree}
+        // The document's navigation slice holds only the top level and this page's
+        // ancestors: searching it would show a few pages as if they were all.
+        loading={!manifestTree}
         onOpenChange={onOpenChange}
         onSelectPage={openPage}
         open={open}
