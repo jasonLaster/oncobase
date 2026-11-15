@@ -2,6 +2,7 @@ import { makeInMemoryAdapter, makePersistedAdapter } from "@livestore/adapter-we
 import { rootHandlePromise } from "@livestore/adapter-web/opfs-utils";
 import { isWebStorageAvailable } from "@oncobase/safe-storage";
 import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
+import liveStoreSharedWorkerUrl from "@livestore/adapter-web/shared-worker?sharedworker&url";
 import { LiveStoreContext, LiveStoreProvider } from "@livestore/react";
 import type { WikiScope, WikiSessionIdentity } from "@oncobase/wiki-content";
 import {
@@ -30,6 +31,7 @@ import { ReaderCacheRetirement } from "./ReaderCacheRetirement";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
 import { readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
+import liveStoreWorkerUrl from "./livestore.worker?worker&url";
 import * as queries from "./queries";
 import { events, schema } from "./schema";
 import { makeFastPathSnapshotReader } from "./fast-path-snapshot";
@@ -143,7 +145,7 @@ const adapterPromise = storage.then((resolution) => {
 // head script. Boot deadlines start once these have arrived (or after a bounded
 // wait), so a slow link is not mistaken for a stuck store.
 const runtimeReady = adapterPromise.then(adapter => adapter === persistedAdapter
-  ? storeRuntimeDownloads(RUNTIME_DOWNLOAD_DEADLINE_MS) : undefined);
+  ? storeRuntimeDownloads([liveStoreSharedWorkerUrl, liveStoreWorkerUrl]) : undefined);
 
 const kits = new WeakMap<RunningLiveStoreContext, ReaderStoreKit>();
 function kitFor(context: RunningLiveStoreContext): ReaderStoreKit {

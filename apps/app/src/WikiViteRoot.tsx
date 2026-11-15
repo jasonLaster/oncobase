@@ -4,7 +4,7 @@ import { createElement, Suspense, useEffect, useRef, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
 import { safeLocalStorage } from "@oncobase/safe-storage";
 import { explicitReaderScope, identityRetryDelayMs } from "./reader-session";
-import { takeReaderSession } from "./reader-session-prefetch";
+import { sessionIdentityFromDocument, takeReaderSession } from "./reader-session-prefetch";
 import { WikiIdentityPendingContext } from "./wiki-context";
 import { markSessionHandoff, markVisualPhase } from "./visual-phase";
 import { setReaderTelemetryStartup } from "./reader-telemetry";
@@ -154,7 +154,11 @@ export function WikiViteRoot() {
       window.removeEventListener("storage", storageChanged);
     };
   }, []);
-  const [identityPending, setIdentityPending] = useState(true);
+  // A signed-in document may carry the session API's own answer for this
+  // request (private, no-store, at most a minute old): the reader starts
+  // verified, and the first verification below resolves to the same identity.
+  const [documentIdentity] = useState(() => cached ? null : sessionIdentityFromDocument());
+  const [identityPending, setIdentityPending] = useState(!documentIdentity);
   // Telemetry only: which source painted first, so cold and cached loads are not averaged together.
   const [firstPaintSource] = useState(() => cached ? "snapshot" as const : document.getElementById(PAGE_BOOTSTRAP_ID) ? "bootstrap" as const : "network" as const);
   useEffect(() => setReaderTelemetryStartup(firstPaintSource), [firstPaintSource]);
@@ -167,6 +171,7 @@ export function WikiViteRoot() {
       ? publicIdentityFromResponse(true) : null;
   });
   const [state, setState] = useState<BootstrapState>(() => {
+    if (documentIdentity) return { status: "ready", scope: documentIdentity.scope, identity: documentIdentity };
     const scope = readScope();
     const initial = cached ? null : publicIdentityFromResponse();
     const fallback = initial ?? publicIdentityFallback(scope);
