@@ -1,4 +1,4 @@
-import { withContentVersion } from "@oncobase/wiki-content";
+import { isListedManifestAsset, withContentVersion } from "@oncobase/wiki-content";
 import type { AssetIndexRow } from "./types";
 import { backendHref } from "./wiki-utils";
 
@@ -18,6 +18,8 @@ export function relatedAssetsForSlug(slug: string, assets: AssetIndexRow[]) {
   const sourceRoot = sourceRootForSlug(slug);
   return assets
     .filter((asset) => {
+      // Image rows carry hashes for versioned URLs; they are not attachments.
+      if (!isListedManifestAsset(asset)) return false;
       const withoutExtension = asset.path.replace(/\.[^/.]+$/, "");
       return (
         withoutExtension === sourceRoot ||

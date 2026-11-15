@@ -21,6 +21,8 @@ import type {
 } from "./index.ts";
 import {
   compactWikiManifest,
+  isListedManifestAsset,
+  isManifestFileAssetPath,
   makePublicWikiSessionIdentity,
   parseWikiManifest,
   VERSIONED_PRIVATE_CACHE_CONTROL,
@@ -116,7 +118,7 @@ export type WikiApiAccessAdapter = {
    * as null to start it, a cursor to continue, or omit it when done. Null when
    * the backend has no such query. */
   listSessionManifestOverlay?(user: WikiApiSessionUser, args: {
-    pages?: string | null; assets?: string | null; numItems: number; includeSnapshot: boolean;
+    pages?: string | null; assets?: string | null; files?: string | null; numItems: number; includeSnapshot: boolean;
   }): Promise<WikiSessionOverlayPage | null>;
 };
 
@@ -141,8 +143,16 @@ export type WikiSessionOverlayPage = {
   pagesCursor: string | null;
   /** Visible PDF asset paths, public and sensitive, in index order. */
   assets: string[];
+  /** Content hashes parallel to `assets`; absent from older backends. */
+  assetHashes?: Array<string | null>;
   assetsDone: boolean;
   assetsCursor: string | null;
+  /** Visible non-PDF asset paths, when `files` was requested and the backend
+   * supports it; `filesDone` is absent otherwise. */
+  files?: string[];
+  fileHashes?: Array<string | null>;
+  filesDone?: boolean;
+  filesCursor?: string | null;
 };
 
 /** Durable, content-addressed storage for public manifest bytes (P10), so a
@@ -186,6 +196,8 @@ export type AssetVisibilityRecord = {
   path: string;
   ownerSlugs: string[];
   sensitive: boolean;
+  /** The stored content hash; absent from older backends and unhashed rows. */
+  contentHash?: string | null;
 };
 
 export type AssetVisibilityResult = {
@@ -238,6 +250,12 @@ export type WikiApiContext = {
   getSessionUser(request: Request): Promise<WikiApiSessionUser | null>;
   access?: WikiApiAccessAdapter;
   manifestPrioritySlugs?: string[];
+  /** List image file assets with their hashes (P11 versioned URLs). This
+   * scans the whole file catalog (~18k rows on a real site), so only the
+   * snapshot builder sets it: its output is stored and reused, and signed-in
+   * manifests take public images from that snapshot. Live fallbacks list
+   * PDFs only, and their images stay unversioned. */
+  manifestFileAssets?: boolean;
   // Only public-scope snapshots; session responses still compute access live.
   getManifestSnapshot?: () => Promise<{ hash: string; revision?: number; read: () => Promise<BodyInit> } | null>;
   // Per-instance memo keyed by snapshot hash: skips the storage read and the
@@ -680,7 +698,7 @@ type OverlayManifest = { pages: ManifestPages; assets: WikiManifestAsset[]; fenc
 async function overlayManifest(context: WikiApiContext, user: WikiApiSessionUser): Promise<OverlayManifest | null> {
   const list = context.access?.listSessionManifestOverlay;
   if (!list) return null;
-  const first = await list(user, { pages: null, assets: null, numItems: MANIFEST_PAGE_SIZE, includeSnapshot: true });
+  const first = await list(user, { pages: null, assets: null, files: null, numItems: MANIFEST_PAGE_SIZE, includeSnapshot: true });
   if (!first) { reportFallback(context, "overlay-unavailable"); return null; }
   const { fence } = first;
   if (fence.publishing || !fence.snapshotHash || !first.snapshot || first.snapshot.hash !== fence.snapshotHash) {
@@ -688,21 +706,39 @@ async function overlayManifest(context: WikiApiContext, user: WikiApiSessionUser
     return null;
   }
   const overlay = [...first.pages];
-  const assetPaths = [...first.assets];
+  const assets: WikiManifestAsset[] = [];
+  const files: WikiManifestAsset[] = [];
+  const collect = (into: WikiManifestAsset[], kind: WikiManifestAsset["kind"], paths: string[], hashes: Array<string | null> | undefined) => {
+    paths.forEach((path, index) => into.push({ kind, path, contentHash: hashes?.[index] ?? null, size: null }));
+  };
+  collect(assets, "pdf", first.assets, first.assetHashes);
+  // A backend without the files list leaves them out (no hashes, as before).
+  const filesSupported = first.filesDone !== undefined;
+  if (filesSupported) collect(files, "file", first.files ?? [], first.fileHashes);
+  // The overlay lists only the user's sensitive files; public ones (and their
+  // hashes) come from the verified public base, read at the same fence.
   let { pagesDone, assetsDone, pagesCursor, assetsCursor } = first;
+  let filesDone = filesSupported ? first.filesDone! : true;
+  let filesCursor = filesSupported ? first.filesCursor ?? null : null;
   const seen = new Set<string>();
-  while (!pagesDone || !assetsDone) {
-    const key = `${pagesDone ? "-" : pagesCursor}|${assetsDone ? "-" : assetsCursor}`;
-    if ((!pagesDone && !pagesCursor) || (!assetsDone && !assetsCursor) || seen.has(key)) throw new Error("Invalid overlay cursor");
+  while (!pagesDone || !assetsDone || !filesDone) {
+    const key = `${pagesDone ? "-" : pagesCursor}|${assetsDone ? "-" : assetsCursor}|${filesDone ? "-" : filesCursor}`;
+    if ((!pagesDone && !pagesCursor) || (!assetsDone && !assetsCursor) || (!filesDone && !filesCursor) || seen.has(key)) throw new Error("Invalid overlay cursor");
     seen.add(key);
     const next = await list(user, {
       ...(pagesDone ? {} : { pages: pagesCursor }),
       ...(assetsDone ? {} : { assets: assetsCursor }),
+      ...(filesDone ? {} : { files: filesCursor }),
       numItems: MANIFEST_PAGE_SIZE, includeSnapshot: false,
     });
     if (!next || !sameFence(next.fence, fence)) { reportFallback(context, "overlay-changed"); return null; }
     if (!pagesDone) { overlay.push(...next.pages); pagesDone = next.pagesDone; pagesCursor = next.pagesCursor; }
-    if (!assetsDone) { assetPaths.push(...next.assets); assetsDone = next.assetsDone; assetsCursor = next.assetsCursor; }
+    if (!assetsDone) { collect(assets, "pdf", next.assets, next.assetHashes); assetsDone = next.assetsDone; assetsCursor = next.assetsCursor; }
+    if (!filesDone) {
+      if (next.filesDone === undefined) throw new Error("Invalid overlay files page");
+      collect(files, "file", next.files ?? [], next.fileHashes);
+      filesDone = next.filesDone; filesCursor = next.filesCursor ?? null;
+    }
   }
   const { raw } = await loadVerifiedBase(context, first.snapshot);
   const pages = [...raw.pages, ...overlay];
@@ -710,7 +746,9 @@ async function overlayManifest(context: WikiApiContext, user: WikiApiSessionUser
   pages.sort((a, b) => a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
   return {
     pages: { pages, source: "snapshot-overlay", base: { hash: fence.snapshotHash, overlay } },
-    assets: assetPaths.map(path => ({ kind: "pdf" as const, path, contentHash: null, size: null })),
+    assets: filesSupported
+      ? [...assets, ...raw.assets.filter(asset => asset.kind === "file"), ...files.filter(asset => isManifestFileAssetPath(asset.path))]
+      : assets,
     fence,
   };
 }
@@ -748,7 +786,7 @@ async function boundedManifestFallback(
       result.page.map((asset) => ({
         kind: "pdf" as const,
         path: asset.path,
-        contentHash: null,
+        contentHash: asset.contentHash ?? null,
         size: null,
         ownerSlugs: asset.ownerSlugs,
         sensitive: asset.sensitive,
@@ -853,7 +891,7 @@ async function listAssets(
         ...result.page.map((asset) => ({
           kind,
           path: asset.path,
-          contentHash: null,
+          contentHash: asset.contentHash ?? null,
           size: null,
           ownerSlugs: asset.ownerSlugs,
           sensitive: asset.sensitive,
@@ -866,10 +904,14 @@ async function listAssets(
   };
 
   try {
-    const assets = await listVisibleAssets(
-      "pdf",
-      (args) => context.documents.listPdfAssetVisibilityPage(args),
-    );
+    const [pdfs, files] = await Promise.all([
+      listVisibleAssets("pdf", (args) => context.documents.listPdfAssetVisibilityPage(args)),
+      context.manifestFileAssets
+        ? listVisibleAssets("file", (args) => context.documents.listFileAssetVisibilityPage(args))
+        : [],
+    ]);
+    // PDFs first, as before; image files carry hashes for versioned URLs only.
+    const assets = [...pdfs, ...files.filter(asset => isManifestFileAssetPath(asset.path))];
     return {
       assets: !includeSensitive
         ? assets.map(publicManifestAsset)
@@ -1170,7 +1212,7 @@ export async function createWikiManifestResponse(
 
   const derive = () => {
     const treeStarted = performance.now();
-    const compactTree = buildCompactTreeFromManifest(pages, assets);
+    const compactTree = buildCompactTreeFromManifest(pages, assets.filter(isListedManifestAsset));
     phase("tree", treeStarted);
     const manifestCore = {
       schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION,
@@ -1281,7 +1323,7 @@ async function subsetManifestResponse(
     const pages = raw.pages.filter(page => subset.includePage(page));
     const assets = raw.assets.filter(asset => subset.includeAsset(asset));
     const core = { schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION, siteSlug: context.siteSlug, scope: "public" as const,
-      compactTree: buildCompactTreeFromManifest(pages, assets), pages, assets };
+      compactTree: buildCompactTreeFromManifest(pages, assets.filter(isListedManifestAsset)), pages, assets };
     const manifest: WikiManifest = { ...core, manifestHash: hashJson(core), generatedAt: raw.generatedAt };
     phase("snapshot-derive", started);
     return manifest;

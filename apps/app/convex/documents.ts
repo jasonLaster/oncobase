@@ -1020,6 +1020,9 @@ export const listPdfAssetVisibilityPage = query({
         path: row.path,
         ownerSlugs: [...ownerSlugs],
         sensitive,
+        // Additive: older app servers ignore it. Null for rows published
+        // before hashes were stored; those URLs stay unversioned.
+        contentHash: row.contentHash ?? null,
       });
     }
     return {
@@ -1399,6 +1402,9 @@ export const listFileAssetVisibilityPage = query({
         path: row.path,
         ownerSlugs: [...ownerSlugs],
         sensitive,
+        // Additive: older app servers ignore it. Null for rows published
+        // before hashes were stored; those URLs stay unversioned.
+        contentHash: row.contentHash ?? null,
       });
     }
     return {

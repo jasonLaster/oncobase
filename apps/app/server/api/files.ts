@@ -226,8 +226,10 @@ export async function handleFileRequest(
   if (ext === ".pdf" && request.headers.get("Accept")?.includes("text/html") &&
       !url.searchParams.has("download") && !url.searchParams.has("raw") &&
       !request.headers.has("Range") && !educationOnly) {
+    // `v` rides along so the viewer's own fetch is the versioned one (P11).
+    const version = url.searchParams.get(WIKI_VERSION_PARAM);
     return new Response(null, { status: 302, headers: {
-      Location: `/tools/pdf-viewer?path=${encodeURIComponent(normalized)}`,
+      Location: `/tools/pdf-viewer?path=${encodeURIComponent(normalized)}${version ? `&${WIKI_VERSION_PARAM}=${encodeURIComponent(version)}` : ""}`,
       ...PRIVATE_FILE_DENIAL_HEADERS,
     } });
   }

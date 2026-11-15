@@ -1,7 +1,7 @@
 import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { expect, test } from "bun:test";
 import { current, install, requestBuild, status, deltaBase, failed } from "../manifestCache";
-import { invalidateManifest, queueManifestBuild } from "./manifestRevision";
+import { invalidateManifest, MANIFEST_SNAPSHOT_VERSION, queueManifestBuild } from "./manifestRevision";
 import { finishPublish } from "../sites";
 import { upsert, bulkSetContentHash, deleteBySlug, upsertPdfAsset, upsertFileAsset, deletePdfAssetByPath, deleteFileAssetByPath, backfillAssetHashes } from "../documents";
 
@@ -48,11 +48,11 @@ test("snapshot builds coalesce writes, reject concurrent revisions, and recover 
   expect(rows.sites[0].manifestRevision).toBe(2);
   expect(rows.sites[1].manifestRevision).toBeUndefined();
   expect(jobs).toHaveLength(1);
-  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, generation: jobs[0].generation, revision: 1, hash: "old", storageId: "old-blob" })).toBe("stale-revision");
+  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: MANIFEST_SNAPSHOT_VERSION, generation: jobs[0].generation, revision: 1, hash: "old", storageId: "old-blob" })).toBe("stale-revision");
   expect(deleted).toContain("old-blob");
   expect(rows.sites[0].manifestSnapshot).toBeUndefined();
   expect(jobs).toHaveLength(2);
-  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, generation: jobs[1].generation, revision: 2, hash: "new", storageId: "new-blob" })).toBe("installed");
+  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: MANIFEST_SNAPSHOT_VERSION, generation: jobs[1].generation, revision: 2, hash: "new", storageId: "new-blob" })).toBe("installed");
   expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
   rows.sites[0].manifestBuildQueuedAt = Date.now() - 120_001;
   await queueManifestBuild(ctx, "a" as never);
@@ -68,7 +68,7 @@ test("snapshot URLs require a service credential, active tenant, matching revisi
     const args = { siteSlug: "alpha", serverSecret: secret };
     await expect(handler(current)(ctx, { ...args, serverSecret: "wrong" })).rejects.toThrow("Unauthorized");
     await expect(handler(requestBuild)(ctx, { ...args, serverSecret: "wrong" })).rejects.toThrow("Unauthorized");
-    await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 0, hash: "v0", storageId: "blob" });
+    await handler(install)(ctx, { siteSlug: "alpha", formatVersion: MANIFEST_SNAPSHOT_VERSION, revision: 0, hash: "v0", storageId: "blob" });
     expect(await handler(current)(ctx, args)).toEqual({ hash: "v0", revision: 0, url: "https://storage.invalid/blob" });
     expect(await handler(current)(ctx, { ...args, siteSlug: "beta" })).toBeNull();
     rows.sites[0].manifestSnapshot.formatVersion = 999;
@@ -121,7 +121,7 @@ test("operator snapshot inventory excludes archived sites and site credentials",
   const { ctx, rows } = fixture();
   rows.sites[0].config = { passwordHash: "synthetic-private-setting" };
   rows.sites[1].status = "archived";
-  await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 0, hash: "ready", storageId: "blob" });
+  await handler(install)(ctx, { siteSlug: "alpha", formatVersion: MANIFEST_SNAPSHOT_VERSION, revision: 0, hash: "ready", storageId: "blob" });
   expect(await handler(status)(ctx, {})).toEqual([{ siteSlug: "alpha", revision: 0, hash: "ready", url: "https://storage.invalid/blob" }]);
   await invalidateManifest(ctx, "a" as never);
   expect(await handler(status)(ctx, { siteSlug: "alpha" })).toEqual([{ siteSlug: "alpha", revision: 1, hash: null, url: null }]);
@@ -130,7 +130,7 @@ test("operator snapshot inventory excludes archived sites and site credentials",
 test("an overlapping builder cannot install while an owned publisher is active", async () => {
   const { ctx, rows, jobs, deleted } = fixture();
   Object.assign(rows.sites[0], { publishRunId: "scoped:run", publishLockUntil: Date.now() + 60_000, manifestRevision: 2, manifestBuildQueuedAt: Date.now() });
-  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: 1, revision: 2, hash: "mixed", storageId: "mixed-blob" })).toBe("active-writer");
+  expect(await handler(install)(ctx, { siteSlug: "alpha", formatVersion: MANIFEST_SNAPSHOT_VERSION, revision: 2, hash: "mixed", storageId: "mixed-blob" })).toBe("active-writer");
   expect(deleted).toContain("mixed-blob");
   expect(rows.sites[0].manifestSnapshot).toBeUndefined();
   expect(rows.sites[0].manifestBuildQueuedAt).toBeUndefined();
@@ -139,7 +139,7 @@ test("an overlapping builder cannot install while an owned publisher is active",
 
 test("incremental bases must belong to the site and immediately precede the new revision", async () => {
   const { ctx, rows } = fixture();
-  Object.assign(rows.sites[0], { manifestRevision: 5, manifestSnapshot: { revision: 4, hash: "base", storageId: "blob", formatVersion: 1 } });
+  Object.assign(rows.sites[0], { manifestRevision: 5, manifestSnapshot: { revision: 4, hash: "base", storageId: "blob", formatVersion: MANIFEST_SNAPSHOT_VERSION } });
   expect(await handler(deltaBase)(ctx, { siteSlug: "alpha", baseRevision: 4 })).toEqual({ hash: "base", storageId: "blob" });
   expect(await handler(deltaBase)(ctx, { siteSlug: "beta", baseRevision: 4 })).toBeNull();
   expect(await handler(deltaBase)(ctx, { siteSlug: "alpha", baseRevision: 3 })).toBeNull();
@@ -184,10 +184,10 @@ test("late success and failure cannot clear or replace a successor's lease or sn
   await handler(failed)(ctx, old);
   expect(jobs).toHaveLength(2);
   expect(rows.sites[0].manifestBuildQueuedAt).toBe(successor.queuedAt);
-  expect(await handler(install)(ctx, { ...old, revision: 0, hash: "late", storageId: "late", formatVersion: 1 })).toBe("stale-revision");
+  expect(await handler(install)(ctx, { ...old, revision: 0, hash: "late", storageId: "late", formatVersion: MANIFEST_SNAPSHOT_VERSION })).toBe("stale-revision");
   expect(deleted).toContain("late");
   expect(rows.sites[0].manifestSnapshot).toBeUndefined();
-  expect(await handler(install)(ctx, { ...successor, revision: 0, hash: "new", storageId: "new", formatVersion: 1 })).toBe("installed");
+  expect(await handler(install)(ctx, { ...successor, revision: 0, hash: "new", storageId: "new", formatVersion: MANIFEST_SNAPSHOT_VERSION })).toBe("installed");
   await handler(failed)(ctx, old);
   expect(jobs).toHaveLength(2);
   expect(rows.sites[0].manifestSnapshot.hash).toBe("new");

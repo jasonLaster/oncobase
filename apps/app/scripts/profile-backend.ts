@@ -36,7 +36,7 @@ if (mode === "fixture") {
       listFileAssetVisibilityPage: async () => ({ page: [], isDone: true, continueCursor: null }),
       getBySlug: async () => null,
       listManifestPage: async () => ({ page: slugs.map((slug) => ({ slug, title: slug, tags: [], description: null, contentHash: null, sensitive: true, size: 1 })), isDone: true, continueCursor: null }),
-      listPdfAssetVisibilityPage: async () => ({ page: slugs.map((slug) => ({ path: `${slug}.pdf`, ownerSlugs: [slug], sensitive: true })), isDone: true, continueCursor: null }),
+      listPdfAssetVisibilityPage: async () => ({ page: slugs.map((slug) => ({ path: `${slug}.pdf`, ownerSlugs: [slug], sensitive: true, contentHash: `${slug}-pdf` })), isDone: true, continueCursor: null }),
     },
   } as WikiApiContext;
   const started = performance.now();

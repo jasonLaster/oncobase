@@ -388,6 +388,49 @@ test("overlay asset pages are exact across duplicate paths and page boundaries",
   expect(seen).toEqual(expected);
 });
 
+test("overlay files list only the user's readable sensitive files, with stored hashes, across groups and pages", async () => {
+  const s = await setup();
+  await s.t.run(async ctx => {
+    const file = (path: string, fields: { sensitive?: boolean; ownerSlugs?: string[]; contentHash?: string }) =>
+      ctx.db.insert("fileAssets", { siteId: s.fx.siteId, path, blobUrl: `https://blob.invalid/${path}`, sizeBytes: 1, uploadedAt: 1, ...fields });
+    await file("pub.png", { sensitive: false, ownerSlugs: [], contentHash: "pub-1" });
+    await file("care/a.png", { sensitive: true, ownerSlugs: ["care/a"], contentHash: "care-1" });
+    await file("path/c.png", { sensitive: true, ownerSlugs: ["path/c"], contentHash: "path-1" });
+    // Legacy rows without the flag count as sensitive; a sibling is an owner.
+    await file("care/a/legacy.png", { ownerSlugs: ["care/a"] });
+    await file("pub/orphan.png", { sensitive: true, ownerSlugs: [] });
+    // More than one page of sensitive rows, so the cursor crosses pages and groups.
+    for (let i = 0; i < 510; i++) await file(`care/bulk/${String(i).padStart(4, "0")}.png`, { sensitive: true, ownerSlugs: ["care/a"], contentHash: `bulk-${i}` });
+  });
+  const list = async (userId: Id<"users">) => {
+    const paths: string[] = [], hashes: Array<string | null> = [];
+    let files: string | null = null;
+    for (let i = 0; i < 10; i++) {
+      const result = (await s.t.query(api.access.sessionManifestOverlay, { siteSlug: SITE, userId, numItems: 10, files }))!;
+      paths.push(...result.files!); hashes.push(...result.fileHashes!);
+      if (result.filesDone) return { paths, hashes, pages: i + 1 };
+      files = result.filesCursor!;
+    }
+    throw new Error("files did not finish");
+  };
+  const reader = await list(s.fx.reader);
+  const bulk = Array.from({ length: 510 }, (_, i) => `care/bulk/${String(i).padStart(4, "0")}.png`);
+  expect(reader.paths).toEqual(["care/a.png", ...bulk, "care/a/legacy.png"]);
+  expect(reader.hashes).toEqual(["care-1", ...bulk.map((_, i) => `bulk-${i}`), null]);
+  expect(reader.pages).toBeGreaterThan(1);
+  // Public files come from the public snapshot, never the overlay.
+  expect(reader.paths).not.toContain("pub.png");
+  expect((await list(s.fx.other)).paths).toEqual([]);
+  // A backend call that does not ask for files answers exactly as before.
+  const legacy = (await s.t.query(api.access.sessionManifestOverlay, { siteSlug: SITE, userId: s.fx.reader, numItems: 10, assets: null }))!;
+  expect("files" in legacy).toBe(false);
+  expect(legacy.assets.length).toBe(legacy.assetHashes.length);
+  // The manifest builder's public listing carries the same stored hashes.
+  const visibility = await s.t.query(api.documents.listFileAssetVisibilityPage, { siteSlug: SITE, cursor: null, numItems: 1000 });
+  expect(visibility.isDone).toBe(true);
+  expect(visibility.page).toEqual([{ path: "pub.png", ownerSlugs: [], sensitive: false, contentHash: "pub-1" }]);
+});
+
 test("the access policy code is fingerprinted with ACCESS_POLICY_VERSION", () => {
   // If this fails you changed who-can-read-what code. Decide whether existing
   // tokens may survive the deploy; if not (the safe default), bump
@@ -407,5 +450,5 @@ test("the access policy code is fingerprinted with ACCESS_POLICY_VERSION", () =>
     source("lib/accessPolicy.ts"), source("lib/assetVisibility.ts"),
   ].join("\n--\n");
   const fingerprint = createHash("sha256").update(policy).digest("hex").slice(0, 16);
-  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 1, fingerprint: "6f11a42e569e2946" });
+  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 2, fingerprint: "383ab4b11b03859a" });
 });

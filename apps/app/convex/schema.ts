@@ -226,7 +226,10 @@ export default defineSchema({
     deletedAt: v.optional(v.number()),
   })
     .index("by_path", ["path"])
-    .index("by_site_path", ["siteId", "path"]),
+    .index("by_site_path", ["siteId", "path"])
+    // The signed-in manifest overlay lists only sensitive (and legacy
+    // unflagged) files; the public ones come from the public snapshot.
+    .index("by_site_sensitive_path", ["siteId", "sensitive", "path"]),
 
   dicomSeries: defineTable({
     siteId: v.optional(v.id("sites")),

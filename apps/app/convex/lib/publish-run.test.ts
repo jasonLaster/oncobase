@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import schema from "../schema";
 import { api, internal } from "../_generated/api";
 import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
+import { MANIFEST_SNAPSHOT_VERSION } from "./manifestRevision";
 
 test("owned publish writes stay in scope, coalesce invalidation, and reject old writers/abort/finish", async () => {
   const t = convexTest(schema, {
@@ -94,7 +95,7 @@ test("owned no-ops preserve revisions; missing snapshots rebuild and old runs in
       slug: "fixture", name: "fixture", ownerEmail: "fixture@example.test", status: "active", domains: [], publishTokenHash: "fixture",
       config: { enableChat: false, enableComments: false, enableDownloads: false, passwordGate: false },
       quotas: { monthlyOpenAITokens: 0, blobBytes: 0 }, createdAt: 1, updatedAt: 1,
-      manifestRevision: 10, manifestSnapshot: { revision: 10, formatVersion: 1, storageId, hash: "snapshot" },
+      manifestRevision: 10, manifestSnapshot: { revision: 10, formatVersion: MANIFEST_SNAPSHOT_VERSION, storageId, hash: "snapshot" },
     });
   });
   const site = () => t.run(ctx => ctx.db.get(id));

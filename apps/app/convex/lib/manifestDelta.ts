@@ -1,6 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
-import { parseWikiManifest, type WikiManifest, type WikiManifestPage } from "@oncobase/wiki-content";
+import { isListedManifestAsset, parseWikiManifest, type WikiManifest, type WikiManifestPage } from "@oncobase/wiki-content";
 import { buildCompactTreeFromManifest } from "@oncobase/wiki-content/manifest-tree";
 
 const hash = (core: unknown) => bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(core)))).slice(0, 24);
@@ -22,6 +22,6 @@ export function patchManifestPages(raw: unknown, siteSlug: string, expectedHash:
   // including for additions, because the wire representation defines the hash.
   pages.push(...additions);
   if (additions.length) pages.sort((a, b) => a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
-  const next = { ...core, compactTree: additions.length ? buildCompactTreeFromManifest(pages, base.assets) : base.compactTree, pages };
+  const next = { ...core, compactTree: additions.length ? buildCompactTreeFromManifest(pages, base.assets.filter(isListedManifestAsset)) : base.compactTree, pages };
   return JSON.stringify({ ...next, manifestHash: hash(next), generatedAt: new Date().toISOString() });
 }

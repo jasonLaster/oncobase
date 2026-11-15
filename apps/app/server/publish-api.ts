@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
-import { parseWikiManifest } from "@oncobase/wiki-content";
+import { isManifestFileAssetPath, parseWikiManifest } from "@oncobase/wiki-content";
 import { withSiteSlug } from "./reader-access.js";
 import { siteBlobKey } from "./blob";
 import { traceBackendPhase, traceBackendAttributes, backendClientTraceId } from "./backend-tracing";
@@ -419,14 +419,18 @@ async function checkReader(client: ConvexHttpClient, siteSlug: string, body: Rea
     const pages = new Map(manifest.pages.map(doc => [doc.slug, doc]));
     const assets = new Map(manifest.assets.map(asset => [assetKey(asset), asset]));
     const documentMismatches = body.documents.filter((doc: { slug: string; hash: string; sensitive: boolean }) => doc.sensitive ? pages.has(doc.slug) : pages.get(doc.slug)?.contentHash !== doc.hash).length;
-    // Reader manifests list PDFs without hashes and deliberately omit files.
-    // Verify PDF membership there, then use the same indexed public-access
-    // queries as the reader to check visibility and hashes for both kinds.
+    // Reader manifests list PDFs and images (with their stored hashes, P11)
+    // and omit other files. Verify membership and any listed hash there, then
+    // use the same indexed public-access queries as the reader to check
+    // visibility and hashes for both kinds.
     let assetMismatches = 0;
     for (let offset = 0; offset < body.assets.length; offset += 16) {
       const matches = await Promise.all(body.assets.slice(offset, offset + 16).map(async (asset: { path: string; kind: "pdf" | "file"; hash: string; sensitive: boolean }) => {
-        const present = assets.has(assetKey(asset));
-        if (asset.sensitive && present || asset.kind === "pdf" && !asset.sensitive && !present) return false;
+        const listed = assets.get(assetKey(asset));
+        const expected = asset.kind === "pdf" || isManifestFileAssetPath(asset.path);
+        if (asset.sensitive && listed || expected && !asset.sensitive && !listed) return false;
+        // A listed hash names the bytes a versioned URL caches for a year.
+        if (listed?.contentHash && listed.contentHash !== asset.hash) return false;
         const visible = await client.query(asset.kind === "pdf" ? api.documents.getPdfAssetByPath : api.documents.getFileAssetByPath,
           { siteSlug, path: asset.path, includeSensitive: false });
         return asset.sensitive ? visible === null : visible?.contentHash === asset.hash && Boolean(visible.blobUrl);

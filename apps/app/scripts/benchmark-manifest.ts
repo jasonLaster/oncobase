@@ -53,7 +53,7 @@ const snapshot = async (state: Awaited<ReturnType<typeof status>>) => {
   return raw;
 };
 const build = async (documents: WikiApiDocumentsGateway, phases: Record<string, number>) => {
-  const r = await createWikiManifestResponse(new Request("https://benchmark.invalid/api/wiki/manifest?scope=public"), { siteSlug, documents, getSessionUser: async () => null, onManifestPhase: (n, ms) => { phases[n] = ms; } });
+  const r = await createWikiManifestResponse(new Request("https://benchmark.invalid/api/wiki/manifest?scope=public"), { siteSlug, documents, manifestFileAssets: true, getSessionUser: async () => null, onManifestPhase: (n, ms) => { phases[n] = ms; } });
   if (!r.ok || r.headers.get("X-Wiki-Manifest-Partial") === "true" || r.headers.get("X-Wiki-Manifest-Source") !== "manifest") throw Error("Incomplete manifest");
   return r.json();
 };
@@ -148,6 +148,8 @@ try {
           const docs: WikiApiDocumentsGateway = { ...gateways([], []),
             listManifestPage: args => { sample.requests++; return client.query(internal.documents.internal_listManifestPage, { ...args, numItems: batchSize, siteSlug }); },
             listPdfAssetVisibilityPage: args => { sample.requests++; return client.query(internal.documents.internal_listPdfAssetVisibilityPage, { ...args, siteSlug }); },
+            // The snapshot builder also lists image files with hashes (P11).
+            listFileAssetVisibilityPage: args => { sample.requests++; return client.query(internal.documents.internal_listFileAssetVisibilityPage, { ...args, siteSlug }); },
           };
           result = await build(docs, sample.phases);
           expected = before.hash!;

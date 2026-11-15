@@ -57,7 +57,7 @@ export const build = internalAction({
         phases.deltaRead = Math.round(performance.now() - deltaStarted);
       }
       if (json === null) {
-        const response = await createWikiManifestResponse(new Request("https://manifest.internal/api/wiki/manifest?scope=public"), { siteSlug, documents, getSessionUser: async () => null, onManifestPhase: (name, ms) => { phases[name] = Math.round(ms); } });
+        const response = await createWikiManifestResponse(new Request("https://manifest.internal/api/wiki/manifest?scope=public"), { siteSlug, documents, manifestFileAssets: true, getSessionUser: async () => null, onManifestPhase: (name, ms) => { phases[name] = Math.round(ms); } });
         if (!response.ok || response.headers.get("X-Wiki-Manifest-Partial") === "true" || response.headers.get("X-Wiki-Manifest-Source") !== "manifest") throw new Error("Incomplete manifest");
         json = await response.text();
       }

@@ -51,7 +51,7 @@ import {
   WikiFilePalette,
   type WikiFilePalettePage,
 } from "@oncobase/wiki-shell/file-palette";
-import { flattenFileTree } from "@oncobase/wiki-content";
+import { flattenFileTree, isListedManifestAsset } from "@oncobase/wiki-content";
 import { bootstrappedNavigation } from "../bootstrap/seed-state";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { readLiveStoreDevtoolsEnabled, reloadWithLiveStoreDevtools } from "../livestore/devtools";
@@ -117,7 +117,9 @@ export function CommandPalette({
   // A validated public tree is usable before sync; even an empty authoritative
   // manifest supersedes it. The fallback is scoped to this exact store.
   const initialTree = manifestTree ? undefined : (store ? bootstrappedNavigation.get(store) : initial?.tree);
-  const assets = useReaderQuery(readerQuery.assets, EMPTY_READER_ROWS) as AssetIndexRow[];
+  const assetRows = useReaderQuery(readerQuery.assets, EMPTY_READER_ROWS) as AssetIndexRow[];
+  // Image rows exist only for content-addressed URLs; the palette lists PDFs.
+  const assets = useMemo(() => assetRows.filter(isListedManifestAsset), [assetRows]);
   const scope = useWikiScope();
   const [mode, setPaletteMode] = useState<PaletteMode>(initialMode);
   const [query, setPaletteQuery] = useState("");
@@ -479,7 +481,7 @@ export function CommandPalette({
     if (mode === "outline" && outlineResults[activeIndex]) openOutline(outlineResults[activeIndex]);
     if (mode === "assets" && assetResults[activeIndex]) {
       window.open(
-        backendHref(`/api/file?path=${encodeURIComponent(assetResults[activeIndex].path)}`),
+        assetHref(assetResults[activeIndex].path, assetResults[activeIndex].contentHash),
         "_blank",
         "noreferrer",
       );
@@ -599,7 +601,7 @@ export function CommandPalette({
                 <WikiCommandItemLink
                   active={index === activeIndex}
                   description={asset.path}
-                  href={backendHref(`/api/file?path=${encodeURIComponent(asset.path)}`)}
+                  href={assetHref(asset.path, asset.contentHash)}
                   id={`command-assets-${index}`}
                   icon={
                     asset.kind === "pdf" ? (

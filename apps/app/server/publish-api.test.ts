@@ -110,22 +110,43 @@ test("scoped document hashes are checked before writing", async () => {
 });
 
 
-test("reader readiness handles PDF-only manifests and verifies public asset access and hashes", async () => {
+test("reader readiness verifies listed PDFs and images, their manifest hashes, and public asset access", async () => {
   const f = fixture();
-  const core = { schemaVersion: 1, siteSlug: "alpha", scope: "public", compactTree: [], pages: [],
-    assets: [{ kind: "pdf", path: "paper.pdf", contentHash: null, size: null }] };
-  const snapshot = { ...core, manifestHash: crypto.createHash("sha256").update(JSON.stringify(core)).digest("hex").slice(0, 24), generatedAt: new Date().toISOString() };
+  const snapshotWith = (assets: unknown[]) => {
+    const core = { schemaVersion: 1, siteSlug: "alpha", scope: "public", compactTree: [], pages: [], assets };
+    return { ...core, manifestHash: crypto.createHash("sha256").update(JSON.stringify(core)).digest("hex").slice(0, 24), generatedAt: new Date().toISOString() };
+  };
+  // A legacy PDF row without a hash, and an image listed with its hash (P11).
+  const listed = [
+    { kind: "pdf", path: "paper.pdf", contentHash: null, size: null },
+    { kind: "file", path: "image.svg", contentHash: "image-hash", size: null },
+  ];
+  let snapshot = snapshotWith(listed);
   const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json(snapshot) });
-  f.setStatus({ revision: 2, snapshot: { url: `http://127.0.0.1:${server.port}/snapshot`, hash: snapshot.manifestHash } });
+  const publishSnapshot = (next: ReturnType<typeof snapshotWith>) => {
+    snapshot = next;
+    f.setStatus({ revision: 2, snapshot: { url: `http://127.0.0.1:${server.port}/snapshot`, hash: next.manifestHash } });
+  };
+  publishSnapshot(snapshot);
   const body = { minimumRevision: 2, documents: [], assets: [
     { path: "paper.pdf", kind: "pdf", hash: "pdf-hash", sensitive: false },
     { path: "image.svg", kind: "file", hash: "image-hash", sensitive: false },
     { path: "private.png", kind: "file", hash: "private-hash", sensitive: true },
+    // Data files are not listed in reader manifests; access alone is checked.
+    { path: "table.csv", kind: "file", hash: "csv-hash", sensitive: false },
   ] };
   f.visibleAssets.set("paper.pdf", { contentHash: "pdf-hash", blobUrl: "https://fixture/paper" });
   f.visibleAssets.set("image.svg", { contentHash: "image-hash", blobUrl: "https://fixture/image" });
+  f.visibleAssets.set("table.csv", { contentHash: "csv-hash", blobUrl: "https://fixture/table" });
   try {
     expect((await (await f.request("status", body)).json()).ready).toBe(true);
+    // The manifest still names the previous image bytes: a versioned URL would cache them.
+    publishSnapshot(snapshotWith([listed[0], { ...listed[1], contentHash: "old-image-hash" }]));
+    expect((await (await f.request("status", body)).json()).assetMismatches).toBe(1);
+    // A public image missing from the manifest is not ready either.
+    publishSnapshot(snapshotWith([listed[0]]));
+    expect((await (await f.request("status", body)).json()).assetMismatches).toBe(1);
+    publishSnapshot(snapshotWith(listed));
     f.visibleAssets.set("private.png", { contentHash: "private-hash", blobUrl: "https://fixture/private" });
     expect((await (await f.request("status", body)).json()).assetMismatches).toBe(1);
     f.visibleAssets.delete("private.png");

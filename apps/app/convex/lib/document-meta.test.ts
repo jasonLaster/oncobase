@@ -167,7 +167,7 @@ test("readers return identical results from documents and documentMeta, and swit
   expect(before.listSensitiveOnly.map(page => page.slug)).toEqual(["files/report", "private/a", "private/b", "private/zero"]);
   expect(before.accessible.filter(row => row.allowed).map(row => row.slug)).toEqual(["index", "notes/legacy", "notes/zero-deleted", "notes/tombstone", "private/a", "bulk/3"]);
   expect(before.pdfVisibility.map(row => row.path)).toEqual(["files/hidden-sibling.pdf", "files/open.pdf"]);
-  expect(before.pdfVisibilityAll.find(row => row.path === "files/report.pdf")).toEqual({ path: "files/report.pdf", ownerSlugs: ["files", "files/report"], sensitive: true });
+  expect(before.pdfVisibilityAll.find(row => row.path === "files/report.pdf")).toEqual({ path: "files/report.pdf", ownerSlugs: ["files", "files/report"], sensitive: true, contentHash: null });
   expect(before.priorities).toEqual([{ slug: "bulk/1", sensitive: false }, { slug: "private/b", sensitive: true }, { slug: "index", sensitive: false }, { slug: "private/a", sensitive: true }]);
   expect(JSON.stringify(before)).not.toContain("BODY_");
 

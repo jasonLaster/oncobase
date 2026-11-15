@@ -108,6 +108,28 @@ export interface WikiManifestAsset {
   size: number | null;
 }
 
+/**
+ * Manifests list every readable asset so markdown images and PDF links can use
+ * content-addressed URLs (P11), but only PDFs are browsable: file assets
+ * (images, data files) stay out of the file tree, the command palette and a
+ * page's related attachments, as they did before they were listed.
+ */
+export function isListedManifestAsset(asset: Pick<WikiManifestAsset, "kind" | "path">) {
+  return asset.kind === "pdf";
+}
+
+const VERSIONED_FILE_EXTENSION = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
+
+/**
+ * Which non-PDF assets a manifest lists: images, the files markdown renders
+ * inline. A real vault holds ~18k file assets (about 330 KB gzipped as
+ * manifest rows); images are most of them and the only ones whose repeat
+ * downloads matter. Data files stay unlisted and their links unversioned.
+ */
+export function isManifestFileAssetPath(path: string) {
+  return VERSIONED_FILE_EXTENSION.test(path);
+}
+
 export interface WikiManifest {
   schemaVersion: typeof WIKI_MANIFEST_SCHEMA_VERSION;
   siteSlug: string;

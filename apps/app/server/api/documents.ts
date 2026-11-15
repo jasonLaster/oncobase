@@ -88,10 +88,11 @@ export function createAccessAdapter(
   return {
     getManifestState: () => unlessMissing(client, "knownState",
       () => client.query(api.manifestCache.knownState, { siteSlug })),
-    listSessionManifestOverlay: async (user, { pages, assets, numItems, includeSnapshot }) => {
+    listSessionManifestOverlay: async (user, { pages, assets, files, numItems, includeSnapshot }) => {
       const result = await unlessMissing(client, "sessionManifestOverlay", () => client.query(api.access.sessionManifestOverlay, withSiteSlug(siteSlug, {
         userId: user._id as Id<"users">, numItems, includeSnapshotUrl: includeSnapshot,
         ...(pages !== undefined ? { pages } : {}), ...(assets !== undefined ? { assets } : {}),
+        ...(files !== undefined ? { files } : {}),
       })));
       if (!result) return null;
       const { snapshotUrl, fence, ...rest } = result;

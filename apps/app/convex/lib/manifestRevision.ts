@@ -2,7 +2,9 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 
-export const MANIFEST_SNAPSHOT_VERSION = 1;
+// 2: assets carry content hashes and include image files (P11). A bump makes
+// every installed snapshot stale; readers then request a rebuild.
+export const MANIFEST_SNAPSHOT_VERSION = 2;
 const BUILD_LEASE_MS = 120_000;
 export type ManifestDelta = { baseRevision: number; slugs: string[] };
 

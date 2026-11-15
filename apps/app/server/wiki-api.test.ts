@@ -2241,6 +2241,10 @@ test("PDF navigation authorizes before opening the viewer and keeps original dow
   expect(view?.status).toBe(302);
   expect(view!.headers.get("location")).toBe("/tools/pdf-viewer?path=sources%2Fpublic%2Fsource.pdf");
   expect(view!.headers.get("cache-control")).toBe("private, no-store");
+  // A versioned link keeps its `v`, so the viewer's own fetch is versioned (P11).
+  const versioned = await handler(request("/api/file?path=sources/public/source.pdf&v=abc123", { headers: { Accept: "text/html" } }));
+  expect(versioned!.headers.get("location")).toBe("/tools/pdf-viewer?path=sources%2Fpublic%2Fsource.pdf&v=abc123");
+  expect(versioned!.headers.get("cache-control")).toBe("private, no-store");
   const denied = await handler(request("/api/file?path=private/plan.pdf", { headers: { Accept: "text/html" } }));
   expect(denied?.status).toBe(404);
   expect(denied!.headers.get("location")).toBeNull();

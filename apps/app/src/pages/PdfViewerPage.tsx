@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { getDocument, GlobalWorkerOptions, TextLayer, type PDFDocumentProxy, type RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { withContentVersion } from "@oncobase/wiki-content";
 import "./pdf-viewer.css";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -11,7 +12,7 @@ function initialPage() {
   return Number.isInteger(page) && page > 0 ? page : 1;
 }
 
-function PdfDocument({ path }: { path: string }) {
+function PdfDocument({ path, version }: { path: string; version: string | null }) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(initialPage);
   const [pageInput, setPageInput] = useState(String(page));
@@ -24,7 +25,9 @@ function PdfDocument({ path }: { path: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const text = useRef<HTMLDivElement>(null);
   const name = path.split("/").at(-1) ?? "PDF";
-  const fileUrl = `/api/file?path=${encodeURIComponent(path)}`;
+  // P11: a link from a page carries the manifest's hash through the redirect,
+  // so the bytes PDF.js fetches cache immutably and refresh when they change.
+  const fileUrl = withContentVersion(`/api/file?path=${encodeURIComponent(path)}`, version);
 
   useEffect(() => {
     document.title = `${name} — PDF Viewer`;
@@ -153,9 +156,11 @@ function PdfDocument({ path }: { path: string }) {
 
 export function PdfViewerPage() {
   const { search } = useLocation();
-  const path = new URLSearchParams(search).get("path");
+  const params = new URLSearchParams(search);
+  const path = params.get("path");
+  const version = params.get("v");
   if (!path || !/\.pdf$/i.test(path) || path.startsWith("/") || path.includes("\\") || path.includes("\0") || path.split("/").some(part => part === ".." || part === ".")) {
     return <main className="pdf-viewer-message"><h1>Choose a PDF</h1><p>Open a PDF from the wiki file tree or a source page.</p><a href="/">Back to wiki</a></main>;
   }
-  return <PdfDocument key={path} path={path} />;
+  return <PdfDocument key={`${path}\0${version ?? ""}`} path={path} version={version && /^[\w-]{1,128}$/.test(version) ? version : null} />;
 }

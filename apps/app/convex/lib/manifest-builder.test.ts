@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { getFunctionName } from "convex/server";
 import { createHash } from "node:crypto";
 import { build } from "../manifestBuilder";
+import { MANIFEST_SNAPSHOT_VERSION } from "./manifestRevision";
 
 const handler = (build as unknown as { _handler: (ctx: any, args: any) => Promise<null> })._handler;
 
@@ -28,7 +29,7 @@ test("scheduled public additions use the delta and forward ownership to installa
     expect(queries).toHaveLength(3);
     expect(stored.pages.map((p: any) => p.slug)).toEqual(["new"]);
     expect(stored.compactTree).toEqual([["f", "new"]]);
-    expect(mutations).toEqual([{ name: "manifestCache:install", siteSlug: "alpha", revision: 1, hash: stored.manifestHash, storageId: "new-blob", formatVersion: 1, generation: 7 }]);
+    expect(mutations).toEqual([{ name: "manifestCache:install", siteSlug: "alpha", revision: 1, hash: stored.manifestHash, storageId: "new-blob", formatVersion: MANIFEST_SNAPSHOT_VERSION, generation: 7 }]);
   } finally {
     if (savedOrigin !== undefined) process.env.WIKI_TELEMETRY_ORIGIN = savedOrigin;
   }

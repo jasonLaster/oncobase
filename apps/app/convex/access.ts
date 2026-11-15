@@ -836,6 +836,8 @@ function allowedManifestRows(rows: DocumentMetadata[], site: SiteCtx, canRead: A
 
 const OVERLAY_ASSET_PAGE_SIZE = 500;
 
+type OverlayAssetPage = { page: string[]; hashes: Array<string | null>; isDone: boolean; continueCursor: string | null };
+
 /**
  * Everything a signed-in manifest needs beyond the public snapshot, read in
  * one transaction with the revision fence that proves it is consistent:
@@ -843,10 +845,14 @@ const OVERLAY_ASSET_PAGE_SIZE = 500;
  * (public and sensitive, in index order, so the result equals the old
  * listPdfAssetVisibilityPage + filterAccessibleSlugs chain), and the fence.
  *
- * Pass `pages`/`assets` as null to start that list, a cursor to continue, or
- * omit it when that list is done. Callers that page must see the same fence on
- * every call. `includeSnapshotUrl` returns the snapshot's storage URL, which
- * stays in the server process.
+ * Pass `pages`/`assets`/`files` as null to start that list, a cursor to
+ * continue, or omit it when that list is done. Callers that page must see the
+ * same fence on every call. `includeSnapshotUrl` returns the snapshot's
+ * storage URL, which stays in the server process.
+ *
+ * `assetHashes` (parallel to `assets`) and the `files` list (non-PDF assets,
+ * same rule, with `fileHashes`) are additive: app servers that predate them
+ * neither pass `files` nor read the hashes.
  */
 export const sessionManifestOverlay = query({
   args: {
@@ -854,10 +860,11 @@ export const sessionManifestOverlay = query({
     siteSlug: v.optional(v.string()),
     pages: v.optional(v.union(v.string(), v.null())),
     assets: v.optional(v.union(v.string(), v.null())),
+    files: v.optional(v.union(v.string(), v.null())),
     numItems: v.number(),
     includeSnapshotUrl: v.optional(v.boolean()),
   },
-  handler: async (ctx, { userId, siteSlug, pages, assets, numItems, includeSnapshotUrl }) => {
+  handler: async (ctx, { userId, siteSlug, pages, assets, files, numItems, includeSnapshotUrl }) => {
     if (!Number.isInteger(numItems) || numItems < 1 || numItems > 500) throw new Error("Invalid metadata page size");
     const site = await requireSite(ctx, siteSlug);
     if (!site.siteId || !site.site) return null;
@@ -871,46 +878,80 @@ export const sessionManifestOverlay = query({
         { cursor: pages, numItems, maximumBytesRead: 4 * 1024 * 1024 });
       pageResult = { page: allowedManifestRows(result.page, site, canRead), isDone: result.isDone, continueCursor: result.continueCursor };
     }
-    let assetResult: { page: string[]; isDone: boolean; continueCursor: string | null } = { page: [], isDone: true, continueCursor: null };
-    if (assets !== undefined) {
+    const owners = new Map<string, Promise<boolean>>();
+    // Same rule as the manifest's asset filter: an owner counts only if the
+    // document exists and this user can read it.
+    const ownerReadable = (slug: string) => {
+      let readable = owners.get(slug);
+      if (!readable) {
+        readable = findDocumentBySlug(ctx, site, slug).then(doc => doc !== null && canRead(slug, doc));
+        owners.set(slug, readable);
+      }
+      return readable;
+    };
+    const readableSensitive = async (row: { path: string; ownerSlugs?: string[] }) => {
+      const ownerSlugs = new Set(row.ownerSlugs ?? []);
+      const sibling = await findDocumentBySlug(ctx, site, assetPathToSiblingSlug(row.path));
+      if (sibling) ownerSlugs.add(sibling.slug);
+      if (ownerSlugs.size === 0) return false;
+      return (await Promise.all([...ownerSlugs].map(ownerReadable))).every(Boolean);
+    };
+    // Files are many (~18k on a real site) and almost all public, so only the
+    // sensitive ones page here, by index: `sensitive: true`, then legacy rows
+    // without the flag. Cursor: [group, path, _creationTime].
+    const visibleSensitiveFiles = async (cursor: string | null): Promise<OverlayAssetPage> => {
+      const groups = [true, undefined] as const;
+      const after = cursor === null ? null : JSON.parse(cursor) as [number, string, number];
+      const page: string[] = [];
+      const hashes: Array<string | null> = [];
+      let budget = OVERLAY_ASSET_PAGE_SIZE;
+      for (let group = after?.[0] ?? 0; group < groups.length; group++) {
+        const from = after && after[0] === group ? after : null;
+        const rows = await ctx.db.query("fileAssets")
+          .withIndex("by_site_sensitive_path", q => {
+            const base = q.eq("siteId", site.siteId!).eq("sensitive", groups[group]);
+            return from ? base.gte("path", from[1]) : base;
+          })
+          .filter(q => from ? q.or(q.gt(q.field("path"), from[1]), q.gt(q.field("_creationTime"), from[2])) : true)
+          .take(budget + 1);
+        const last = rows.length > budget ? rows[budget - 1] : null;
+        for (const row of rows.slice(0, budget)) {
+          if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+          if (!(await readableSensitive(row))) continue;
+          page.push(row.path);
+          hashes.push(row.contentHash ?? null);
+        }
+        if (last) return { page, hashes, isDone: false, continueCursor: JSON.stringify([group, last.path, last._creationTime]) };
+        budget -= rows.length;
+        if (budget <= 0 && group + 1 < groups.length) {
+          return { page, hashes, isDone: false, continueCursor: JSON.stringify([group + 1, "", 0]) };
+        }
+      }
+      return { page, hashes, isDone: true, continueCursor: null };
+    };
+    const visibleAssets = async (table: "pdfAssets", cursor: string | null): Promise<OverlayAssetPage> => {
       // Convex allows one paginate() per function, so assets page by key:
       // the cursor is the last row's [path, _creationTime], the index order.
-      const after = assets === null ? null : JSON.parse(assets) as [string, number];
-      const rows = await ctx.db.query("pdfAssets")
+      const after = cursor === null ? null : JSON.parse(cursor) as [string, number];
+      const rows = await ctx.db.query(table)
         .withIndex("by_site_path", q => after ? q.eq("siteId", site.siteId!).gte("path", after[0]) : q.eq("siteId", site.siteId!))
         .filter(q => after ? q.or(q.gt(q.field("path"), after[0]), q.gt(q.field("_creationTime"), after[1])) : true)
         .take(OVERLAY_ASSET_PAGE_SIZE + 1);
       const last = rows.length > OVERLAY_ASSET_PAGE_SIZE ? rows[OVERLAY_ASSET_PAGE_SIZE - 1] : null;
-      const result = {
-        page: rows.slice(0, OVERLAY_ASSET_PAGE_SIZE),
-        isDone: last === null,
-        continueCursor: last ? JSON.stringify([last.path, last._creationTime]) : null,
-      };
-      const owners = new Map<string, Promise<boolean>>();
-      // Same rule as the manifest's asset filter: an owner counts only if the
-      // document exists and this user can read it.
-      const ownerReadable = (slug: string) => {
-        let readable = owners.get(slug);
-        if (!readable) {
-          readable = findDocumentBySlug(ctx, site, slug).then(doc => doc !== null && canRead(slug, doc));
-          owners.set(slug, readable);
-        }
-        return readable;
-      };
-      const visible: string[] = [];
-      for (const row of result.page) {
+      const page: string[] = [];
+      const hashes: Array<string | null> = [];
+      for (const row of rows.slice(0, OVERLAY_ASSET_PAGE_SIZE)) {
         if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
         const sensitive = !hasCompleteAssetVisibility(row) || row.sensitive === true;
-        if (!sensitive) { visible.push(row.path); continue; }
-        const ownerSlugs = new Set(row.ownerSlugs ?? []);
-        const sibling = await findDocumentBySlug(ctx, site, assetPathToSiblingSlug(row.path));
-        if (sibling) ownerSlugs.add(sibling.slug);
-        if (ownerSlugs.size === 0) continue;
-        const readable = await Promise.all([...ownerSlugs].map(ownerReadable));
-        if (readable.every(Boolean)) visible.push(row.path);
+        if (sensitive && !(await readableSensitive(row))) continue;
+        page.push(row.path);
+        hashes.push(row.contentHash ?? null);
       }
-      assetResult = { page: visible, isDone: result.isDone, continueCursor: result.continueCursor };
-    }
+      return { page, hashes, isDone: last === null, continueCursor: last ? JSON.stringify([last.path, last._creationTime]) : null };
+    };
+    const none: OverlayAssetPage = { page: [], hashes: [], isDone: true, continueCursor: null };
+    const assetResult = assets !== undefined ? await visibleAssets("pdfAssets", assets) : none;
+    const fileResult = files !== undefined ? await visibleSensitiveFiles(files) : none;
     const snapshot = includeSnapshotUrl && fence.snapshotHash && site.site.manifestSnapshot
       ? await ctx.storage.getUrl(site.site.manifestSnapshot.storageId) : null;
     return {
@@ -920,8 +961,15 @@ export const sessionManifestOverlay = query({
       pagesDone: pageResult.isDone,
       pagesCursor: pageResult.isDone ? null : pageResult.continueCursor,
       assets: assetResult.page,
+      assetHashes: assetResult.hashes,
       assetsDone: assetResult.isDone,
       assetsCursor: assetResult.isDone ? null : assetResult.continueCursor,
+      ...(files !== undefined ? {
+        files: fileResult.page,
+        fileHashes: fileResult.hashes,
+        filesDone: fileResult.isDone,
+        filesCursor: fileResult.isDone ? null : fileResult.continueCursor,
+      } : {}),
     };
   },
 });
