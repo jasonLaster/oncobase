@@ -123,7 +123,13 @@ test.describe("cross-surface accessibility smoke", () => {
     await page.keyboard.press("Enter");
     const menu = page.getByRole("menu", { name: "Actions" });
     await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: "Text Search" }).focus();
+    // The menu moves focus to its popup as it finishes opening; focus the item once that has happened.
+    const textSearch = menu.getByRole("menuitem", { name: "Text Search" });
+    await expect(async () => {
+      await textSearch.focus();
+      await page.waitForTimeout(100);
+      await expect(textSearch).toBeFocused({ timeout: 100 });
+    }).toPass();
     expect(await focusIsVisible()).toBe(true);
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/search(?:\?|$)/);
