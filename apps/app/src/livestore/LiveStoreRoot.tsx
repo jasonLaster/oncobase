@@ -1,4 +1,5 @@
 import { makeInMemoryAdapter, makePersistedAdapter } from "@livestore/adapter-web";
+import { isWebStorageAvailable } from "@oncobase/safe-storage";
 import { rootHandlePromise } from "@livestore/adapter-web/opfs-utils";
 import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
 import liveStoreSharedWorkerUrl from "@livestore/adapter-web/shared-worker?sharedworker&url";
@@ -127,7 +128,9 @@ const storageMode = isDiagnosticMemoryStorageRequest(new URL(location.href))
   : resolveReaderStorage({ getDirectory: () => rootHandlePromise });
 const adapterPromise = storageMode.then((mode) => {
   markVisualPhase("storage-ready", { mode });
-  if (mode === "opfs") {
+  // LiveStore's persisted adapter reads Web Storage raw (client and session ids)
+  // and throws into the recovery card when it is blocked.
+  if (mode === "opfs" && isWebStorageAvailable("localStorage") && isWebStorageAvailable("sessionStorage")) {
     prefetchWorkerScripts();
     return persistedAdapter;
   }

@@ -40,6 +40,22 @@ export function resolveWebStorage(kind: StorageKind): Backing | null {
   }
 }
 
+/**
+ * Whether `window[kind]` exists and can be read without throwing. For handing
+ * storage to third-party code that touches it raw (LiveStore's persisted
+ * adapter does): pick a storage-free path when this is false.
+ */
+export function isWebStorageAvailable(kind: StorageKind): boolean {
+  try {
+    const storage = resolveWebStorage(kind);
+    if (!storage) return false;
+    storage.getItem("oncobase:storage-probe");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Builds a facade over `resolve()`; exported for tests and unusual hosts. */
 export function createSafeStorage(
   resolve: () => Backing | null | undefined,

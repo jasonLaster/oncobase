@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   createSafeStorage,
+  isWebStorageAvailable,
   memoryBackedLocalStorage,
   resolveWebStorage,
   safeLocalStorage,
@@ -66,6 +67,24 @@ describe("safe storage", () => {
       expect(() => storage.removeItem("key")).not.toThrow();
       expect(storage.keys()).toEqual([]);
     }
+  });
+
+  test("reports availability for code that must touch storage raw", () => {
+    delete (globalThis as Record<string, unknown>).window;
+    expect(isWebStorageAvailable("localStorage")).toBe(false);
+    stubBlockedWindow();
+    expect(isWebStorageAvailable("localStorage")).toBe(false);
+    expect(isWebStorageAvailable("sessionStorage")).toBe(false);
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: null, sessionStorage: throwingStorage() }, configurable: true, writable: true,
+    });
+    expect(isWebStorageAvailable("localStorage")).toBe(false);
+    expect(isWebStorageAvailable("sessionStorage")).toBe(false);
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: memoryStorage(), sessionStorage: memoryStorage() }, configurable: true, writable: true,
+    });
+    expect(isWebStorageAvailable("localStorage")).toBe(true);
+    expect(isWebStorageAvailable("sessionStorage")).toBe(true);
   });
 
   test("never throws when every operation throws", () => {
