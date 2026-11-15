@@ -1,4 +1,13 @@
-export const PREFETCH_LIMITS = { pages: 150, bytes: 8 * 1024 * 1024, pauseMs: 2000, refreshMs: 5 * 60_000, revalidateMs: 30_000 };
+export const PREFETCH_LIMITS = { pages: 150, bytes: 8 * 1024 * 1024, pauseMs: 2000, refreshMs: 5 * 60_000 };
+
+/** P11: a fresh stored body whose hash is the one the manifest lists needs no request. */
+export function isStoredBodyCurrent(
+  cached: { content?: string | null; contentHash: string | null; contentStatus: string } | null | undefined,
+  indexed: { contentHash: string | null } | null | undefined,
+) {
+  return Boolean(cached?.content && indexed?.contentHash &&
+    cached.contentHash === indexed.contentHash && cached.contentStatus === "fresh");
+}
 export type CachedPage = { slug: string; size: number; fetchedAt: number; contentHash: string | null; contentStatus: string };
 type IndexedPage = { slug: string; size: number; contentHash: string | null };
 

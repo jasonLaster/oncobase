@@ -105,7 +105,9 @@ export function BackgroundPrefetch({ onMetrics, isForegroundBusy }: {
         const slug = queue.find(candidate => (!requestedSlug || candidate === requestedSlug) && (failedUntil.get(candidate) ?? 0) <= now);
         if (!slug) { nextDelay = 30_000; return; }
         failedUntil.set(slug, now + PREFETCH_LIMITS.refreshMs);
-        const batch = await client.fetchPages({ slugs: [slug], signal });
+        // Content-addressed (P11): the manifest's hash names this body.
+        const expected = (index as readonly { slug: string; contentHash: string | null }[]).find(page => page.slug === slug)?.contentHash;
+        const batch = await client.fetchPages({ slugs: [slug], versions: [expected], signal });
         if (signal.aborted || stopped) return;
         const page = batch.pages.find(page => page.slug === slug);
         if (!page || (scope === "public" && page.sensitive)) return;

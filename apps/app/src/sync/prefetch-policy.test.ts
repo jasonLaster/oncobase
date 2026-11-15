@@ -31,3 +31,14 @@ test("only missing or changed bodies are fetched; unknown and denied pages are e
   const result = planPrefetch({ activeSlug: "current", recent: [], ranked: ["fresh", "stale", "missing", "denied", "unknown"], index, cached: [cached("fresh"), { ...cached("stale"), contentStatus: "stale" }, { ...cached("denied"), contentStatus: "sensitive-unavailable" }] });
   expect(result.queue).toEqual(["stale", "missing"]);
 });
+
+test("P11: a fresh stored body with the manifest's hash needs no request, at any age", async () => {
+  const { isStoredBodyCurrent } = await import("./prefetch-policy");
+  const body = { content: "# A", contentHash: "h1", contentStatus: "fresh" };
+  expect(isStoredBodyCurrent(body, { contentHash: "h1" })).toBe(true);
+  expect(isStoredBodyCurrent(body, { contentHash: "h2" })).toBe(false);
+  expect(isStoredBodyCurrent({ ...body, contentStatus: "stale" }, { contentHash: "h1" })).toBe(false);
+  expect(isStoredBodyCurrent({ ...body, contentHash: null }, { contentHash: null })).toBe(false);
+  expect(isStoredBodyCurrent(body, undefined)).toBe(false);
+  expect(isStoredBodyCurrent(null, { contentHash: "h1" })).toBe(false);
+});

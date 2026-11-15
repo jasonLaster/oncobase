@@ -103,7 +103,12 @@ export function takeEarlyResponse(url: URL | string): { response: Promise<Respon
     if (!early) return undefined;
     const parsed = new URL(url, location.origin);
     if (parsed.origin !== location.origin) return undefined;
-    const key = `${parsed.pathname}${parsed.search}`;
+    // The head script cannot know a body's hash (P11 `?v=`); its unversioned
+    // answer serves the versioned call too, whose caller checks the hash it got.
+    const exact = `${parsed.pathname}${parsed.search}`;
+    parsed.searchParams.delete("v");
+    const unversioned = `${parsed.pathname}${parsed.search}`;
+    const key = early.responses[exact] ? exact : unversioned;
     const pending = early.responses[key];
     if (!pending) return undefined;
     delete early.responses[key];

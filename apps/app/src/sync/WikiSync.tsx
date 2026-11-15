@@ -40,7 +40,7 @@ import {
 import { manifestToEvent, pageToEvent } from "../livestore/wiki-events";
 
 import { BackgroundPrefetch, FOREGROUND_FETCH_EVENT } from "./BackgroundPrefetch";
-import { PREFETCH_LIMITS } from "./prefetch-policy";
+import { isStoredBodyCurrent } from "./prefetch-policy";
 import { clearStartupSnapshot } from "../bootstrap/reader-startup-cache";
 import { hasBootstrappedPage, cachedStartupStores } from "../bootstrap/seed-state";
 export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
@@ -172,15 +172,11 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       existing?.abort();
 
       const cached = store.query(pageContentBySlug$(slug)) as PageContentRow | null;
-      if (
-        !force && cached?.content &&
-        pageIndex &&
-        cached.contentHash === pageIndex.contentHash &&
-        cached.contentStatus === "fresh" &&
-        Date.now() - cached.fetchedAt < PREFETCH_LIMITS.revalidateMs
-      ) {
-        return;
-      }
+      // P11: the manifest names each body by its hash. A stored body with the
+      // listed hash is that body, however long ago it arrived, so there is
+      // nothing to ask. A publish changes the hash (and so the URL below);
+      // the manifest check on load, attention and its timer delivers it.
+      if (!force && isStoredBodyCurrent(cached, pageIndex)) return;
 
       const controller = new AbortController();
       inFlight.current.set(cacheKey, controller);
@@ -190,7 +186,9 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       }
       window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT));
       try {
+        // Forced reads (retry, a startup snapshot) bypass the HTTP cache.
         const batch = await client.fetchPages({ slugs: [slug], signal: controller.signal,
+          ...(force ? {} : { versions: [pageIndex?.contentHash] }),
           onProgress: receivedBytes => {
             if (!controller.signal.aborted && slug === currentSlugRef.current) setPageTransfer({ slug, receivedBytes });
           },
