@@ -142,6 +142,15 @@ export type WikiSessionOverlayPage = {
   assetsCursor: string | null;
 };
 
+/** Durable, content-addressed storage for public manifest bytes (P10), so a
+ * new instance does not rebuild what another already encoded. Keys name
+ * immutable content; implementations must never be given per-user data. */
+export type ManifestArtifactStore = {
+  get(key: string): Promise<Uint8Array<ArrayBuffer> | null>;
+  /** Fire and forget; failures are the store's to log. */
+  put(key: string, body: Uint8Array<ArrayBuffer>): void;
+};
+
 export type ManifestPageResult = {
   page: WikiManifestPage[];
   isDone: boolean;
@@ -231,6 +240,8 @@ export type WikiApiContext = {
   // Per-instance memo keyed by snapshot hash: skips the storage read and the
   // decode/compact/gzip work for repeat requests of the same snapshot.
   manifestSnapshotCache?: ManifestSnapshotCache;
+  /** Public manifest bytes persisted across instances, keyed by snapshot hash. */
+  manifestArtifacts?: ManifestArtifactStore;
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
   onManifestFallback?: (reason: "snapshot-unavailable" | "snapshot-invalid" | "private-query" | "snapshot-changed" | "overlay-unavailable" | "overlay-changed") => void;
@@ -1044,7 +1055,7 @@ export async function createWikiManifestResponse(
         const compact = url.searchParams.get("format") === "compact-v1";
         const gzipAccepted = acceptsGzip(request);
         const format = compact ? "compact-v1" : "full";
-        const encode = async () => {
+        const encode = () => persistedEncoding(context, gzipAccepted ? artifactKey(context.siteSlug, snapshot.hash, format) : null, async () => {
           const bytes = await snapshot.read();
           // Decode, compact, re-serialize and compress depend only on the hash,
           // the wire format and the negotiated encoding.
@@ -1055,7 +1066,7 @@ export async function createWikiManifestResponse(
             gzipAccepted);
           phase("snapshot-encode", encodeStarted);
           return encoded;
-        };
+        });
         const encoded = context.manifestSnapshotCache
           ? await context.manifestSnapshotCache.get("response",
               `${context.siteSlug}:${snapshot.hash}:${format}:${gzipAccepted ? "gzip" : "identity"}`,
@@ -1164,6 +1175,25 @@ export async function createWikiManifestResponse(
   // Only the one-transaction overlay proves which fence these rows belong to.
   const token = fence && sessionUser && !partialManifest ? sessionKnownToken(context.siteSlug, sessionUser._id, fence) : null;
   return withKnownHeaders(await serveDerivedManifest(request, context, { scope, source, partial: partialManifest, derive, key: derivedKey, phase, have, token }), token, knownResult);
+}
+
+// P10: gzip bytes of a public representation, durable across instances.
+const ARTIFACT_VERSION = 1;
+function artifactKey(siteSlug: string, snapshotHash: string, variant: string) {
+  return `manifest/v${ARTIFACT_VERSION}-s${WIKI_MANIFEST_SCHEMA_VERSION}/${siteSlug}/${snapshotHash}/${variant}.json.gz`;
+}
+
+async function persistedEncoding(context: WikiApiContext, key: string | null, encode: () => Promise<EncodedContent>): Promise<EncodedContent> {
+  const store = key ? context.manifestArtifacts : undefined;
+  if (store && key) {
+    const stored = await store.get(key).catch(() => null);
+    if (stored) return { body: stored, gzip: true };
+  }
+  const encoded = await encode();
+  if (store && key && encoded.gzip && typeof encoded.body !== "string") {
+    try { store.put(key, encoded.body); } catch { /* Persistence is an optimization. */ }
+  }
+  return encoded;
 }
 
 type DerivedManifestOptions = {

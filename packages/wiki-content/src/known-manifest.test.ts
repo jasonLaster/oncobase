@@ -205,6 +205,28 @@ describe("known manifest checks", () => {
   });
 });
 
+describe("persisted public manifest artifacts", () => {
+  test("a new instance serves stored gzip bytes and never stores session manifests", async () => {
+    const f = await fixture({ extraPages: 40 });
+    const stored = new Map<string, Uint8Array<ArrayBuffer>>();
+    const store = { get: async (key: string) => stored.get(key) ?? null, put: (key: string, body: Uint8Array<ArrayBuffer>) => { stored.set(key, body); } };
+    let reads = 0;
+    const snapshot = f.context.getManifestSnapshot!;
+    f.context.getManifestSnapshot = async () => { const s = (await snapshot())!; return { ...s, read: async () => { reads++; return s.read(); } }; };
+    const gz = () => new Request("https://test/api/wiki/manifest?format=compact-v1", { headers: { "Accept-Encoding": "gzip" } });
+    const first = await createWikiManifestResponse(gz(), { ...f.context, manifestArtifacts: store });
+    expect(reads).toBe(1);
+    expect(stored.size).toBe(1);
+    // A fresh instance: no memo, the artifact store has the bytes.
+    const fresh = await createWikiManifestResponse(gz(), { ...f.context, manifestSnapshotCache: createManifestSnapshotCache(), manifestArtifacts: store });
+    expect(reads).toBe(1);
+    expect(fresh.headers.get("Content-Encoding")).toBe("gzip");
+    expect(Buffer.from(await fresh.arrayBuffer())).toEqual(Buffer.from(await first.arrayBuffer()));
+    await createWikiManifestResponse(new Request("https://test/api/wiki/manifest?scope=session&format=compact-v1", { headers: { "Accept-Encoding": "gzip", "x-user": "reader" } }), { ...f.context, manifestArtifacts: store });
+    expect(stored.size).toBe(1);
+  });
+});
+
 test("the session token changes with every fence field and the user, and is refused while publishing", () => {
   const fence: WikiManifestState = { manifestRevision: 1, accessRevision: 1, policyVersion: 1, snapshotHash: "s", publishing: false };
   const token = sessionKnownToken("diana", "u", fence)!;

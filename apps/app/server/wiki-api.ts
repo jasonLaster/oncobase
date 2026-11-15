@@ -32,6 +32,7 @@ import { educationDocumentsGateway, educationManifestSubset } from "./education-
 import { EDUCATION_ACCESS_PARTITION } from "../src/education-access";
 import { decorateViteHeaders, enforceApiPasswordGate, privatePasswordGateHeaders, privatizePasswordGatedResponse } from "./api/gate";
 import { createAccessAdapter, createDocumentsGateway } from "./api/documents";
+import { createManifestArtifactStore } from "./api/manifest-artifacts";
 import { EDUCATION_API_ALIASES, matchApiRoute, matchRawApiRoute } from "./api-routes";
 // Hot reader routes stay in the startup graph; their table loaders resolve
 // to this already-evaluated module.
@@ -52,6 +53,11 @@ export function createWikiApiHandler(client = createClient()) {
   // Per-instance: snapshot bytes are content-addressed, build requests throttled.
   const manifestSnapshotCache = createManifestSnapshotCache({ onLookup: (hit, kind) => traceBackendCache(kind === "derived" ? "manifest-derived" : "manifest-snapshot", hit) });
   const requestManifestBuild = createManifestBuildRequester();
+  const manifestArtifacts = new Map<string, ReturnType<typeof createManifestArtifactStore>>();
+  const artifactsFor = (siteSlug: string) => {
+    if (!manifestArtifacts.has(siteSlug)) manifestArtifacts.set(siteSlug, createManifestArtifactStore(siteSlug));
+    return manifestArtifacts.get(siteSlug);
+  };
   return traceBackendHandler(async function handleWikiApiRequest(request: Request): Promise<Response | null> {
     let pathname = new URL(request.url).pathname;
     const rawRoute = matchRawApiRoute(pathname);
@@ -98,6 +104,7 @@ export function createWikiApiHandler(client = createClient()) {
       onManifestFallback: (reason: string) => traceBackendAttributes({ "manifest.fallback_reason": reason }),
       onManifestPhase: (name: Parameters<NonNullable<WikiApiContext["onManifestPhase"]>>[0], ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
       manifestSnapshotCache,
+      manifestArtifacts: artifactsFor(siteSlug),
       publicSubset: undefined as WikiApiContext["publicSubset"],
       getManifestSnapshot: process.env.WIKI_PREFETCH_SECRET ? async () => {
         // Authenticated by the service JWT; WIKI_PREFETCH_SECRET only gates the feature.
