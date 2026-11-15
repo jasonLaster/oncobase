@@ -31,6 +31,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import os from "node:os";
 import path from "node:path";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
+import { backendReleases } from "./local-stack-releases";
 import {
   APP_DIR, LOCAL_ADMIN_USER, LOCAL_CARE_USER, LOCAL_GATE_PASSWORD, LOCAL_READER_USER, LOCAL_SITE_SLUG, PORTS, REPO_DIR,
   STACK_DIR, STACK_ENV_FILE, formatEnvFile, parseEnvFile,
@@ -120,7 +121,7 @@ async function ensureBackendBinary(): Promise<string> {
   if (candidates[0]) return candidates[0];
   const { convex: triple } = platformTriple();
   log("Downloading convex-local-backend from github.com/get-convex/convex-backend releases");
-  const releases = await (await fetch("https://api.github.com/repos/get-convex/convex-backend/releases?per_page=20")).json() as Array<{ tag_name: string; assets: Array<{ name: string; browser_download_url: string }> }>;
+  const releases = await backendReleases();
   const release = releases.find((entry) => entry.tag_name.startsWith("precompiled-") && entry.assets.some((asset) => asset.name === `convex-local-backend-${triple}.zip`));
   if (!release) throw new Error("No precompiled convex-local-backend release found");
   const asset = release.assets.find((entry) => entry.name === `convex-local-backend-${triple}.zip`)!;

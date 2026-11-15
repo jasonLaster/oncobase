@@ -62,11 +62,17 @@ test.describe("finding things (real backend)", () => {
     await input.fill("pembrolizumab");
     await input.press("Enter");
     await expect(page).toHaveURL(/q=pembrolizumab/);
+    // History updates before React replaces the query-keyed input. The old
+    // carboplatin snippet also mentions pembrolizumab, so text alone is stale.
+    await expect(page.getByTestId("search-page")).toHaveAttribute("data-search-query", "pembrolizumab");
+    await expect(input).toHaveValue("pembrolizumab");
     // The previous query's summary is still on screen: wait for the new results.
     await expect(page.getByTestId("search-text-result").first()).toContainText(/pembrolizumab/i);
 
     await input.fill("zzzzqqqq");
     await input.press("Enter");
+    await expect(page).toHaveURL(/q=zzzzqqqq/);
+    await expect(page.getByTestId("search-page")).toHaveAttribute("data-search-query", "zzzzqqqq");
     await expect(page.getByTestId("search-text-empty")).toBeVisible();
   });
 

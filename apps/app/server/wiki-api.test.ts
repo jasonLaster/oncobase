@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { getFunctionName, makeFunctionReference, type FunctionReference } from "convex/server";
 import JSZip from "jszip";
+import { gzipSync } from "node:zlib";
 import {
   createWikiApiHandler,
   isPasswordGateEnabled,
@@ -514,6 +515,35 @@ function createFakeConvexClient({
 }
 
 describe("wiki Vite API auth and scoped archive behavior", () => {
+  test("streams a gzip-encoded public illustration without truncating its decoded body", async () => {
+    const slug = "wiki/education/oncology-101/index";
+    const image = "wiki/education/oncology-101/images/recognition-fixture.svg";
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg"><text>${"fixture ".repeat(100)}</text></svg>`;
+    const compressed = gzipSync(svg);
+    const upstream = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response(compressed, {
+      headers: { "Content-Encoding": "gzip", "Content-Length": String(compressed.length) },
+    }) });
+    const handler = createWikiApiHandler(createFakeConvexClient({ passwordGate: true,
+      extraPages: [{ slug, title: "Oncology 101", content: "Synthetic lesson", tags: [] }],
+      extraAssets: [{ path: image, ownerSlugs: [slug], sensitive: false, blobUrl: upstream.url.href }],
+    }) as never);
+    const proxy = Bun.serve({ hostname: "127.0.0.1", port: 0,
+      fetch: async incoming => (await handler(incoming)) ?? new Response(null, { status: 404 }),
+    });
+    try {
+      for (const endpoint of ["/api/file", "/api/education/file", "/api/education/api/file"]) {
+        const result = await handler(request(`${endpoint}?path=${encodeURIComponent(image)}`));
+        const declaredLength = result!.headers.get("content-length");
+        const decodedBody = await result!.arrayBuffer();
+        expect(Buffer.from(decodedBody).toString()).toBe(svg);
+        if (declaredLength !== null) expect(Number(declaredLength)).toBe(decodedBody.byteLength);
+        const response = await fetch(new URL(`${endpoint}?path=${encodeURIComponent(image)}`, proxy.url));
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toBe("image/svg+xml");
+        expect(await response.text()).toBe(svg);
+      }
+    } finally { proxy.stop(true); upstream.stop(true); }
+  });
   test("public illustrations shared with wiki updates work through both file routes", async () => {
     const slug = "wiki/education/designing-a-vaccine/index";
     const owner = "wiki/updates/week-13";

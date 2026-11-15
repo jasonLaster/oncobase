@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="240" viewBox="0 0 640 240">
+  <title>Synthetic image fixture</title>
+  <desc>Two abstract circles joined by a line. Software test data, not a biological model.</desc>
+  <rect width="640" height="240" rx="20" fill="#f4f1e8"/>
+  <path d="M220 100H420" stroke="#314a5b" stroke-width="8"/>
+  <circle cx="180" cy="100" r="45" fill="#314a5b"/>
+  <circle cx="460" cy="100" r="45" fill="#314a5b"/>
+  <text x="320" y="200" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#314a5b">Synthetic image fixture</text>
+</svg>
