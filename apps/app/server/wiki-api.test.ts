@@ -54,6 +54,7 @@ type FakeSession = {
 };
 
 type FakePage = {
+  contentHash?: string;
   slug: string;
   title: string;
   content: string;
@@ -62,6 +63,7 @@ type FakePage = {
 };
 
 type FakeAsset = {
+  contentHash?: string;
   blobUrl: string;
   ownerSlugs?: string[];
   path: string;
@@ -2254,4 +2256,117 @@ test("PDF navigation authorizes before opening the viewer and keeps original dow
       expect(result!.headers.get("content-disposition")).toStartWith(suffix.includes("download") ? "attachment;" : "inline;");
     }
   } finally { globalThis.fetch = originalFetch; }
+});
+
+describe("P11 content-addressed private reads", () => {
+  const YEAR = "private, max-age=31536000, immutable";
+  const versionedAssets: FakeAsset[] = [
+    { path: "private/versioned/scan.png", blobUrl: "https://blob.example/versioned-scan.png", ownerSlugs: ["private/plan"], sensitive: true, sizeBytes: 7, contentHash: "scanhash" },
+    { path: "private/versioned/denied.png", blobUrl: "https://blob.example/versioned-denied.png", ownerSlugs: ["private/shared"], sensitive: true, sizeBytes: 7, contentHash: "deniedhash" },
+    { path: "sources/versioned/public.png", blobUrl: "https://blob.example/versioned-public.png", ownerSlugs: [], sensitive: false, sizeBytes: 6, contentHash: "publichash" },
+  ];
+  const versionedPages: FakePage[] = [
+    { slug: "private/versioned", title: "Versioned", tags: [], content: "# Versioned private", sensitive: true, contentHash: "pagehash" },
+  ];
+  async function withBlob<T>(run: (fetchCalls: string[]) => Promise<T>) {
+    const originalFetch = globalThis.fetch;
+    const fetchCalls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(String(input));
+      return new Response("bytes!!", { headers: { "Content-Length": "7", ETag: '"blob-etag"' } });
+    }) as typeof fetch;
+    try { return await run(fetchCalls); } finally { globalThis.fetch = originalFetch; }
+  }
+  const fileHandler = (deniedSlugs: string[] = ["private/shared"]) => createWikiApiHandler(createFakeConvexClient({
+    deniedSlugs, extraAssets: versionedAssets, extraPages: versionedPages, passwordGate: true,
+  }) as never);
+
+  test("a matching v on a readable private file caches privately for a year, with an ETag", () => withBlob(async () => {
+    const handler = fileHandler();
+    const cookie = await signupCookie(handler, "p11-match@example.com");
+    const response = await handler(request("/api/file?path=private%2Fversioned%2Fscan.png&v=scanhash", { headers: { Cookie: cookie } }));
+    expect(response?.status).toBe(200);
+    expect(response!.headers.get("cache-control")).toBe(YEAR);
+    expect(response!.headers.get("cache-control")).not.toContain("public");
+    expect(response!.headers.get("etag")).toBe('"scanhash"');
+    expect(response!.headers.get("vary")).toContain("Cookie");
+  }));
+
+  test("an unversioned private file keeps the gate's no-store, now with an ETag", () => withBlob(async () => {
+    const handler = fileHandler();
+    const cookie = await signupCookie(handler, "p11-plain@example.com");
+    const response = await handler(request("/api/file?path=private%2Fversioned%2Fscan.png", { headers: { Cookie: cookie } }));
+    expect(response!.headers.get("cache-control")).toBe("private, no-store");
+    expect(response!.headers.get("etag")).toBe('"scanhash"');
+  }));
+
+  test("a mismatched v is served without the long cache", () => withBlob(async () => {
+    const handler = fileHandler();
+    const cookie = await signupCookie(handler, "p11-mismatch@example.com");
+    const response = await handler(request("/api/file?path=private%2Fversioned%2Fscan.png&v=stale", { headers: { Cookie: cookie } }));
+    expect(response?.status).toBe(200);
+    expect(response!.headers.get("cache-control")).toBe("private, no-store");
+    expect(response!.headers.get("x-wiki-version")).toBe("mismatch");
+  }));
+
+  test("an unauthorized v is a 404 as today, with no long cache and no Blob read", () => withBlob(async (fetchCalls) => {
+    const handler = fileHandler();
+    const cookie = await signupCookie(handler, "p11-denied@example.com");
+    const response = await handler(request("/api/file?path=private%2Fversioned%2Fdenied.png&v=deniedhash", { headers: { Cookie: cookie } }));
+    expect(response?.status).toBe(404);
+    expect(response!.headers.get("cache-control")).toBe("private, no-store");
+    expect(fetchCalls).toEqual([]);
+  }));
+
+  test("a gate-only visitor's v on a sensitive file is a 404", () => withBlob(async () => {
+    const handler = fileHandler();
+    const cookie = await gateCookie(handler);
+    const response = await handler(request("/api/file?path=private%2Fversioned%2Fscan.png&v=scanhash", { headers: { Cookie: cookie } }));
+    expect(response?.status).toBe(404);
+    expect(response!.headers.get("cache-control")).toBe("private, no-store");
+  }));
+
+  test("a gated public file with a matching v is private, never public", () => withBlob(async () => {
+    const handler = fileHandler();
+    const cookie = await gateCookie(handler);
+    const response = await handler(request("/api/file?path=sources%2Fversioned%2Fpublic.png&v=publichash", { headers: { Cookie: cookie } }));
+    expect(response!.headers.get("cache-control")).toBe(YEAR);
+  }));
+
+  test("If-None-Match with the asset hash answers 304 without reading Blob", () => withBlob(async (fetchCalls) => {
+    const handler = fileHandler();
+    const cookie = await signupCookie(handler, "p11-304@example.com");
+    const response = await handler(request("/api/file?path=private%2Fversioned%2Fscan.png", { headers: { Cookie: cookie, "If-None-Match": '"scanhash"' } }));
+    expect(response?.status).toBe(304);
+    expect(fetchCalls).toEqual([]);
+  }));
+
+  test("versioned page reads: match, mismatch, and a reader without access", async () => {
+    const allowed = fileHandler([]);
+    const cookie = await signupCookie(allowed, "p11-pages@example.com");
+    const match = await allowed(request("/api/wiki/pages?scope=session&slugs=private%2Fversioned&v=private%2Fversioned", { headers: { Cookie: cookie } }));
+    expect(match!.headers.get("cache-control")).toBe(YEAR);
+    const stale = await allowed(request("/api/wiki/pages?scope=session&slugs=private%2Fversioned&v=old", { headers: { Cookie: cookie } }));
+    expect(stale!.headers.get("cache-control")).toBe("private, no-store");
+    const plain = await allowed(request("/api/wiki/pages?scope=session&slugs=private%2Fversioned", { headers: { Cookie: cookie } }));
+    expect(plain!.headers.get("cache-control")).toBe("private, no-store");
+
+    const denied = fileHandler(["private/versioned"]);
+    const otherCookie = await signupCookie(denied, "p11-pages-denied@example.com");
+    const refused = await denied(request("/api/wiki/pages?scope=session&slugs=private%2Fversioned&v=private%2Fversioned", { headers: { Cookie: otherCookie } }));
+    expect(refused!.headers.get("cache-control")).toBe("private, no-store");
+    const body = await refused!.json();
+    expect(body.pages).toEqual([]);
+    expect(JSON.stringify(body)).not.toContain("Versioned private");
+  });
+
+  test("sign-out clears the HTTP cache and the session cookie", async () => {
+    const handler = fileHandler();
+    const cookie = await signupCookie(handler, "p11-signout@example.com");
+    const response = await handler(request("/api/auth/signout", { method: "POST", headers: { Cookie: cookie } }));
+    expect(response?.status).toBe(200);
+    expect(response!.headers.get("clear-site-data")).toBe('"cache"');
+    expect(response!.headers.get("cache-control")).toBe("private, no-store");
+    expect(response!.headers.get("set-cookie")).toContain("Max-Age=0");
+  });
 });

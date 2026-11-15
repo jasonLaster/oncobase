@@ -344,6 +344,8 @@ export async function handleAuthSignupRequest(
   }
 }
 
+export const SIGN_OUT_CLEAR_SITE_DATA = '"cache"';
+
 export async function handleAuthSignoutRequest(
   request: Request,
   client: ConvexHttpClient,
@@ -370,6 +372,11 @@ export async function handleAuthSignoutRequest(
     {
       headers: {
         "Cache-Control": "private, no-store",
+        // P11: versioned private pages and files are cached for a year. Drop
+        // them from this browser's HTTP cache with the session. Not
+        // "storage": that would also erase theme and UI preferences and every
+        // public reader store; the client deletes the session's OPFS store.
+        "Clear-Site-Data": SIGN_OUT_CLEAR_SITE_DATA,
         "Set-Cookie": clearSessionCookieHeader(),
         Vary: "Cookie, Host",
       },

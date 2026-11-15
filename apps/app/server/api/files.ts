@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
+import { VERSIONED_PRIVATE_CACHE_CONTROL, WIKI_VERSION_HEADER, WIKI_VERSION_PARAM } from "@oncobase/wiki-content";
 import { api } from "../../convex/_generated/api.js";
 import { traceBackendPhase } from "../backend-tracing";
 import { fetchBlob } from "../blob-fetch";
@@ -97,6 +98,21 @@ export function privateFileNotFound() {
   return new Response("File not found", {
     status: 404,
     headers: PRIVATE_FILE_DENIAL_HEADERS,
+  });
+}
+
+/** The asset's validator: its content hash, or the Blob's own ETag. */
+export function fileAssetEtag(contentHash: string | null | undefined) {
+  return contentHash ? `"${contentHash.replace(/["\\]/g, "")}"` : null;
+}
+
+/** RFC 9110 weak comparison: `W/"x"` and `"x"` both match. */
+export function ifNoneMatchMatches(request: Request, etag: string) {
+  const header = request.headers.get("if-none-match");
+  if (!header) return false;
+  return header.split(",").some(candidate => {
+    const tag = candidate.trim();
+    return tag === "*" || tag.replace(/^W\//, "") === etag;
   });
 }
 
@@ -216,6 +232,26 @@ export async function handleFileRequest(
     } });
   }
 
+  // P11: `?v=` names the content. Only after the access checks above, and
+  // only when it is exactly the stored hash, does the response cache for a
+  // year; any other `v` is answered as if it were absent.
+  const requestedVersion = url.searchParams.get(WIKI_VERSION_PARAM);
+  const versionMatch = requestedVersion !== null && Boolean(asset.contentHash) &&
+    requestedVersion === asset.contentHash;
+  const cacheControl = versionMatch
+    ? privateCache ? VERSIONED_PRIVATE_CACHE_CONTROL : "public, max-age=31536000, immutable"
+    : privateCache ? "private, max-age=60, stale-while-revalidate=3600" : "public, max-age=86400";
+  const vary = privateCache ? "Accept, Cookie, Host, Range" : "Accept, Host, Range";
+  const versionHeaders: Record<string, string> = requestedVersion === null ? {}
+    : { [WIKI_VERSION_HEADER]: versionMatch ? "match" : "mismatch" };
+  const etag = fileAssetEtag(asset.contentHash);
+  // The stored hash validates the bytes without reading Blob.
+  if (etag && ifNoneMatchMatches(request, etag)) {
+    return new Response(null, { status: 304, headers: {
+      "Cache-Control": cacheControl, ETag: etag, Vary: vary, "X-Wiki-Cache-Scope": cacheScope, ...versionHeaders,
+    } });
+  }
+
   let upstream: Response | null = null;
   const blobUrl = asset.blobUrl;
   try {
@@ -248,12 +284,13 @@ export async function handleFileRequest(
       "Content-Disposition": url.searchParams.has("download")
         ? `attachment; filename="${filename.replace(/["\r\n]/g, "")}"`
         : contentDisposition(ext, filename),
-      "Cache-Control": privateCache
-        ? "private, max-age=60, stale-while-revalidate=3600"
-        : "public, max-age=86400",
-      Vary: privateCache ? "Accept, Cookie, Host, Range" : "Accept, Host, Range",
+      "Cache-Control": cacheControl,
+      Vary: vary,
       "X-Wiki-Cache-Scope": cacheScope,
+      ...versionHeaders,
     });
+  const upstreamEtag = upstream.headers.get("etag");
+  if (etag ?? upstreamEtag) headers.set("ETag", (etag ?? upstreamEtag)!);
   const contentLength = upstream.headers.get("content-length");
   if (ext === ".html") {
     // Curriculum labs can run their scripts without receiving the wiki origin.

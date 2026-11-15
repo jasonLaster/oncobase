@@ -1,4 +1,5 @@
 import type { ConvexHttpClient } from "convex/browser";
+import { VERSIONED_PRIVATE_CACHE_CONTROL, WIKI_VERSION_HEADER } from "@oncobase/wiki-content";
 import {
   DEFAULT_SITE_SLUG,
   type PasswordGateEntry,
@@ -93,9 +94,21 @@ export function decorateViteHeaders(headers: HeadersInit) {
   return nextHeaders;
 }
 
+/**
+ * P11: a handler marks a response `X-Wiki-Version: match` only after it found
+ * the request's `?v=` to be exactly the content this requester may read now.
+ * That response alone keeps a long cache, and it is always `private`: nothing
+ * from the gated site is ever `public`. Sign-out clears it (Clear-Site-Data).
+ */
+export function isValidatedVersionedResponse(headers: Headers) {
+  return headers.get(WIKI_VERSION_HEADER) === "match";
+}
+
 export function privatePasswordGateHeaders(headers: HeadersInit) {
   const nextHeaders = decorateViteHeaders(headers);
-  nextHeaders.set("Cache-Control", "private, no-store");
+  nextHeaders.set("Cache-Control", isValidatedVersionedResponse(nextHeaders)
+    ? VERSIONED_PRIVATE_CACHE_CONTROL
+    : "private, no-store");
   nextHeaders.delete("CDN-Cache-Control");
   const vary = new Set(
     (nextHeaders.get("Vary") ?? "")
