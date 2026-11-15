@@ -105,6 +105,41 @@ export type WikiApiAccessAdapter = {
   ): Promise<WikiApiSlugAccess[]>;
   getAllowedSlugs(user: WikiApiSessionUser): Promise<string[]>;
   listAllowedManifestPage?(user: WikiApiSessionUser, args: { cursor: string | null; numItems: number }): Promise<ManifestPageResult>;
+  /** The site's revision fence, read alone: the cheap "has anything changed"
+   * answer behind `?known=`. Null when the backend cannot answer it. */
+  getManifestState?(): Promise<WikiManifestState | null>;
+  /** One transaction per call: the user's allowed sensitive pages, every PDF
+   * asset path the user may see, and the fence they were read at. Pass a list
+   * as null to start it, a cursor to continue, or omit it when done. Null when
+   * the backend has no such query. */
+  listSessionManifestOverlay?(user: WikiApiSessionUser, args: {
+    pages?: string | null; assets?: string | null; numItems: number; includeSnapshot: boolean;
+  }): Promise<WikiSessionOverlayPage | null>;
+};
+
+/** What a manifest response depends on besides the user: every change to the
+ * site's content bumps manifestRevision and every change to who can read what
+ * bumps accessRevision, in the same transaction as the change. */
+export type WikiManifestState = {
+  manifestRevision: number;
+  accessRevision: number;
+  policyVersion: number;
+  snapshotHash: string | null;
+  /** A publisher holds the site; content can change without a bump. */
+  publishing: boolean;
+};
+
+export type WikiSessionOverlayPage = {
+  fence: WikiManifestState;
+  /** Only when requested and the fence names a current snapshot. */
+  snapshot: { hash: string; read: () => Promise<BodyInit> } | null;
+  pages: WikiManifestPage[];
+  pagesDone: boolean;
+  pagesCursor: string | null;
+  /** Visible PDF asset paths, public and sensitive, in index order. */
+  assets: string[];
+  assetsDone: boolean;
+  assetsCursor: string | null;
 };
 
 export type ManifestPageResult = {
@@ -198,7 +233,7 @@ export type WikiApiContext = {
   manifestSnapshotCache?: ManifestSnapshotCache;
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
-  onManifestFallback?: (reason: "snapshot-unavailable" | "snapshot-invalid" | "private-query" | "snapshot-changed") => void;
+  onManifestFallback?: (reason: "snapshot-unavailable" | "snapshot-invalid" | "private-query" | "snapshot-changed" | "overlay-unavailable" | "overlay-changed") => void;
   onManifestPhase?: (phase: "read" | "overlay" | "assets" | "filter" | "tree" | "hash" | "serialize" | "snapshot-encode" | "snapshot-derive", durationMs: number) => void;
   // A fixed, public subset of the public manifest (e.g. the education curriculum
   // for logged-out readers). It is derived from the verified public snapshot by
@@ -237,6 +272,67 @@ function userHash(siteSlug: string, userId: string) {
     .update(`${siteSlug}:${userId}:${WIKI_SESSION_CACHE_VERSION}`)
     .digest("hex")
     .slice(0, 24);
+}
+
+// --- "Has anything changed?" (`?known=`) -----------------------------------
+//
+// A manifest response carries `X-Wiki-Known: <token>` when the server can
+// prove what it depends on. A client that still holds that manifest sends the
+// token back as `?known=<token>`; if nothing it depends on has changed the
+// server answers 204 before reading or deriving anything.
+//
+// - public: the response is a pure function of the immutable snapshot (hash)
+//   and the optional public subset, so the token names those.
+// - session: the response is a function of the user, the snapshot and the
+//   site's manifestRevision/accessRevision fence, read in the same
+//   transaction as the user's private overlay. The 204 check re-reads only
+//   the fence. While a publisher holds the site no token is issued or honored.
+//
+// Every token also names the deployment, so new derivation code re-sends
+// every manifest once. Tokens are opaque to clients.
+const KNOWN_TOKEN_VERSION = "k1";
+export const WIKI_KNOWN_HEADER = "X-Wiki-Known";
+
+function deploymentId() {
+  return process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA || process.env.WIKI_BUILD_ID || "dev";
+}
+
+export function publicKnownToken(siteSlug: string, snapshotHash: string, subset: string | null = null) {
+  return fullHashJson([KNOWN_TOKEN_VERSION, deploymentId(), WIKI_MANIFEST_SCHEMA_VERSION, siteSlug, "public", subset, snapshotHash]).slice(0, 40);
+}
+
+export function sessionKnownToken(siteSlug: string, userId: string, state: WikiManifestState) {
+  if (state.publishing || !state.snapshotHash) return null;
+  return fullHashJson([KNOWN_TOKEN_VERSION, deploymentId(), WIKI_MANIFEST_SCHEMA_VERSION, siteSlug, "session",
+    userHash(siteSlug, userId), state.manifestRevision, state.accessRevision, state.policyVersion, state.snapshotHash]).slice(0, 40);
+}
+
+function sameFence(a: WikiManifestState, b: WikiManifestState) {
+  return a.manifestRevision === b.manifestRevision && a.accessRevision === b.accessRevision &&
+    a.policyVersion === b.policyVersion && a.snapshotHash === b.snapshotHash && a.publishing === b.publishing;
+}
+
+function knownUnchangedResponse(context: WikiApiContext, scope: WikiScope, token: string | null, result: "match" | "have-match" = "match") {
+  // Never cacheable: the same URL means "unchanged" only until the next change.
+  return new Response(null, {
+    status: 204,
+    headers: decorate(context, {
+      "Cache-Control": "private, no-store",
+      Vary: "Accept, Accept-Encoding, Cookie, x-site-slug",
+      ...(token ? { [WIKI_KNOWN_HEADER]: token } : {}),
+      "X-Wiki-Known-Result": result,
+      "X-Wiki-Cache-Scope": scope,
+      "X-Wiki-Manifest-Source": "known",
+    }),
+  });
+}
+
+function withKnownHeaders(response: Response, token: string | null, result: string | null) {
+  if (!token && !result) return response;
+  const headers = new Headers(response.headers);
+  if (token) headers.set(WIKI_KNOWN_HEADER, token);
+  if (result && !headers.has("X-Wiki-Known-Result")) headers.set("X-Wiki-Known-Result", result);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 function cacheHeaders(scope: WikiScope, etag: string) {
@@ -537,6 +633,55 @@ async function sessionManifestPages(context: WikiApiContext, user: WikiApiSessio
     }
   }
   return listManifestPages(context, Boolean(context.access));
+}
+
+function reportFallback(context: WikiApiContext, reason: Parameters<NonNullable<WikiApiContext["onManifestFallback"]>>[0]) {
+  try { context.onManifestFallback?.(reason); } catch { /* Telemetry cannot break fallback. */ }
+}
+
+type OverlayManifest = { pages: ManifestPages; assets: WikiManifestAsset[]; fence: WikiManifestState };
+
+// The signed-in manifest from one transaction per page of private rows: the
+// verified public base plus this user's allowed sensitive pages and visible
+// assets, all read at one fence. Any inconsistency (a fence that moves between
+// pages, a publisher, no current snapshot, an older backend) returns null and
+// the caller uses the older paths, which re-read everything.
+async function overlayManifest(context: WikiApiContext, user: WikiApiSessionUser): Promise<OverlayManifest | null> {
+  const list = context.access?.listSessionManifestOverlay;
+  if (!list) return null;
+  const first = await list(user, { pages: null, assets: null, numItems: MANIFEST_PAGE_SIZE, includeSnapshot: true });
+  if (!first) { reportFallback(context, "overlay-unavailable"); return null; }
+  const { fence } = first;
+  if (fence.publishing || !fence.snapshotHash || !first.snapshot || first.snapshot.hash !== fence.snapshotHash) {
+    reportFallback(context, "snapshot-unavailable");
+    return null;
+  }
+  const overlay = [...first.pages];
+  const assetPaths = [...first.assets];
+  let { pagesDone, assetsDone, pagesCursor, assetsCursor } = first;
+  const seen = new Set<string>();
+  while (!pagesDone || !assetsDone) {
+    const key = `${pagesDone ? "-" : pagesCursor}|${assetsDone ? "-" : assetsCursor}`;
+    if ((!pagesDone && !pagesCursor) || (!assetsDone && !assetsCursor) || seen.has(key)) throw new Error("Invalid overlay cursor");
+    seen.add(key);
+    const next = await list(user, {
+      ...(pagesDone ? {} : { pages: pagesCursor }),
+      ...(assetsDone ? {} : { assets: assetsCursor }),
+      numItems: MANIFEST_PAGE_SIZE, includeSnapshot: false,
+    });
+    if (!next || !sameFence(next.fence, fence)) { reportFallback(context, "overlay-changed"); return null; }
+    if (!pagesDone) { overlay.push(...next.pages); pagesDone = next.pagesDone; pagesCursor = next.pagesCursor; }
+    if (!assetsDone) { assetPaths.push(...next.assets); assetsDone = next.assetsDone; assetsCursor = next.assetsCursor; }
+  }
+  const { raw } = await loadVerifiedBase(context, first.snapshot);
+  const pages = [...raw.pages, ...overlay];
+  if (new Set(pages.map(page => page.slug)).size !== pages.length) throw new Error("Manifest membership changed");
+  pages.sort((a, b) => a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
+  return {
+    pages: { pages, source: "snapshot-overlay", base: { hash: fence.snapshotHash, overlay } },
+    assets: assetPaths.map(path => ({ kind: "pdf" as const, path, contentHash: null, size: null })),
+    fence,
+  };
 }
 
 async function boundedManifestFallback(
@@ -848,6 +993,15 @@ export async function createWikiManifestResponse(
 ) {
   context = withManifestAccessCache(context);
   const scope = requestedScope(request);
+  const url = new URL(request.url);
+  const known = url.searchParams.get("known")?.slice(0, 128) || null;
+  // `have=<manifestHash>`: the validator as a query parameter, because the
+  // platform strips If-None-Match before the function runs. A match answers
+  // 204 with a fresh token instead of the body.
+  const have = url.searchParams.get("have")?.slice(0, 128) || null;
+  // The fence read overlaps the session lookup: the 204 answer costs one round trip.
+  const knownState = known && scope === "session" && context.access?.getManifestState
+    ? context.access.getManifestState().catch(() => null) : null;
   const sessionUser = await requireSessionIfNeeded(request, context, scope);
 
   if (scope === "session" && !sessionUser) {
@@ -860,22 +1014,36 @@ export async function createWikiManifestResponse(
     );
   }
 
+  let knownResult: "mismatch" | "unavailable" | null = known ? "unavailable" : null;
+  if (knownState && sessionUser) {
+    const state = await knownState;
+    const current = state ? sessionKnownToken(context.siteSlug, sessionUser._id, state) : null;
+    if (current && current === known) return knownUnchangedResponse(context, scope, current);
+    if (current) knownResult = "mismatch";
+  }
+
   const phase = (name: Parameters<NonNullable<WikiApiContext["onManifestPhase"]>>[0], started: number) => {
     try { context.onManifestPhase?.(name, performance.now() - started); } catch { /* Profiling cannot fail readers. */ }
   };
   if (scope === "public" && context.getManifestSnapshot) {
     try {
       const snapshot = await context.getManifestSnapshot();
+      const token = snapshot ? publicKnownToken(context.siteSlug, snapshot.hash, context.publicSubset?.name ?? null) : null;
+      if (token && known === token) return knownUnchangedResponse(context, scope, token);
+      if (token && known) knownResult = "mismatch";
       if (snapshot && context.publicSubset) {
         // Any doubt (unverifiable snapshot, parse failure) throws to the live path.
-        return await subsetManifestResponse(request, context, snapshot, context.publicSubset, phase);
+        return withKnownHeaders(await subsetManifestResponse(request, context, snapshot, context.publicSubset, phase, { have, token }), token, knownResult);
       }
       if (snapshot) {
-        const headers = representationHeaders(decorate(context, { ...cacheHeaders(scope, snapshot.hash), "Content-Type": "application/json", "X-Wiki-Manifest-Source": "snapshot" }));
+        const headers = representationHeaders(decorate(context, { ...cacheHeaders(scope, snapshot.hash), "Content-Type": "application/json", "X-Wiki-Manifest-Source": "snapshot",
+          ...(token ? { [WIKI_KNOWN_HEADER]: token } : {}), ...(knownResult ? { "X-Wiki-Known-Result": knownResult } : {}) }));
         // The validator is the snapshot hash, so revalidation needs no storage read.
+        if (have === snapshot.hash && token) return knownUnchangedResponse(context, scope, token, "have-match");
         if (ifNoneMatchMatches(request, snapshot.hash)) return new Response(null, { status: 304, headers });
-        const compact = new URL(request.url).searchParams.get("format") === "compact-v1";
+        const compact = url.searchParams.get("format") === "compact-v1";
         const gzipAccepted = acceptsGzip(request);
+        const format = compact ? "compact-v1" : "full";
         const encode = async () => {
           const bytes = await snapshot.read();
           // Decode, compact, re-serialize and compress depend only on the hash,
@@ -890,7 +1058,7 @@ export async function createWikiManifestResponse(
         };
         const encoded = context.manifestSnapshotCache
           ? await context.manifestSnapshotCache.get("response",
-              `${context.siteSlug}:${snapshot.hash}:${compact ? "compact-v1" : "full"}:${gzipAccepted ? "gzip" : "identity"}`,
+              `${context.siteSlug}:${snapshot.hash}:${format}:${gzipAccepted ? "gzip" : "identity"}`,
               encode, value => typeof value.body === "string" ? value.body.length : value.body.byteLength)
           : await encode();
         return encodedResponse(encoded, headers);
@@ -905,7 +1073,23 @@ export async function createWikiManifestResponse(
   let pageResult: Awaited<ReturnType<typeof listManifestPages>>;
   let assets: WikiManifestAsset[];
   let partialManifest = false;
-  try {
+  let fence: WikiManifestState | null = null;
+  let overlay: OverlayManifest | null = null;
+  if (includeSensitive && sessionUser && context.access?.listSessionManifestOverlay) {
+    const started = performance.now();
+    try {
+      overlay = await withTimeout((signal) => overlayManifest(cancellableContext(context, signal), sessionUser),
+        MANIFEST_TIMEOUT_MS, "Wiki session overlay");
+    } catch {
+      reportFallback(context, "private-query");
+    }
+    phase("overlay", started);
+  }
+  if (overlay) {
+    pageResult = overlay.pages;
+    assets = overlay.assets;
+    fence = overlay.fence;
+  } else try {
     const [nextPageResult, assetResult] = await withTimeout(
       (signal) => {
         const live = cancellableContext(context, signal);
@@ -977,7 +1161,9 @@ export async function createWikiManifestResponse(
   const derivedKey = pageResult.base && !partialManifest && context.manifestSnapshotCache
     ? `${context.siteSlug}:session:${pageResult.base.hash}:${fullHashJson([pageResult.base.overlay.slice().sort((a, b) => a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0), assets])}`
     : null;
-  return serveDerivedManifest(request, context, { scope, source, partial: partialManifest, derive, key: derivedKey, phase });
+  // Only the one-transaction overlay proves which fence these rows belong to.
+  const token = fence && sessionUser && !partialManifest ? sessionKnownToken(context.siteSlug, sessionUser._id, fence) : null;
+  return withKnownHeaders(await serveDerivedManifest(request, context, { scope, source, partial: partialManifest, derive, key: derivedKey, phase, have, token }), token, knownResult);
 }
 
 type DerivedManifestOptions = {
@@ -988,6 +1174,9 @@ type DerivedManifestOptions = {
   /** Memo key for derive() and its encoded forms. null disables caching. */
   key: string | null;
   phase: (name: "serialize", started: number) => void;
+  /** The client's manifest hash (`?have=`) and the token for this response. */
+  have?: string | null;
+  token?: string | null;
 };
 
 // Shared tail: validator check, serialization and per-format/encoding bytes.
@@ -1005,6 +1194,9 @@ async function serveDerivedManifest(request: Request, context: WikiApiContext, o
   // A memoized derivation reports `-cached` so traces separate the two costs.
   const source = cache && !computed ? `${options.source}-cached` : options.source;
   const headers = decorate(context, { ...responseCacheHeaders, "X-Wiki-Manifest-Source": source });
+  if (options.have && !options.partial && options.have === manifest.manifestHash) {
+    return knownUnchangedResponse(context, scope, options.token ?? null, "have-match");
+  }
   if (ifNoneMatchMatches(request, manifest.manifestHash)) {
     return new Response(null, { status: 304, headers: representationHeaders(headers) });
   }
@@ -1031,6 +1223,7 @@ async function subsetManifestResponse(
   snapshot: PublicSnapshot,
   subset: WikiPublicSubset,
   phase: (name: "snapshot-derive" | "serialize", started: number) => void,
+  known: { have: string | null; token: string | null } = { have: null, token: null },
 ) {
   const { raw } = await loadVerifiedBase(context, snapshot);
   const derive = () => {
@@ -1044,7 +1237,7 @@ async function subsetManifestResponse(
     return manifest;
   };
   return serveDerivedManifest(request, context, { scope: "public", source: `snapshot-${subset.name}`, partial: false, derive,
-    key: context.manifestSnapshotCache ? `${context.siteSlug}:${snapshot.hash}:${subset.name}` : null, phase });
+    key: context.manifestSnapshotCache ? `${context.siteSlug}:${snapshot.hash}:${subset.name}` : null, phase, ...known });
 }
 
 export async function createWikiPagesResponse(

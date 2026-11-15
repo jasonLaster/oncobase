@@ -1052,9 +1052,31 @@ async function readWikiJson(response: Response, onProgress?: (receivedBytes: num
   }
 }
 
+/**
+ * `?known=` tokens, by the manifest they were issued with. A manifest response
+ * may carry `X-Wiki-Known: <token>`; sending it back as `?known=<token>` lets
+ * the server answer 204 ("nothing this manifest depends on has changed")
+ * without reading or deriving anything. Tokens are opaque, bound to one user,
+ * scope and deployment, and only ever sent with the manifest hash they came
+ * with. Memory only: a reload starts with one full check.
+ */
+const knownTokens = new Map<string, string>();
+const KNOWN_TOKEN_LIMIT = 16;
+const knownTokenKey = (url: string, manifestHash: string) => `${url}#${manifestHash}`;
+export function rememberWikiManifestToken(url: string, manifestHash: string, token: string | null) {
+  const key = knownTokenKey(url, manifestHash);
+  knownTokens.delete(key);
+  if (!token) return;
+  knownTokens.set(key, token);
+  while (knownTokens.size > KNOWN_TOKEN_LIMIT) knownTokens.delete(knownTokens.keys().next().value!);
+}
+export function knownWikiManifestToken(url: string, manifestHash: string | undefined) {
+  return manifestHash ? knownTokens.get(knownTokenKey(url, manifestHash)) ?? null : null;
+}
+
 async function fetchManifestValidation(
   fetchFn: typeof fetch,
-  url: string,
+  baseRequestUrl: string,
   credentials: RequestCredentials,
   cache: RequestCache,
   requestTimeoutMs: number,
@@ -1064,6 +1086,12 @@ async function fetchManifestValidation(
 ): Promise<WikiManifestValidation> {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), requestTimeoutMs);
+  const known = knownWikiManifestToken(baseRequestUrl, manifestHash);
+  const params = [
+    ...(known ? [`known=${encodeURIComponent(known)}`] : []),
+    ...(manifestHash ? [`have=${encodeURIComponent(manifestHash)}`] : []),
+  ].join("&");
+  const url = params ? `${baseRequestUrl}${baseRequestUrl.includes("?") ? "&" : "?"}${params}` : baseRequestUrl;
   try {
     const response = await fetchFn(url, {
       cache,
@@ -1075,15 +1103,20 @@ async function fetchManifestValidation(
       signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
     });
     const partial = response.headers.get("x-wiki-manifest-partial") === "true";
+    // 204 answers `known` or `have`: the held manifest is still exactly
+    // current. It carries the token for the next check.
+    if (response.status === 204 && manifestHash) {
+      rememberWikiManifestToken(baseRequestUrl, manifestHash, response.headers.get("x-wiki-known"));
+      return { status: "unchanged", partial: false };
+    }
     if (response.status === 304) return { status: "unchanged", partial };
-    if (!response.ok) {
+    if (!response.ok || response.status === 204) {
       throw new Error(`Wiki request failed: ${response.status} ${response.statusText}`);
     }
-    return {
-      status: "modified",
-      manifest: parseWikiManifest(await readWikiJson(response, onProgress)),
-      partial,
-    };
+    const manifest = parseWikiManifest(await readWikiJson(response, onProgress));
+    if (manifestHash) rememberWikiManifestToken(baseRequestUrl, manifestHash, null);
+    rememberWikiManifestToken(baseRequestUrl, manifest.manifestHash, partial ? null : response.headers.get("x-wiki-known"));
+    return { status: "modified", manifest, partial };
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(`Wiki request timed out after ${requestTimeoutMs}ms`);

@@ -21,6 +21,10 @@ export async function handleWikiManifest({ request, wiki, passwordGateEnabled }:
     // private (gated/session) responses reach the origin with the validator.
     "http.request.conditional": request.headers.has("if-none-match"),
     "manifest.validator": !request.headers.has("if-none-match") ? "absent" : response.status === 304 ? "match" : "mismatch",
+    // P6: `?known=` / `?have=` survive the platform, unlike If-None-Match.
+    // match = 204 before any read; have-match = 204 after the full path.
+    "manifest.known": response.headers.get("X-Wiki-Known-Result") ?? (new URL(request.url).searchParams.has("known") ? "unavailable" : "absent"),
+    "manifest.known_issued": response.headers.has("X-Wiki-Known"),
     "manifest.password_gate": passwordGateEnabled });
   return response;
 }
