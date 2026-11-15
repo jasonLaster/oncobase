@@ -29,8 +29,8 @@ test("versioned pages and files: long private cache only for a validated v", asy
   try {
     const careManifest = await manifest(care, "session");
     const pageHash = careManifest.pages.find(page => page.slug === PRIVATE_SLUG)?.contentHash;
-    // The manifest does not carry asset hashes yet (see the P11 report); the
-    // file's ETag is its stored content hash, the value `v` names.
+    // The file's ETag is its stored content hash, the value `v` names (the
+    // manifest carries the same hash; versioned-assets.spec.ts covers that).
     const etagHash = async (context: APIRequestContext, path: string) =>
       (await context.get(fileUrl(path))).headers().etag?.replace(/"/g, "");
     const privatePdfHash = await etagHash(care, PRIVATE_PDF);
