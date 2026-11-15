@@ -1,5 +1,6 @@
 "use client";
 
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, Search } from "lucide-react";
@@ -11,7 +12,7 @@ const MAX_RECENT = 8;
 
 function readRecentPages(): string[] {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    const value: unknown = JSON.parse(safeLocalStorage.getItem(RECENT_KEY) ?? "[]");
     return Array.isArray(value) ? value.filter((slug): slug is string => typeof slug === "string").slice(0, MAX_RECENT) : [];
   } catch {
     return [];
@@ -38,7 +39,7 @@ export function EducationFilePalette({ pages, onOpenChange }: {
     onOpenChange={onOpenChange}
     onSelectPage={page => {
       try {
-        localStorage.setItem(RECENT_KEY, JSON.stringify([page.slug, ...recentSlugs.filter(slug => slug !== page.slug)].slice(0, MAX_RECENT)));
+        safeLocalStorage.setItem(RECENT_KEY, JSON.stringify([page.slug, ...recentSlugs.filter(slug => slug !== page.slug)].slice(0, MAX_RECENT)));
       } catch { /* Finding pages still works when storage is unavailable. */ }
       onOpenChange(false);
       router.push(educationHref(page.slug));

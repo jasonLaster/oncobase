@@ -1,5 +1,6 @@
 import { bootScriptStart } from "./boot-timing";
 import { clearStartupSnapshot } from "./bootstrap/startup-cache-lifecycle";
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { lazy, StrictMode, Suspense, useEffect, useLayoutEffect } from "react";
 import { educationOnlyResponse } from "./education-access";
 import { landingResponse, rootRouteFor, siteResponse } from "./root-route";
@@ -30,8 +31,8 @@ if (site === "diana" && (["/login", "/sign-in"].includes(location.pathname) || l
 // Retire inert HTML copies from older releases. Structured reader data remains
 // cached, but only React renders its controls and document content.
 try {
-  for (const key of Object.keys(localStorage)) {
-    if (key.startsWith("wiki-vite:first-frame:")) localStorage.removeItem(key);
+  for (const key of safeLocalStorage.keys()) {
+    if (key.startsWith("wiki-vite:first-frame:")) safeLocalStorage.removeItem(key);
   }
 } catch { /* Reading still works when local storage is unavailable. */ }
 

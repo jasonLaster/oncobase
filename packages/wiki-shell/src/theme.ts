@@ -1,3 +1,4 @@
+import { memoryBackedLocalStorage } from "@oncobase/safe-storage";
 export type WikiThemePreference = "dark" | "light" | null;
 export type WikiResolvedTheme = "dark" | "light";
 
@@ -14,7 +15,7 @@ function prefersDark() {
 
 export function getWikiThemePreference(): WikiThemePreference {
   if (!canUseDom()) return null;
-  const value = window.localStorage.getItem(THEME_STORAGE_KEY);
+  const value = memoryBackedLocalStorage.getItem(THEME_STORAGE_KEY);
   return value === "dark" || value === "light" ? value : null;
 }
 
@@ -38,9 +39,9 @@ export function applyWikiTheme(): WikiResolvedTheme {
 export function setWikiThemePreference(preference: WikiThemePreference) {
   if (!canUseDom()) return;
   if (preference === null) {
-    window.localStorage.removeItem(THEME_STORAGE_KEY);
+    memoryBackedLocalStorage.removeItem(THEME_STORAGE_KEY);
   } else {
-    window.localStorage.setItem(THEME_STORAGE_KEY, preference);
+    memoryBackedLocalStorage.setItem(THEME_STORAGE_KEY, preference);
   }
   applyWikiTheme();
   for (const listener of themeListeners) listener();

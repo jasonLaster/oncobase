@@ -1,6 +1,6 @@
 import type { WikiScope, WikiSessionIdentity } from "@oncobase/wiki-content";
 import { useEffect } from "react";
-import { safeLocalStorage } from "../safe-storage";
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { retireRequestedSessionReaderStores } from "./cache-retirement";
 
 export function SessionCacheRetirement({

@@ -1,3 +1,4 @@
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { useSyncExternalStore } from "react";
 
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
@@ -9,7 +10,7 @@ function readExpandedDirectories() {
   // Stored entries are overrides: absent entries still get the current defaults.
   const expanded = new Map<string, boolean>([["wiki", true]]);
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(TREE_EXPANSION_KEY) ?? "null");
+    const parsed: unknown = JSON.parse(safeLocalStorage.getItem(TREE_EXPANSION_KEY) ?? "null");
     if (Array.isArray(parsed)) {
       // Older readers stored only the explicitly expanded directories.
       for (const slug of parsed) {
@@ -67,7 +68,7 @@ export function toggleDirectory(slug: string, nextOpen: boolean) {
   next.set(slug, nextOpen);
   snapshot = next;
   try {
-    localStorage.setItem(TREE_EXPANSION_KEY, JSON.stringify(Object.fromEntries(next)));
+    safeLocalStorage.setItem(TREE_EXPANSION_KEY, JSON.stringify(Object.fromEntries(next)));
   } catch {
     // Keep working in memory when preferences cannot be saved.
   }

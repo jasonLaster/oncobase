@@ -1,3 +1,4 @@
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { WIKI_READER_CACHE_VERSION } from "@oncobase/wiki-content";
 import { READER_SHELL_COOKIE } from "./reader-shell-hint";
 
@@ -9,8 +10,8 @@ export function startupPartition() {
 }
 export function clearStartupSnapshot() {
   try {
-    localStorage.removeItem(startupCacheKey(startupPartition()));
-    localStorage.setItem(STARTUP_CACHE_EPOCH, crypto.randomUUID());
+    safeLocalStorage.removeItem(startupCacheKey(startupPartition()));
+    safeLocalStorage.setItem(STARTUP_CACHE_EPOCH, crypto.randomUUID());
   } catch { /* Storage is optional. */ }
   try { document.cookie = `${READER_SHELL_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`; } catch { /* Cookies can be disabled separately. */ }
 }

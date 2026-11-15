@@ -1,3 +1,4 @@
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { useStore } from "@livestore/react";
 import { WIKI_MANIFEST_SCHEMA_VERSION, WIKI_READER_CACHE_VERSION, type WikiManifest, type WikiSessionIdentity } from "@oncobase/wiki-content";
 import { useEffect, useRef, useState } from "react";
@@ -20,7 +21,7 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
   const pages = store.useQuery(pageIndex$);
   const assets = store.useQuery(assets$);
   const page = store.useQuery(pageContentBySlug$(slug));
-  const [epoch] = useState(() => { try { return localStorage.getItem(STARTUP_CACHE_EPOCH); } catch { return null; } });
+  const [epoch] = useState(() => { try { return safeLocalStorage.getItem(STARTUP_CACHE_EPOCH); } catch { return null; } });
   // What this writer last stored, so unchanged re-validations skip the rebuild
   // and the next build reuses bodies without decoding localStorage again.
   const lastWrite = useRef<LastStartupCacheWrite>(null);
@@ -46,7 +47,7 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
     const cancelIdle = scheduleIdle(() => void (async () => {
       try {
         const partition = startupPartition();
-        const previous = lastSnapshot.current ?? parseStartupSnapshot(localStorage.getItem(startupCacheKey(partition)), partition);
+        const previous = lastSnapshot.current ?? parseStartupSnapshot(safeLocalStorage.getItem(startupCacheKey(partition)), partition);
         const manifest: WikiManifest = { schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION, siteSlug: identity.siteSlug, scope: identity.scope,
           manifestHash: state.manifestHash, generatedAt: state.generatedAt, compactTree: JSON.parse(tree.treeJson),
           pages: pages.map(row => ({ ...row, tags: JSON.parse(row.tagsJson) })), assets: [...assets] };
@@ -66,7 +67,7 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
         let raw = await encodeStartupSnapshot(snapshot);
         if (cancelled) return;
         let written = raw !== null && writeStartupSnapshot(snapshot, epoch, raw, { trusted: true });
-        if (debug) report({ status: "write", written, bytes: raw?.length ?? 0, decodedBytes: new Blob([JSON.stringify(snapshot)]).size, pages: pages.length, bodies: snapshot.bodies.length, epochMatches: localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch });
+        if (debug) report({ status: "write", written, bytes: raw?.length ?? 0, decodedBytes: new Blob([JSON.stringify(snapshot)]).size, pages: pages.length, bodies: snapshot.bodies.length, epochMatches: safeLocalStorage.getItem(STARTUP_CACHE_EPOCH) === epoch });
         while (!written && snapshot.bodies.length) {
           snapshot.bodies.pop();
           raw = await encodeStartupSnapshot(snapshot);
@@ -75,8 +76,8 @@ export function ReaderStartupCacheWriter({ identity }: { identity: WikiSessionId
         }
         lastWrite.current = { key: writeKey, validatedAt: state.lastValidatedAt };
         lastSnapshot.current = written ? snapshot : null;
-        if (!written && localStorage.getItem(STARTUP_CACHE_EPOCH) === epoch) {
-          localStorage.removeItem(startupCacheKey(partition));
+        if (!written && safeLocalStorage.getItem(STARTUP_CACHE_EPOCH) === epoch) {
+          safeLocalStorage.removeItem(startupCacheKey(partition));
           document.cookie = `${READER_SHELL_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
         }
       } catch { report({ status: "unavailable" }); /* A cache failure must not break the live reader. */ }

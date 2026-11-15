@@ -1,3 +1,4 @@
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import type { WikiManifest, WikiPageRecord } from "@oncobase/wiki-content";
 import { events } from "./livestore/schema";
 import type { StoragePressure } from "./types";
@@ -74,8 +75,8 @@ export function formatPercent(value: number | null) {
 
 export function readRecentSlugs() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as unknown;
-    const legacy = JSON.parse(localStorage.getItem(LEGACY_RECENT_KEY) ?? "[]") as unknown;
+    const parsed = JSON.parse(safeLocalStorage.getItem(RECENT_KEY) ?? "[]") as unknown;
+    const legacy = JSON.parse(safeLocalStorage.getItem(LEGACY_RECENT_KEY) ?? "[]") as unknown;
     const primary = Array.isArray(parsed)
       ? parsed.filter((item): item is string => typeof item === "string")
       : [];
@@ -91,7 +92,7 @@ export function readRecentSlugs() {
 export function rememberSlug(slug: string) {
   const next = [slug, ...readRecentSlugs().filter((item) => item !== slug)].slice(0, 12);
   try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    safeLocalStorage.setItem(RECENT_KEY, JSON.stringify(next));
   } catch {
     // Local recency is best effort only.
   }

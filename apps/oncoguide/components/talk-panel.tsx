@@ -1,4 +1,5 @@
 "use client";
+import { safeLocalStorage, safeSessionStorage } from "@oncobase/safe-storage";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Captions, LayoutGrid, Mic, MicOff, PhoneOff, X } from "lucide-react";
@@ -29,15 +30,15 @@ const CHAT_STORAGE_KEY = "oncoguide:learning-chat";
 /** The last typed turns, so a call started from chat can pick up where it left off. */
 function typedHistory() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(CHAT_STORAGE_KEY) ?? "null") as { messages?: Array<{ role: string; parts: Array<{ type: string; text?: string }> }> } | null;
+    const saved = JSON.parse(safeSessionStorage.getItem(CHAT_STORAGE_KEY) ?? "null") as { messages?: Array<{ role: string; parts: Array<{ type: string; text?: string }> }> } | null;
     return (saved?.messages ?? []).slice(-6).map(message => {
       const text = message.parts.filter(part => part.type === "text").map(part => part.text ?? "").join(" ").slice(0, 500);
       return text ? `${message.role === "user" ? "Reader" : "OncoGuide"}: ${text}` : "";
     }).filter(Boolean).join("\n");
   } catch { return ""; }
 }
-const readConsent = () => { try { return localStorage.getItem(CONSENT_KEY) === "1"; } catch { return false; } };
-const saveConsent = () => { try { localStorage.setItem(CONSENT_KEY, "1"); } catch { /* Ask again next time. */ } };
+const readConsent = () => { try { return safeLocalStorage.getItem(CONSENT_KEY) === "1"; } catch { return false; } };
+const saveConsent = () => { try { safeLocalStorage.setItem(CONSENT_KEY, "1"); } catch { /* Ask again next time. */ } };
 
 /** Follow-along audio levels for the avatar. These write a CSS property straight
  * to the element, so a moving mouth never re-renders React. */

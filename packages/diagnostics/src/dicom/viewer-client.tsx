@@ -1,5 +1,6 @@
 "use client";
 
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -184,7 +185,7 @@ function readStoredDicomRailWidth(rail: DicomRail) {
   const bounds = dicomRailBounds(rail);
   if (typeof window === "undefined") return bounds.defaultWidth;
 
-  const stored = window.localStorage.getItem(DICOM_RAIL_STORAGE_KEYS[rail]);
+  const stored = safeLocalStorage.getItem(DICOM_RAIL_STORAGE_KEYS[rail]);
   if (!stored) return bounds.defaultWidth;
 
   const width = Number.parseInt(stored, 10);
@@ -206,7 +207,7 @@ function readInitialImageIndexFromLocation() {
 
 function persistDicomRailWidth(rail: DicomRail, width: number) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(DICOM_RAIL_STORAGE_KEYS[rail], String(width));
+  safeLocalStorage.setItem(DICOM_RAIL_STORAGE_KEYS[rail], String(width));
 }
 
 function nextDicomRailWidth(state: DicomRailResizeState, clientX: number) {

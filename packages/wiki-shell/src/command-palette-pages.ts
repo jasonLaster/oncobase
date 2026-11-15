@@ -1,3 +1,4 @@
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import fuzzysort from "fuzzysort";
 import { getNoteBundlePages } from "./note-bundles.ts";
 
@@ -40,7 +41,7 @@ export type CommandPaletteRowSet = {
 export function getCommandPaletteRecentSlugs(): string[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(COMMAND_PALETTE_RECENT_KEY);
+    const raw = safeLocalStorage.getItem(COMMAND_PALETTE_RECENT_KEY);
     return raw ? (JSON.parse(raw) as string[]) : [];
   } catch {
     return [];
@@ -55,7 +56,7 @@ export function addCommandPaletteRecentSlug(slug: string) {
     recent.length = COMMAND_PALETTE_MAX_RECENT;
   }
   try {
-    window.localStorage.setItem(
+    safeLocalStorage.setItem(
       COMMAND_PALETTE_RECENT_KEY,
       JSON.stringify(recent),
     );

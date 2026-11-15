@@ -1,5 +1,6 @@
 "use client";
 
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import {
   type ButtonHTMLAttributes,
   type ReactNode,
@@ -156,7 +157,7 @@ const SERVER_PANE_STATE_CLOSED: PaneStateSnapshot = {
 function readStoredPaneOpen(fallbackOpen: boolean) {
   if (typeof window === "undefined") return fallbackOpen;
 
-  const stored = window.localStorage.getItem(COMMENTS_PANE_STORAGE_KEY);
+  const stored = safeLocalStorage.getItem(COMMENTS_PANE_STORAGE_KEY);
   if (stored === "1") return true;
   if (stored === "0") return false;
   return fallbackOpen;
@@ -165,7 +166,7 @@ function readStoredPaneOpen(fallbackOpen: boolean) {
 function readStoredPaneWidth() {
   if (typeof window === "undefined") return COMMENTS_DEFAULT_WIDTH;
 
-  const stored = window.localStorage.getItem(COMMENTS_WIDTH_STORAGE_KEY);
+  const stored = safeLocalStorage.getItem(COMMENTS_WIDTH_STORAGE_KEY);
   if (stored) {
     const nextWidth = parseInt(stored, 10);
     if (nextWidth >= COMMENTS_MIN_WIDTH && nextWidth <= COMMENTS_MAX_WIDTH) {
@@ -244,14 +245,14 @@ function updatePaneState(
   paneStateCache = nextState;
 
   if (options?.persistOpen && updates.open !== undefined) {
-    window.localStorage.setItem(
+    safeLocalStorage.setItem(
       COMMENTS_PANE_STORAGE_KEY,
       nextState.open ? "1" : "0"
     );
   }
 
   if (options?.persistWidth && updates.width !== undefined) {
-    window.localStorage.setItem(
+    safeLocalStorage.setItem(
       COMMENTS_WIDTH_STORAGE_KEY,
       String(nextState.width)
     );
@@ -1869,7 +1870,7 @@ export function OutlineShell({
               active
               onClick={() => {
                 setSidebarOpen(true);
-                window.localStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
+                safeLocalStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
               }}
               aria-label="Open outline"
               className={cn(onActivate && "mt-2")}

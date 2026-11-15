@@ -1,5 +1,6 @@
 "use client";
 
+import { safeSessionStorage } from "@oncobase/safe-storage";
 import { useEffect, useRef } from "react";
 
 const ROUTED_ANCHOR_SCROLL_KEY = "diana:routed-anchor-scroll";
@@ -154,7 +155,7 @@ function toAppHref(url: URL) {
 
 function markPendingRoutedAnchorScroll(mode: "hash" | "top") {
   try {
-    window.sessionStorage.setItem(ROUTED_ANCHOR_SCROLL_KEY, mode);
+    safeSessionStorage.setItem(ROUTED_ANCHOR_SCROLL_KEY, mode);
   } catch {
     // Storage can be unavailable in private contexts; navigation should still work.
   }
@@ -162,8 +163,8 @@ function markPendingRoutedAnchorScroll(mode: "hash" | "top") {
 
 function consumePendingRoutedAnchorScroll() {
   try {
-    const value = window.sessionStorage.getItem(ROUTED_ANCHOR_SCROLL_KEY);
-    window.sessionStorage.removeItem(ROUTED_ANCHOR_SCROLL_KEY);
+    const value = safeSessionStorage.getItem(ROUTED_ANCHOR_SCROLL_KEY);
+    safeSessionStorage.removeItem(ROUTED_ANCHOR_SCROLL_KEY);
     return value;
   } catch {
     return null;

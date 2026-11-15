@@ -1,5 +1,6 @@
 "use client";
 
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { LiveblocksProvider } from "@liveblocks/react/suspense";
 import {
@@ -89,13 +90,13 @@ export function LiveblocksProviderShell({
       ?.slice(LIVEBLOCKS_GUEST_COOKIE.length + 1);
     const cookieGuest = parseGuestUser(cookieValue);
 
-    const storageValue = window.localStorage.getItem(LIVEBLOCKS_GUEST_STORAGE_KEY);
+    const storageValue = safeLocalStorage.getItem(LIVEBLOCKS_GUEST_STORAGE_KEY);
     const storageGuest = parseGuestUser(storageValue);
 
     const guest = cookieGuest ?? storageGuest ?? resolveGuestUser();
     const serialized = serializeGuestUser(guest);
 
-    window.localStorage.setItem(LIVEBLOCKS_GUEST_STORAGE_KEY, serialized);
+    safeLocalStorage.setItem(LIVEBLOCKS_GUEST_STORAGE_KEY, serialized);
     document.cookie = `${LIVEBLOCKS_GUEST_COOKIE}=${serialized}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     let cancelled = false;
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { safeSessionStorage } from "@oncobase/safe-storage";
 import {
   DefaultChatTransport,
   type UIMessage,
@@ -284,7 +285,7 @@ export function ChatInterface({
   const [input, setInput] = useState<string>(() => {
     if (typeof window === "undefined") return "";
     try {
-      return sessionStorage.getItem(draftKey) ?? "";
+      return safeSessionStorage.getItem(draftKey) ?? "";
     } catch {
       return "";
     }
@@ -292,8 +293,8 @@ export function ChatInterface({
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      if (input) sessionStorage.setItem(draftKey, input);
-      else sessionStorage.removeItem(draftKey);
+      if (input) safeSessionStorage.setItem(draftKey, input);
+      else safeSessionStorage.removeItem(draftKey);
     } catch {
       // sessionStorage may be blocked; ignore.
     }
@@ -426,10 +427,10 @@ export function ChatInterface({
     const lastUserId = lastMessage?.id;
     if (!lastUserId) return;
     const key = `${storageKeyPrefix}:auto-resume:${activeConvId}:${lastUserId}`;
-    if (typeof sessionStorage !== "undefined") {
+    if (typeof window !== "undefined") {
       try {
-        if (sessionStorage.getItem(key)) return;
-        sessionStorage.setItem(key, "1");
+        if (safeSessionStorage.getItem(key)) return;
+        safeSessionStorage.setItem(key, "1");
       } catch {
         // sessionStorage may be unavailable (cookies disabled, private mode);
         // fall through to the in-memory ref guard.

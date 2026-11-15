@@ -1,3 +1,4 @@
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import {
   type PointerEvent,
   type ReactNode,
@@ -17,7 +18,7 @@ let widthCache: number | null = null;
 function readStoredWidth() {
   if (typeof window === "undefined") return DEFAULT_WIDTH;
 
-  const stored = window.localStorage.getItem(STORAGE_KEY);
+  const stored = safeLocalStorage.getItem(STORAGE_KEY);
   if (!stored) return DEFAULT_WIDTH;
 
   const width = Number.parseInt(stored, 10);
@@ -70,7 +71,7 @@ export function setResizableSidebarWidth(
   syncSidebarState(nextWidth);
 
   if (options?.persist ?? true) {
-    window.localStorage.setItem(STORAGE_KEY, String(nextWidth));
+    safeLocalStorage.setItem(STORAGE_KEY, String(nextWidth));
   }
 
   listeners.forEach((listener) => listener());

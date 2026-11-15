@@ -1,5 +1,6 @@
 "use client";
 
+import { safeSessionStorage } from "@oncobase/safe-storage";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -71,7 +72,7 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, chatId
   // This tab's open chat, so a trip to a lesson and back (or a call) picks up the same conversation.
   const remember = useCallback((current: UIMessage[]) => {
     if (!storageKey) return;
-    try { sessionStorage.setItem(storageKey, JSON.stringify({ version: 1, chatId: chatId.current, messages: current })); } catch { /* Chat still works without storage. */ }
+    try { safeSessionStorage.setItem(storageKey, JSON.stringify({ version: 1, chatId: chatId.current, messages: current })); } catch { /* Chat still works without storage. */ }
   }, [storageKey]);
   const persist = useCallback((current: UIMessage[]) => {
     const storage = local();
@@ -97,7 +98,7 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, chatId
     if (requested) { chatId.current = requestedChatId!; lastSaved.current = JSON.stringify(requested); setMessages(requested); return; }
     if (requestedChatId) announce.current?.(null);
     try {
-      const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null");
+      const saved = JSON.parse(safeSessionStorage.getItem(storageKey) ?? "null");
       if (saved?.version === 1 && isChatMessages(saved.messages) && saved.messages.length) {
         if (isSavedChatId(saved.chatId)) { chatId.current = saved.chatId; lastSaved.current = JSON.stringify(saved.messages); announce.current?.(saved.chatId); }
         setMessages(saved.messages);

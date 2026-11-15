@@ -1,3 +1,4 @@
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { parseWikiManifest, parseWikiPageBatch, parseWikiSessionIdentity, expandCompactFileTree, transformFileTreeForSidebar,
   WIKI_READER_CACHE_VERSION, WIKI_SESSION_CACHE_VERSION, type WikiManifest, type WikiPageRecord, type WikiSessionIdentity } from "@oncobase/wiki-content";
 import type { InitialReaderData } from "./initial-reader-data";
@@ -81,7 +82,7 @@ export function readStartupSnapshot(): StartupSnapshot | null {
   try {
     const query = new URLSearchParams(location.search);
     if (query.get("readerCache") === "0" || query.get("readerBootstrap") === "0") return null;
-    const snapshot = parseStartupSnapshot(localStorage.getItem(startupCacheKey(startupPartition())), startupPartition());
+    const snapshot = parseStartupSnapshot(safeLocalStorage.getItem(startupCacheKey(startupPartition())), startupPartition());
     // HTML already checks the current cookie. Reuse its cheap account tag to
     // avoid flashing another account's cache, without recomputing permissions.
     const account = document.querySelector<HTMLMetaElement>('meta[name="wiki-reader-account"]')?.content;
@@ -115,9 +116,9 @@ export function startupInitialData(snapshot: StartupSnapshot, pathname: string):
  */
 export function writeStartupSnapshot(snapshot: StartupSnapshot, epoch: string | null, raw = JSON.stringify(snapshot), { trusted = false } = {}): boolean {
   try {
-    if (localStorage.getItem(STARTUP_CACHE_EPOCH) !== epoch) return false;
+    if (safeLocalStorage.getItem(STARTUP_CACHE_EPOCH) !== epoch) return false;
     if (new Blob([raw]).size > STARTUP_CACHE_MAX_BYTES || (!trusted && !parseStartupSnapshot(raw, snapshot.partition))) return false;
-    localStorage.setItem(startupCacheKey(snapshot.partition), raw);
+    if (!safeLocalStorage.setItem(startupCacheKey(snapshot.partition), raw)) return false;
     const paths = [...new Set(snapshot.bodies.map(body => body.pathname))];
     const hint = encodeURIComponent(JSON.stringify(paths));
     try {

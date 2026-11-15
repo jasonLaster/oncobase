@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { safeLocalStorage, safeSessionStorage } from "@oncobase/safe-storage";
 import { recordRenderError } from "./reader-telemetry";
 
 const SCOPE_STORAGE_KEY = "wiki-vite-scope";
@@ -21,8 +22,8 @@ export function reloadOnceForLoadError(): boolean {
   try {
     const build = typeof document === "undefined" ? "unknown"
       : document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.getAttribute("src") ?? "unknown";
-    if (window.sessionStorage.getItem(RELOAD_FLAG_KEY) !== build) {
-      window.sessionStorage.setItem(RELOAD_FLAG_KEY, build);
+    // Reload only once the flag persisted, or a blocked store would loop.
+    if (safeSessionStorage.getItem(RELOAD_FLAG_KEY) !== build && safeSessionStorage.setItem(RELOAD_FLAG_KEY, build)) {
       window.location.reload();
       return true;
     }
@@ -55,7 +56,7 @@ export async function clearLocalWikiData(): Promise<void> {
   }
 
   try {
-    window.localStorage.removeItem(SCOPE_STORAGE_KEY);
+    safeLocalStorage.removeItem(SCOPE_STORAGE_KEY);
   } catch {
     // Ignore storage access errors (e.g. private mode).
   }

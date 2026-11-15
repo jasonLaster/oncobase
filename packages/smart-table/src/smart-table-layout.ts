@@ -1,3 +1,4 @@
+import { safeSessionStorage } from "@oncobase/safe-storage";
 import {
   measureLineStats,
   measureNaturalWidth,
@@ -746,7 +747,7 @@ function getStoredManualWidths(key?: string) {
   }
 
   try {
-    const raw = window.sessionStorage.getItem(`${MANUAL_WIDTHS_PREFIX}${key}`);
+    const raw = safeSessionStorage.getItem(`${MANUAL_WIDTHS_PREFIX}${key}`);
     if (!raw) {
       return null;
     }
@@ -777,7 +778,7 @@ function persistManualWidths(key: string | undefined, widths: number[]) {
   manualWidthMemory.set(key, rounded);
 
   try {
-    window.sessionStorage.setItem(
+    safeSessionStorage.setItem(
       `${MANUAL_WIDTHS_PREFIX}${key}`,
       JSON.stringify(rounded)
     );

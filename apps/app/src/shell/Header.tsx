@@ -31,7 +31,7 @@ import {
 import { useLocation, useNavigate } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
 import { requestSessionCacheCleanup } from "../livestore/cache-retirement";
-import { safeLocalStorage } from "../safe-storage";
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { useWikiSession, useWikiIdentityPending } from "../wiki-context";
 import type { PaletteMode } from "./CommandPalette";
 import type {} from "../bootstrap/reader-shortcuts";

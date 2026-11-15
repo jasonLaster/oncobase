@@ -2,7 +2,7 @@ import { EDUCATION_ACCESS_PARTITION, educationOnlyResponse } from "./education-a
 import type { WikiScope, WikiSessionIdentity } from "@oncobase/wiki-content";
 import { createElement, Suspense, useEffect, useRef, useState } from "react";
 import { persistPublicIdentity, resolvePublicIdentityFallback } from "./public-identity";
-import { safeLocalStorage } from "./safe-storage";
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { explicitReaderScope, identityRetryDelayMs } from "./reader-session";
 import { takeReaderSession } from "./reader-session-prefetch";
 import { WikiIdentityPendingContext } from "./wiki-context";
@@ -79,7 +79,7 @@ function publicIdentityFallback(scope: WikiScope) {
   if (scope !== "public") return null;
   try {
     const identity = publicIdentityFromResponse() ?? resolvePublicIdentityFallback({
-      storage: window.localStorage,
+      storage: safeLocalStorage,
       partition: publicIdentityPartition(),
       configuredSiteSlug: import.meta.env.VITE_WIKI_SITE_SLUG,
     });

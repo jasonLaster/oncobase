@@ -1,4 +1,4 @@
-import { safeLocalStorage } from "../safe-storage";
+import { safeLocalStorage } from "@oncobase/safe-storage";
 
 const STORAGE_KEY = "wiki-vite-livestore-devtools";
 const QUERY_PARAM = "livestoreDevtools";

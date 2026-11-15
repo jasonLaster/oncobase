@@ -1,11 +1,12 @@
+import { safeLocalStorage } from "@oncobase/safe-storage";
 import { persistFirstFrameSnapshot, retirePreviousFirstFrameSnapshot } from "./first-frame-snapshot";
 
 export function persistSafeSnapshot(shell: HTMLElement, pathname: string, validatedAt: number) {
   const persisted = persistFirstFrameSnapshot(
-    window.localStorage, window.location.origin,
+    safeLocalStorage, window.location.origin,
     { html: snapshotSafeShell(shell), pathname }, { validatedAt },
   );
-  if (persisted) retirePreviousFirstFrameSnapshot(window.localStorage, window.location.origin);
+  if (persisted) retirePreviousFirstFrameSnapshot(safeLocalStorage, window.location.origin);
   return persisted;
 }
 
