@@ -151,9 +151,13 @@ export function useWebMcpTools(
   { key = "", onCall, enabled = true }: { key?: string; onCall?: (call: WebMcpCall) => void; enabled?: boolean } = {},
 ) {
   const latest = useRef(tools);
-  latest.current = tools;
   const onCallRef = useRef(onCall);
-  onCallRef.current = onCall;
+  // Runs before the registration effect below (effects run in order), so
+  // proxies always call the latest closures.
+  useEffect(() => {
+    latest.current = tools;
+    onCallRef.current = onCall;
+  });
   const names = tools?.map((tool) => tool.name).join(",") ?? "";
 
   useEffect(() => {

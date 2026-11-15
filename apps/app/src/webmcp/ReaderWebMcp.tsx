@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import type { Store } from "@livestore/livestore";
 import { expandCompactFileTree, type CompactFileNode, type FileNode } from "@oncobase/wiki-content";
 import { useWebMcpTools, type WebMcpCall } from "@oncobase/wiki-shell/webmcp";
@@ -34,9 +34,6 @@ export function ReaderWebMcp({
   onCall: (call: WebMcpCall) => void;
 }) {
   const navigate = useNavigate();
-  const location = useLocation();
-  const locationRef = useRef(location);
-  locationRef.current = location;
 
   const tools = useMemo(() => {
     let treeSource = "";
@@ -63,7 +60,8 @@ export function ReaderWebMcp({
       allowPrivate: agentsMayReadPrivatePages,
       commentsEnabled,
       navigate: (href) => navigate(href),
-      location: () => locationRef.current,
+      // The router drives the browser URL, so read it directly at call time.
+      location: () => window.location,
       fetch: (input, init) => fetch(input, init),
       contentRoot: () => document.querySelector<HTMLElement>(CONTENT_ROOT),
       pageReady: (slug) =>
