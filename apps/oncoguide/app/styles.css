@@ -121,7 +121,7 @@ button { cursor: pointer; }
 .session-chat .edu-chat-section-card p { font-size: 12px; line-height: 1.6; color: var(--text-muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .edu-chat-visuals { display: grid; gap: 12px; }
 .edu-chat-visual { margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--background); min-width: 0; }
-.edu-chat-visual > img { display: block; width: 100%; max-height: 380px; object-fit: contain; cursor: zoom-in; border-radius: 6px; }
+:where(.edu-chat-visual > img) { display: block; width: 100%; max-height: 380px; object-fit: contain; cursor: zoom-in; border-radius: 6px; }
 .edu-chat-visual > img:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .edu-chat-visual .wiki-markdown { overflow-x: auto; }
 .edu-chat-visual .mermaid-diagram { margin: 0; }
@@ -272,7 +272,7 @@ button { cursor: pointer; }
 .edu-talk-board-card h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; line-height: 1.4; }
 .edu-talk-board-card ul { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.6; }
 .edu-talk-board-card li + li { margin-top: 6px; }
-.edu-talk-board-figure > img { display: block; width: 100%; max-height: 440px; object-fit: contain; cursor: zoom-in; border-radius: 8px; }
+:where(.edu-talk-board-figure > img) { display: block; width: 100%; max-height: 440px; object-fit: contain; cursor: zoom-in; border-radius: 8px; }
 .edu-talk-board-figure > img:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .edu-talk-board-figure .wiki-markdown { overflow-x: auto; }
 .edu-talk-board-figure .mermaid-diagram { margin: 0; }
@@ -353,4 +353,30 @@ button { cursor: pointer; }
   .session-chat-input-row > button { min-height: 44px; }
   .session-chat-input-row > button:last-child { grid-column: 2; }
   .session-chat .session-chat-reset { min-height: 44px; }
+}
+
+/* One evolving source visual and explanation per topic. */
+.edu-talk-topics { display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0; padding: 12px 0; }
+.edu-talk-topics button { flex-shrink: 0; max-width: 290px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 44px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); background: var(--background); font: inherit; }
+.edu-talk-topics button[aria-pressed="true"] { color: var(--brand); border-color: var(--brand); background: var(--accent-light); }
+.edu-talk-topics button:focus-visible, .edu-talk-context-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.edu-talk-topic-title { font-size: 22px; line-height: 1.35; margin: 0 0 18px; font-weight: 500; }
+.edu-talk-topic-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+.edu-talk-topic-layout[data-has-visual="true"] { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+.edu-talk-topic-layout > :only-child { grid-column: 1 / -1; }
+.edu-talk-topic-layout .edu-talk-board-figure { min-width: 0; padding: 0; border: 0; }
+.edu-talk-topic-layout .edu-talk-board-figure > img { max-height: 680px; }
+.edu-talk-topic-context { min-width: 0; }
+.edu-talk-topic-context .edu-talk-board-card { padding: 18px; background: var(--sidebar-bg); }
+.edu-talk-context-toggle { display: none; }
+.edu-talk-context-body { display: block; }
+@container learning-chat (max-width: 700px) {
+  .edu-talk-topic-layout[data-has-visual="true"] { grid-template-columns: minmax(0, 1fr); }
+  .edu-talk-topic-title { font-size: 20px; margin-bottom: 14px; }
+  .edu-talk-context-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 12px 0; border: 0; border-block: 1px solid var(--border); background: var(--background); color: var(--foreground); font: inherit; text-align: left; }
+  .edu-talk-context-body { display: none; }
+  .edu-talk-topic-context[data-expanded] .edu-talk-context-body { display: block; margin-top: 12px; }
+  .edu-talk-topic-layout[data-has-visual="false"] .edu-talk-context-body { display: block; }
+  .edu-talk-topic-layout[data-has-visual="false"] .edu-talk-context-toggle { display: none; }
+  .edu-talk-board-actions button { min-height: 44px; }
 }

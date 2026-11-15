@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useId, useState } from "react";
 import { ArrowUpRight, BookOpen, Mic } from "lucide-react";
 import { ImageTheater } from "@oncobase/wiki-markdown/image-theater";
-import { askAboutCard, clearBoard, requestTalk, useTalkState, type BoardCard } from "../lib/talk-store";
+import { askAboutCard, clearBoard, requestTalk, selectBoardTopic, followBoard, useTalkState, type BoardCard } from "../lib/talk-store";
+import { boardTopics, isBoardVisual } from "../lib/board-topics";
 import { LessonVisual, VisualZoom, type ShownVisual } from "./lesson-visual";
 
 function Source({ card, written }: { card: BoardCard; written?: boolean }) {
@@ -61,18 +62,30 @@ function Card({ card, live }: { card: BoardCard; live: boolean }) {
   }
 }
 
+function TopicView({ topic, live }: { topic: ReturnType<typeof boardTopics>[number]; live: boolean }) {
+  const visual = topic.cards.find(isBoardVisual);
+  const context = topic.cards.filter(card => !isBoardVisual(card) && card.kind !== "lesson");
+  const [expanded, setExpanded] = useState(false);
+  const contextId = useId();
+  return <section className="edu-talk-topic" aria-label={topic.title}>
+        <h2 className="edu-talk-topic-title" aria-live="polite">{topic.title}</h2>
+        <div className="edu-talk-topic-layout" data-has-visual={Boolean(visual)}>
+          {visual ? <Card card={visual} live={live} /> : null}
+          {context.length ? <aside className="edu-talk-topic-context" data-expanded={expanded || undefined}>
+            <button className="edu-talk-context-toggle" type="button" aria-expanded={expanded} aria-controls={contextId} onClick={() => setExpanded(!expanded)}>What to notice <span aria-hidden="true">{expanded ? "−" : "+"}</span></button>
+            <div className="edu-talk-context-body" id={contextId}>{context.map(card => <Card key={card.id} card={card} live={live} />)}</div>
+          </aside> : null}
+          {!visual && !context.length ? topic.cards.map(card => <Card key={card.id} card={card} live={live} />) : null}
+        </div>
+      </section>;
+}
+
 /** Fills as the reader talks. There is deliberately no transcript here: the
  * board shows what makes the conversation easier to follow, not what was said. */
 export function TalkBoard() {
-  const { live, cards } = useTalkState();
-  const feed = useRef<HTMLDivElement>(null);
-  const pinned = useRef(true);
-  useEffect(() => {
-    const element = feed.current;
-    const newest = element?.lastElementChild as HTMLElement | null | undefined;
-    // Align the card's top, since a diagram can be taller than the feed.
-    if (element && newest && pinned.current) element.scrollTo({ top: newest.offsetTop - element.offsetTop - 12, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  }, [cards.length]);
+  const { live, cards, activeTopic, following } = useTalkState();
+  const topics = boardTopics(cards);
+  const topic = topics.find(item => item.id === activeTopic) ?? topics.at(-1);
   return <section className="edu-talk-board" aria-label="Conversation board">
     <header className="edu-talk-board-header" data-compact={cards.length > 0 || undefined}>
       <div>
@@ -84,9 +97,12 @@ export function TalkBoard() {
         <button type="button" onClick={clearBoard}>Back to typing</button>
       </div>}
     </header>
-    <div ref={feed} className="edu-talk-board-feed" role="log" aria-live="polite" aria-relevant="additions" tabIndex={0} aria-label="Visuals from your conversation"
-      onScroll={event => { const element = event.currentTarget; pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120; }}>
-      {cards.length ? cards.map(card => <Card key={card.id} card={card} live={live} />) : <div className="edu-talk-board-empty">
+    {topics.length > 1 ? <nav className="edu-talk-topics" aria-label="Conversation topics">
+      {topics.map(item => <button key={item.id} type="button" aria-pressed={item.id === topic?.id} onClick={() => selectBoardTopic(item.id)}>{item.title}</button>)}
+      {!following && live ? <button type="button" onClick={followBoard}>Follow conversation</button> : null}
+    </nav> : null}
+    <div className="edu-talk-board-feed" tabIndex={0} aria-label="Visuals from your conversation">
+      {topic ? <TopicView key={topic.id} topic={topic} live={live} /> : <div className="edu-talk-board-empty">
         <p>Ask about anything in the lessons. For example:</p>
         <ul><li>What does an antibody-drug conjugate do?</li><li>How does the immune system recognize cancer?</li><li>What can a ctDNA test tell us?</li></ul>
       </div>}

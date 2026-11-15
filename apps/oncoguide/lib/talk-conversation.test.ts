@@ -1,3 +1,4 @@
+import { mergeBoardCards } from "./board-topics";
 import { expect, test } from "bun:test";
 import { buildEducationCorpus } from "@oncobase/education/chat-index";
 import { buildEducationVisuals } from "@oncobase/education/visual-index";
@@ -247,7 +248,7 @@ function boardHarness(path = "/education/chat/", typed = "") {
   const cards: BoardCard[] = [];
   const conversation = new TalkConversation({
     send: event => sent.push(event), navigate: () => {}, corpus: async () => boardCorpus, onChange: () => {},
-    visuals: async () => [cartoonVisual!, diagramVisual], onBoardCards: added => cards.push(...added), boardCardIds: () => new Set(cards.map(card => card.id)), typedHistory: () => typed,
+    visuals: async () => [cartoonVisual!, diagramVisual], onBoardCards: added => cards.splice(0, cards.length, ...mergeBoardCards(cards, added)), boardCards: () => cards, boardCardIds: () => new Set(cards.map(card => card.id)), typedHistory: () => typed,
   }, path);
   const spokenReply = async () => { conversation.handle({ type: "response.done", response: { status: "completed", output: [{ type: "message" }] } }); await settle(); };
   const tool = async (name: string, args: unknown, callId = name) => { conversation.handle({ type: "response.done", response: { status: "completed", output: [{ type: "function_call", call_id: callId, name, arguments: JSON.stringify(args) }] } }); await settle(); };
@@ -301,12 +302,13 @@ test("reading a section shows the lesson's own visual before the voice speaks, a
   const output = JSON.parse((board.sent.find(event => (event.item as { call_id?: string } | undefined)?.call_id === "r1")!.item as { output: string }).output);
   expect(output.now_showing).toContain("ADC cartoon");
   expect(output.heading).toBe("The payload");
-  // Only one automatic visual per turn. The next turn can show another.
+  // A follow-up reuses the best illustration instead of falling back to a weaker one.
   await board.tool("read_section", { section_id: "/education/adcs/#payload" }, "r2");
   expect(board.cards).toHaveLength(1);
   board.conversation.handle({ type: "input_audio_buffer.speech_started" });
   await board.tool("read_section", { section_id: "/education/adcs/#payload" }, "r3");
-  expect(board.cards.map(card => card.kind)).toEqual(["image", "diagram"]);
+  expect(board.cards.map(card => card.kind)).toEqual(["image"]);
+  expect(board.cards[0]!.id).toBe(cartoonVisual!.id);
 });
 
 test("a section on a page with no visual falls back to a link to the lesson", async () => {
@@ -451,4 +453,16 @@ test("tapping a board card asks the voice to explain that card from its lesson s
   expect(note!.item!.content[0]!.text).toContain("tapped the cartoon");
   expect(note!.item!.content[0]!.text).toContain("/education/adcs/#payload");
   expect(reply!.type).toBe("response.create");
+});
+
+
+test("the board planner receives prior explanation content, not only ids", async () => {
+  const board = boardHarness();
+  await board.tool("read_section", { section_id: "/education/adcs/#payload" }, "read");
+  await board.boardReply(["show_steps", { title: "Uptake", steps: ["Bind", "Enter"], source_section_id: "/education/adcs/#payload" }]);
+  board.conversation.handle({ type: "conversation.item.input_audio_transcription.completed", transcript: "Explain it again" });
+  await board.spokenReply();
+  const latest = board.boardRequests().at(-1)!.response as { instructions: string };
+  expect(latest.instructions).toContain('"content":["Bind","Enter"]');
+  expect(latest.instructions).toContain("Never paraphrase an existing summary");
 });

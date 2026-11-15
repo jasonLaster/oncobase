@@ -5,7 +5,7 @@ import { ArrowRight, Captions, LayoutGrid, Mic, MicOff, PhoneOff, X } from "luci
 import { EducationCorpusSchema, type EducationCorpus } from "@oncobase/education/chat";
 import { normalizeEducationPath, TALK_BOARD_PATH } from "@oncobase/education/talk";
 import { EducationVisualCatalogSchema, type EducationVisualCatalog } from "@oncobase/education/visuals";
-import { addBoardCards, boardCardIds, setTalkLive, useTalkState } from "../lib/talk-store";
+import { addBoardCards, boardCardIds, boardCardsSnapshot, setTalkLive, useTalkState } from "../lib/talk-store";
 import { pointAtSection } from "../lib/talk-point";
 import { TalkConversation, type TalkStatus, type TalkView } from "../lib/talk-conversation";
 import { connectTalk, TalkStartError, type TalkEvent, type TalkFailure, type TalkTransport } from "../lib/talk-transport";
@@ -146,6 +146,7 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
       lessons: () => loadCatalog().then(loaded => loaded.lessons),
       onBoardCards: addBoardCards,
       boardCardIds,
+      boardCards: boardCardsSnapshot,
       typedHistory,
       pointAt: section => pointAtSection(section.href),
     }, window.location.pathname);

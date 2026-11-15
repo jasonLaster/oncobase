@@ -1,3 +1,4 @@
+import { describeBoardCard } from "./board-topics";
 import type { EducationCorpus, EducationSection, LessonNames } from "@oncobase/education/chat";
 import { lessonAtPath, normalizeEducationPath, runTalkLibraryTool, TALK_BOARD_PATH, TALK_GREETING_INSTRUCTIONS } from "@oncobase/education/talk";
 import type { EducationVisual } from "@oncobase/education/visuals";
@@ -52,6 +53,7 @@ export class TalkConversation {
     visuals?: () => Promise<EducationVisual[]>;
     onBoardCards?: (cards: BoardCard[]) => void;
     boardCardIds?: () => Set<string>;
+    boardCards?: () => BoardCard[];
     typedHistory?: () => string;
     /** Lessons' other names, so a spoken abbreviation finds its lesson. */
     lessons?: () => Promise<LessonNames[]>;
@@ -283,8 +285,7 @@ export class TalkConversation {
   private async showPageVisual(corpus: EducationCorpus, section: EducationSection) {
     if (this.turnVisualShown) return null;
     const visuals = await this.deps.visuals?.().catch(() => []) ?? [];
-    const onBoard = this.deps.boardCardIds?.() ?? new Set<string>();
-    const best = bestPageVisual(visuals, section, onBoard);
+    const best = bestPageVisual(visuals, section);
     const card = best ? cardFromTool("show_visual", { visual_id: best.id }, { corpus, visuals, retrieved: this.retrieved }) : null;
     if (!card || !("caption" in card)) { this.addLessonCard(section); return null; }
     this.turnVisualShown = true;
@@ -309,7 +310,7 @@ export class TalkConversation {
       if (this.closed) return;
       const onBoard = this.deps.boardCardIds?.() ?? new Set<string>();
       const candidates = visualCandidates({ visuals, query: this.turnQuery || this.readerSaid, sectionIds: this.turnSections, exclude: onBoard });
-      this.deps.send(boardRequest(boardInstructions({ candidates: candidates.map(describeVisual), retrieved: [...this.retrieved].slice(-20), onBoard: [...onBoard].slice(-20), visualShowing: this.turnVisualShown })));
+      this.deps.send(boardRequest(boardInstructions({ candidates: candidates.map(describeVisual), retrieved: [...this.retrieved].slice(-20), onBoard: this.deps.boardCards?.().slice(-8).map(describeBoardCard) ?? [...onBoard].slice(-20), visualShowing: this.turnVisualShown })));
     } catch { this.boardInFlight = false; }
   }
 
