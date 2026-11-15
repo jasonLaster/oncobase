@@ -103,7 +103,7 @@ export function startupInitialData(snapshot: StartupSnapshot, pathname: string):
     ...body.page, tagsJson: JSON.stringify(body.page.tags), expectedContentHash: body.page.contentHash,
     contentStatus: "fresh" as const, fetchedAt: body.fetchedAt, missingAt: null, staleAt: null, deletedAt: null,
   }]));
-  return { index, pages, tree: transformFileTreeForSidebar(expandCompactFileTree(snapshot.manifest.compactTree)),
+  return { index, pages, tree: transformFileTreeForSidebar(expandCompactFileTree(snapshot.manifest.compactTree)), treeComplete: true,
     cachedBodies, expiresAt: Math.min(snapshot.validatedAt, body?.fetchedAt ?? snapshot.validatedAt) + STARTUP_CACHE_MAX_AGE,
     page: cachedBodies[slug] ?? { ...index, content: "", expectedContentHash: index.contentHash,
       contentStatus: "fresh", fetchedAt: 0, missingAt: null, staleAt: null, deletedAt: null } };

@@ -506,8 +506,9 @@ export function CommandPalette({
         footer={false}
         initialSearch={pageInitialQuery}
         // The document's navigation slice holds only the top level and this page's
-        // ancestors: searching it would show a few pages as if they were all.
-        loading={!manifestTree}
+        // ancestors: searching it would show a few pages as if they were all. A
+        // startup snapshot carries the whole tree and is searchable before sync.
+        loading={!manifestTree && !(!store && initial?.treeComplete)}
         onOpenChange={onOpenChange}
         onSelectPage={openPage}
         open={open}

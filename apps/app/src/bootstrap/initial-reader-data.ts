@@ -34,6 +34,8 @@ export type InitialReaderData = {
   index: PageIndexRow;
   pages: PageIndexRow[];
   tree: FileNode[];
+  /** The whole site's tree (a startup snapshot), not the document's slice of top level plus ancestors. */
+  treeComplete?: boolean;
   expiresAt: number;
 };
 
