@@ -28,9 +28,6 @@ const RATCHETED = new Set([
   "jsx-a11y/no-noninteractive-tabindex",
   "jsx-a11y/no-static-element-interactions",
   "jsx-a11y/role-supports-aria-props",
-  // Raw Web Storage in packages (below).
-  "no-restricted-globals",
-  "no-restricted-properties",
 ]);
 
 /** Error unless the rule is ratcheted; keeps rule options and "off". */
@@ -50,7 +47,7 @@ const TESTS = ["**/*.test.{ts,tsx}", ...PLAYWRIGHT];
 
 const appImport = "Packages are shared by both apps and must never import from an app.";
 const storageMessage =
-  "Raw Web Storage throws when storage is blocked or disabled and crashes the reader. Guard every access with try/catch behind a safe-storage helper (see apps/app/src/safe-storage.ts).";
+  "Raw Web Storage throws when storage is blocked or disabled and crashes the reader. Use safeLocalStorage / safeSessionStorage from @oncobase/safe-storage instead.";
 
 export default [
   {
@@ -160,19 +157,21 @@ export default [
     },
   },
 
-  // Raw Web Storage in packages: apps/app/src/safe-storage.ts is not importable from packages yet.
+  // Raw Web Storage, everywhere but the helper. Reading `window.localStorage`
+  // can itself throw, so even a typeof check or a property read is forbidden.
+  // apps/*/scripts only touch storage inside Playwright page.evaluate callbacks.
   {
-    files: ["packages/**/*.{ts,tsx}"],
-    ignores: TESTS,
+    files: TS,
+    ignores: [...TESTS, "apps/*/scripts/**", "packages/safe-storage/src/index.ts"],
     rules: {
-      "no-restricted-globals": level("no-restricted-globals", ["error",
+      "no-restricted-globals": ["error",
         { name: "localStorage", message: storageMessage },
         { name: "sessionStorage", message: storageMessage },
-      ]),
-      "no-restricted-properties": level("no-restricted-properties", ["error",
+      ],
+      "no-restricted-properties": ["error",
         ...["window", "globalThis", "self"].flatMap(object =>
           ["localStorage", "sessionStorage"].map(property => ({ object, property, message: storageMessage }))),
-      ]),
+      ],
     },
   },
 
