@@ -17,6 +17,8 @@ function fakeClient(enableChat: boolean) {
   return {
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       switch (getFunctionName(ref)) {
+        case "sites:gate":
+          return { passwordGate: false, passwordHash: null, piiPatterns: [] };
         case "sites:getBySlug":
           return { _id: "site-fixture", slug: args.slug, config: { passwordGate: false, enableChat } };
         case "users:getSessionUser":

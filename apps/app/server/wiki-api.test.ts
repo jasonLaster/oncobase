@@ -6,6 +6,7 @@ import {
   isPasswordGateEnabled,
 } from "./wiki-api";
 import { traceBackendHandler, type BackendProfile } from "./backend-tracing";
+import { GATE_CACHE_TTL_MS, redactText } from "./reader-access";
 
 process.env.WIKI_GATE_SESSION_SECRET = "wiki-api-test-gate-secret";
 process.env.DIANA_WIKI_PASSWORD_HASH =
@@ -215,7 +216,8 @@ function createFakeConvexClient({
   return {
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       switch (getFunctionName(ref)) {
-        case "sites:getBySlug":
+        case "sites:gate":
+        case "sites:getBySlug": {
           if (failPasswordGateLookup) {
             throw new Error("site config unavailable");
           }
@@ -223,10 +225,11 @@ function createFakeConvexClient({
             passwordGateState.lookups =
               (passwordGateState.lookups ?? 0) + 1;
           }
-          return {
-            slug: args.slug,
-            config: passwordGateState ?? { passwordGate, passwordHash },
-          };
+          const config = passwordGateState ?? { passwordGate, passwordHash };
+          return getFunctionName(ref) === "sites:gate"
+            ? { passwordGate: config.passwordGate, passwordHash: config.passwordHash ?? null, piiPatterns: [] }
+            : { slug: args.slug, config };
+        }
         case "users:getByEmailForAuth":
           return users.get(String(args.email)) ?? null;
         case "users:getSessionUser": {
@@ -790,11 +793,19 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
 
     const lookupsBeforeRotation = passwordGateState.lookups ?? 0;
     passwordGateState.passwordHash = "sha256:rotated-password-hash";
-    const afterRotation = await handler(
-      request("/api/wiki/pages?slugs=wiki/public", { headers: { Cookie: cookie } }),
-    );
-    expect(afterRotation?.status).toBe(401);
-    expect(passwordGateState.lookups).toBe(lookupsBeforeRotation + 1);
+    // Gate configuration is shared across requests for GATE_CACHE_TTL_MS; the
+    // rotation takes effect, with exactly one new lookup, once it expires.
+    const originalNow = Date.now;
+    Date.now = () => originalNow() + GATE_CACHE_TTL_MS + 1;
+    try {
+      const afterRotation = await handler(
+        request("/api/wiki/pages?slugs=wiki/public", { headers: { Cookie: cookie } }),
+      );
+      expect(afterRotation?.status).toBe(401);
+      expect(passwordGateState.lookups).toBe(lookupsBeforeRotation + 1);
+    } finally {
+      Date.now = originalNow;
+    }
   });
 
   test("fails closed without caching a custom site's gate lookup failure", async () => {
@@ -1819,7 +1830,7 @@ test("cold page batches share redaction configuration and keep client caches iso
     const handler = createWikiApiHandler({
       ...fake,
       async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
-        if (getFunctionName(ref) === "sites:getBySlug") {
+        if (getFunctionName(ref) === "sites:gate") {
           siteReads++;
           await Bun.sleep(5);
         }
@@ -1832,27 +1843,31 @@ test("cold page batches share redaction configuration and keep client caches iso
     const response = await handler(request(`/api/wiki/pages?slugs=${Array.from({ length: 25 }, (_, i) => `wiki/public-${i}`).join(",")}`));
     expect(response!.status).toBe(200);
     expect((await response!.json()).pages).toHaveLength(25);
-    // One gate lookup and one shared redaction lookup, even on a cold batch.
-    expect(siteReads).toBe(2);
+    // The gate and redaction share one single-flighted lookup, even on a cold batch.
+    expect(siteReads).toBe(1);
   }
   await run();
   await run();
 });
 
-test("failed redaction config reads fail closed and are retried", async () => {
+test("failed gate and redaction config reads fail closed and are retried", async () => {
   const fake = createFakeConvexClient();
   let siteReads = 0;
   const handler = createWikiApiHandler({
     ...fake,
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
-      if (getFunctionName(ref) === "sites:getBySlug" && ++siteReads === 2) throw new Error("config unavailable");
+      if (getFunctionName(ref) === "sites:gate" && ++siteReads === 1) throw new Error("config unavailable");
       return fake.query(ref, args);
     },
   } as never);
-  await expect(handler(request("/api/wiki/pages?slugs=wiki/public"))).rejects.toThrow("config unavailable");
+  // The failed read is never cached: no page body, and the next request reads again.
+  expect((await handler(request("/api/wiki/pages?slugs=wiki/public")))!.status).toBe(503);
   const response = await handler(request("/api/wiki/pages?slugs=wiki/public"));
   expect(response!.status).toBe(200);
-  expect(siteReads).toBe(4);
+  expect(siteReads).toBe(2);
+  // The redaction policy itself fails closed too (no cached unredacted content).
+  const failing = { async query() { throw new Error("config unavailable"); } };
+  await expect(redactText(failing as never, "custom", "secret")).rejects.toThrow("config unavailable");
 });
 
 test("search reads planned corpus ranges concurrently, follows continuations, and retries a failed corpus", async () => {
@@ -1907,6 +1922,7 @@ test("prepared public search data is reused, but redaction changes and corpus ex
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       const name = getFunctionName(ref);
       if (name === "sites:getBySlug") return { slug: args.slug, config: { passwordGate: false, piiPatterns: rules } };
+      if (name === "sites:gate") return { passwordGate: false, passwordHash: null, piiPatterns: rules };
       if (name === "documents:listSearchPages") {
         corpusLoads++;
         return { page: [{ slug: "public", title: "Fixture", content: "ALPHA\nBETA", contentHash: "fixture" }], isDone: true, continueCursor: "" };
@@ -2086,7 +2102,7 @@ test("manifest validation uses two backend queries and reads no document pages",
     const response = await handler(request("/api/wiki/manifest", { headers: { "if-none-match": '\"current-manifest\"' } }));
     expect(response?.status).toBe(304);
     expect(response?.headers.get("x-wiki-manifest-source")).toBe("snapshot");
-    expect(calls).toEqual(["sites:getBySlug", "manifestCache:current"]);
+    expect(calls).toEqual(["sites:gate", "manifestCache:current"]);
   } finally {
     if (saved === undefined) delete process.env.WIKI_PREFETCH_SECRET;
     else process.env.WIKI_PREFETCH_SECRET = saved;

@@ -1,9 +1,9 @@
 import type { ConvexHttpClient } from "convex/browser";
-import { api } from "../../convex/_generated/api.js";
 import {
   DEFAULT_SITE_SLUG,
   type PasswordGateEntry,
   getRequestPasswordGateConfig,
+  getSiteGate,
   hasValidAuthCookie,
   isDianaPreviewTestAuth,
 } from "../reader-access";
@@ -13,10 +13,10 @@ export async function getPasswordGateConfig(
   siteSlug: string,
 ) {
   const defaultEnabled = siteSlug === DEFAULT_SITE_SLUG;
-  const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
+  const site = await getSiteGate(client, siteSlug);
   return {
-    enabled: site?.config?.passwordGate ?? defaultEnabled,
-    passwordHash: site?.config?.passwordHash,
+    enabled: site?.passwordGate ?? defaultEnabled,
+    passwordHash: site?.passwordHash ?? undefined,
   };
 }
 

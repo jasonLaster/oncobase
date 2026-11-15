@@ -5,6 +5,7 @@ import path from "node:path";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import { createWikiGateSession } from "@oncobase/wiki-content/gate-session";
 import { createAppShellHandler, createWikiViteHandler } from "./app-shell";
+import { GATE_CACHE_TTL_MS } from "./reader-access";
 
 const TEST_GATE_SECRET = "app-shell-test-gate-secret";
 const TEST_GATE_HASH = "sha256:app-shell-test-password";
@@ -39,6 +40,8 @@ function fakeClient({ canAccessSensitive = true, passwordGate = true } = {}) {
   return {
     async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       switch (getFunctionName(ref)) {
+        case "sites:gate":
+          return { passwordGate, passwordHash: TEST_GATE_HASH, piiPatterns: [] };
         case "sites:getBySlug":
           return {
             slug: args.slug,
@@ -263,10 +266,8 @@ describe("wiki Vite app-shell password gate", () => {
     let bodyReads = 0;
     const client = { ...base, async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
       const value = await base.query(ref, args);
-      if (getFunctionName(ref) === "sites:getBySlug") return { slug: args.slug, config: {
-        passwordGate: true, passwordHash: TEST_GATE_HASH,
-        piiPatterns: [JSON.stringify({ pattern: "synthetic@example.com", replacement: "[redacted]" })],
-      } };
+      if (getFunctionName(ref) === "sites:gate") return { passwordGate: true, passwordHash: TEST_GATE_HASH,
+        piiPatterns: [JSON.stringify({ pattern: "synthetic@example.com", replacement: "[redacted]" })] };
       if (getFunctionName(ref) === "documents:getBySlug" && value && typeof value === "object" && "content" in value) {
         bodyReads++;
         return { ...value, content: "Contact synthetic@example.com" };
@@ -321,10 +322,8 @@ describe("wiki Vite app-shell password gate", () => {
       if (getFunctionName(ref) === "documents:getBySlug") return {
         slug: "index", title: "Home", content: "PERSON_LITERAL", contentHash: "unchanged", sensitive: false,
       };
-      if (getFunctionName(ref) === "sites:getBySlug") return { slug: args.slug, config: {
-        passwordGate: true, passwordHash: TEST_GATE_HASH,
-        piiPatterns: [JSON.stringify({ pattern: "PERSON_LITERAL", replacement })],
-      } };
+      if (getFunctionName(ref) === "sites:gate") return { passwordGate: true, passwordHash: TEST_GATE_HASH,
+        piiPatterns: [JSON.stringify({ pattern: "PERSON_LITERAL", replacement })] };
       return base.query(ref, args);
     } };
     try {
@@ -332,7 +331,8 @@ describe("wiki Vite app-shell password gate", () => {
       const handler = createWikiViteHandler({ client: client as never, distDir });
       expect(await (await handler(request("/", { headers }))).text()).toContain("FIRST_REDACTION");
       replacement = "UPDATED_REDACTION";
-      offset = 1;
+      // Site policy is shared across requests for the gate cache window.
+      offset = GATE_CACHE_TTL_MS + 1;
       const html = await (await handler(request("/", { headers }))).text();
       expect(html).toContain("UPDATED_REDACTION");
       expect(html).not.toContain("FIRST_REDACTION");

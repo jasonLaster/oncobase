@@ -13,12 +13,16 @@ import type { Id } from "../convex/_generated/dataModel.js";
 
 export const DEFAULT_SITE_SLUG = "diana";
 const HOST_CACHE_TTL_MS = 15_000;
+// Gate configuration (password gate, password hash, PII patterns) is shared
+// across requests for this long. A password or gate change takes effect within
+// this window; it is never cached when the lookup fails.
+export const GATE_CACHE_TTL_MS = 10_000;
 const VERCEL_PROJECT_HOST_PREFIX = "diana-tnbc";
 const DIANA_TEST_AUTH_HEADER = "x-diana-test-auth";
 const DEV_GATE_SESSION_SECRET = "oncobase-wiki-gate-development-only";
 
 type ResolvedSite = {
-  slug: string | null;
+  slug: Promise<string | null>;
   expires: number;
 };
 
@@ -27,10 +31,14 @@ export type PasswordGateEntry = {
   passwordHash?: string;
 };
 
-type PiiPatternEntry = {
-  patterns: Promise<PiiPattern[] | undefined>;
-  expires: number;
-};
+/** The slice of a site row the gate and redaction need (`sites:gate`). */
+export type SiteGate = {
+  passwordGate: boolean;
+  passwordHash: string | null;
+  piiPatterns: string[];
+} | null;
+
+type GateEntry = { gate: Promise<SiteGate>; expires: number };
 
 export type SessionUser = {
   _id: Id<"users">;
@@ -38,21 +46,62 @@ export type SessionUser = {
   name?: string | null;
 };
 
+// Entries hold in-flight promises, so a burst of parallel requests shares one
+// lookup instead of each missing the cache before the first one resolves.
 const hostCache = new Map<string, ResolvedSite>();
-const piiPatternCache = new WeakMap<ConvexHttpClient, Map<string, PiiPatternEntry>>();
+const gateCache = new WeakMap<ConvexHttpClient, Map<string, GateEntry>>();
+const legacyGateClients = new WeakMap<ConvexHttpClient, number>();
 const requestPasswordGateConfigs = new WeakMap<
   Request,
   Map<string, Promise<PasswordGateEntry>>
 >();
-const requestSites = new WeakMap<Request, Map<string, Promise<FunctionReturnType<typeof api.sites.getBySlug>>>>();
+const requestSites = new WeakMap<Request, Map<string, Promise<SiteGate>>>();
 const requestSessionUsers = new WeakMap<Request, Map<string, Promise<FunctionReturnType<typeof api.users.getSessionUser>>>>();
 
+function isMissingFunction(error: unknown) {
+  return /Could not find (public )?function/i.test(error instanceof Error ? error.message : String(error));
+}
+
+async function querySiteGate(client: ConvexHttpClient, siteSlug: string): Promise<SiteGate> {
+  // Until Convex has `sites:gate`, read the full row and keep only the slice.
+  if ((legacyGateClients.get(client) ?? 0) <= Date.now()) {
+    try {
+      return await client.query(api.sites.gate, { slug: siteSlug });
+    } catch (error) {
+      if (!isMissingFunction(error)) throw error;
+      legacyGateClients.set(client, Date.now() + 60_000);
+    }
+  }
+  const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
+  return site ? {
+    passwordGate: site.config.passwordGate,
+    passwordHash: site.config.passwordHash ?? null,
+    piiPatterns: site.config.piiPatterns ?? [],
+  } : null;
+}
+
+/** Gate configuration for a site, cached for GATE_CACHE_TTL_MS per client and
+ * single-flighted. A failed lookup is dropped so the next request retries. */
+export function getSiteGate(client: ConvexHttpClient, siteSlug: string, now = Date.now()): Promise<SiteGate> {
+  let cache = gateCache.get(client);
+  if (!cache) { cache = new Map(); gateCache.set(client, cache); }
+  const cached = cache.get(siteSlug);
+  traceBackendCache("site-gate", Boolean(cached && cached.expires > now));
+  if (cached && cached.expires > now) return cached.gate;
+  const gate = querySiteGate(client, siteSlug);
+  const entry = { gate, expires: now + GATE_CACHE_TTL_MS };
+  cache.set(siteSlug, entry);
+  void gate.catch(() => { if (cache.get(siteSlug) === entry) cache.delete(siteSlug); });
+  return gate;
+}
+
+// One view of the gate per request, even if the shared entry expires mid-request.
 function siteForRequest(request: Request, client: ConvexHttpClient, siteSlug: string) {
   let sites = requestSites.get(request);
   if (!sites) { sites = new Map(); requestSites.set(request, sites); }
   let pending = sites.get(siteSlug);
   if (!pending) {
-    pending = client.query(api.sites.getBySlug, { slug: siteSlug });
+    pending = getSiteGate(client, siteSlug);
     sites.set(siteSlug, pending);
   }
   return pending;
@@ -108,20 +157,14 @@ export async function resolveSiteSlug(request: Request, client: ConvexHttpClient
   }
 
   const localSlug = process.env.NODE_ENV !== "production" ? localSiteForHost(host) : null;
-  if (localSlug) {
-    hostCache.set(host, { slug: localSlug, expires: now + HOST_CACHE_TTL_MS });
-    return localSlug;
-  }
-
-  const previewSlug = previewSiteForHost(host);
-  if (previewSlug) {
-    hostCache.set(host, { slug: previewSlug, expires: now + HOST_CACHE_TTL_MS });
-    return previewSlug;
-  }
-
-  const site = await client.query(api.sites.getByHost, { host });
-  const slug = site?.slug ?? null;
-  hostCache.set(host, { slug, expires: now + HOST_CACHE_TTL_MS });
+  const previewSlug = localSlug ? null : previewSiteForHost(host);
+  const slug = (localSlug ?? previewSlug)
+    ? Promise.resolve(localSlug ?? previewSlug)
+    : client.query(api.sites.getByHost, { host }).then(site => site?.slug ?? null);
+  const entry = { slug, expires: now + HOST_CACHE_TTL_MS };
+  hostCache.set(host, entry);
+  // A failed lookup must not answer "unknown site" for the next 15 seconds.
+  void slug.catch(() => { if (hostCache.get(host) === entry) hostCache.delete(host); });
   return slug;
 }
 
@@ -139,8 +182,8 @@ export function getRequestPasswordGateConfig(
   if (cached) return cached;
 
   const pending = siteForRequest(request, client, siteSlug).then(site => ({
-    enabled: site?.config?.passwordGate ?? siteSlug === DEFAULT_SITE_SLUG,
-    passwordHash: site?.config?.passwordHash,
+    enabled: site?.passwordGate ?? siteSlug === DEFAULT_SITE_SLUG,
+    passwordHash: site?.passwordHash ?? undefined,
   }));
   configs.set(siteSlug, pending);
   void pending.catch(() => {
@@ -217,30 +260,15 @@ export function sessionTokenFromCookie(cookieHeader: string) {
   return rawToken ? decodeURIComponent(rawToken) : undefined;
 }
 
-export async function getPiiPatterns(client: ConvexHttpClient, siteSlug: string) {
-  const now = Date.now();
-  let cache = piiPatternCache.get(client);
-  if (!cache) {
-    cache = new Map();
-    piiPatternCache.set(client, cache);
-  }
-  const cached = cache.get(siteSlug);
-  traceBackendCache("pii-patterns", Boolean(cached && cached.expires > now));
-  if (cached && cached.expires > now) return cached.patterns;
+function piiPatternsFor(siteSlug: string, site: SiteGate) {
+  const configured = parseSitePiiPatterns(site?.piiPatterns);
+  return configured.length > 0 ? configured : siteSlug === DEFAULT_SITE_SLUG ? undefined : [];
+}
 
-  // Publish the promise before yielding so a cold batch shares one read.
-  // Do not turn a failed config lookup into cached unredacted content.
-  const patterns = client.query(api.sites.getBySlug, { slug: siteSlug }).then((site) => {
-    const configured = parseSitePiiPatterns(site?.config?.piiPatterns);
-    return configured.length > 0 ? configured : siteSlug === DEFAULT_SITE_SLUG ? undefined : [];
-  });
-  cache.set(siteSlug, { patterns, expires: now + HOST_CACHE_TTL_MS });
-  try {
-    return await patterns;
-  } catch (error) {
-    if (cache.get(siteSlug)?.patterns === patterns) cache.delete(siteSlug);
-    throw error;
-  }
+export async function getPiiPatterns(client: ConvexHttpClient, siteSlug: string): Promise<PiiPattern[] | undefined> {
+  // Shares the gate's cached, single-flighted read. A failed lookup throws
+  // rather than turning into cached unredacted content.
+  return piiPatternsFor(siteSlug, await getSiteGate(client, siteSlug));
 }
 
 export async function redactText(client: ConvexHttpClient, siteSlug: string, text: string) {
@@ -258,9 +286,7 @@ export async function redactPageContent(
   if (request) {
     // The gate already fetched the current site policy. Share that read, not
     // a cached authorization decision or a second serial configuration lookup.
-    const site = await siteForRequest(request, client, siteSlug);
-    const configured = parseSitePiiPatterns(site?.config?.piiPatterns);
-    const patterns = configured.length ? configured : siteSlug === DEFAULT_SITE_SLUG ? undefined : [];
+    const patterns = piiPatternsFor(siteSlug, await siteForRequest(request, client, siteSlug));
     return { ...page, content: applyPiiRedactions(page.content, { patterns }),
       description: page.description ? applyPiiRedactions(page.description, { patterns }) : page.description };
   }

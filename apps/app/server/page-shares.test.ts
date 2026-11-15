@@ -18,6 +18,7 @@ function fakeClient() {
     query: async (ref: never, args: Record<string, unknown>) => {
       const name = getFunctionName(ref); calls.push({ name, args });
       if (name === "sites:getBySlug") return { slug: "diana", config: { passwordGate: true, passwordHash: "fixture" } };
+      if (name === "sites:gate") return { passwordGate: true, passwordHash: "fixture", piiPatterns: [] };
       if (name === "pageShares:read") return args.tokenHash === createHash("sha256").update(token).digest("hex")
         ? { slug: "private/fixture", title: "Fixture", tags: [], content: "ONLY_SHARED_PAGE" } : null;
       if (name === "pageShares:status") throw new ConvexError("Forbidden");

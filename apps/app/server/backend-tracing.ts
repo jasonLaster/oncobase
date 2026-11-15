@@ -313,10 +313,14 @@ export function traceBackendAttributes(attributes: Record<string, string | numbe
 }
 
 export type BackendCache = "site-host" | "canonical-slugs" | "pii-patterns" | "search-corpus"
+  // Gate configuration (sites:gate), shared with PII redaction, 10 s.
+  | "site-gate"
   // Encoded snapshot responses and verified session bases, keyed by hash.
   | "manifest-snapshot"
   // Education/session manifests derived from the snapshot, keyed by fresh inputs.
-  | "manifest-derived";
+  | "manifest-derived"
+  // Public manifest bytes persisted beside the snapshot (P10), keyed by hash.
+  | "manifest-artifact";
 
 /**
  * Module caches are per instance; whether Fluid Compute reuse makes them
