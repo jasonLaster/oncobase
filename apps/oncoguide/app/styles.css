@@ -76,6 +76,15 @@ button { cursor: pointer; }
 .session-chat-suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .session-chat-suggestions button { display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 16px; padding: 18px; font-size: 14px; line-height: 1.55; }
 .session-chat-suggestions button span { color: var(--brand); }
+.session-chat-saved { margin-top: 28px; }
+.session-chat-saved h2 { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+.session-chat-saved ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.session-chat-saved li { display: flex; gap: 6px; min-width: 0; }
+.session-chat-saved-open { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 12px 14px; text-align: left; font-size: 14px; }
+.session-chat-saved-open span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-chat-saved-open time { flex-shrink: 0; color: var(--text-muted); font-size: 12px; }
+.session-chat-saved-remove { flex-shrink: 0; min-width: 44px; font-size: 18px; color: var(--text-muted); }
+.session-chat-saved > p { color: var(--text-muted); font-size: 12px; margin: 10px 0 0; }
 .session-chat-message { margin: 0 0 30px; font-size: 15px; line-height: 1.75; overflow-wrap: anywhere; min-width: 0; }
 .session-chat-user { background: var(--muted); border-radius: 12px; padding: 16px 20px; margin-left: 12%; }
 .session-chat-user p { margin: 3px 0; white-space: pre-wrap; }

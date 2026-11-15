@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMemo, type ComponentProps } from "react";
+import { useCallback, useMemo, type ComponentProps } from "react";
 import { SessionChat } from "@oncobase/chat/components/session-chat";
 import { StreamingMarkdown } from "@oncobase/chat/components/streaming-markdown";
 import type { ChatMarkdownRendererProps } from "@oncobase/chat/types";
@@ -20,6 +20,14 @@ export function LearningChat({ contentCommit }: { contentCommit: string }) {
   const params = useSearchParams();
   const currentSlug = params.get("lesson") ?? undefined;
   const body = useMemo(() => ({ currentSlug, contentCommit }), [currentSlug, contentCommit]);
+  // The open chat's browser-saved ID rides in the URL, so a reload or bookmark returns to it.
+  // A starter question leaves the URL once its chat is saved, so a reload never asks it again.
+  const showChat = useCallback((chatId: string | null) => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("q");
+    if (chatId) url.searchParams.set("chat", chatId); else url.searchParams.delete("chat");
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url);
+  }, []);
   const { live, cards } = useTalkState();
   const showBoard = live || cards.length > 0;
   // Typed chat stays mounted under the board so returning restores it untouched.
@@ -32,6 +40,7 @@ export function LearningChat({ contentCommit }: { contentCommit: string }) {
     </button>}
     apiPath={process.env.NEXT_PUBLIC_ONCOGUIDE_CHAT_API || (["localhost", "127.0.0.1"].includes(window.location.hostname) ? "/api/education/chat" : "https://diana-tnbc.com/api/education/chat")}
     body={body} initialQuestion={params.get("q") ?? undefined} storageKey="oncoguide:learning-chat"
+    chatId={params.get("chat") ?? undefined} onChatIdChange={showChat}
     MarkdownRenderer={EducationMarkdown}
     assistantName="OncoGuide" footnote="Learn the science at your pace. For personal care decisions, talk with your care team."
     title="Follow your curiosity."

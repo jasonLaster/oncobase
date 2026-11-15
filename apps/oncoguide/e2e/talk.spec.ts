@@ -356,7 +356,7 @@ test("the board survives a trip to a lesson, and typed chat is intact afterward"
   expect(await stayedInPage(page)).toBe(true);
 
   await page.getByRole("button", { name: "Back to board" }).click();
-  await expect(page).toHaveURL(new RegExp(`${chat}$`));
+  await expect(page).toHaveURL(new RegExp(`${chat}(\\?chat=[\\w-]+)?$`));
   await expect(page.locator('[data-card-kind="diagram"]')).toBeVisible();
   expect(await stayedInPage(page)).toBe(true);
 
