@@ -25,11 +25,11 @@ Bun.serve({
   async fetch(request) {
     const url = new URL(request.url);
     if (url.pathname === "/__perf-lab-proxy/health") return new Response("ok");
+    // Forward the browser's Host, Origin and Referer unchanged, as the
+    // production CDN does. Rewriting Host to the upstream port made the server
+    // stamp document payloads with an origin the page does not have, so the
+    // reader rejected them and the lab never measured the inlined-page path.
     const headers = new Headers(request.headers);
-    headers.set("host", upstreamHost);
-    if (headers.has("origin")) headers.set("origin", upstream.origin);
-    const referer = headers.get("referer");
-    if (referer) headers.set("referer", referer.replace(selfHost, upstreamHost));
     // Bun's fetch would otherwise decompress upstream bodies while keeping the header.
     const init: RequestInit & { decompress: boolean } = {
       method: request.method,
@@ -50,6 +50,14 @@ Bun.serve({
       && (request.headers.get("accept-encoding") ?? "").includes("gzip");
     if (!compressible) return new Response(response.body, { status: response.status, headers: out });
     const key = url.pathname.startsWith("/assets/") ? url.pathname : "";
+    // Documents and API answers stream through, compressed on the fly, as
+    // the production CDN does: a document may stream its tail (app-shell.ts).
+    if (!key && response.body && /html/.test(type)) {
+      out.set("content-encoding", "gzip");
+      out.delete("content-length");
+      out.append("vary", "Accept-Encoding");
+      return new Response(response.body.pipeThrough(new CompressionStream("gzip")), { status: response.status, headers: out });
+    }
     let body = key ? cache.get(key) : undefined;
     if (body) {
       await response.body?.cancel();
