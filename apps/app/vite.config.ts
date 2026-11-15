@@ -35,6 +35,20 @@ function wikiReaderCacheVersionPlugin() {
   };
 }
 
+const packagePattern = (names: string[]) => new RegExp(`/node_modules/(?:${names.join("|")})/`);
+// The raw-HTML stage: rehype-raw on parse5. It loads only for documents that
+// hold HTML (packages/wiki-markdown/src/raw-html.ts).
+const RAW_HTML_PACKAGES = packagePattern([
+  "rehype-raw", "hast-util-raw", "parse5", "entities", "hast-util-from-parse5", "hast-util-to-parse5",
+  "hastscript", "hast-util-parse-selector", "web-namespaces", "html-void-elements",
+]);
+// Used only by the chat renderer (streamdown) and the math engine: left to
+// split with them instead of joining vendor-markdown.
+const OFF_PAINT_MARKDOWN_PACKAGES = packagePattern([
+  "rehype-harden", "rehype-sanitize", "hast-util-sanitize", "hast-util-to-text", "hast-util-from-dom",
+  "hast-util-is-element",
+]);
+
 function vendorChunk(id: string): string | null {
   const normalized = id.replace(/\\/g, "/");
   if (
@@ -52,6 +66,9 @@ function vendorChunk(id: string): string | null {
     return "vendor-livestore";
   }
   if (normalized.includes("/node_modules/katex/") || normalized.includes("/node_modules/rehype-katex/")) return "vendor-math";
+  // Neither may sit in vendor-markdown, which the article needs before it paints.
+  if (RAW_HTML_PACKAGES.test(normalized)) return "vendor-rawhtml";
+  if (OFF_PAINT_MARKDOWN_PACKAGES.test(normalized)) return null;
   if (
     normalized.includes("/node_modules/react-markdown/") ||
     normalized.includes("/node_modules/unified/") ||
@@ -102,12 +119,14 @@ export default defineConfig({
         codeSplitting: {
           includeDependenciesRecursively: true,
           // Keep transitive library dependencies out of application chunks.
-          // Priority gives shared React/Effect dependencies a stable owner.
-          // Markdown owns shared helpers ahead of the optional math engine.
-          groups: ["react", "effect", "livestore", "markdown", "math", "icons"].map((vendor, index) => ({
+          // Priority gives shared React/Effect dependencies a stable owner. Keep
+          // every priority positive: a negative one moved React core into vendor-icons.
+          // Markdown owns shared helpers ahead of the optional raw-HTML stage
+          // and math engine, so neither drags a shared helper off the paint path.
+          groups: ["react", "effect", "livestore", "markdown", "rawhtml", "math", "icons"].map((vendor, index) => ({
             name: `vendor-${vendor}`,
             test: (id: string) => vendorChunk(id) === `vendor-${vendor}`,
-            priority: 50 - index * 10,
+            priority: 70 - index * 10,
           })),
         },
       },

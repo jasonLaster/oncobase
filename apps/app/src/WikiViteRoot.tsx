@@ -14,8 +14,9 @@ import { contentSlugFromRouteSlug, slugFromPath } from "./wiki-utils";
 import { ReaderPending } from "./AppStarting";
 import { ReaderRoot } from "./ReaderRoot";
 import { publicIdentityFromPageBootstrap } from "./bootstrap/public-identity";
-import { PAGE_BOOTSTRAP_ID, NAVIGATION_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES } from "./bootstrap/page-payload";
+import { PAGE_BOOTSTRAP_ID, NAVIGATION_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES, parseBootstrapJson } from "./bootstrap/page-payload";
 import { mayContainMath, preloadMarkdownMath } from "@oncobase/wiki-markdown/math-loader";
+import { documentMayNeedRawHtml, preloadRawHtml } from "@oncobase/wiki-markdown/raw-html-loader";
 
 markVisualPhase("boot-reader-module");
 
@@ -63,6 +64,16 @@ function publicIdentityFromResponse(presentationOnly = false) {
       configuredSiteSlug: import.meta.env.VITE_WIKI_SITE_SLUG,
     },
   );
+}
+
+function bootstrapMarkdown(source: string, isMarkdown: boolean) {
+  if (isMarkdown) return source;
+  try {
+    const content = (parseBootstrapJson(source) as { page?: { content?: unknown } } | null)?.page?.content;
+    return typeof content === "string" ? content : "";
+  } catch {
+    return "";
+  }
 }
 
 function publicIdentityFallback(scope: WikiScope) {
@@ -191,6 +202,11 @@ export function WikiViteRoot() {
     if (initialMarkdown && initialMarkdown.length <= MAX_BOOTSTRAP_BYTES && mayContainMath(initialMarkdown)) {
       // Fetch optional math alongside the reader, before the boot payload paints.
       void preloadMarkdownMath().catch(() => {});
+    }
+    // Likewise the raw-HTML stage. The payload is JSON with `<` escaped, so
+    // read its markdown rather than the script text.
+    if (initialMarkdown && initialMarkdown.length <= MAX_BOOTSTRAP_BYTES && documentMayNeedRawHtml(bootstrapMarkdown(initialMarkdown, cached?.bodies[0]?.page.content !== undefined))) {
+      void preloadRawHtml().catch(() => {});
     }
     const scope = readScope();
     const fallback = publicIdentityFallback(scope);

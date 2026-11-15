@@ -28,7 +28,11 @@ const budgets: Budget[] = [
   { label: "react vendor", pattern: /^vendor-react-[\w-]+\.js$/, maxGzipBytes: 75_000 },
   { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 104_000 },
   { label: "effect vendor", pattern: /^vendor-effect-[\w-]+\.js$/, maxGzipBytes: 140_000 },
-  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 115_000 },
+  // The raw-HTML stage (rehype-raw, parse5) left vendor-markdown for its own
+  // lazy chunk, loaded only for documents with HTML (wiki-markdown raw-html.ts):
+  // vendor-markdown 107.2 -> 53.8 KiB, vendor-rawhtml 50.8 KiB.
+  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 57_000 },
+  { label: "raw-HTML vendor", pattern: /^vendor-rawhtml-[\w-]+\.js$/, maxGzipBytes: 53_500 },
   { label: "optional math vendor", pattern: /^vendor-math-[\w-]+\.js$/, maxGzipBytes: 85_000 },
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
   { label: "PDF viewer", pattern: /^PdfViewerPage-[\w-]+\.js$/, maxGzipBytes: 140_000 },
@@ -142,8 +146,16 @@ const storeLoaderPatterns = [
 // token (P6) and Back/Forward scroll memory merged, 1,174.2 KiB after the move:
 // 1,240,000 -> 1,212,000 B. Lazy rises by the moved bytes, 3,990,000 ->
 // 4,028,000 B; the total did not grow.
-const eagerGzipBudget = 1_212_000;
-const paintGzipBudget = 384_000;
+// Raw HTML on demand: rehype-raw and parse5 (vendor-rawhtml, 50.8 KiB) load only
+// for documents that hold HTML, and the chat renderer's sanitizer helpers left
+// vendor-markdown for the chat and math chunks. Paint 371.6 -> 319.4 KiB
+// (-52.2 KiB): 384,000 -> 330,000 B. Eager 1,174.4 -> 1,122.2 KiB:
+// 1,212,000 -> 1,155,000 B. Lazy 3,908.0 -> 3,963.5 KiB (+55.5 KiB: the moved
+// bytes, ~2 KiB of gzip overhead from compressing them as separate chunks and
+// ~1 KiB of new detection code): 4,028,000 -> 4,085,000 B. The eager + lazy
+// limit stays 5,240,000 B.
+const eagerGzipBudget = 1_155_000;
+const paintGzipBudget = 330_000;
 const storeGzipBudget = 828_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
@@ -158,7 +170,7 @@ const storeGzipBudget = 828_000;
 // on that host: 3_460_000 -> 3_468_000.
 // PDF.js adds ~495 KiB gzip, exclusively on the PDF route (viewer + worker).
 // The reader's eager budget is unchanged; fonts/codecs load only when needed.
-const lazyGzipBudget = 4_028_000;
+const lazyGzipBudget = 4_085_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
