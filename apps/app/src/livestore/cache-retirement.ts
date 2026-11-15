@@ -264,9 +264,13 @@ export async function shutDownAndWipeReaderStores({
   siteSlug,
   sessionStorage,
   shutdownTimeoutMs = 3000,
+  settleMs = 200,
+  settlePasses = 5,
   storage,
 }: {
   store?: { shutdown: () => Promise<void> } | null;
+  settleMs?: number;
+  settlePasses?: number;
   origin: string;
   siteSlug: string | null | undefined;
   sessionStorage?: Pick<Storage, "setItem">;
@@ -274,6 +278,10 @@ export async function shutDownAndWipeReaderStores({
   storage?: StorageManager;
 }) {
   markSigningOut();
+  const record = (result: SignOutWipeResult) => {
+    try { sessionStorage?.setItem(SIGN_OUT_WIPE_KEY, JSON.stringify({ ...result, at: Date.now() })); } catch { /* Diagnostic only. */ }
+    return result;
+  };
   if (store) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([
@@ -282,8 +290,22 @@ export async function shutDownAndWipeReaderStores({
     ]);
     clearTimeout(timer);
   }
-  const result = await wipeReaderStoresOnSignOut({ origin, siteSlug, ...(storage ? { storage } : {}) })
+  const wipe = () => wipeReaderStoresOnSignOut({ origin, siteSlug, ...(storage ? { storage } : {}) })
     .catch((): SignOutWipeResult => ({ target: siteSlug ? "site" : "all", retired: [], failed: ["*"] }));
-  try { sessionStorage?.setItem(SIGN_OUT_WIPE_KEY, JSON.stringify({ ...result, at: Date.now() })); } catch { /* Diagnostic only. */ }
-  return result;
+  const result = await wipe();
+  if (result.retired.length === 0 && result.failed.length === 0) return record(result);
+  // A store that was still shutting down (or timed out above) can flush once
+  // more and recreate its directory after the first pass. Re-check briefly and
+  // wipe again until nothing comes back; the cleanup flag covers anything later.
+  for (let pass = 0; pass < settlePasses; pass++) {
+    await new Promise(resolve => setTimeout(resolve, settleMs));
+    const again = await wipe();
+    // Done once nothing is left. A directory still locked (this tab's store
+    // releasing its files, or another tab) is retried for about a second; past
+    // that it is the cleanup flag's job on the next public load.
+    if (again.retired.length === 0 && again.failed.length === 0) break;
+    result.retired.push(...again.retired.filter(name => !result.retired.includes(name)));
+    result.failed = [...new Set([...result.failed.filter(name => !again.retired.includes(name)), ...again.failed])];
+  }
+  return record(result);
 }

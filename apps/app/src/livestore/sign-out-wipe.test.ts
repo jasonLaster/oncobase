@@ -55,13 +55,43 @@ describe("P11 sign-out OPFS wipe", () => {
     const saved = new Map<string, string>();
     const result = await shutDownAndWipeReaderStores({
       store: { shutdown: () => { order.push("shutdown"); return new Promise<void>(() => {}); } },
-      origin, siteSlug: "diana", storage: wrapped, shutdownTimeoutMs: 10,
+      origin, siteSlug: "diana", storage: wrapped, shutdownTimeoutMs: 10, settleMs: 1,
       sessionStorage: { setItem: (key, value) => saved.set(key, value) },
     });
-    expect(order).toEqual(["shutdown", "wipe"]);
+    // Shut down first, then wipe, then one quiet re-check.
+    expect(order).toEqual(["shutdown", "wipe", "wipe"]);
     expect(result.retired).toEqual([signedOut]);
     expect(JSON.parse(saved.get(SIGN_OUT_WIPE_KEY)!).retired).toEqual([signedOut]);
     expect(isSigningOut()).toBe(true);
+  });
+
+  test("a directory a closing store recreates after the first pass is wiped again", async () => {
+    const { present, storage } = fakeStorage([signedOut]);
+    let passes = 0;
+    const flushing = { getDirectory: async () => {
+      // The store's last flush lands between the first and second pass.
+      if (passes++ === 1) present.add(signedOut);
+      return storage.getDirectory();
+    } } as StorageManager;
+    const result = await shutDownAndWipeReaderStores({ store: null, origin, siteSlug: "diana", storage: flushing, settleMs: 1 });
+    expect([...present]).toEqual([]);
+    expect(result.retired).toEqual([signedOut]);
+    expect(result.failed).toEqual([]);
+  });
+
+  test("a directory still locked while this tab's store lets go is retried, then left to the cleanup flag", async () => {
+    const locked = new Set([signedOut]);
+    const { present, storage } = fakeStorage([signedOut], { locked });
+    let passes = 0;
+    const releasing = { getDirectory: async () => { if (++passes === 3) locked.clear(); return storage.getDirectory(); } } as StorageManager;
+    const result = await shutDownAndWipeReaderStores({ store: null, origin, siteSlug: "diana", storage: releasing, settleMs: 1 });
+    expect([...present]).toEqual([]);
+    expect(result).toMatchObject({ retired: [signedOut], failed: [] });
+
+    const stuck = fakeStorage([signedOut], { locked: new Set([signedOut]) });
+    const held = await shutDownAndWipeReaderStores({ store: null, origin, siteSlug: "diana", storage: stuck.storage, settleMs: 1, settlePasses: 3 });
+    expect(held.failed).toEqual([signedOut]);
+    expect([...stuck.present]).toEqual([signedOut]);
   });
 
   test("no OPFS at all is not an error", async () => {

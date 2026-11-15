@@ -18,12 +18,22 @@ async function signIn(page: Page, user: { email: string; password: string }) {
 }
 
 async function signOut(page: Page) {
+  // Sign-out wipes the reader's stores and then reloads; mark this document so
+  // the wait below is for the reloaded one, not for the sign-in button that
+  // appears as soon as the identity changes (before the wipe has finished).
+  await page.evaluate(() => { (window as Window & { __beforeSignOut?: boolean }).__beforeSignOut = true; });
   await page.getByRole("button", { name: "Workspace menu" }).click();
   // Wait for the request: navigating first aborts it and leaves the session alive.
   const done = page.waitForResponse((r) => r.url().includes("/api/auth/signout"));
   await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
   expect((await done).ok(), "sign-out request").toBeTruthy();
-  // The app reloads itself after sign-out; let it settle before navigating.
+  // The app reloads itself after the wipe; let it settle before navigating.
+  await expect.poll(async () => {
+    try {
+      return await page.evaluate(() => !(window as Window & { __beforeSignOut?: boolean }).__beforeSignOut
+        && sessionStorage.getItem("wiki-vite:sign-out-wipe") !== null);
+    } catch { return false; } // The document is being replaced.
+  }, { message: "reloaded after the sign-out wipe", timeout: 20_000 }).toBe(true);
   await expect(page.getByTestId("sidebar-sign-in").filter({ visible: true })).toBeVisible();
 }
 
@@ -86,6 +96,10 @@ test.describe("account access (real backend)", () => {
     await signIn(page, CARE);
     await page.goto(PRIVATE_PAGE);
     await expect(article(page)).toContainText(PRIVATE_MARKER);
+    // The article paints from the document before the store opens; wait for the
+    // store so there is a persisted session copy for sign-out to remove. (A store
+    // still booting at sign-out is retried by the next public load's cleanup.)
+    await expect(page.locator("[data-reader-store-ready]")).toHaveAttribute("data-reader-store-ready", "true");
     // P11: the care team's content-addressed URL for the page, now in this
     // browser's HTTP cache (only-if-cached answers without the network).
     const versionedUrl = await page.evaluate(async (slug) => {
@@ -103,9 +117,12 @@ test.describe("account access (real backend)", () => {
     // The client wiped the signed-out session's reader store before reloading.
     const wipe = await page.evaluate(() => JSON.parse(sessionStorage.getItem("wiki-vite:sign-out-wipe") ?? "null"));
     expect(wipe?.target).toBe("site");
-    expect(wipe?.failed).toEqual([]);
-    expect(wipe?.retired.some((name: string) => name.includes("-session-"))).toBe(true);
-    expect(await page.evaluate(sessionStoreDirectories)).toEqual([]);
+    // It reached the session store: removed it, or found it still locked while
+    // this tab's store let go of its files...
+    expect([...wipe!.retired, ...wipe!.failed].some((name: string) => name.includes("-session-"))).toBe(true);
+    // ...in which case the reloaded public page's cleanup removes it. What must
+    // hold is that no session copy survives the sign-out.
+    await expect.poll(() => page.evaluate(sessionStoreDirectories), { timeout: 10_000 }).toEqual([]);
 
     await signIn(page, READER);
     await page.goto(PRIVATE_PAGE);
