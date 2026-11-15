@@ -73,6 +73,48 @@ test.describe("reading the wiki (real backend)", () => {
     await expect(dialog).toBeHidden();
   });
 
+  test("revisiting a page makes no body request (P11)", async ({ page }) => {
+    const manifest = page.waitForResponse(response => response.url().includes("/api/wiki/manifest") && response.status() === 200);
+    await openPage(page, "/", "Local Fixture Wiki");
+    await manifest;
+    const visit = async () => {
+      await article(page).getByRole("link", { name: "Treatment notes" }).click();
+      await expect(article(page)).toHaveAccessibleName("Treatment notes");
+      await expect(article(page)).toContainText("Current plan");
+      await page.goBack();
+      await expect(article(page)).toHaveAccessibleName("Local Fixture Wiki");
+    };
+    await visit();
+    await page.evaluate(() => performance.clearResourceTimings());
+    await visit();
+    const bodies = await page.evaluate(() => performance.getEntriesByType("resource")
+      .filter(entry => entry.name.includes("/api/wiki/pages")).map(entry => entry.name));
+    expect(bodies, "a stored body with the manifest's hash is not requested again").toEqual([]);
+  });
+
+  test("a versioned image is reopened from the HTTP cache in a new document (P11)", async ({ page }) => {
+    const path = "/api/file?path=wiki%2Fimages%2Ftreatment-timeline.png";
+    await openPage(page, "/");
+    // The server's ETag is the stored content hash: the same value the
+    // manifest names an asset by.
+    const hash = await page.evaluate(async (url) => (await fetch(url, { credentials: "same-origin" })).headers.get("etag")?.replace(/"/g, ""), path);
+    expect(hash).toBeTruthy();
+    const versioned = `${path}&v=${hash}`;
+    const show = (url: string) => page.evaluate(async (src) => {
+      const image = new Image();
+      image.src = src;
+      await image.decode();
+      const entries = performance.getEntriesByName(new URL(src, location.href).href) as PerformanceResourceTiming[];
+      return entries.at(-1)?.transferSize ?? -1;
+    }, url);
+    expect(await show(versioned), "first load reaches the network").toBeGreaterThan(0);
+    expect(await show(path), "unversioned first load").toBeGreaterThan(0);
+    await page.reload();
+    await expect(article(page)).toBeVisible();
+    expect(await show(versioned), "versioned image after reload").toBe(0);
+    expect(await show(path), "unversioned image after reload stays no-store").toBeGreaterThan(0);
+  });
+
   test("a tag page lists its tagged pages and links to them", async ({ page }) => {
     await page.goto("/tags/treatment");
     await expect(page.getByRole("link", { name: /Treatment notes/ })).toBeVisible();

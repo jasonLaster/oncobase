@@ -27,6 +27,24 @@ async function signOut(page: Page) {
   await expect(page.getByTestId("sidebar-sign-in").filter({ visible: true })).toBeVisible();
 }
 
+/** The HTTP cache's answer for `url`, or status 0 when it has none. */
+async function cachedOnly(url: string) {
+  try {
+    const response = await fetch(url, { cache: "only-if-cached", mode: "same-origin", credentials: "same-origin" });
+    return { status: response.status, body: await response.text() };
+  } catch {
+    return { status: 0, body: "" };
+  }
+}
+
+/** Session reader stores left in OPFS. */
+async function sessionStoreDirectories() {
+  const root = await navigator.storage.getDirectory() as FileSystemDirectoryHandle & { keys: () => AsyncIterable<string> };
+  const names: string[] = [];
+  for await (const name of root.keys()) if (name.startsWith("livestore-wiki-vite-") && name.includes("-session-")) names.push(name);
+  return names;
+}
+
 /** The reader's own "not available" state, so absence is never a blank page. */
 const unavailable = (page: Page) => page.locator('[data-reader-unavailable="true"]').filter({ visible: true });
 
@@ -68,11 +86,42 @@ test.describe("account access (real backend)", () => {
     await signIn(page, CARE);
     await page.goto(PRIVATE_PAGE);
     await expect(article(page)).toContainText(PRIVATE_MARKER);
+    // P11: the care team's content-addressed URL for the page, now in this
+    // browser's HTTP cache (only-if-cached answers without the network).
+    const versionedUrl = await page.evaluate(async (slug) => {
+      const manifest = await (await fetch("/api/wiki/manifest?scope=session", { credentials: "same-origin" })).json() as { pages: Array<{ slug: string; contentHash: string }> };
+      const hash = manifest.pages.find(item => item.slug === slug)!.contentHash;
+      const url = `/api/wiki/pages?scope=session&slugs=${encodeURIComponent(slug)}&v=${encodeURIComponent(hash)}`;
+      await (await fetch(url, { credentials: "same-origin" })).text();
+      return url;
+    }, PRIVATE_PAGE.slice(1));
+    const cachedForCare = await page.evaluate(cachedOnly, versionedUrl);
+    expect(cachedForCare.status, "versioned page cached for the care team").toBe(200);
+    expect(cachedForCare.body).toContain(PRIVATE_MARKER);
+
     await signOut(page);
+    // The client wiped the signed-out session's reader store before reloading.
+    const wipe = await page.evaluate(() => JSON.parse(sessionStorage.getItem("wiki-vite:sign-out-wipe") ?? "null"));
+    expect(wipe?.target).toBe("site");
+    expect(wipe?.failed).toEqual([]);
+    expect(wipe?.retired.some((name: string) => name.includes("-session-"))).toBe(true);
+    expect(await page.evaluate(sessionStoreDirectories)).toEqual([]);
+
     await signIn(page, READER);
     await page.goto(PRIVATE_PAGE);
     await expect(unavailable(page)).toBeVisible();
     await expect(page.getByText(PRIVATE_MARKER)).toHaveCount(0);
+    // Not in the HTTP cache any more (Clear-Site-Data, and Vary: Cookie)...
+    const cachedForReader = await page.evaluate(cachedOnly, versionedUrl);
+    expect(cachedForReader.status, "versioned page still cached after switching accounts").toBe(0);
+    // ...and the server validates v against the new reader's access.
+    const served = await page.evaluate(async (url) => {
+      const response = await fetch(url, { credentials: "same-origin" });
+      return { version: response.headers.get("x-wiki-version"), cacheControl: response.headers.get("cache-control"), body: await response.text() };
+    }, versionedUrl);
+    expect(served.body).not.toContain(PRIVATE_MARKER);
+    expect(served.version).toBe("mismatch");
+    expect(served.cacheControl).toBe("private, no-store");
   });
 
   test("text search finds the private page for the care team and hides it from a reader without a role", async ({ page }) => {
