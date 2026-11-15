@@ -1,4 +1,4 @@
-import { safeLocalStorage } from "../safe-storage";
+import { safeLocalStorage } from "@oncobase/safe-storage";
 
 /** Per-device consent for WebMCP tools to return private (sensitive) page
  * content. Being allowed to see a page is not consent to have an AI agent in

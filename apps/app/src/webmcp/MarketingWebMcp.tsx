@@ -60,7 +60,7 @@ export function MarketingWebMcp() {
       execute: (input) => {
         const path = PAGES.find((candidate) => candidate === input.path);
         if (!path) return webMcpError(`path must be one of ${PAGES.join(", ")}.`);
-        navigate(path);
+        void navigate(path);
         return { opened: true, href: path };
       },
     },

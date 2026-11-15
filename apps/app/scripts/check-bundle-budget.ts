@@ -73,7 +73,9 @@ const budgets: Budget[] = [
   // WikiViteRoot 3.5 KiB -> 21.7 KiB (it now holds ReaderRoot, App, the shell
   // and WikiPage, formerly in LiveStoreRoot), StoreHost 10.2 KiB (with
   // WikiSync, formerly its own 5.4 KiB chunk). Budgets: measured plus ~2.5%.
-  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 22_784 },
+  // Main's WebMCP agent-tools loader moved here with the rest of LiveStoreRoot's
+  // React half; it carries the +256 B main approved for it on 2026-11-14.
+  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 23_040 },
   { label: "store host chunk", pattern: /^StoreHost-[\w-]+\.js$/, maxGzipBytes: 10_752 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
@@ -156,8 +158,10 @@ const storeLoaderPatterns = [
 // limit stays 5,240,000 B.
 // Smart-table loads @chenglou/pretext when a table nears the viewport, so the
 // 14.7 KiB text-measurement chunk left the paint set. Paint 319.4 -> 306.5 KiB:
-// 330,000 -> 322,000 B.
-const eagerGzipBudget = 1_155_000;
+// 330,000 -> 322,000 B. The same 8,000 B move to the lazy pool, which also took
+// main's lazy WebMCP tools on rebase: eager 1,155,000 -> 1,147,000 B, lazy
+// 4,085,000 -> 4,093,000 B. The eager + lazy limit stays 5,240,000 B.
+const eagerGzipBudget = 1_147_000;
 const paintGzipBudget = 322_000;
 const storeGzipBudget = 828_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
@@ -173,7 +177,7 @@ const storeGzipBudget = 828_000;
 // on that host: 3_460_000 -> 3_468_000.
 // PDF.js adds ~495 KiB gzip, exclusively on the PDF route (viewer + worker).
 // The reader's eager budget is unchanged; fonts/codecs load only when needed.
-const lazyGzipBudget = 4_085_000;
+const lazyGzipBudget = 4_093_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

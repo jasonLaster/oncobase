@@ -75,7 +75,7 @@ export function useEducationWebMcpTools(pages: WikiManifestPage[], helpers: Educ
   /** Navigate and resolve once the lesson body is rendered. */
   const openLesson = async (slug: string, section: string | undefined, signal?: AbortSignal) => {
     const id = section ? slugifyHeading(section.replace(/^#/, "")) : "";
-    if (currentSlug() !== slug || id) navigate(`${educationHref(slug)}${id ? `#${encodeURIComponent(id)}` : ""}`);
+    if (currentSlug() !== slug || id) void navigate(`${educationHref(slug)}${id ? `#${encodeURIComponent(id)}` : ""}`);
     const ready = await waitForElement(
       () => (currentSlug() === slug && article()?.querySelector(".edu-article-rule") ? true : null),
       { timeoutMs: 10_000, signal },
