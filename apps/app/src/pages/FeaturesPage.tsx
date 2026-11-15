@@ -33,7 +33,8 @@ import { updateClientRouteMetadata } from "../document-title";
 import { OncobaseBrand, VillageTexture } from "./LandingBrands";
 import { PublicHeader } from "./PublicChrome";
 import { dianaUrl } from "../site-links";
-import { RedactionDemo, RoleDemo, ThemedImage } from "./LandingShowcase";
+import { images } from "../assets/images";
+import { RedactionDemo, ResponsiveImage, RoleDemo, ThemedImage } from "./LandingShowcase";
 import { CallDemo } from "./CallDemo";
 import { CommentsDemo } from "./CommentsDemo";
 import {
@@ -64,6 +65,9 @@ function previewOf(names: string[]) {
   const shown = names.slice(0, 3).join(" · ");
   return names.length > 3 ? `${shown} · +${names.length - 3} more` : shown;
 }
+
+/** The two `.lp-card` screenshots: one column on phones, two side by side from 900px. */
+const CARD_SIZES = "(max-width: 900px) 92vw, 544px";
 
 const TableDemo = lazy(() => import("./TableDemo"));
 const DiagramDemo = lazy(() => import("./DiagramDemo"));
@@ -373,8 +377,8 @@ function Hero() {
               alt="One illustration of how the immune system recognizes a cell, shown in its light and dark versions"
               base="/landing/immune-recognition"
               extension="webp"
-              height={1024}
-              width={1536}
+              height={768}
+              width={1152}
             />
           </div>
         </div>
@@ -666,14 +670,12 @@ function Data() {
             overview, zoom, filter, and open the report behind any result.
           </p>
           <div className="lp-screenshot">
-            <ThemedImage
+            <ResponsiveImage
               alt="The diagnostics timeline with imaging, pathology, ctDNA, and blood count tracks"
-              base="/landing/diagnostics-timeline"
               decoding="async"
-              extension="jpg"
-              height="640"
+              image={images["diagnostics-timeline"]}
               loading="lazy"
-              width="1192"
+              sizes={CARD_SIZES}
             />
           </div>
         </article>
@@ -684,13 +686,12 @@ function Data() {
             and annotate right on the image with arrows, boxes, and a calibrated ruler.
           </p>
           <div className="lp-screenshot">
-            <img
+            <ResponsiveImage
               alt="The imaging viewer showing a breast MRI series with the series list and tools"
               decoding="async"
-              height="640"
+              image={images["dicom-viewer"]}
               loading="lazy"
-              src="/landing/dicom-viewer.jpg"
-              width="1192"
+              sizes={CARD_SIZES}
             />
           </div>
         </article>

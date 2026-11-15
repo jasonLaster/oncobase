@@ -129,9 +129,17 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
 }
 
+/**
+ * Fingerprinted page images (scripts/optimize-images.ts) are not code: each loads only when an
+ * `<img>` that needs it is on screen, already compressed, so they get a per-file size limit
+ * instead of counting toward the JavaScript/WASM pools above.
+ */
+const imagePattern = /\.(?:avif|webp|png|jpe?g|gif)$/i;
+const maxImageBytes = 125_000;
+
 function readAssetSizes() {
   return readdirSync(assetsDir)
-    .filter((name) => statSync(path.join(assetsDir, name)).isFile())
+    .filter((name) => statSync(path.join(assetsDir, name)).isFile() && !imagePattern.test(name))
     .map((name): AssetSize => {
       const contents = readFileSync(path.join(assetsDir, name));
       return {
@@ -246,6 +254,16 @@ for (const asset of assets) {
   const marker = eagerNames.has(asset.name) ? "eager" : "lazy ";
   console.log(`${marker} ${asset.name.padEnd(38)} raw ${formatBytes(asset.bytes).padStart(10)} gzip ${formatBytes(asset.gzipBytes).padStart(10)}`);
 }
+
+const images = readdirSync(assetsDir).filter((name) => imagePattern.test(name));
+const imageBytes = images.reduce((sum, name) => {
+  const bytes = statSync(path.join(assetsDir, name)).size;
+  if (bytes > maxImageBytes) {
+    failures.push(`image: ${name} ${formatBytes(bytes)} > ${formatBytes(maxImageBytes)}; regenerate it smaller with scripts/optimize-images.ts`);
+  }
+  return sum + bytes;
+}, 0);
+console.log(`page images: ${images.length} files, ${formatBytes(imageBytes)} (limit ${formatBytes(maxImageBytes)} each)`);
 
 // Server functions: modules evaluated on a cold start (built by `bun run build`).
 const functionsDir = path.resolve(import.meta.dir, "../.vercel-functions");

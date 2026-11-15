@@ -19,6 +19,7 @@ import {
 import { DianaBrand, EducationTexture, OncobaseBrand, VillageTexture } from "./LandingBrands";
 import { PublicHeader } from "./PublicChrome";
 import { oncobaseUrl } from "../site-links";
+import { images } from "../assets/images";
 import "./landing.css";
 
 /** Tinted while the Oncobase band is under the header. */
@@ -248,35 +249,35 @@ function Platform({ ref }: { ref: RefObject<HTMLElement | null> }) {
 /** Cartoons from the public guides. The first two lead; the rest follow. Each links to the page it comes from. */
 const educationGuides = [
   {
-    base: "/landing/immune-recognition",
+    image: images["immune-recognition"],
     alt: "Cartoon of protein fragments displayed on HLA and recognized by a T cell",
     title: "How the immune system sees a cell",
     path: "/education/oncology-101/index",
     description: "Cells show T cells what they’re making. From Oncology 101.",
   },
   {
-    base: "/landing/cell-therapy-family",
+    image: images["cell-therapy-family"],
     alt: "Cartoon comparing peptide-HLA, surface-antigen, and innate-like cell therapy families",
     title: "Cellular therapies",
     path: "/education/cellular-therapies/index",
     description: "Meet the families of immune cell therapy.",
   },
   {
-    base: "/landing/omics-layers",
+    image: images["omics-layers"],
     alt: "Cartoon comparing DNA to a blueprint, RNA to the pages being read, protein to the building, and metabolites to fuel and waste",
     title: "A tumor, read like a blueprint",
     path: "/education/reading-a-tumor/omics-and-multi-omics",
     description: "DNA is the plan, RNA the page being read, protein the building.",
   },
   {
-    base: "/landing/ctdna-mailroom",
+    image: images["ctdna-mailroom"],
     alt: "Cartoon comparing a mailroom full of letters to a blood sample where tumor DNA is a tiny fraction of the DNA",
     title: "Finding tumor DNA in the blood",
     path: "/education/molecular-profiling/06-ctdna-and-mrd",
     description: "A mailroom analogy for a signal as small as one in 10,000.",
   },
   {
-    base: "/landing/parp-synthetic-lethality",
+    image: images["parp-synthetic-lethality"],
     alt: "Cartoon in four panels showing how blocking PARP kills a cell only when its other DNA repair route is broken",
     title: "Synthetic lethality, in four steps",
     path: "/education/molecular-profiling/hrd-parp-and-dianas-biology",
@@ -311,8 +312,8 @@ function Education() {
           role="group"
           aria-label="Educational cartoons"
         >
-          {educationGuides.map((guide) => (
-            <GuideFigure key={guide.base} {...guide} />
+          {educationGuides.map((guide, index) => (
+            <GuideFigure key={guide.path} lead={index < 2} {...guide} />
           ))}
         </div>
       </div>

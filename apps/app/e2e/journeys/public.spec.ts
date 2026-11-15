@@ -243,7 +243,7 @@ test.describe("signed-out landing and sign-in", () => {
     await page.emulateMedia({ colorScheme: "dark" });
     const failedAssets: string[] = [];
     page.on("response", (response) => {
-      if (response.url().includes("/landing/") && response.status() >= 400)
+      if (response.request().resourceType() === "image" && response.status() >= 400)
         failedAssets.push(response.url());
     });
     await page.goto("/login");
@@ -251,11 +251,12 @@ test.describe("signed-out landing and sign-in", () => {
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("html")).toHaveClass(/dark/);
     expect(await page.evaluate(() => localStorage.getItem("theme"))).toBeNull();
-    const themed = page.locator("#landing-main img[src*='-light.'], #landing-main img[src*='-dark.']");
+    // Generated variants are named <image>-<theme>-<width>[-<hash>].<ext>.
+    const themed = page.locator("#landing-main img[src*='-light-'], #landing-main img[src*='-dark-']");
     await expect(themed).toHaveCount(7);
     expect(
       await themed.evaluateAll((images) =>
-        images.every((image) => image.getAttribute("src")!.includes("-dark.")),
+        images.every((image) => image.getAttribute("src")!.includes("-dark-")),
       ),
     ).toBe(true);
 
@@ -270,7 +271,7 @@ test.describe("signed-out landing and sign-in", () => {
     expect(await page.evaluate(() => localStorage.getItem("theme"))).toBe("light");
     await expect(page.locator("html")).not.toHaveClass(/dark/);
     await expect(
-      page.locator("#landing-main img[src*='-dark.']"),
+      page.locator("#landing-main img[src*='-dark-'], #landing-main source[srcset*='-dark-']"),
     ).toHaveCount(0);
 
     // The choice carries to the sign-in page.
@@ -278,7 +279,7 @@ test.describe("signed-out landing and sign-in", () => {
     await expect(page).toHaveURL(/\/sign-in$/);
     await expect(page.locator(".si-cartoon img")).toHaveAttribute(
       "src",
-      /sign-in-cartoon-light\.webp$/,
+      /sign-in-cartoon-light-\d+(?:-[\w-]+)?\.webp(?:\?.*)?$/,
     );
 
     // Choosing the system's own theme goes back to following the system.
@@ -286,7 +287,7 @@ test.describe("signed-out landing and sign-in", () => {
     expect(await page.evaluate(() => localStorage.getItem("theme"))).toBeNull();
     await expect(page.locator(".si-cartoon img")).toHaveAttribute(
       "src",
-      /sign-in-cartoon-dark\.webp$/,
+      /sign-in-cartoon-dark-\d+(?:-[\w-]+)?\.webp(?:\?.*)?$/,
     );
     expect(failedAssets).toEqual([]);
   });

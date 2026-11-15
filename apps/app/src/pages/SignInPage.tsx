@@ -4,7 +4,8 @@ import { ArrowLeft, ArrowRight, LockKeyhole } from "lucide-react";
 import { PublicThemeControl } from "../PublicThemeControl";
 import { SIGN_IN_TITLE } from "../special-route-metadata";
 import { DianaBrand, VillageTexture } from "./LandingBrands";
-import { ThemedImage } from "./LandingShowcase";
+import { images } from "../assets/images";
+import { ResponsiveImage } from "./LandingShowcase";
 import { asksForSignIn, signInRedirectTarget } from "./sign-in";
 import "./landing.css";
 
@@ -97,12 +98,12 @@ export function SignInPage() {
           <DianaBrand />
         </a>
         <figure className="si-cartoon">
-          <ThemedImage
-            base="/landing/sign-in-cartoon"
-            extension="webp"
-            width="900"
-            height="900"
+          {/* The sign-in page's LCP element. */}
+          <ResponsiveImage
+            image={images["sign-in-cartoon"]}
+            sizes="(max-width: 480px) 140px, (max-width: 900px) 260px, 460px"
             fetchPriority="high"
+            decoding="async"
             alt="Cartoon of a purple immune cell reading a notebook while smaller cells search, take notes, and share reports around it"
           />
         </figure>

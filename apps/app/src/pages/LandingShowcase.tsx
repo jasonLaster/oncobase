@@ -8,6 +8,8 @@ import {
   Users,
 } from "lucide-react";
 import { useResolvedWikiTheme } from "../PublicThemeControl";
+import { images } from "../assets/images";
+import type { ResponsiveImageSet } from "../assets/images/types";
 import { DianaMark } from "./LandingBrands";
 import { signInHref } from "./sign-in";
 
@@ -15,12 +17,43 @@ type ThemedImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> & {
   /** Public path without the `-light`/`-dark` suffix, e.g. `/landing/reader-desktop`. */
   base: string;
   extension: "jpg" | "webp";
+  /** Required: describe the image, or "" when it is decorative. */
+  alt: string;
 };
 
 /** Load only the variant that matches the theme the visitor sees. */
-export function ThemedImage({ base, extension, ...props }: ThemedImageProps) {
+export function ThemedImage({ base, extension, alt, ...props }: ThemedImageProps) {
   const theme = useResolvedWikiTheme();
-  return <img {...props} src={`${base}-${theme}.${extension}`} />;
+  return <img {...props} alt={alt} src={`${base}-${theme}.${extension}`} />;
+}
+
+type ResponsiveImageProps = Omit<
+  ImgHTMLAttributes<HTMLImageElement>,
+  "src" | "srcSet" | "sizes" | "width" | "height"
+> & {
+  /** A generated set from `src/assets/images` (see scripts/optimize-images.ts). */
+  image: ResponsiveImageSet;
+  /** How wide the image is displayed; picks the variant from the AVIF/WebP `srcset`. */
+  sizes: string;
+  /** Required: describe the image, or "" when it is decorative. */
+  alt: string;
+};
+
+/**
+ * A fingerprinted AVIF/WebP image, in only the variant that matches the theme the visitor sees.
+ * The `<picture>` takes no part in layout, so existing `img` styles apply unchanged.
+ */
+export function ResponsiveImage({ image, sizes, alt, ...props }: ResponsiveImageProps) {
+  const theme = useResolvedWikiTheme();
+  const variant = (theme === "dark" && image.dark) || image.light;
+  // Remount on a theme change so every browser re-selects from the new sources.
+  return (
+    <picture key={theme} style={{ display: "contents" }}>
+      <source type="image/avif" srcSet={variant.avif} sizes={sizes} />
+      <source type="image/webp" srcSet={variant.webp} sizes={sizes} />
+      <img {...props} alt={alt} src={variant.fallback} width={image.width} height={image.height} />
+    </picture>
+  );
 }
 
 /**
@@ -53,21 +86,20 @@ export function ProductShots() {
           <i />
           <span>diana-tnbc.com</span>
         </div>
-        <ThemedImage
-          base="/landing/reader-desktop"
-          extension="jpg"
-          width="1800"
-          height="1197"
+        {/* The landing page's LCP element at phone and desktop widths. */}
+        <ResponsiveImage
+          image={images["reader-desktop"]}
+          sizes="(max-width: 1080px) 88vw, 940px"
           fetchPriority="high"
+          decoding="async"
           alt="Diana’s knowledge base on a laptop, open to the Reading a tumor report guide with the page list beside it"
         />
       </figure>
       <figure className="lp-phone">
-        <ThemedImage
-          base="/landing/reader-mobile"
-          extension="jpg"
-          width="600"
-          height="1301"
+        <ResponsiveImage
+          image={images["reader-mobile"]}
+          sizes="(max-width: 700px) 28vw, 210px"
+          decoding="async"
           alt="The same guide on a phone"
         />
       </figure>
@@ -295,14 +327,22 @@ export function RoleDemo() {
   );
 }
 
+/** Phones scroll one card at 82% of the width; wider screens show two lead cards, then three. */
+const GUIDE_SIZES = {
+  lead: "(max-width: 700px) 82vw, (max-width: 1200px) 47vw, 546px",
+  rest: "(max-width: 700px) 82vw, (max-width: 1200px) 31vw, 355px",
+};
+
 export function GuideFigure({
-  base,
+  image,
+  lead,
   alt,
   title,
   path,
   description,
 }: {
-  base: string;
+  image: ResponsiveImageSet;
+  lead: boolean;
   alt: string;
   title: string;
   path: string;
@@ -310,11 +350,9 @@ export function GuideFigure({
 }) {
   return (
     <figure className="lp-guide">
-      <ThemedImage
-        base={base}
-        extension="webp"
-        width="1536"
-        height="1024"
+      <ResponsiveImage
+        image={image}
+        sizes={lead ? GUIDE_SIZES.lead : GUIDE_SIZES.rest}
         loading="lazy"
         decoding="async"
         alt={alt}
