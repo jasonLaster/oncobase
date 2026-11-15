@@ -29,6 +29,7 @@ import type { MetricsPatch } from "../types";
 import { useWikiScope, useWikiSession } from "../wiki-context";
 import { ReaderCacheRetirement } from "./ReaderCacheRetirement";
 import { SessionCacheRetirement } from "./SessionCacheRetirement";
+import { isSigningOut } from "./cache-retirement";
 import { readLiveStoreDevtoolsEnabled } from "./devtools";
 import LiveStoreWorker from "./livestore.worker?worker";
 import liveStoreWorkerUrl from "./livestore.worker?worker&url";
@@ -330,7 +331,8 @@ export function StoreHost({ identity, storeId, scope, cachedSnapshot, request, p
             onTimeout={recoverStalledBoot}
           />
         )}
-        renderShutdown={() => presenting ? <StopEarlyReader stop={onStopped} /> : <StoreStartupRecovery />}
+        // Sign-out shuts the store down on purpose to wipe it; the page reloads next.
+        renderShutdown={() => isSigningOut() ? <SigningOut /> : presenting ? <StopEarlyReader stop={onStopped} /> : <StoreStartupRecovery />}
         renderError={(error) => (
           <StoreBootError error={error} attempt={bootAttempt} onRetry={retryBoot} />
         )}
@@ -353,6 +355,10 @@ function PublishReaderStore({ publish }: { publish: (kit: ReaderStoreKit | undef
     return () => publish(undefined);
   }, [publish, value]);
   return null;
+}
+
+function SigningOut() {
+  return <main className="app-loading" data-test-id="signing-out" aria-busy="true"><p>Signing out…</p></main>;
 }
 
 function StopEarlyReader({ stop }: { stop: (stopped: boolean) => void }) {

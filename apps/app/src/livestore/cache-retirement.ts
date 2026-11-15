@@ -197,3 +197,99 @@ export async function retirePreviousReaderStore({
   }
   return retired;
 }
+
+/** Every reader store directory on this origin (`livestore-wiki-vite-…`). */
+export const READER_STORE_DIRECTORY_PREFIX = "livestore-wiki-vite-";
+
+export type SignOutWipeResult = {
+  /** "site": every session store for the site; "all": every reader store. */
+  target: "site" | "all";
+  retired: string[];
+  failed: string[];
+};
+
+/** Set in this document while sign-out shuts the store down and wipes it. */
+let signingOut = false;
+export const isSigningOut = () => signingOut;
+export const markSigningOut = () => { signingOut = true; };
+
+/**
+ * P11 sign-out: delete the signed-out reader's OPFS store directories now,
+ * before the page navigates away. With a known site this is every session
+ * store for that site (the signed-out identity's and any older one: the
+ * session cookie they belonged to is gone); with no identity at all it is
+ * every reader store on the origin, public ones included (they refetch).
+ *
+ * The caller shuts this tab's store down first: an open store holds OPFS
+ * access handles and its directory cannot be removed. A directory another
+ * tab still holds open fails here; the cleanup flag set beside this call
+ * retries it on the next public load (retireRequestedSessionReaderStores).
+ */
+export async function wipeReaderStoresOnSignOut({
+  origin,
+  siteSlug,
+  storage = navigator.storage,
+}: {
+  origin: string;
+  siteSlug: string | null | undefined;
+  storage?: StorageManager;
+}): Promise<SignOutWipeResult> {
+  const target = siteSlug ? "site" : "all";
+  const result: SignOutWipeResult = { target, retired: [], failed: [] };
+  const directory = await storage?.getDirectory?.().catch(() => undefined);
+  if (!directory || typeof (directory as DirectoryWithKeys).keys !== "function") return result;
+  const prefixes = siteSlug
+    ? sessionReaderStoreDirectoryPrefixes({ origin, siteSlug })
+    : [READER_STORE_DIRECTORY_PREFIX];
+  const names: string[] = [];
+  for await (const name of (directory as DirectoryWithKeys).keys()) {
+    if (prefixes.some(prefix => name.startsWith(prefix))) names.push(name);
+  }
+  for (const name of names) {
+    try {
+      await directory.removeEntry(name, { recursive: true });
+      result.retired.push(name);
+    } catch {
+      result.failed.push(name);
+    }
+  }
+  return result;
+}
+
+export const SIGN_OUT_WIPE_KEY = "wiki-vite:sign-out-wipe";
+
+/**
+ * Stop this tab's reader store (it holds the OPFS handles), then wipe. The
+ * shutdown is bounded: a store that never answers still gets the wipe
+ * attempt, and anything left is retried by the cleanup flag. The outcome is
+ * kept in sessionStorage for diagnostics and the sign-out e2e.
+ */
+export async function shutDownAndWipeReaderStores({
+  store,
+  origin,
+  siteSlug,
+  sessionStorage,
+  shutdownTimeoutMs = 3000,
+  storage,
+}: {
+  store?: { shutdown: () => Promise<void> } | null;
+  origin: string;
+  siteSlug: string | null | undefined;
+  sessionStorage?: Pick<Storage, "setItem">;
+  shutdownTimeoutMs?: number;
+  storage?: StorageManager;
+}) {
+  markSigningOut();
+  if (store) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      store.shutdown().catch(() => undefined),
+      new Promise<void>(resolve => { timer = setTimeout(resolve, shutdownTimeoutMs); }),
+    ]);
+    clearTimeout(timer);
+  }
+  const result = await wipeReaderStoresOnSignOut({ origin, siteSlug, ...(storage ? { storage } : {}) })
+    .catch((): SignOutWipeResult => ({ target: siteSlug ? "site" : "all", retired: [], failed: ["*"] }));
+  try { sessionStorage?.setItem(SIGN_OUT_WIPE_KEY, JSON.stringify({ ...result, at: Date.now() })); } catch { /* Diagnostic only. */ }
+  return result;
+}

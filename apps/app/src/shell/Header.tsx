@@ -30,8 +30,9 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
-import { requestSessionCacheCleanup } from "../livestore/cache-retirement";
-import { safeLocalStorage } from "@oncobase/safe-storage";
+import { requestSessionCacheCleanup, shutDownAndWipeReaderStores } from "../livestore/cache-retirement";
+import { safeLocalStorage, safeSessionStorage } from "@oncobase/safe-storage";
+import { useReaderStoreKit } from "../bootstrap/reader-queries";
 import { useWikiSession, useWikiIdentityPending } from "../wiki-context";
 import type { PaletteMode } from "./CommandPalette";
 import type {} from "../bootstrap/reader-shortcuts";
@@ -275,6 +276,7 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
   const location = useLocation();
   const navigate = useNavigate();
   const identity = useWikiSession();
+  const readerStore = useReaderStoreKit()?.store;
   const returnTo = returnToHref(location.pathname, location.search, location.hash);
   const scope = (() => {
     const urlScope = new URLSearchParams(location.search).get("scope");
@@ -317,6 +319,15 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
           );
         }
         safeLocalStorage.setItem("wiki-vite-scope", "public");
+        // The server's Clear-Site-Data: "cache" empties the HTTP cache; the
+        // reader's OPFS copy goes here, before the page leaves, whether or
+        // not the browser honored that header (P11).
+        await shutDownAndWipeReaderStores({
+          store: readerStore,
+          origin: window.location.origin,
+          siteSlug: identity?.siteSlug,
+          sessionStorage: safeSessionStorage,
+        });
         window.location.reload();
       }}
       onThemeToggle={cycleWikiThemePreference}
