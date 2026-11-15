@@ -24,7 +24,7 @@ export type CommandStep = {
 
 export type TaskStep = {
   kind: "task";
-  name: "public-assets";
+  name: "public-assets" | "carry-previous-assets";
 };
 
 export type BuildStep = CommandStep | TaskStep;
@@ -114,6 +114,10 @@ export function planVercelBuild(env: BuildEnv): BuildPlan {
   } else {
     steps.push({ kind: "command", name: "bundle-budget", command: "bun", args: ["scripts/check-bundle-budget.ts"], env: {} });
   }
+
+  // After the budget (old files must not count against it) and only for
+  // production, whose open tabs are the ones a deploy strands.
+  if (production) steps.push({ kind: "task", name: "carry-previous-assets" });
 
   if (deploysConvex) {
     steps.push({

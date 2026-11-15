@@ -43,6 +43,7 @@ describe("Vercel build order", () => {
       "public-assets",
       "app-build",
       "bundle-budget",
+      "carry-previous-assets",
       "convex-deploy",
     ]);
   });
@@ -76,7 +77,7 @@ describe("Vercel build order", () => {
     expect(ran).toEqual(names(production));
   });
 
-  test("previews and local builds never deploy Convex", () => {
+  test("previews and local builds never deploy Convex or carry assets", () => {
     for (const env of [{ VERCEL_ENV: "preview", CONVEX_DEPLOY_KEY: PROD_KEY }, {}]) {
       expect(names(env)).toEqual(["public-assets", "app-build", "bundle-budget"]);
       expect(planVercelBuild(env).deploysConvex).toBe(false);
@@ -91,7 +92,7 @@ describe("Vercel build order", () => {
     expect(() => planVercelBuild(env)).toThrow(/requires the current NEXT_PUBLIC_CONVEX_URL/);
     expect(() => planVercelBuild({ ...env, NEXT_PUBLIC_CONVEX_URL: "https://placeholder.convex.cloud" })).toThrow();
     const plan = planVercelBuild({ ...env, NEXT_PUBLIC_CONVEX_URL: "https://x-y-2.convex.cloud" });
-    expect(plan.steps.map(step => step.name)).toEqual(["public-assets", "app-build", "bundle-budget"]);
+    expect(plan.steps.map(step => step.name)).toEqual(["public-assets", "app-build", "bundle-budget", "carry-previous-assets"]);
     expect(plan.convexUrl).toBe("https://x-y-2.convex.cloud");
   });
 
@@ -158,18 +159,21 @@ describe("build-vercel.ts wiring", () => {
       env: {
         PATH: `${bin}:/usr/bin:/bin`,
         HOME: process.env.HOME,
+        WIKI_VERCEL_DIST_DIR: path.join(dir, "dist"),
+        WIKI_ASSET_HISTORY_ORIGIN: "http://127.0.0.1:9",
         ...env,
       },
       encoding: "utf8",
     });
     let calls: string[] = [];
     try { calls = readFileSync(log, "utf8").trim().split("\n").filter(Boolean); } catch { /* no calls */ }
+    const historyWritten = (() => { try { readFileSync(path.join(dir, "dist/assets/asset-history.json")); return true; } catch { return false; } })();
     rmSync(dir, { recursive: true, force: true });
-    return { status: result.status, calls, output: result.stdout + result.stderr };
+    return { status: result.status, calls, historyWritten, output: result.stdout + result.stderr };
   }
 
   test("production runs build, budget, then convex deploy against the built URL", () => {
-    const { status, calls } = runEntry(production);
+    const { status, calls, historyWritten } = runEntry(production);
     expect(status).toBe(0);
     expect(calls.map(call => call.split(" | ")[0].split(" ").slice(0, 3).join(" "))).toEqual([
       "bun run build",
@@ -177,6 +181,7 @@ describe("build-vercel.ts wiring", () => {
       "npx convex deploy",
     ]);
     expect(calls[0]).toContain(`url=${PROD_CONVEX_FALLBACK_URL}`);
+    expect(historyWritten).toBe(true);
   });
 
   test("a failing budget exits non-zero without calling convex", () => {
