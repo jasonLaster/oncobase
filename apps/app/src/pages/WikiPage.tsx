@@ -62,7 +62,8 @@ import {
   storageSnapshot,
 } from "../wiki-utils";
 import { useWikiIdentityPending, useWikiScope, useWikiSession } from "../wiki-context";
-import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
+import { assetFileName, assetHashesByPath, assetHref, relatedAssetsForSlug, versionedFileUrl } from "../wiki-assets";
+import { AssetVersionsContext, VersionedWikiImage } from "./versioned-assets";
 import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/events";
 import { useBrowserOnline } from "../shell/ReaderStatus";
 import { PageTransferActivity as PageActivity } from "../shell/PageTransferActivity";
@@ -272,6 +273,8 @@ export const WikiPage = memo(function WikiPage({
     };
   }
   const tags = parseJsonArray<string>(page?.tagsJson ?? index?.tagsJson ?? "[]");
+  const assetHashes = useMemo(() => assetHashesByPath(assets), [assets]);
+  const resolveAssetLink = useCallback((href: string | undefined) => versionedFileUrl(href, assetHashes), [assetHashes]);
   const relatedAssets = useMemo(
     () => relatedAssetsForSlug(displayedSlug, assets).slice(0, 6),
     [assets, displayedSlug],
@@ -565,7 +568,7 @@ export const WikiPage = memo(function WikiPage({
       <WikiSourceLinks
         data-test-id="source-links"
         items={relatedAssets.map((asset) => ({
-          href: assetHref(asset.path),
+          href: assetHref(asset.path, asset.contentHash),
           key: asset.path,
           kind: asset.kind === "pdf" ? "PDF" : "File",
           label: assetFileName(asset.path),
@@ -581,16 +584,20 @@ export const WikiPage = memo(function WikiPage({
         resetKey={`${page.slug}:${page.contentHash ?? "none"}`}
         fallback={retry => <ArticleBodyError retry={retry} />}
       >
-        <WikiMarkdown
-          loadingFallback={MARKDOWN_BODY_FALLBACK}
-          content={page.content}
-          className={page.content.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
-          currentSlug={page.slug}
-          LinkComponent={routeLink}
-          notification={notification}
-          routeAdapter={routeAdapter}
-          tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
-        />
+        <AssetVersionsContext.Provider value={assetHashes}>
+          <WikiMarkdown
+            loadingFallback={MARKDOWN_BODY_FALLBACK}
+            content={page.content}
+            className={page.content.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
+            currentSlug={page.slug}
+            LinkComponent={routeLink}
+            ImageComponent={VersionedWikiImage}
+            resolveLinkHref={resolveAssetLink}
+            notification={notification}
+            routeAdapter={routeAdapter}
+            tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
+          />
+        </AssetVersionsContext.Provider>
         <MermaidRendererSlot content={page.content} />
       </ScopedErrorBoundary>
     </>
