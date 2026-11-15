@@ -1,10 +1,26 @@
 import { safeSessionStorage } from "@oncobase/safe-storage";
-import {
-  measureLineStats,
-  measureNaturalWidth,
-  prepareWithSegments,
-  type PreparedTextWithSegments,
-} from "@chenglou/pretext";
+import type { PreparedTextWithSegments } from "@chenglou/pretext";
+
+type Pretext = typeof import("@chenglou/pretext");
+
+// Pretext is only needed once a table nears the viewport, so it loads then
+// instead of riding along with every article. If the chunk fails to load,
+// layout falls back to canvas widths and DOM heights.
+let pretext: Pretext | null = null;
+let pretextLoad: Promise<unknown> | null = null;
+let pretextSettled = false;
+
+function loadPretext() {
+  pretextLoad ??= import("@chenglou/pretext").then(
+    (module) => {
+      pretext = module;
+    },
+    () => {}
+  ).finally(() => {
+    pretextSettled = true;
+  });
+  return pretextLoad;
+}
 
 const WIDTH_ROUNDING = 4;
 const DEFAULT_LINE_HEIGHT_RATIO = 1.45;
@@ -184,10 +200,11 @@ function measureTextWidthWithCanvas(text: string, metrics: TextMetrics) {
 }
 
 function getPreparedText(text: string, metrics: TextMetrics) {
+  if (!pretext) throw new Error("pretext unavailable");
   const cacheKey = ["p", metrics.font, text].join("|");
   let prepared = preparedTextCache.get(cacheKey);
   if (!prepared) {
-    prepared = prepareWithSegments(text || " ", metrics.font);
+    prepared = pretext.prepareWithSegments(text || " ", metrics.font);
     preparedTextCache.set(cacheKey, prepared);
   }
 
@@ -213,7 +230,7 @@ function measureTextWidth(text: string, metrics: TextMetrics) {
     measured = measureTextWidthWithCanvas(renderedText, metrics);
   } else {
     try {
-      measured = measureNaturalWidth(getPreparedText(renderedText, metrics)) + metrics.paddingX;
+      measured = pretext!.measureNaturalWidth(getPreparedText(renderedText, metrics)) + metrics.paddingX;
     } catch {
       measured = measureTextWidthWithCanvas(renderedText, metrics);
     }
@@ -287,7 +304,7 @@ function measureTextHeight(text: string, metrics: TextMetrics, width: number) {
         1,
         roundWidth(Math.max(WIDTH_ROUNDING, width - metrics.paddingX))
       );
-      const { lineCount } = measureLineStats(prepared, contentWidth);
+      const { lineCount } = pretext!.measureLineStats(prepared, contentWidth);
       measured = Math.ceil(lineCount * metrics.lineHeight + metrics.paddingY);
     } catch {
       measured = measureTextHeightWithDom(renderedText, metrics, width);
@@ -834,6 +851,11 @@ export function installSmartTableLayout(
     }
 
     if (restorePersistedState()) {
+      return;
+    }
+
+    if (!pretextSettled) {
+      void loadPretext().then(schedule);
       return;
     }
 

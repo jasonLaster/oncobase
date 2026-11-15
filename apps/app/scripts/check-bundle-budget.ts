@@ -154,8 +154,11 @@ const storeLoaderPatterns = [
 // bytes, ~2 KiB of gzip overhead from compressing them as separate chunks and
 // ~1 KiB of new detection code): 4,028,000 -> 4,085,000 B. The eager + lazy
 // limit stays 5,240,000 B.
+// Smart-table loads @chenglou/pretext when a table nears the viewport, so the
+// 14.7 KiB text-measurement chunk left the paint set. Paint 319.4 -> 306.5 KiB:
+// 330,000 -> 322,000 B.
 const eagerGzipBudget = 1_155_000;
-const paintGzipBudget = 330_000;
+const paintGzipBudget = 322_000;
 const storeGzipBudget = 828_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
