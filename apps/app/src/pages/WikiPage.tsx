@@ -63,7 +63,8 @@ import {
 } from "../wiki-utils";
 import { useWikiIdentityPending, useWikiScope, useWikiSession } from "../wiki-context";
 import { assetFileName, assetHashesByPath, assetHref, relatedAssetsForSlug, versionedFileUrl } from "../wiki-assets";
-import { AssetVersionsContext, VersionedWikiImage } from "./versioned-assets";
+import { AssetVersionsContext } from "./asset-versions-context";
+import { VersionedWikiImage } from "./versioned-assets";
 import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/events";
 import { useBrowserOnline } from "../shell/ReaderStatus";
 import { PageTransferActivity as PageActivity } from "../shell/PageTransferActivity";

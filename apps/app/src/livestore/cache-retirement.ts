@@ -245,14 +245,8 @@ export async function wipeReaderStoresOnSignOut({
   for await (const name of (directory as DirectoryWithKeys).keys()) {
     if (prefixes.some(prefix => name.startsWith(prefix))) names.push(name);
   }
-  for (const name of names) {
-    try {
-      await directory.removeEntry(name, { recursive: true });
-      result.retired.push(name);
-    } catch {
-      result.failed.push(name);
-    }
-  }
+  const outcomes = await Promise.allSettled(names.map(name => directory.removeEntry(name, { recursive: true })));
+  outcomes.forEach((outcome, index) => (outcome.status === "fulfilled" ? result.retired : result.failed).push(names[index]!));
   return result;
 }
 
