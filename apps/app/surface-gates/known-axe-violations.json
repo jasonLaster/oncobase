@@ -1,0 +1,80 @@
+{
+  "actions-menu.dark.desktop": {
+    "target-size": {
+      "impact": "serious",
+      "nodes": 6
+    }
+  },
+  "actions-menu.light.desktop": {
+    "target-size": {
+      "impact": "serious",
+      "nodes": 6
+    }
+  },
+  "admin-roles.light.desktop": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 7
+    }
+  },
+  "admin.light.desktop": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 9
+    }
+  },
+  "chat.dark.desktop": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 1
+    }
+  },
+  "chat.dark.mobile": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 1
+    }
+  },
+  "chat.light.desktop": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 1
+    }
+  },
+  "chat.light.mobile": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 1
+    }
+  },
+  "reader-private-denied.dark.desktop": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 1
+    }
+  },
+  "search.dark.desktop": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 3
+    }
+  },
+  "search.dark.mobile": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 3
+    }
+  },
+  "search.light.desktop": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 4
+    }
+  },
+  "search.light.mobile": {
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 4
+    }
+  }
+}

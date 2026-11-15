@@ -1,0 +1,101 @@
+name: Surface Gates
+
+# Visual baselines, an axe ratchet and keyboard checks over every reader and marketing surface,
+# against the fully local stack (apps/app/surface-gates/README.md). Never a deployed URL.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "apps/app/**"
+      - "packages/**"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/surface-gates.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: surface-gates-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  surfaces:
+    name: Surface Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The same image `bun run surfaces:update` renders baselines in, so fonts match. Keep the tag
+    # equal to apps/app's @playwright/test version (checked below).
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+      options: --ipc=host
+    env:
+      PLAYWRIGHT_IMAGE_VERSION: 1.59.1
+    steps:
+      - uses: actions/checkout@v5
+
+      # setup-bun and the local stack's convex-local-backend download both unpack zip files.
+      - name: Install unzip
+        run: apt-get update -qq && apt-get install -y -qq unzip
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
+
+      - name: Check the image matches @playwright/test
+        working-directory: apps/app
+        run: |
+          installed="$(bun -e 'console.log(require("@playwright/test/package.json").version)')"
+          if [ "$installed" != "$PLAYWRIGHT_IMAGE_VERSION" ]; then
+            echo "::error::@playwright/test is $installed but this job runs playwright:v$PLAYWRIGHT_IMAGE_VERSION. Update the image tag here, then regenerate baselines with bun run surfaces:update."
+            exit 1
+          fi
+
+      - name: Start local Convex stack
+        working-directory: apps/app
+        run: bun run local:stack
+
+      # Blocking: the ratchets fail only on new or worse violations, or on fixes that were not
+      # recorded (shrink known-*.json with `bun run surfaces:ratchet`).
+      - name: Accessibility and keyboard ratchets
+        working-directory: apps/app
+        env:
+          SURFACES_RUN: gates
+        run: bun run surfaces:gates
+
+      # Report-only for now: differences are uploaded for review and do not fail the job.
+      - name: Visual comparison (report only)
+        id: visual
+        continue-on-error: true
+        working-directory: apps/app
+        env:
+          SURFACES_RUN: visual
+        run: bun run local:stack exec -- bunx playwright test --config playwright.surfaces.config.ts visual.spec.ts
+
+      - name: Note visual differences
+        if: steps.visual.outcome == 'failure'
+        run: echo "::warning::Surface screenshots differ from apps/app/surface-gates/__screenshots__/linux. See the surface-gates-report artifact; regenerate with bun run surfaces:update if the change is intended."
+
+      # This is a public repository. These screenshots, diffs and reports are safe to publish only
+      # because the local stack serves the synthetic fixture vault (apps/app/scripts/fixtures/
+      # local-stack-vault) and the config refuses any non-local URL. Never point this job at a
+      # deployment or real content.
+      - name: Upload surface report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surface-gates-report
+          path: |
+            apps/app/.playwright/surfaces/gates
+            apps/app/.playwright/surfaces/visual
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Stop local Convex stack
+        if: always()
+        working-directory: apps/app
+        run: bun run local:stack stop

@@ -1,0 +1,3 @@
+# Baselines are Linux-only (see README). Other platforms write their own, never committed.
+__screenshots__/*
+!__screenshots__/linux/
