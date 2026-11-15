@@ -33,6 +33,7 @@ const budgets: Budget[] = [
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
   { label: "PDF viewer", pattern: /^PdfViewerPage-[\w-]+\.js$/, maxGzipBytes: 140_000 },
   { label: "PDF worker", pattern: /^pdf\.worker\.min-[\w-]+\.mjs$/, maxGzipBytes: 390_000 },
+  // WikiSync now lives in the StoreHost chunk (budgeted below).
   { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
   // The bootstrap bridge adds a small provider hook and fetch exemption. Keep
   // the payload parser separate, but count its runtime cost as eager below.
@@ -60,23 +61,32 @@ const budgets: Budget[] = [
   // eager limits unchanged.
   // The session handoff (SessionHandoffSync host, handoff span) landed in the
   // same chunk: 22,077 -> ~22.2 KiB gzip. Allow 22.75 KiB.
-  // The WebMCP agent-tools loader (feature-detected lazy import + props from the
-  // reader shell; the tools themselves load only in browsers with WebMCP):
-  // 23,204 -> 23,482 gzip. Allow 23,552 (+256), approved 2026-11-14.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 23_552 },
+  // P1/P2 split the former LiveStoreRoot chunk (24,491 B gzip at d2a22f8f8,
+  // over its 23,296 B budget) in two. Its React half (ReaderRoot: presentation,
+  // handoff state) now ships inside the paint-critical WikiViteRoot chunk; its
+  // store half (adapters, provider, deadlines, fallback reasons, sync and cache
+  // services) is StoreHost, which loads after the article paints. Measured:
+  // WikiViteRoot 3.5 KiB -> 21.7 KiB (it now holds ReaderRoot, App, the shell
+  // and WikiPage, formerly in LiveStoreRoot), StoreHost 10.2 KiB (with
+  // WikiSync, formerly its own 5.4 KiB chunk). Budgets: measured plus ~2.5%.
+  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 22_784 },
+  { label: "store host chunk", pattern: /^StoreHost-[\w-]+\.js$/, maxGzipBytes: 10_752 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
 ];
 
 /**
- * Eager assets are the bytes a reader downloads before a wiki page paints:
+ * Eager assets are the bytes a cold reader downloads at boot, in two classes:
  *
- * - the static-import closure of the entry chunk plus the dynamic roots
- *   every reader view takes (session bootstrap, `LiveStoreRoot`,
- *   and its statically imported reader shell and default `WikiPage`), and
- * - the LiveStore workers, the SQLite wasm, and the single eager stylesheet,
- *   which load at boot outside the module graph.
+ * - paint-critical: the static-import closure of the entry chunk and of
+ *   `WikiViteRoot` (session bootstrap, ReaderRoot, the shell, the default
+ *   `WikiPage` and the markdown renderer), plus the single eager stylesheet.
+ *   The article paints once these have arrived.
+ * - store: the closure of `StoreHost` and `seed-page` that the paint set does
+ *   not already hold (Effect, LiveStore, the schema), plus the LiveStore
+ *   workers and the SQLite wasm, which load outside the module graph. The
+ *   document starts these only after the paint set has arrived.
  *
  * Everything else — mermaid diagram splits, the chat page, admin routes, the
  * specialist route renderers — only downloads when its
@@ -87,16 +97,20 @@ const budgets: Budget[] = [
  * gets statically pulled onto the critical path shows up as an eager
  * regression instead of being silently misfiled by its name.
  */
-const eagerRootPatterns = [
+const paintRootPatterns = [
   /^index-[\w-]+\.js$/,
-  /^LiveStoreRoot-[\w-]+\.js$/,
+  /^WikiViteRoot-[\w-]+\.js$/,
+];
+const storeRootPatterns = [
+  /^StoreHost-[\w-]+\.js$/,
   /^seed-page-[\w-]+\.js$/,
 ];
-const eagerLoaderPatterns = [
+const eagerRootPatterns = [...paintRootPatterns, ...storeRootPatterns];
+const paintLoaderPatterns = [/\.css$/];
+const storeLoaderPatterns = [
   /^livestore\.worker-[\w-]+\.js$/,
   /^make-shared-worker-[\w-]+\.js$/,
   /^wa-sqlite-[\w-]+\.wasm$/,
-  /\.css$/,
 ];
 
 // Comments adds a small eager sliver (lazy-mount wrapper + pinned sidebar
@@ -109,7 +123,21 @@ const eagerLoaderPatterns = [
 // fallback prevents an infinite loader when the browser denies OPFS access.
 // Bounded OPFS lock acquisition adds less than 0.5 KiB across the worker and
 // SQLite graph. Keep this explicit rather than obscuring the readiness fix.
-const eagerGzipBudget = 1_233_500;
+// Content first (P1/P2, d2a22f8f8 -> this change). Eager was 1,205.9 KiB, over
+// the former 1,233,500 B (1,204.6 KiB) limit, and it left out WikiViteRoot
+// (3.5 KiB): the old roots were the entry, LiveStoreRoot and seed-page, and
+// WikiViteRoot is a dynamic import of the entry that every reader view takes
+// before it paints. Counted correctly that baseline is 1,209.4 KiB. This
+// change measures 1,210.6 KiB (+1.2 KiB: the early-request head script hooks,
+// the session payload parser, store fallback reasons and the runtime-download
+// gate); lazy fell 3,873.4 -> 3,869.9 KiB, so the total grew 1.2 KiB. The
+// eager limit is that measurement plus 0.3 KiB: 1,233,500 -> 1,240,000 B.
+// The two classes get their own limits from measured sizes plus ~1%:
+// paint-critical 407.8 KiB, store 802.8 KiB. A paint regression costs article
+// time on every cold load; a store regression costs only store-boot time.
+const eagerGzipBudget = 1_240_000;
+const paintGzipBudget = 421_000;
+const storeGzipBudget = 828_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
 // Current production is 3330.4 KiB; the public landing and education reader
@@ -165,31 +193,31 @@ function staticImports(source: string): Set<string> {
   return deps;
 }
 
-function eagerAssetNames(assets: AssetSize[]): Set<string> {
+function closure(assets: AssetSize[], roots: RegExp[], loaders: RegExp[], graph: Map<string, string[]>) {
+  const found = new Set<string>();
+  const queue = assets.filter((asset) => roots.some((pattern) => pattern.test(asset.name))).map((asset) => asset.name);
+  while (queue.length > 0) {
+    const current = queue.pop();
+    if (current == null || found.has(current)) continue;
+    found.add(current);
+    queue.push(...(graph.get(current) ?? []));
+  }
+  for (const asset of assets) {
+    if (loaders.some((pattern) => pattern.test(asset.name))) found.add(asset.name);
+  }
+  return found;
+}
+
+function eagerAssetClasses(assets: AssetSize[]) {
   const jsNames = new Set(assets.filter((a) => a.name.endsWith(".js")).map((a) => a.name));
   const graph = new Map<string, string[]>();
   for (const name of jsNames) {
     const source = readFileSync(path.join(assetsDir, name), "utf8");
     graph.set(name, [...staticImports(source)].filter((dep) => jsNames.has(dep)));
   }
-
-  const eager = new Set<string>();
-  const queue = assets
-    .filter((asset) => eagerRootPatterns.some((pattern) => pattern.test(asset.name)))
-    .map((asset) => asset.name);
-  while (queue.length > 0) {
-    const current = queue.pop();
-    if (current == null || eager.has(current)) continue;
-    eager.add(current);
-    queue.push(...(graph.get(current) ?? []));
-  }
-
-  for (const asset of assets) {
-    if (eagerLoaderPatterns.some((pattern) => pattern.test(asset.name))) {
-      eager.add(asset.name);
-    }
-  }
-  return eager;
+  const paint = closure(assets, paintRootPatterns, paintLoaderPatterns, graph);
+  const store = new Set([...closure(assets, storeRootPatterns, storeLoaderPatterns, graph)].filter((name) => !paint.has(name)));
+  return { paint, store };
 }
 
 function assertBudget(asset: AssetSize, budget: Budget) {
@@ -227,7 +255,17 @@ for (const pattern of eagerRootPatterns) {
   }
 }
 
-const eagerNames = eagerAssetNames(assets);
+const classes = eagerAssetClasses(assets);
+const eagerNames = new Set([...classes.paint, ...classes.store]);
+const classBytes = (names: Set<string>) => assets.filter((asset) => names.has(asset.name)).reduce((sum, asset) => sum + asset.gzipBytes, 0);
+const paintGzipBytes = classBytes(classes.paint);
+const storeGzipBytes = classBytes(classes.store);
+if (paintGzipBytes > paintGzipBudget) {
+  failures.push(`paint-critical assets: ${formatBytes(paintGzipBytes)} gzip > ${formatBytes(paintGzipBudget)}`);
+}
+if (storeGzipBytes > storeGzipBudget) {
+  failures.push(`store assets: ${formatBytes(storeGzipBytes)} gzip > ${formatBytes(storeGzipBudget)}`);
+}
 const eagerAssets = assets.filter((asset) => eagerNames.has(asset.name));
 const lazyAssets = assets.filter((asset) => !eagerNames.has(asset.name));
 const eagerGzipBytes = eagerAssets.reduce((sum, asset) => sum + asset.gzipBytes, 0);
@@ -248,10 +286,10 @@ if (lazyGzipBytes > lazyGzipBudget) {
 console.log("Wiki Vite bundle budget");
 console.log(
   `dist assets gzip total: ${formatBytes(totalGzipBytes)} ` +
-    `(eager ${formatBytes(eagerGzipBytes)} / lazy ${formatBytes(lazyGzipBytes)})`,
+    `(eager ${formatBytes(eagerGzipBytes)} = paint ${formatBytes(paintGzipBytes)} + store ${formatBytes(storeGzipBytes)} / lazy ${formatBytes(lazyGzipBytes)})`,
 );
 for (const asset of assets) {
-  const marker = eagerNames.has(asset.name) ? "eager" : "lazy ";
+  const marker = classes.paint.has(asset.name) ? "paint" : classes.store.has(asset.name) ? "store" : "lazy ";
   console.log(`${marker} ${asset.name.padEnd(38)} raw ${formatBytes(asset.bytes).padStart(10)} gzip ${formatBytes(asset.gzipBytes).padStart(10)}`);
 }
 

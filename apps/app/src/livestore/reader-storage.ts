@@ -49,6 +49,10 @@ export async function readerBootDeadline(
 }
 
 export type ReaderStorageMode = "opfs" | "memory";
+/** The probe's answer and its cause: a memory boot names why. */
+export type ReaderStorageResolution =
+  | { mode: "opfs"; reason: "storage-opfs" }
+  | { mode: "memory"; reason: "storage-unsupported" | "storage-denied" | "storage-timeout" | "storage-diagnostic" };
 
 /** Per-document diagnostic comparison; never changes saved preferences or
  * deletes persistence. Both paths still use the same LiveStore schema. */
@@ -63,18 +67,18 @@ export function isDiagnosticMemoryStorageRequest(url: URL) {
 export async function resolveReaderStorage(
   storage: Pick<StorageManager, "getDirectory"> | undefined,
   timeoutMs = READER_STORAGE_PROBE_TIMEOUT_MS,
-): Promise<ReaderStorageMode> {
+): Promise<ReaderStorageResolution> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    if (!storage?.getDirectory) return "memory";
+    if (!storage?.getDirectory) return { mode: "memory", reason: "storage-unsupported" };
     return await Promise.race([
-      Promise.resolve().then(() => storage.getDirectory()).then(() => "opfs" as const),
-      new Promise<ReaderStorageMode>((resolve) => {
-        timer = setTimeout(() => resolve("memory"), timeoutMs);
+      Promise.resolve().then(() => storage.getDirectory()).then(() => ({ mode: "opfs", reason: "storage-opfs" }) as const),
+      new Promise<ReaderStorageResolution>((resolve) => {
+        timer = setTimeout(() => resolve({ mode: "memory", reason: "storage-timeout" }), timeoutMs);
       }),
     ]);
   } catch {
-    return "memory";
+    return { mode: "memory", reason: "storage-denied" };
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }

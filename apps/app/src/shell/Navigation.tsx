@@ -1,4 +1,4 @@
-import { useInitialReaderData, useReaderQuery, useReaderStore } from "../bootstrap/reader-queries";
+import { readerQuery, useInitialReaderData, useReaderQuery, useReaderStore } from "../bootstrap/reader-queries";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { MarkdownTitle } from "@oncobase/wiki-markdown/title-react";
 import {
@@ -28,7 +28,6 @@ import {
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { bootstrappedNavigation } from "../bootstrap/seed-state";
-import { pageIndexBySlug$, sidebarTree$ } from "../livestore/queries";
 import { hrefForSlug, slugFromPath } from "../wiki-utils";
 import {
   setNavigationIntentForSlug,
@@ -67,7 +66,7 @@ function formatTreeLabel(name: string) {
 function useWikiTree() {
   const store = useReaderStore();
   const initial = useInitialReaderData();
-  return (useReaderQuery(sidebarTree$, initial?.tree ?? null) ?? (store ? bootstrappedNavigation.get(store) : undefined) ?? []) as WikiNavigationNode[];
+  return (useReaderQuery(readerQuery.sidebarTree, initial?.tree ?? null) ?? (store ? bootstrappedNavigation.get(store) : undefined) ?? []) as WikiNavigationNode[];
 }
 
 function collectMobileOutlineItems() {
@@ -332,7 +331,7 @@ function usePageTitle(pathname: string) {
   const slug = slugFromPath(pathname);
   const isDocument = isDocumentRoute(pathname);
   const row = useReaderQuery(
-    pageIndexBySlug$(isDocument ? slug : ""),
+    readerQuery.pageIndexBySlug(isDocument ? slug : ""),
     isDocument ? (initial?.pages.find((page) => page.slug === slug) ?? null) : null,
   ) as { title?: string | null } | null;
   const title = isDocument ? row?.title?.trim() : "";

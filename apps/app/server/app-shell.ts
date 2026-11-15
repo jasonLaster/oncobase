@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import { readerShellHint } from "../src/bootstrap/reader-shell-hint";
 import { landingRouteMetadata, specialRouteMetadata } from "../src/special-route-metadata";
-import { LANDING_READER_ACCESS } from "../src/root-route";
-import { injectPageBootstrap } from "./page-bootstrap";
+import { LANDING_READER_ACCESS, rootRouteFor } from "../src/root-route";
+import { injectPageBootstrap, navigationBootstrapScripts, navigationSlice, sessionPageBootstrapScripts } from "./page-bootstrap";
+import { contentSlugFromRouteSlug, slugFromPath } from "../src/wiki-utils";
+import { parseWikiPageBatch, parseWikiSessionIdentity } from "@oncobase/wiki-content";
 import { injectHeadMetadata } from "./html-head";
 import { pageDescription, pageSocialImageUrl } from "./page-social-metadata";
 import { safeStaticPath, staticHeaders } from "./static-files";
@@ -59,6 +61,21 @@ const PUBLIC_PAGES = new Set(["/terms-and-conditions"]);
 const educationRequests = new WeakSet<Request>();
 // Signed-out visitors to "/" see the landing page in place of the wiki home.
 const landingRequests = new WeakSet<Request>();
+// What page data a reader document carries, for the head script (`<html
+// data-reader-payload>`): "session" (identity and page), "public" (page), or
+// "none" (a page route that carries nothing, so the reader asks right away).
+const documentPayloads = new WeakMap<Request, "session" | "public" | "none">();
+
+/** The API router, for answering a document's own reads in-process. */
+export type ApiDispatch = (request: Request) => Promise<Response | null>;
+
+/**
+ * A document sent in two parts: everything up to `</body>` at once, so the
+ * stylesheet, scripts and head requests start without waiting, then the data
+ * blocks that need slower reads, then the rest. Module scripts run only after
+ * the whole document has been parsed, so the reader always sees the tail.
+ */
+type StreamedDocument = { head: string; tail: Promise<string>; rest: string };
 
 type CanonicalSlugCacheEntry = {
   expires: number;
@@ -349,12 +366,38 @@ async function enforcePasswordGate(request: Request, client: ConvexHttpClient) {
 }
 
 
+/**
+ * The session and page answers for a signed-in document, from the API's own
+ * handlers: the same route table, gate, session lookup, access checks and
+ * redaction the reader's requests get, for this request's own headers.
+ */
+async function sessionDocumentPayload(request: Request, dispatch: ApiDispatch, url: URL, slug: string) {
+  const headers = new Headers(request.headers);
+  headers.set("accept", "application/json");
+  headers.delete("if-none-match");
+  const read = async (pathname: string) => {
+    const response = await dispatch(new Request(new URL(pathname, url), { method: "GET", headers }));
+    return response?.ok ? response.json() as Promise<unknown> : null;
+  };
+  const [session, pages] = await Promise.all([
+    read("/api/wiki/session?scope=session"),
+    read(`/api/wiki/pages?${new URLSearchParams({ scope: "session", slugs: slug })}`),
+  ]);
+  if (!session || !pages) return null;
+  const identity = parseWikiSessionIdentity(session);
+  // Exactly this route's page: an /index fallback or an unavailable stub is
+  // left to the reader's own request.
+  const page = parseWikiPageBatch(pages).pages.find(record => record.slug === slug);
+  return identity.scope === "session" && identity.authenticated && page ? { identity, page } : null;
+}
+
 async function staticIndexHtml(
   request: Request,
   client: ConvexHttpClient,
   filePath: string,
   providedHtml?: string,
-) {
+  dispatch?: ApiDispatch,
+): Promise<string | StreamedDocument> {
   const html = providedHtml ?? await readFile(filePath, "utf8");
   const url = new URL(request.url);
   const slug = slugFromPathname(url.pathname);
@@ -453,24 +496,70 @@ async function staticIndexHtml(
     noIndex: gateEnabled,
     sensitive: page?.sensitive === true,
   });
+  const pageRoute = Boolean(slug) && !tag && url.pathname !== "/search" &&
+    !specialRouteMetadata({ pathname: url.pathname, siteName, defaultDescription: "" });
+  if (!pageRoute || !slug) return documentHtml;
+  const education = educationRequests.has(request);
+  // The tree's first paint, from the same public listing the canonical
+  // redirects use. An education-only guest's API answers only lessons, so
+  // that request gets no slice.
+  const publicSlugs = education ? null : publicCanonicalSlugMap(client, siteSlug)
+    .then(map => new Set(map.values())).catch(() => null);
   // Reuse the current metadata lookup and request-scoped redaction policy.
   // The ordinary CSR response supplies data without server-rendered article UI.
-  if (publicPage?.sensitive === false && publicPage.content && slug && !tag &&
-      url.pathname !== "/search" && !specialRouteMetadata({ pathname: url.pathname, siteName, defaultDescription: "" })) {
+  const publicPayload = async () => {
+    if (publicPage?.sensitive !== false || !publicPage.content) return null;
     try {
       const safePage = await redactPageContent(client, siteSlug, publicPage, request);
       // A gated document is always private/no-store. Only that fresh response
       // may tell an automatic reader it has no account session. Shared public
       // HTML must never select a later visitor's account scope.
-      const publicSessionVerified = educationRequests.has(request) || gateEnabled && await getSessionUser(request, client, siteSlug)
+      const publicSessionVerified = education || gateEnabled && await getSessionUser(request, client, siteSlug)
         .then(user => user === null).catch(() => false);
-      return injectPageBootstrap(documentHtml, safePage, url, siteSlug, { publicSessionVerified,
-        publicAccessPartition: educationRequests.has(request) ? "education" : undefined });
+      const withPage = injectPageBootstrap("</body>", safePage, url, siteSlug, { publicSessionVerified,
+        publicAccessPartition: education ? "education" : undefined });
+      if (withPage === "</body>") return null;
+      const slugs = await publicSlugs;
+      const navigation = slugs ? navigationBootstrapScripts(navigationSlice(slugs, safePage.slug), url, siteSlug, { scope: "public" }) : null;
+      return `${withPage.slice(0, -"</body>".length)}${navigation ?? ""}`;
     } catch {
       console.warn("[wiki-bootstrap] page data unavailable; using page API");
+      return null;
     }
+  };
+  // A signed-in reader: its session identity and its page, as the API
+  // answers this request. Scope is chosen by the session, never by a cache.
+  // Those reads (the session's access set above all) and the slice's listing
+  // take longer than the document itself, so the data blocks stream after the
+  // rest of the document: its head (stylesheet, scripts, head requests) never
+  // waits for them.
+  const contentSlug = contentSlugFromRouteSlug(slugFromPath(url.pathname));
+  const cut = documentHtml.lastIndexOf("</body>");
+  if (cut < 0 || documentHtml.includes('id="wiki-page-bootstrap"')) return documentHtml;
+  const streamed = (tail: Promise<string>): StreamedDocument => ({ head: documentHtml.slice(0, cut), tail, rest: documentHtml.slice(cut) });
+  if (dispatch && !education && request.method === "GET" && url.searchParams.get("scope") !== "public" &&
+      await getSessionUser(request, client, siteSlug).catch(() => null)) {
+    documentPayloads.set(request, "session");
+    return streamed((async () => {
+      try {
+        const payload = await sessionDocumentPayload(request, dispatch, url, contentSlug);
+        const page = payload && sessionPageBootstrapScripts(payload.identity, payload.page, url, siteSlug);
+        if (payload && page) {
+          const slugs = await publicSlugs;
+          return page + (slugs ? navigationBootstrapScripts(navigationSlice(slugs, payload.page.slug), url, siteSlug,
+            { scope: "session", identity: payload.identity }) ?? "" : "");
+        }
+      } catch (error) {
+        console.warn("[wiki-bootstrap] session page data unavailable; using page API", error);
+      }
+      // No session payload: the reader verifies its session through the API,
+      // presenting the public page meanwhile when there is one.
+      return await publicPayload() ?? "";
+    })());
   }
-  return documentHtml;
+  const publicReadable = publicPage?.sensitive === false && Boolean(publicPage.content);
+  documentPayloads.set(request, publicReadable ? "public" : "none");
+  return publicReadable ? streamed(publicPayload().then(fragment => fragment ?? "")) : documentHtml;
 }
 
 async function htmlHeaders(request: Request, client: ConvexHttpClient, filePath: string) {
@@ -593,10 +682,13 @@ export function createAppShellHandler({
   client = createClient(),
   distDir,
   indexHtml,
+  dispatch,
 }: {
   client?: ConvexHttpClient;
   distDir: string;
   indexHtml?: string;
+  /** Answers a signed-in document's own session and page reads in-process. */
+  dispatch?: ApiDispatch;
 }) {
   client = traceConvexClient(client);
   return async function handleAppShellRequest(request: Request): Promise<Response> {
@@ -640,16 +732,32 @@ export function createAppShellHandler({
 
     if (servesIndex) {
       const [html, headers] = await Promise.all([
-        traceBackendPhase("shell.document", () => staticIndexHtml(request, client, filePath, indexHtml)),
+        traceBackendPhase("shell.document", () => staticIndexHtml(request, client, filePath, indexHtml, dispatch)),
         traceBackendPhase("shell.headers", () => htmlHeaders(request, client, filePath)),
       ]);
       const { "X-Wiki-Reader-Account": accountTag, "X-Wiki-Reader-Access": readerAccess, ...responseHeaders } = headers;
+      const streamed = typeof html === "string" ? null : html;
+      const documentStart = streamed ? streamed.head : html as string;
       // Also on <html>: the inline preload script at the top of the head runs
       // before these metas are parsed and must not fetch the reader for a
       // document that will not start it (the landing page).
-      const accountHtml = html.replace(/<html(?=[\s>])/, `<html data-reader-access="${readerAccess}"`)
+      // The server's own routing decision for the head script: whether this
+      // document starts the reader, and what page data it already carries.
+      const startsReader = rootRouteFor(url.pathname, readerAccess === "education", readerAccess === LANDING_READER_ACCESS) === "reader";
+      const payload = documentPayloads.get(request);
+      const stamps = `data-reader-access="${readerAccess}" data-reader-start="${startsReader}"${payload ? ` data-reader-payload="${payload}"` : ""}`;
+      const accountHtml = documentStart.replace(/<html(?=[\s>])/, `<html ${stamps}`)
         .replace("</head>", `<meta name="wiki-reader-account" content="${accountTag}" /><meta name="wiki-reader-access" content="${readerAccess}" /></head>`);
-      return new Response(accountHtml, { headers: responseHeaders });
+      if (!streamed) return new Response(accountHtml, { headers: responseHeaders });
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          controller.enqueue(encoder.encode(accountHtml));
+          controller.enqueue(encoder.encode(`${await streamed.tail}${streamed.rest}`));
+          controller.close();
+        },
+      });
+      return new Response(body, { headers: responseHeaders });
     }
 
     return new Response(await readFile(filePath), {
@@ -673,7 +781,11 @@ export function createWikiViteHandler({
   // The full API router includes chat, archives and other optional features.
   // HTML requests use the same shared access helpers without initializing it.
   let apiHandler: Promise<ReturnType<typeof import("./wiki-api.js").createWikiApiHandler>> | undefined;
-  const handleAppShellRequest = createAppShellHandler({ client, distDir, indexHtml });
+  const dispatch: ApiDispatch = async (request) => {
+    apiHandler ??= import("./wiki-api.js").then(({ createWikiApiHandler }) => createWikiApiHandler(client));
+    return (await apiHandler)(request);
+  };
+  const handleAppShellRequest = createAppShellHandler({ client, distDir, indexHtml, dispatch });
 
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
     const { pathname } = new URL(request.url);
@@ -694,8 +806,7 @@ export function createWikiViteHandler({
     if (moved) return moved;
     if (isInternalReaderPath(pathname)) return internalReaderNotFound();
     if (pathname.startsWith("/api/")) {
-      apiHandler ??= import("./wiki-api.js").then(({ createWikiApiHandler }) => createWikiApiHandler(client));
-      const apiResponse = await (await apiHandler)(request);
+      const apiResponse = await dispatch(request);
       if (apiResponse) return apiResponse;
     }
     const trailingSlashRedirect = trailingSlashRedirectResponse(request);

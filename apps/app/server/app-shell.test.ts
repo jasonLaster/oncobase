@@ -218,7 +218,7 @@ describe("wiki Vite app-shell password gate", () => {
     const anonymousHtml = await anonymous.text();
     expect(anonymousHtml).toContain('<meta name="wiki-reader-access" content="landing" />');
     // Readable by the inline preload script at the top of the head, before the metas parse.
-    expect(anonymousHtml).toContain('<html data-reader-access="landing">');
+    expect(anonymousHtml).toContain('<html data-reader-access="landing" data-reader-start="false">');
     expect(anonymousHtml).not.toContain("wiki-page-bootstrap");
     lookup.mockClear();
     const response = await handler(request("/", { headers: await authenticatedHeaders(hint) }));
@@ -338,6 +338,58 @@ describe("wiki Vite app-shell password gate", () => {
       expect(html).not.toContain("FIRST_REDACTION");
       expect(html).not.toContain("PERSON_LITERAL");
     } finally { clock.mockRestore(); }
+  });
+
+  describe("signed-in documents carry the API's own answers", () => {
+    const identity = { siteSlug: "diana", scope: "session", authenticated: true, cacheVersion: "v1", cacheKey: "diana:session:abc:v1", userHash: "abc" };
+    const restricted = { slug: "private/plan", title: "Private Plan", content: "# Private Plan", contentHash: "h", sensitive: true, tags: [], size: 14 };
+    function dispatcher(pages: { pages: unknown[]; unavailable?: unknown[] }) {
+      const seen: Request[] = [];
+      const dispatch = async (inner: Request) => {
+        seen.push(inner);
+        const { pathname } = new URL(inner.url);
+        if (pathname === "/api/wiki/session") return Response.json(identity);
+        if (pathname === "/api/wiki/pages") return Response.json({ siteSlug: "diana", scope: "session", generatedAt: "", isDone: true, continueCursor: null, ...pages });
+        return null;
+      };
+      return { dispatch, seen };
+    }
+    const payloadOf = (html: string) => JSON.parse(html.match(/<script id="wiki-page-bootstrap" type="application\/json">(.*?)<\/script>/s)?.[1] ?? "null");
+
+    test("an allowed restricted page streams with the session identity, read with this request's cookies", async () => {
+      const { dispatch, seen } = dispatcher({ pages: [restricted] });
+      const shell = createAppShellHandler({ client: fakeClient() as never, distDir, dispatch });
+      const headers = await authenticatedHeaders("wiki_user_session=session-token");
+      const response = await shell(request("/private/plan", { headers }));
+      expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+      const html = await response.text();
+      expect(html).toContain('data-reader-start="true" data-reader-payload="session"');
+      expect(payloadOf(html)).toMatchObject({ version: 2, scope: "session", identity, page: { slug: "private/plan", content: "# Private Plan", sensitive: true } });
+      expect(html).toContain('id="wiki-navigation-bootstrap"');
+      expect(seen.map(inner => `${new URL(inner.url).pathname}${new URL(inner.url).search}`).sort())
+        .toEqual(["/api/wiki/pages?scope=session&slugs=private%2Fplan", "/api/wiki/session?scope=session"]);
+      for (const inner of seen) expect(inner.headers.get("cookie")).toBe(headers.Cookie);
+    });
+
+    test("a page the API withholds is not inlined, and nothing restricted reaches the document", async () => {
+      const { dispatch } = dispatcher({ pages: [], unavailable: [{ ...restricted, content: undefined, reason: "restricted" }] });
+      const shell = createAppShellHandler({ client: fakeClient({ canAccessSensitive: false }) as never, distDir, dispatch });
+      const html = await (await shell(request("/private/plan", { headers: await authenticatedHeaders("wiki_user_session=session-token") }))).text();
+      expect(html).not.toContain("wiki-page-bootstrap");
+      expect(html).not.toContain("# Private Plan");
+      expect(html).not.toContain("wiki-navigation-bootstrap");
+    });
+
+    test("signed out, or with an explicit public scope, the session is never asked in-process", async () => {
+      const { dispatch, seen } = dispatcher({ pages: [restricted] });
+      const shell = createAppShellHandler({ client: fakeClient() as never, distDir, dispatch });
+      const gated = await (await shell(request("/wiki/public", { headers: await authenticatedHeaders() }))).text();
+      expect(payloadOf(gated)).toMatchObject({ version: 1, scope: "public" });
+      expect(gated).toContain('data-reader-payload="public"');
+      const explicit = await (await shell(request("/wiki/public?scope=public", { headers: await authenticatedHeaders("wiki_user_session=session-token") }))).text();
+      expect(payloadOf(explicit)).toMatchObject({ version: 1, scope: "public" });
+      expect(seen).toEqual([]);
+    });
   });
 
   test("malformed percent-encoding is a client error, never a 500", async () => {
@@ -1098,20 +1150,34 @@ describe("wiki Vite app-shell password gate", () => {
     }
   });
 
-  test("canonical document requests reuse one indexed lookup without scanning the manifest", async () => {
+  test("canonical document requests reuse one indexed lookup, and never wait for the slice's listing", async () => {
     const client = fakeClient({ passwordGate: false });
     const query = client.query.bind(client);
     const calls: string[] = [];
+    let releaseListing!: () => void;
+    const listingHeld = new Promise<void>(resolve => { releaseListing = resolve; });
     client.query = async (ref, args) => {
       calls.push(getFunctionName(ref));
+      if (getFunctionName(ref) === "documents:listManifestPage") await listingHeld;
       return query(ref, args);
     };
     const handler = createWikiViteHandler({ client: client as never, distDir });
     const response = await handler(request("/wiki/public"));
     expect(response.status).toBe(200);
-    expect(await response.text()).toContain("<title>Public — TNBC Knowledge Base</title>");
+    // The headers and the document head arrive while the listing is still held.
+    const reader = response.body!.getReader();
+    const head = new TextDecoder().decode((await reader.read()).value);
+    expect(head).toContain("<title>Public — TNBC Knowledge Base</title>");
+    expect(head).not.toContain('id="wiki-navigation-bootstrap"');
+    releaseListing();
+    let rest = "";
+    for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) rest += new TextDecoder().decode(chunk.value);
+    expect(rest).toContain('id="wiki-page-bootstrap"');
+    expect(rest).toContain('id="wiki-navigation-bootstrap"');
     expect(calls.filter(name => name === "documents:getBySlug")).toHaveLength(1);
-    expect(calls).not.toContain("documents:listManifestPage");
+    // The listing is cached: at most one read per cache lifetime, not per document.
+    await (await handler(request("/wiki/public"))).text();
+    expect(calls.filter(name => name === "documents:listManifestPage")).toHaveLength(1);
   });
 
   test("an indexed miss still resolves case-insensitive canonical redirects", async () => {

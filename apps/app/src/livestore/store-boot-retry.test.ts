@@ -19,7 +19,7 @@ describe("shouldRetryStoreBoot", () => {
 
   test("does not retry chunk/style load failures", () => {
     for (const message of [
-      "Failed to fetch dynamically imported module: https://x/assets/LiveStoreRoot-abc.js",
+      "Failed to fetch dynamically imported module: https://x/assets/StoreHost-abc.js",
       "Unable to preload CSS for /assets/src-BrbTFx9E.css",
       "Importing a module script failed.",
     ]) {

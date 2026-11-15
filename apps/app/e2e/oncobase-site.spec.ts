@@ -56,7 +56,7 @@ test("the marketing site never opens the reader, the wiki API, or the database",
   const requests: string[] = [];
   page.on("request", (request) => {
     const url = new URL(request.url());
-    if (url.pathname.startsWith("/api/") || /WikiViteRoot|LiveStoreRoot/.test(url.pathname)) requests.push(url.pathname);
+    if (url.pathname.startsWith("/api/") || /WikiViteRoot|StoreHost|vendor-livestore/.test(url.pathname)) requests.push(url.pathname);
   });
   for (const path of ["/", "/features", "/compare"]) {
     await page.goto(path);

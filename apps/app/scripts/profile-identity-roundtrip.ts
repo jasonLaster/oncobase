@@ -56,7 +56,7 @@ try {
               identities: entries.filter(e => new URL(e.name).pathname === "/api/wiki/session").map(e => ({ query: new URL(e.name).search, start: e.startTime, end: e.responseEnd })),
               bodyRequests: entries.filter(e => new URL(e.name).pathname === "/api/wiki/pages").length,
               seeded: performance.getEntriesByName("wiki-page-bootstrap-seeded").length,
-              startupResources: entries.filter(e => /LiveStoreRoot-|livestore\.worker-|\.wasm$/.test(new URL(e.name).pathname))
+              startupResources: entries.filter(e => /StoreHost-|livestore\.worker-|\.wasm$/.test(new URL(e.name).pathname))
                 .map(e => ({ path: new URL(e.name).pathname, start: e.startTime, end: e.responseEnd, transfer: e.transferSize })),
             };
           });

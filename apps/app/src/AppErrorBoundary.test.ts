@@ -70,7 +70,7 @@ describe("isChunkLoadError", () => {
   test("matches Vite dynamic-import and CSS preload failures", () => {
     for (const message of [
       "Unable to preload CSS for /assets/src-BrbTFx9E.css",
-      "Failed to fetch dynamically imported module: https://x/assets/LiveStoreRoot-abc.js",
+      "Failed to fetch dynamically imported module: https://x/assets/StoreHost-abc.js",
       "Unable to preload module for /assets/chunk.js",
       "error loading dynamically imported module",
       "Importing a module script failed.",

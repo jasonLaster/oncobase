@@ -31,14 +31,13 @@ import {
   byteSize,
   contentSlugFromRouteSlug,
   isAuthError,
-  manifestToEvent,
   normalizeFetchedPageSlug,
-  pageToEvent,
   parseJsonArray,
   rememberSlug,
   slugFromPath,
   storageSnapshot,
 } from "../wiki-utils";
+import { manifestToEvent, pageToEvent } from "../livestore/wiki-events";
 
 import { BackgroundPrefetch, FOREGROUND_FETCH_EVENT } from "./BackgroundPrefetch";
 import { PREFETCH_LIMITS } from "./prefetch-policy";

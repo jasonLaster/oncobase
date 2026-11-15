@@ -1,7 +1,6 @@
-import { useInitialReaderData, useReaderQuery, EMPTY_READER_ROWS } from "./bootstrap/reader-queries";
+import { readerQuery, useInitialReaderData, useReaderQuery, EMPTY_READER_ROWS } from "./bootstrap/reader-queries";
 import { type ReactNode, useMemo } from "react";
 import { Navigate, useLocation } from "react-router";
-import { pageIndex$ } from "./livestore/queries";
 import {
   canonicalRoutePathname,
   canonicalSlugMap,
@@ -11,7 +10,7 @@ import type { PageIndexRow } from "./types";
 export function CanonicalRouteBoundary({ children }: { children: ReactNode }) {
   const location = useLocation();
   const initial = useInitialReaderData();
-  const pages = useReaderQuery(pageIndex$, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
+  const pages = useReaderQuery(readerQuery.pageIndex, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
   const canonicalSlugs = useMemo(
     () => canonicalSlugMap(pages.map((page) => page.slug)),
     [pages],

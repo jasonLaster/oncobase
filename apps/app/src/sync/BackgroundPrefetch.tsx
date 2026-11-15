@@ -5,14 +5,15 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "react-router";
 import { cachedPageMetadata$, pageContentBySlug$, pageIndex$, pageIndexBySlug$, siteState$ } from "../livestore/queries";
 import { events } from "../livestore/schema";
-import { backendHref, byteSize, contentSlugFromRouteSlug, pageToEvent, readRecentSlugs, slugFromPath, storageSnapshot } from "../wiki-utils";
+import { backendHref, byteSize, contentSlugFromRouteSlug, readRecentSlugs, slugFromPath, storageSnapshot } from "../wiki-utils";
+import { pageToEvent } from "../livestore/wiki-events";
 import { useWikiScope } from "../wiki-context";
 import { canPrefetch, planPrefetch, PREFETCH_LIMITS, type CachedPage } from "./prefetch-policy";
 import { readerOnline } from "./connectivity";
 import type { MetricsPatch } from "../types";
 
-export const WARM_CACHE_EVENT = "wiki-vite:warm-cache";
-export const FOREGROUND_FETCH_EVENT = "wiki-vite:foreground-fetch";
+import { FOREGROUND_FETCH_EVENT, WARM_CACHE_EVENT } from "./events";
+export { FOREGROUND_FETCH_EVENT, WARM_CACHE_EVENT };
 
 export function BackgroundPrefetch({ onMetrics, isForegroundBusy }: {
   onMetrics: (patch: MetricsPatch) => void;

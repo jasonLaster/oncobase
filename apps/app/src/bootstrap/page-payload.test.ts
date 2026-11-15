@@ -1,6 +1,6 @@
-import { expect, test } from "bun:test";
-import { WIKI_READER_CACHE_VERSION } from "@oncobase/wiki-content";
-import { MAX_BOOTSTRAP_BYTES, parseBootstrapJson, parsePageBootstrap, releaseBootstrapJson, serializePageBootstrap, type PageBootstrap } from "./page-payload";
+import { describe, expect, test } from "bun:test";
+import { makePublicWikiSessionIdentity, WIKI_READER_CACHE_VERSION } from "@oncobase/wiki-content";
+import { MAX_BOOTSTRAP_BYTES, pageBootstrapFor, parseBootstrapJson, parsePageBootstrap, parseSessionPageBootstrap, releaseBootstrapJson, serializePageBootstrap, sessionPageBootstrapFor, type PageBootstrap } from "./page-payload";
 
 const expected = { origin: "https://example.com", apiOrigin: "https://example.com", pathname: "/", siteSlug: "test" };
 const payload: PageBootstrap = { ...expected, version: 1, readerVersion: WIKI_READER_CACHE_VERSION, scope: "public",
@@ -38,4 +38,32 @@ test("boot readers share one parse per payload string and release it after seedi
   releaseBootstrapJson();
   expect(parseBootstrapJson(page)).not.toBe(first);
   expect(parseBootstrapJson(page)).toEqual(first);
+});
+
+describe("session payloads", () => {
+  const identity = { siteSlug: "test", scope: "session" as const, authenticated: true, cacheVersion: "v1",
+    cacheKey: "test:session:abc:v1", userHash: "abc" };
+  const session = { ...expected, version: 2, readerVersion: WIKI_READER_CACHE_VERSION, scope: "session", identity,
+    page: { slug: "private/plan", title: "Plan", content: "Care team only", tags: [], size: 14, sensitive: true, contentHash: "hash" } };
+  const raw = JSON.stringify(session);
+
+  test("a session page belongs only to the identity it was produced for", () => {
+    expect(sessionPageBootstrapFor(raw, expected, identity)?.page.content).toBe("Care team only");
+    expect(pageBootstrapFor(raw, expected, identity)?.sensitive).toBe(true);
+    for (const other of [{ ...identity, cacheKey: "test:session:other:v1" }, { ...identity, userHash: "other" },
+      makePublicWikiSessionIdentity("test")]) {
+      expect(sessionPageBootstrapFor(raw, expected, other)).toBeNull();
+      expect(pageBootstrapFor(raw, expected, other)).toBeNull();
+    }
+  });
+
+  test("a session payload is never read as public data, and a forged identity is rejected", () => {
+    expect(parsePageBootstrap(raw, expected)).toBeNull();
+    for (const patch of [{ identity: { ...identity, scope: "public" } }, { identity: { ...identity, authenticated: false } },
+      { identity: { ...identity, userHash: null } }, { identity: { ...identity, siteSlug: "other" } }, { scope: "public" },
+      { version: 1 }, { readerVersion: "old" }, { pathname: "/other" }, { origin: "https://other.test" }]) {
+      expect(parseSessionPageBootstrap(JSON.stringify({ ...session, ...patch }), expected)).toBeNull();
+    }
+    expect(parseSessionPageBootstrap(raw, { ...expected, apiOrigin: "https://api.example.com" })).toBeNull();
+  });
 });

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { WikiPageActionButton } from "@oncobase/wiki-shell";
 import { WikiEmptyState, WikiSensitiveUnavailable } from "@oncobase/wiki-shell/page-states";
-import { RETRY_PAGE_EVENT } from "../sync/WikiSync";
+import { RETRY_PAGE_EVENT } from "../sync/events";
 
 export default function UnavailablePage({ before, publicView, signInHref, restricted = false, slug }: {
   before?: ReactNode;

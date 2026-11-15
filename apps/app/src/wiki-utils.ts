@@ -1,6 +1,5 @@
 import { safeLocalStorage } from "@oncobase/safe-storage";
-import type { WikiManifest, WikiPageRecord } from "@oncobase/wiki-content";
-import { events } from "./livestore/schema";
+import type { WikiPageRecord } from "@oncobase/wiki-content";
 import type { StoragePressure } from "./types";
 
 const RECENT_KEY = "cmd-palette-recent";
@@ -112,33 +111,6 @@ export async function storageSnapshot() {
     pressure = usageRatio >= 0.95 ? "critical" : usageRatio >= 0.85 ? "warning" : "ok";
   }
   return { usage, quota, usageRatio, pressure };
-}
-
-export function manifestToEvent(manifest: WikiManifest, receivedAt: number) {
-  return events.manifestApplied({
-    siteSlug: manifest.siteSlug,
-    scope: manifest.scope,
-    manifestHash: manifest.manifestHash,
-    generatedAt: manifest.generatedAt,
-    receivedAt,
-    manifestSize: byteSize(JSON.stringify(manifest)),
-    compactTreeJson: JSON.stringify(manifest.compactTree),
-    pagesJson: JSON.stringify(manifest.pages),
-    assetsJson: JSON.stringify(manifest.assets),
-  });
-}
-
-export function pageToEvent(page: WikiPageRecord) {
-  return events.pageContentFetched({
-    slug: page.slug,
-    title: page.title,
-    content: page.content,
-    tags: page.tags,
-    contentHash: page.contentHash,
-    sensitive: page.sensitive,
-    size: byteSize(page.content),
-    fetchedAt: Date.now(),
-  });
 }
 
 export function normalizeFetchedPageSlug(

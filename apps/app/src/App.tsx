@@ -13,11 +13,10 @@ import { MobileNav, Sidebar } from "./shell/Navigation";
 import { WikiPage } from "./pages/WikiPage";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
 import { SpecialRouteMetadata } from "./shell/SpecialRouteMetadata";
-import { WikiSync } from "./sync/WikiSync";
 import { ReaderAgentTools } from "./webmcp/agent-tools";
 import type { Metrics } from "./types";
 import { ReaderPending } from "./AppStarting";
-import { useReaderStore } from "./bootstrap/reader-queries";
+import { StoreScoped, useReaderStore } from "./bootstrap/reader-queries";
 import { useWikiScope, useWikiIdentityPending } from "./wiki-context";
 import { useBrowserOnline } from "./shell/ReaderStatus";
 import { PageActivity } from "./shell/PageActivity";
@@ -42,6 +41,11 @@ const initialMetrics: Metrics = {
   failedBodySlug: null,
 };
 
+// Sync, cache retirement and the startup snapshot writer live with the store
+// (livestore/StoreHost.tsx), which is already loaded once a store is running.
+const StoreServices = lazy(() =>
+  import("./livestore/StoreHost").then((module) => ({ default: module.StoreServices })),
+);
 const SearchPage = lazy(() =>
   import("./pages/SearchPage").then((module) => ({ default: module.SearchPage })),
 );
@@ -154,7 +158,7 @@ export function App({
 
   return (
     <>
-      {store ? <WikiSync onMetrics={bumpMetrics} /> : null}
+      {store ? <StoreScoped><Suspense fallback={null}><StoreServices onMetrics={bumpMetrics} /></Suspense></StoreScoped> : null}
       <ReaderAgentTools />
       <div className="prototype-shell" data-reader-store-ready={store ? "true" : "false"} data-reader-identity-pending={identityPending ? "true" : "false"}>
         <SkipLink />
@@ -175,7 +179,7 @@ export function App({
                   <Route path="/chat" element={<ChatRoute />} />
                   <Route path="/chat/:id" element={<ChatRoute />} />
                   <Route path="/comments" element={<CommentsPage />} />
-                  <Route path="/tags/:tag" element={<TagPage />} />
+                  <Route path="/tags/:tag" element={<StoreScoped><TagPage /></StoreScoped>} />
                   <Route path="/tools/medical-deduction" element={<MedicalDeductionPage />} />
                   <Route path="/access" element={<AdminPage />} />
                   <Route path="/admin" element={<AdminPage />} />
@@ -189,7 +193,7 @@ export function App({
           </main>
         </ResizableAppShell>
         {devtoolsFooterVisible && store ? (
-          <Suspense fallback={null}>
+          <StoreScoped><Suspense fallback={null}>
             <LiveStoreDevtoolsFooter
               enabled={liveStoreDevtoolsEnabled}
               metrics={metrics}
@@ -197,7 +201,7 @@ export function App({
               storeId={storeId}
               visible
             />
-          </Suspense>
+          </Suspense></StoreScoped>
         ) : null}
         <MobileNav freshness={navigationFreshness} />
       </div>

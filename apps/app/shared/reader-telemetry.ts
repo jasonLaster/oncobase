@@ -23,10 +23,14 @@ export const READER_PHASES = ["identity-start", "identity-ready", "identity-erro
   // identity to the visible store swap, offsetMs = swap since navigation, outcome below.
   "session-handoff",
   // A WebMCP tool call from an in-browser AI agent: duration, result bytes, tool below.
-  "webmcp-call"] as const;
+  "webmcp-call",
+  // The reader runs without its persistent store; reason = the storage probe's answer or the timed-out boot milestone.
+  "store-fallback"] as const;
 export type ReaderPhase = typeof READER_PHASES[number];
 /** Fixed failure classes for store-timeout (furthest boot milestone reached) and sync-error (source-kind). */
 export const READER_REASONS = ["adapter", "lock-wait", "follower", "worker-boot", "leader-boot", "store-create", "temporary",
+  // storage-ready / store-fallback: what the storage probe answered (persistent, no OPFS, denied, timed out, diagnostic request).
+  "storage-opfs", "storage-unsupported", "storage-denied", "storage-timeout", "storage-diagnostic", "storage-web-storage-blocked",
   "auth", ...(["manifest", "body"] as const).flatMap(source => (["timeout", "network", "http4xx", "http5xx", "other"] as const).map(kind => `${source}-${kind}` as const))] as const;
 export type ReaderReason = typeof READER_REASONS[number];
 /** session-handoff outcomes: the public page stayed until the session store held the route,

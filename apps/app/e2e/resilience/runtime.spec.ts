@@ -211,7 +211,7 @@ test("a failed chunk reloads once then shows the recovery screen", async ({ page
   await installWikiApiMocks(page);
   // The first failure of the lazy shell auto-reloads once; the reload fails
   // again and, with the reload guard spent, must surface the recovery screen.
-  await page.route(/LiveStoreRoot/, route => route.abort());
+  await page.route(/StoreHost/, route => route.abort());
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const recovery = page.getByTestId("app-recovery");
   await expect(recovery).toBeVisible({ timeout: 20_000 });

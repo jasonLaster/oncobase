@@ -10,7 +10,7 @@ import { useStore } from "@livestore/react";
 import type { WikiScope } from "@oncobase/wiki-content";
 import { reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { events } from "../livestore/schema";
-import { WARM_CACHE_EVENT } from "../sync/WikiSync";
+import { WARM_CACHE_EVENT } from "../sync/events";
 import type { Metrics } from "../types";
 import { MetricsPanel } from "./MetricsPanel";
 import { ScopeSwitcher } from "./Header";

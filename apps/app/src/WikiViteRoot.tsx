@@ -11,9 +11,10 @@ import { setReaderTelemetryStartup } from "./reader-telemetry";
 import { keepsPresentationMounted } from "./bootstrap/session-handoff";
 import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, STARTUP_CACHE_EPOCH } from "./bootstrap/reader-startup-cache";
 import { contentSlugFromRouteSlug, slugFromPath } from "./wiki-utils";
-import { AppStarting, ReaderPending } from "./AppStarting";
+import { ReaderPending } from "./AppStarting";
+import { ReaderRoot } from "./ReaderRoot";
 import { publicIdentityFromPageBootstrap } from "./bootstrap/public-identity";
-import { PAGE_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES } from "./bootstrap/page-payload";
+import { PAGE_BOOTSTRAP_ID, NAVIGATION_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES } from "./bootstrap/page-payload";
 import { mayContainMath, preloadMarkdownMath } from "@oncobase/wiki-markdown/math-loader";
 
 markVisualPhase("boot-reader-module");
@@ -24,17 +25,6 @@ function readScope(): WikiScope {
   return explicitReaderScope(window.location.search) ?? "public";
 }
 
-// Track module readiness explicitly: React.lazy can suspend even after this
-// preload resolves, adding another fallback reveal delay before store startup.
-const loadLiveStoreRoot = () =>
-  import("./livestore/LiveStoreRoot").then((module) => ({
-    default: module.LiveStoreRoot,
-  }));
-type ReaderComponent = Awaited<ReturnType<typeof loadLiveStoreRoot>>["default"];
-type ReaderModuleState =
-  | { status: "loading" }
-  | { status: "ready"; Component: ReaderComponent }
-  | { status: "error"; error: Error };
 type BootstrapState =
   | { status: "loading"; scope: WikiScope }
   | { status: "ready"; scope: WikiScope; identity: WikiSessionIdentity }
@@ -148,7 +138,7 @@ export function WikiViteRoot() {
   const [responseInvalidated, setResponseInvalidated] = useState(false);
   useEffect(() => {
     const reset = () => {
-      document.querySelectorAll("#wiki-page-bootstrap, #wiki-navigation-bootstrap").forEach(node => node.remove());
+      document.querySelectorAll(`#${PAGE_BOOTSTRAP_ID}, #${NAVIGATION_BOOTSTRAP_ID}`).forEach(node => node.remove());
       setCached(null);
       setResponseInvalidated(true);
       setState({ status: "loading", scope: readScope() });
@@ -164,7 +154,6 @@ export function WikiViteRoot() {
       window.removeEventListener("storage", storageChanged);
     };
   }, []);
-  const [readerModule, setReaderModule] = useState<ReaderModuleState>({ status: "loading" });
   const [identityPending, setIdentityPending] = useState(true);
   // Telemetry only: which source painted first, so cold and cached loads are not averaged together.
   const [firstPaintSource] = useState(() => cached ? "snapshot" as const : document.getElementById(PAGE_BOOTSTRAP_ID) ? "bootstrap" as const : "network" as const);
@@ -198,18 +187,6 @@ export function WikiViteRoot() {
       // Fetch optional math alongside the reader, before the boot payload paints.
       void preloadMarkdownMath().catch(() => {});
     }
-    // Download/initialize the reader while identity is verified. Importing code
-    // does not open a store or authorize content; those still require identity.
-    void loadLiveStoreRoot()
-      .then((module) => {
-        if (!cancelled) setReaderModule({ status: "ready", Component: module.default });
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) setReaderModule({
-          status: "error",
-          error: error instanceof Error ? error : new Error(String(error)),
-        });
-      });
     const scope = readScope();
     const fallback = publicIdentityFallback(scope);
     // The first attempt reuses the request main.tsx started at entry.
@@ -281,7 +258,9 @@ export function WikiViteRoot() {
   }, [authRevision]);
 
   const presentationIdentity = cached?.identity ?? (responseInvalidated ? null : responsePresentationIdentity);
-  const startingApp = createElement(readerModule.status === "loading" ? AppStarting : ReaderPending);
+  // The paint-critical reader is part of this module; the store half loads
+  // inside ReaderRoot once identity is verified.
+  const startingApp = createElement(ReaderPending);
   if (state.status === "loading" && !presentationIdentity) return startingApp;
 
   if (state.status === "error") {
@@ -304,16 +283,13 @@ export function WikiViteRoot() {
     );
   }
 
-  if (readerModule.status === "error") throw readerModule.error;
-  if (readerModule.status === "loading") return startingApp;
-
   return createElement(
     Suspense,
     { fallback: startingApp },
     createElement(
       WikiIdentityPendingContext.Provider,
       { value: identityPending },
-      createElement(readerModule.Component, {
+      createElement(ReaderRoot, {
         key: cached ? `cached:${cached.identity.cacheKey}` : "response",
         cachedSnapshot: cached,
         identity: state.status === "ready" ? state.identity : null,

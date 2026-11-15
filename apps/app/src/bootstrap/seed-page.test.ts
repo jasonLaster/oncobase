@@ -4,7 +4,7 @@ import { createStorePromise } from "@livestore/livestore";
 import { makePublicWikiSessionIdentity, WIKI_READER_CACHE_VERSION } from "@oncobase/wiki-content";
 import { schema } from "../livestore/schema";
 import { pageContentBySlug$, pageIndex$, siteState$ } from "../livestore/queries";
-import { pageToEvent } from "../wiki-utils";
+import { pageToEvent } from "../livestore/wiki-events";
 import { seedNavigationPayload, seedPagePayload } from "./seed-page";
 import { bootstrappedNavigation, hasBootstrappedPage } from "./seed-state";
 

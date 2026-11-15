@@ -1,6 +1,6 @@
 import { recordReaderDuration, recordReaderPhase } from "../reader-telemetry";
 import { initialReaderPage } from "../bootstrap/initial-reader-data";
-import { useInitialReaderData, useReaderQuery, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
+import { readerQuery, useInitialReaderData, useReaderQuery, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
 import { DocumentComments } from "@oncobase/wiki-comments/wrapper";
 import {
   MarkdownTitle,
@@ -40,12 +40,6 @@ import {
 import type { WikiMermaidGanttMarker } from "@oncobase/wiki-markdown/mermaid";
 import { Link, useLocation, useNavigate, useNavigationType } from "react-router";
 import { savedScrollPosition } from "../shell/scroll-memory";
-import {
-  assets$,
-  pageContentBySlug$,
-  pageIndex$,
-  pageIndexBySlug$,
-} from "../livestore/queries";
 import type {
   AssetIndexRow,
   MetricsPatch,
@@ -69,7 +63,7 @@ import {
 } from "../wiki-utils";
 import { useWikiIdentityPending, useWikiScope, useWikiSession } from "../wiki-context";
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
-import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/WikiSync";
+import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/events";
 import { useBrowserOnline } from "../shell/ReaderStatus";
 import { PageTransferActivity as PageActivity } from "../shell/PageTransferActivity";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
@@ -217,7 +211,7 @@ export const WikiPage = memo(function WikiPage({
   // it cannot bridge an asynchronous body fetch and used to replace text with
   // a skeleton. Query the old slug rather than copying its content so access
   // revocation/deletion still takes effect during a pending navigation.
-  const requestedPage = useReaderQuery(pageContentBySlug$(slug), initialReaderPage(initial, slug)) as PageContentRow | null;
+  const requestedPage = useReaderQuery(readerQuery.pageContentBySlug(slug), initialReaderPage(initial, slug)) as PageContentRow | null;
   const [displayedRouteSlug, setDisplayedRouteSlug] = useState(routeSlug);
   const displayedSlug = contentSlugFromRouteSlug(displayedRouteSlug);
   if (displayedRouteSlug !== routeSlug && (
@@ -238,11 +232,11 @@ export const WikiPage = memo(function WikiPage({
       document.querySelector(".content-shell")?.scrollTo({ top, left: 0, behavior: "instant" });
     }
   }, [displayedRouteSlug, location.hash, location.key, navigationType]);
-  const page = useReaderQuery(pageContentBySlug$(displayedSlug), initialReaderPage(initial, displayedSlug)) as PageContentRow | null;
-  const index = useReaderQuery(pageIndexBySlug$(displayedSlug), initial?.pages.find(page => page.slug === displayedSlug) ?? null) as PageIndexRow | null;
-  const routeIndex = useReaderQuery(pageIndexBySlug$(slug), initial?.pages.find(page => page.slug === slug) ?? null) as PageIndexRow | null;
-  const pageIndex = useReaderQuery(pageIndex$, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
-  const assets = useReaderQuery(assets$, EMPTY_READER_ROWS) as AssetIndexRow[];
+  const page = useReaderQuery(readerQuery.pageContentBySlug(displayedSlug), initialReaderPage(initial, displayedSlug)) as PageContentRow | null;
+  const index = useReaderQuery(readerQuery.pageIndexBySlug(displayedSlug), initial?.pages.find(page => page.slug === displayedSlug) ?? null) as PageIndexRow | null;
+  const routeIndex = useReaderQuery(readerQuery.pageIndexBySlug(slug), initial?.pages.find(page => page.slug === slug) ?? null) as PageIndexRow | null;
+  const pageIndex = useReaderQuery(readerQuery.pageIndex, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
+  const assets = useReaderQuery(readerQuery.assets, EMPTY_READER_ROWS) as AssetIndexRow[];
   const readyRecorded = useRef(false);
   useEffect(() => {
     if (!readyRecorded.current && page?.contentStatus === "fresh" && !routePending) {

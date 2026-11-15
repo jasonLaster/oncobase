@@ -1,4 +1,4 @@
-import { useInitialReaderData, useReaderQuery, useReaderStore, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
+import { readerQuery, useInitialReaderData, useReaderQuery, useReaderStoreKit, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
 import {
   BugIcon,
   CalculatorIcon,
@@ -55,9 +55,7 @@ import { flattenFileTree } from "@oncobase/wiki-content";
 import { bootstrappedNavigation } from "../bootstrap/seed-state";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { readLiveStoreDevtoolsEnabled, reloadWithLiveStoreDevtools } from "../livestore/devtools";
-import { assets$, fileTree$, pageIndex$ } from "../livestore/queries";
-import { events } from "../livestore/schema";
-import { WARM_CACHE_EVENT } from "../sync/WikiSync";
+import { WARM_CACHE_EVENT } from "../sync/events";
 import type { AssetIndexRow, PageIndexRow } from "../types";
 import { useWikiScope } from "../wiki-context";
 import {
@@ -111,14 +109,15 @@ export function CommandPalette({
   initialMode?: PaletteMode;
   onOpenChange: (open: boolean) => void;
 }) {
-  const store = useReaderStore();
+  const kit = useReaderStoreKit();
+  const store = kit?.store;
   const initial = useInitialReaderData();
-  const pages = useReaderQuery(pageIndex$, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
-  const manifestTree = useReaderQuery(fileTree$, null);
+  const pages = useReaderQuery(readerQuery.pageIndex, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
+  const manifestTree = useReaderQuery(readerQuery.fileTree, null);
   // A validated public tree is usable before sync; even an empty authoritative
   // manifest supersedes it. The fallback is scoped to this exact store.
   const initialTree = manifestTree ? undefined : (store ? bootstrappedNavigation.get(store) : initial?.tree);
-  const assets = useReaderQuery(assets$, EMPTY_READER_ROWS) as AssetIndexRow[];
+  const assets = useReaderQuery(readerQuery.assets, EMPTY_READER_ROWS) as AssetIndexRow[];
   const scope = useWikiScope();
   const [mode, setPaletteMode] = useState<PaletteMode>(initialMode);
   const [query, setPaletteQuery] = useState("");
@@ -369,12 +368,12 @@ export function CommandPalette({
         description: "Clear this LiveStore cache and reload the reader",
         icon: <RotateCcwIcon size={15} aria-hidden="true" />,
         run: () => {
-          if (!store) return;
+          if (!kit) return;
           const confirmed = window.confirm(
             "Clear the local LiveStore cache for this reader and reload?",
           );
           if (!confirmed) return;
-          store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
+          kit.store.commit(kit.events.cacheResetRequested({ requestedAt: Date.now() }));
           window.location.reload();
         },
       },
@@ -389,7 +388,7 @@ export function CommandPalette({
         run: () => reloadWithLiveStoreDevtools(!liveStoreDevtoolsEnabled),
       },
     ],
-    [liveStoreDevtoolsEnabled, onOpenChange, store],
+    [kit, liveStoreDevtoolsEnabled, onOpenChange],
   );
 
   const debugResults = useMemo(() => {

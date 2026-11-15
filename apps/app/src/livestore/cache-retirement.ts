@@ -4,9 +4,12 @@ import {
   type WikiSessionIdentity,
   WIKI_PREVIOUS_READER_CACHE_VERSION,
   WIKI_READER_CACHE_VERSION,
+  WIKI_READER_SCHEMA_VERSION,
 } from "@oncobase/wiki-content";
 import type { PageContentRow, PageIndexRow, SiteStateRow } from "../types";
-import { WIKI_CACHE_SCHEMA_VERSION } from "./schema";
+// The same value as schema.ts exports; read it from wiki-content so the shell
+// (Header) can import this module without the LiveStore schema.
+const WIKI_CACHE_SCHEMA_VERSION = WIKI_READER_SCHEMA_VERSION;
 
 type DirectoryWithKeys = FileSystemDirectoryHandle & {
   keys: () => AsyncIterableIterator<string>;

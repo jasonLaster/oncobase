@@ -2,7 +2,7 @@ import { type Store } from "@livestore/livestore";
 import type { WikiSessionIdentity } from "@oncobase/wiki-content";
 import { siteState$ } from "../livestore/queries";
 import { events } from "../livestore/schema";
-import { manifestToEvent } from "../wiki-utils";
+import { manifestToEvent } from "../livestore/wiki-events";
 import { sameStartupIdentity, type StartupSnapshot } from "./reader-startup-cache";
 import { cachedStartupStores } from "./seed-state";
 

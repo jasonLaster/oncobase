@@ -2,6 +2,7 @@ import { READER_CONNECTIONS, READER_PHASES, READER_REASONS, readerRouteType, typ
 import { storeBootPath } from "./livestore/store-boot-path";
 import { noteNetworkFailure, noteNetworkResponse } from "./sync/connectivity";
 import { isOncobaseHost } from "./site-host";
+import { takeEarlyResponse } from "./bootstrap/early-requests";
 
 // Per-page random identity, never persisted or derived from a user or page.
 let id: string | undefined;
@@ -156,16 +157,28 @@ export function recordBootResources() {
 }
 
 /** Passed only to the reader content client; no global fetch patching. */
+/** An early response still honours the caller's abort and timeout. */
+function abortable(response: Promise<Response>, signal: AbortSignal) {
+  if (signal.aborted) return Promise.reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+  return new Promise<Response>((resolve, reject) => {
+    const abort = () => reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+    signal.addEventListener("abort", abort, { once: true });
+    response.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
+}
+
 export const readerFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const request = new Request(typeof input === "string" ? new URL(input, window.location.origin) : input, init);
   const url = new URL(request.url);
   const phase = ({ "/api/wiki/session": "request-session", "/api/wiki/manifest": "request-manifest", "/api/wiki/pages": "request-pages", "/api/wiki/prefetch": "request-prefetch" } as const)[url.pathname as "/api/wiki/session"];
   if (!phase || url.origin !== window.location.origin) return fetch(request);
   try { request.headers.set("X-Wiki-Reader-Trace", traceId()); } catch { /* Optional correlation. */ }
-  const start = performance.timeOrigin + performance.now();
+  // The document's head script may already have sent this exact GET.
+  const early = request.method === "GET" ? takeEarlyResponse(url) : undefined;
+  const start = performance.timeOrigin + (early?.startedAt ?? performance.now());
   let status = 0;
   try {
-    const response = await fetch(request);
+    const response = early ? await abortable(early.response, request.signal) : await fetch(request);
     status = response.status;
     noteNetworkResponse();
     // Fetch spans end at headers; body parsing/commit is covered by sync marks.

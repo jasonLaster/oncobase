@@ -309,7 +309,7 @@ test.describe("signed-out landing and sign-in", () => {
       });
       const databaseModules: string[] = [];
       page.on("request", (request) => {
-        if (/LiveStoreRoot/.test(request.url())) databaseModules.push("LiveStoreRoot");
+        if (/StoreHost|vendor-livestore/.test(request.url())) databaseModules.push(request.url());
       });
       await page.goto(route.path);
       await expect(page.getByTestId(route.testId)).toBeVisible();
