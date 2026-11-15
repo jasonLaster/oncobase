@@ -24,3 +24,24 @@ export function freezeScrollPosition(key: string) {
   restoring.add(key);
   return () => { restoring.delete(key); };
 }
+
+// The history entry on screen, and the element that scrolls. Set by RouteFocus.
+let current: { key: string; scroller: () => HTMLElement | null } | null = null;
+
+export function setScrollEntry(key: string, scroller: () => HTMLElement | null) {
+  current = { key, scroller };
+}
+
+/**
+ * Record the entry being left at the moment Back or Forward is pressed. Scroll
+ * events arrive a frame late, and the router re-renders synchronously inside its
+ * own popstate listener, so anything registered later sees the destination already
+ * on screen. Installed when the entry module loads, before the router mounts, so
+ * it runs first.
+ */
+export function installScrollMemory(target: Window = window) {
+  target.addEventListener("popstate", () => {
+    const scroller = current?.scroller();
+    if (current && scroller) rememberScrollPosition(current.key, scroller.scrollTop);
+  }, true);
+}

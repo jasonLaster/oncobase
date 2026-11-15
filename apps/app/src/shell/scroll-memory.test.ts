@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { freezeScrollPosition, rememberScrollPosition, savedScrollPosition } from "./scroll-memory";
+import { freezeScrollPosition, installScrollMemory, rememberScrollPosition, savedScrollPosition, setScrollEntry } from "./scroll-memory";
 
 test("scroll positions are kept per history entry and bounded", () => {
   rememberScrollPosition("a", 900);
@@ -23,4 +23,15 @@ test("a returned-to entry keeps its place until it has been restored", () => {
   release();
   rememberScrollPosition("back", 120);
   expect(savedScrollPosition("back")).toBe(120);
+});
+
+test("Back records the entry being left even when its scroll event never arrived", () => {
+  const target = new EventTarget() as unknown as Window;
+  const scroller = { scrollTop: 0 } as HTMLElement;
+  installScrollMemory(target);
+  setScrollEntry("left", () => scroller);
+  rememberScrollPosition("left", 0);
+  scroller.scrollTop = 400; // scrolled, but the frame that dispatches "scroll" hasn't run
+  target.dispatchEvent(new Event("popstate"));
+  expect(savedScrollPosition("left")).toBe(400);
 });

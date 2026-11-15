@@ -12,6 +12,7 @@ import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
 import { observeReaderVitals, recordReaderPhase, setReaderTelemetryRoute } from "./reader-telemetry";
 import { webMcpAvailable } from "./webmcp/webmcp-flag";
+import { installScrollMemory } from "./shell/scroll-memory";
 // oncobase.io is the marketing site: three pages, no reader, no sign-in, no telemetry endpoint.
 const site = siteResponse();
 const initialRoute = rootRouteFor(location.pathname, educationOnlyResponse(), landingResponse(), site);
@@ -62,6 +63,8 @@ publishRuntimeEnvironment({
 setReaderTelemetryRoute(initialRoute, location.pathname);
 if (site === "diana") observeReaderVitals();
 recordReaderPhase("boot-script", undefined, bootScriptStart);
+// Before the router mounts, so Back/Forward record the page being left first.
+installScrollMemory();
 
 const ImmersiveDicomRoot = lazy(() =>
   import("./ImmersiveDicomRoot").then((module) => ({

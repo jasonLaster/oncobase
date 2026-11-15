@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigationType } from "react-router";
-import { freezeScrollPosition, rememberScrollPosition, savedScrollPosition } from "./scroll-memory";
+import { freezeScrollPosition, rememberScrollPosition, savedScrollPosition, setScrollEntry } from "./scroll-memory";
 
 export const MAIN_CONTENT_ID = "main-content";
 /** A destination that is still loading: the previous article stays up, or a skeleton shows. */
@@ -109,9 +109,9 @@ export function RouteFocus() {
     releaseFrozen.current = release;
     const onScroll = () => rememberScrollPosition(location.key, main.scrollTop);
     main.addEventListener("scroll", onScroll, { passive: true });
-    // Scroll events arrive a frame late; Back/Forward right after scrolling would otherwise lose the last one.
-    window.addEventListener("popstate", onScroll, true);
-    return () => { main.removeEventListener("scroll", onScroll); window.removeEventListener("popstate", onScroll, true); release?.(); };
+    // Back/Forward right after a scroll is recorded by the listener installScrollMemory added at startup.
+    setScrollEntry(location.key, () => document.getElementById(MAIN_CONTENT_ID));
+    return () => { main.removeEventListener("scroll", onScroll); release?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key]);
 
