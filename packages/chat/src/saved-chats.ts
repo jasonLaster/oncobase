@@ -3,6 +3,9 @@ import type { UIMessage } from "ai";
 /** Conversations kept only in this browser, so a reader can come back to one
  * without an account. An index lists them; each transcript has its own key,
  * so saving one turn never rewrites the others. Nothing here reaches a server. */
+/** What these helpers use. Writes may throw (quota), which saveChat relies on to evict old chats. */
+export type SavedChatStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
 export type SavedChatSummary = { id: string; title: string; updatedAt: number };
 
 const MAX_CHATS = 20;
@@ -25,7 +28,7 @@ export function savedChatTitle(messages: UIMessage[]) {
 }
 
 /** Newest first. A blocked or damaged store reads as empty. */
-export function listSavedChats(storage: Storage, prefix: string): SavedChatSummary[] {
+export function listSavedChats(storage: SavedChatStorage, prefix: string): SavedChatSummary[] {
   try {
     const saved = JSON.parse(storage.getItem(indexKey(prefix)) ?? "null");
     if (saved?.version !== 1 || !Array.isArray(saved.chats)) return [];
@@ -34,7 +37,7 @@ export function listSavedChats(storage: Storage, prefix: string): SavedChatSumma
   } catch { return []; }
 }
 
-export function loadSavedChat(storage: Storage, prefix: string, id: string): UIMessage[] | null {
+export function loadSavedChat(storage: SavedChatStorage, prefix: string, id: string): UIMessage[] | null {
   if (!isSavedChatId(id)) return null;
   try {
     const saved = JSON.parse(storage.getItem(chatKey(prefix, id)) ?? "null");
@@ -42,12 +45,12 @@ export function loadSavedChat(storage: Storage, prefix: string, id: string): UIM
   } catch { return null; }
 }
 
-const writeIndex = (storage: Storage, prefix: string, chats: SavedChatSummary[]) =>
+const writeIndex = (storage: SavedChatStorage, prefix: string, chats: SavedChatSummary[]) =>
   storage.setItem(indexKey(prefix), JSON.stringify({ version: 1, chats }));
 
 /** Saves a transcript and moves it to the top. When the browser is out of room,
  * the oldest chats go first; if even this one cannot fit, it is not saved. */
-export function saveChat(storage: Storage, prefix: string, id: string, messages: UIMessage[], now = Date.now()) {
+export function saveChat(storage: SavedChatStorage, prefix: string, id: string, messages: UIMessage[], now = Date.now()) {
   if (!isSavedChatId(id) || !messages.length) return false;
   let chats = [{ id, title: savedChatTitle(messages), updatedAt: now }, ...listSavedChats(storage, prefix).filter(chat => chat.id !== id)];
   for (const dropped of chats.splice(MAX_CHATS)) try { storage.removeItem(chatKey(prefix, dropped.id)); } catch { /* Already gone. */ }
@@ -68,7 +71,7 @@ export function saveChat(storage: Storage, prefix: string, id: string, messages:
   }
 }
 
-export function deleteSavedChat(storage: Storage, prefix: string, id: string) {
+export function deleteSavedChat(storage: SavedChatStorage, prefix: string, id: string) {
   try {
     storage.removeItem(chatKey(prefix, id));
     writeIndex(storage, prefix, listSavedChats(storage, prefix).filter(chat => chat.id !== id));

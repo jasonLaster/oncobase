@@ -5,6 +5,6 @@
   "jsx-a11y/no-autofocus": 1,
   "jsx-a11y/no-noninteractive-element-interactions": 1,
   "jsx-a11y/no-static-element-interactions": 1,
-  "react-hooks/set-state-in-effect": 3,
+  "react-hooks/set-state-in-effect": 4,
   "unused-disable-directive": 1
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { safeSessionStorage } from "@oncobase/safe-storage";
+import { resolveWebStorage, safeSessionStorage } from "@oncobase/safe-storage";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -20,7 +20,8 @@ export type SessionChatActions = {
   latest: boolean;
 };
 
-const local = () => { try { return window.localStorage; } catch { return null; } };
+// The raw store (null when blocked): saveChat needs writes that throw on quota so it can evict old chats.
+const local = () => resolveWebStorage("localStorage");
 const savedDate = (time: number) => new Date(time).toLocaleDateString(undefined, { month: "short", day: "numeric", ...(new Date(time).getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }) });
 
 /** Shared Oncobase streaming UI for public learning sessions without an account.
