@@ -1,85 +1,25 @@
-import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { assertPublicAssets } from "./public-assets";
+import { planVercelBuild, runVercelBuild, type StepRunner } from "./vercel-build-plan";
 
+// Vercel's buildCommand. The step order lives in vercel-build-plan.ts:
+// review public files, build and check everything, and deploy Convex last.
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CONVEX_URL_FILE = path.join(ROOT, ".convex-deployment-url");
-const PROD_CONVEX_FALLBACK_URL = "https://youthful-cricket-560.convex.cloud";
 
-// Fail before deploying the backend or copying any public assets.
-assertPublicAssets(path.join(ROOT, "public"));
+const runner: StepRunner = {
+  command(step) {
+    const result = spawnSync(step.command, step.args, {
+      cwd: ROOT,
+      env: { ...process.env, ...step.env },
+      stdio: "inherit",
+    });
+    return result.status ?? 1;
+  },
+  task() {
+    assertPublicAssets(path.join(ROOT, "public"));
+  },
+};
 
-function run(
-  command: string,
-  args: string[],
-  env: NodeJS.ProcessEnv = process.env,
-  cwd = ROOT,
-) {
-  const result = spawnSync(command, args, {
-    cwd,
-    env,
-    stdio: "inherit",
-  });
-  if (result.status !== 0) process.exit(result.status ?? 1);
-}
-
-function shellQuote(value: string) {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function isPlaceholderConvexUrl(value: string) {
-  return /^https:\/\/(example|placeholder)\./.test(value) || value.includes("placeholder");
-}
-
-if (fs.existsSync(CONVEX_URL_FILE)) fs.rmSync(CONVEX_URL_FILE);
-
-let convexUrl: string;
-if (process.env.VERCEL_ENV === "production" && process.env.WIKI_DEPLOY_FRONTEND_ONLY !== "1") {
-  run(
-    "npx",
-    [
-      "convex",
-      "deploy",
-      "--cmd-url-env-var-name",
-      "NEXT_PUBLIC_CONVEX_URL",
-      "--cmd",
-      `printf '%s' "$NEXT_PUBLIC_CONVEX_URL" > ${shellQuote(CONVEX_URL_FILE)}`,
-    ],
-    process.env,
-    ROOT,
-  );
-
-  if (!fs.existsSync(CONVEX_URL_FILE)) {
-    console.error("Convex deploy did not write a deployment URL.");
-    process.exit(1);
-  }
-  convexUrl = fs.readFileSync(CONVEX_URL_FILE, "utf8").trim();
-  if (!convexUrl) {
-    console.error("Convex deploy returned an empty deployment URL.");
-    process.exit(1);
-  }
-} else {
-  const fromEnv = process.env.NEXT_PUBLIC_CONVEX_URL?.trim() || "";
-  if (process.env.VERCEL_ENV === "production" && (!fromEnv || isPlaceholderConvexUrl(fromEnv))) {
-    throw new Error("A frontend-only production deployment requires the current NEXT_PUBLIC_CONVEX_URL");
-  }
-  convexUrl = fromEnv && !isPlaceholderConvexUrl(fromEnv)
-    ? fromEnv
-    : PROD_CONVEX_FALLBACK_URL;
-  console.log(
-    `Skipping Convex deploy (VERCEL_ENV=${process.env.VERCEL_ENV ?? "unset"}); ` +
-      `using NEXT_PUBLIC_CONVEX_URL=${convexUrl}` +
-      (fromEnv && !isPlaceholderConvexUrl(fromEnv)
-        ? ""
-        : " (fallback - env var was empty or placeholder)"),
-  );
-}
-
-run("bun", ["run", "build"], {
-  ...process.env,
-  NEXT_PUBLIC_CONVEX_URL: convexUrl,
-  CONVEX_URL: convexUrl,
-  WIKI_VITE_EMBED_APP_SHELL: "1",
-});
+process.exit(await runVercelBuild(planVercelBuild(process.env), runner));
