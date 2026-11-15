@@ -3,6 +3,7 @@ import { mutation, query } from "./lib/serviceFunctions";
 import { DEFAULT_SITE_SLUG, SITE_SLUG_RE, assertSiteSlug } from "./lib/site";
 import { assertPublishRun, OWNED_RUN_PREFIX, PUBLISH_LEASE_MS, PUBLISH_LEASE_RENEW_SKIP_MS } from "./lib/publishRun";
 import { invalidateManifest, queueManifestBuild, MANIFEST_SNAPSHOT_VERSION } from "./lib/manifestRevision";
+import { bumpAccessRevision } from "./lib/accessRevision";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 
@@ -106,6 +107,25 @@ export const getBySlug = query({
   },
 });
 
+// What the password gate and PII redaction need, and nothing else: never
+// publish token hashes, integration secrets, quotas or publish state.
+export const gate = query({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    assertSiteSlug(slug);
+    const site = await ctx.db
+      .query("sites")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    if (!site || site.status !== "active") return null;
+    return {
+      passwordGate: site.config.passwordGate,
+      passwordHash: site.config.passwordHash ?? null,
+      piiPatterns: site.config.piiPatterns ?? [],
+    };
+  },
+});
+
 export const getByLiveblocksWorkspace = query({
   args: { workspaceId: v.string() },
   handler: async (ctx, { workspaceId }) => {
@@ -162,6 +182,8 @@ export const ensureDiana = internalMutation({
           : existing.config,
         updatedAt: now,
       });
+      // The gate password (and so every gate cookie's version) may change.
+      if (args.passwordHash && args.passwordHash !== existing.config.passwordHash) await bumpAccessRevision(ctx, existing._id);
       return existing._id;
     }
 
@@ -454,6 +476,7 @@ export const archive = internalMutation({
       publishScope: undefined,
       updatedAt: Date.now(),
     });
+    await bumpAccessRevision(ctx, site._id);
     return { archived: true };
   },
 });
@@ -472,6 +495,7 @@ export const restore = internalMutation({
       archivedAt: undefined,
       updatedAt: Date.now(),
     });
+    await bumpAccessRevision(ctx, site._id);
     return { restored: true };
   },
 });

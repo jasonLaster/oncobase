@@ -33,6 +33,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { invalidateManifest } from "./lib/manifestRevision";
+import { bumpAccessRevision } from "./lib/accessRevision";
 import { DEFAULT_SITE_SLUG } from "./lib/site";
 import { syncDocumentMeta } from "./lib/documentMeta";
 import type { Doc } from "./_generated/dataModel";
@@ -281,6 +282,8 @@ export const backfillSiteIdsBatch = internalMutation({
       patched++;
     }
     if (patched && (table === "documents" || table === "pdfAssets" || table === "fileAssets")) await invalidateManifest(ctx, siteId);
+    // A user row that gains its siteId starts matching email-pattern roles.
+    if (patched && table === "users") await bumpAccessRevision(ctx, siteId);
     return {
       table,
       scanned: page.page.length,

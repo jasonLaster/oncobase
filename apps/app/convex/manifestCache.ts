@@ -3,6 +3,8 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { serviceOrSecretMutation, serviceOrSecretQuery } from "./lib/serviceFunctions";
 import { requireSite } from "./lib/site";
 import { hasActiveScopedWriter, MANIFEST_SNAPSHOT_VERSION, queueManifestBuild } from "./lib/manifestRevision";
+import { manifestFence } from "./lib/accessRevision";
+import { query } from "./lib/serviceFunctions";
 
 // Generations survive lease release, so a delayed failure cannot erase a successor.
 // Legacy jobs only own legacy leases; manual builds can install when no job owns it.
@@ -49,6 +51,16 @@ export const current = serviceOrSecretQuery({
     if (!snapshot || snapshot.revision !== (site?.manifestRevision ?? 0) || snapshot.formatVersion !== MANIFEST_SNAPSHOT_VERSION) return null;
     const url = await ctx.storage.getUrl(snapshot.storageId);
     return url ? { hash: snapshot.hash, revision: snapshot.revision, url } : null;
+  },
+});
+
+// The cheap "has anything changed" read behind `/api/wiki/manifest?known=`.
+// One site row, no storage URL, no configuration or credentials.
+export const knownState = query({
+  args: { siteSlug: v.string() },
+  handler: async (ctx, { siteSlug }) => {
+    const { site } = await requireSite(ctx, siteSlug);
+    return site ? manifestFence(site) : null;
   },
 });
 

@@ -39,7 +39,8 @@ test("every server-only public handler denies before reading or mutating data", 
       checked++;
     }
   }
-  expect(checked).toBe(112);
+  // +3: sites.gate, manifestCache.knownState, access.sessionManifestOverlay.
+  expect(checked).toBe(115);
 });
 
 test("document reads, legacy bulk reads, sensitive flag and hash lookups require a verified service identity", async () => {

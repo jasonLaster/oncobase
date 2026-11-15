@@ -66,6 +66,10 @@ export default defineSchema({
     }),
     monthlyTokensUsed: v.optional(v.number()),
     manifestRevision: v.optional(v.number()),
+    // Bumped in the same transaction as every change to who can read what
+    // (roles, rules, assignments, membership, the site gate, the metadata
+    // source). Missing means 0. See convex/lib/accessRevision.ts.
+    accessRevision: v.optional(v.number()),
     manifestBuildQueuedAt: v.optional(v.number()),
     manifestBuildGeneration: v.optional(v.number()),
     manifestSnapshot: v.optional(v.object({

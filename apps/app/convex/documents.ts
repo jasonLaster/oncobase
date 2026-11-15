@@ -13,7 +13,7 @@ import {
 import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import { invalidateManifest } from "./lib/manifestRevision";
 import { assertPublishRun, recordPublishChange } from "./lib/publishRun";
-import { hasCompleteAssetVisibility } from "./lib/assetVisibility";
+import { assetPathToSiblingSlug, hasCompleteAssetVisibility } from "./lib/assetVisibility";
 import {
   collectDocumentMetadata,
   documentMetaReady,
@@ -107,10 +107,6 @@ function canReadDocument(
   includeSensitive?: boolean,
 ) {
   return !doc.deletedAt && (includeSensitive || isPublicDocument(doc));
-}
-
-function assetPathToSiblingSlug(assetPath: string) {
-  return assetPath.replace(/\.[^/.]+$/, "");
 }
 
 async function findDocBySlug(ctx: AnyCtx, site: SiteCtx, slug: string) {

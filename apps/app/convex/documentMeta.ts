@@ -14,6 +14,7 @@
  */
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { bumpAccessRevision } from "./lib/accessRevision";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireSite } from "./lib/site";
 import { documentMetadata, syncDocumentMeta, type SyncResult } from "./lib/documentMeta";
@@ -88,6 +89,8 @@ export const backfillBatch = internalMutation({
     if (finished && markReady && !readyAt) {
       readyAt = Date.now();
       await ctx.db.patch(site.siteId, { documentMetaReadyAt: readyAt });
+      // Access rules now read documentMeta instead of documents.
+      await bumpAccessRevision(ctx, site.siteId);
     }
     const next: [string, Phase, string | null] = pageDone
       ? ["docmeta-backfill-v1", "prune", null]
@@ -149,6 +152,7 @@ export const setReady = internalMutation({
     const site = await scopedSite(ctx, siteSlug);
     const readyAt = ready ? site.site.documentMetaReadyAt ?? Date.now() : undefined;
     await ctx.db.patch(site.siteId, { documentMetaReadyAt: readyAt });
+    if ((site.site.documentMetaReadyAt ?? null) !== (readyAt ?? null)) await bumpAccessRevision(ctx, site.siteId);
     return { siteSlug, readyAt: readyAt ?? null };
   },
 });

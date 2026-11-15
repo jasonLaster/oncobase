@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./lib/serviceFunctions";
 import { requireSite, rowBelongsToSite } from "./lib/site";
 import { internalMutation } from "./_generated/server";
+import { bumpAccessRevision } from "./lib/accessRevision";
 
 export const getByEmailForAuth = query({
   args: { email: v.string(), siteSlug: v.optional(v.string()) },
@@ -48,7 +49,7 @@ export const create = mutation({
       throw new Error("An account with that email already exists");
     }
     const now = Date.now();
-    return await ctx.db.insert("users", {
+    const userId = await ctx.db.insert("users", {
       ...(siteId ? { siteId } : {}),
       email,
       name,
@@ -57,6 +58,10 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    // Membership changed. No existing token names this user, but keep every
+    // membership change on the same fence rather than reason about patterns.
+    await bumpAccessRevision(ctx, siteId);
+    return userId;
   },
 });
 

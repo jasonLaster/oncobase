@@ -5,6 +5,8 @@ import { requireSite, rowBelongsToSite, type SiteCtx } from "./lib/site";
 import type { Doc, Id } from "./_generated/dataModel";
 import { canAccessWithoutProtectedRule } from "./lib/accessPolicy";
 import { findDocumentMetadata, paginateDocumentMetadata, type DocumentMetadata } from "./lib/documentMeta";
+import { bumpAccessRevision, manifestFence } from "./lib/accessRevision";
+import { assetPathToSiblingSlug, hasCompleteAssetVisibility } from "./lib/assetVisibility";
 
 function pathAllowed(path: string, patterns: string[]) {
   return patterns.some((pattern) => {
@@ -430,6 +432,7 @@ export const createRole = mutation({
       includeTags,
       excludeTags,
     });
+    await bumpAccessRevision(ctx, site.siteId);
     return roleId;
   },
 });
@@ -481,6 +484,7 @@ export const updateRole = mutation({
       includeTags,
       excludeTags,
     });
+    await bumpAccessRevision(ctx, site.siteId);
     return roleId;
   },
 });
@@ -522,6 +526,7 @@ export const deleteRole = mutation({
     }
 
     await ctx.db.delete(roleId);
+    await bumpAccessRevision(ctx, site.siteId);
     return roleId;
   },
 });
@@ -535,12 +540,14 @@ export const assignRoleToUser = mutation({
       .withIndex("by_user_role", (q) => q.eq("userId", userId).eq("roleId", roleId))
       .first();
     if (existing && rowBelongsToSite(existing, site)) return existing._id;
-    return await ctx.db.insert("userRoles", {
+    const assignmentId = await ctx.db.insert("userRoles", {
       ...(site.siteId ? { siteId: site.siteId } : {}),
       userId,
       roleId,
       createdAt: Date.now(),
     });
+    await bumpAccessRevision(ctx, site.siteId);
+    return assignmentId;
   },
 });
 
@@ -555,7 +562,9 @@ export const setRoleForUser = mutation({
       }
     }
 
-    return await setRoleForSiteUser(ctx, site, userId, roleId);
+    const assignmentId = await setRoleForSiteUser(ctx, site, userId, roleId);
+    await bumpAccessRevision(ctx, site.siteId);
+    return assignmentId;
   },
 });
 
@@ -579,6 +588,7 @@ export const setRoleForUsers = mutation({
       await setRoleForSiteUser(ctx, site, userId, roleId);
       updated += 1;
     }
+    if (updated) await bumpAccessRevision(ctx, site.siteId);
     return { updated };
   },
 });
@@ -606,6 +616,7 @@ export const deleteUsers = mutation({
       await ctx.db.delete(userId);
       deleted += 1;
     }
+    if (deleted) await bumpAccessRevision(ctx, site.siteId);
 
     return { deleted, revokedSessions };
   },
@@ -811,10 +822,106 @@ export const listAllowedSensitiveManifestPage = query({
       createDocumentAccessCheck(ctx, site, userId),
     ]);
     return {
-      page: result.page.filter(doc => rowBelongsToSite(doc, site) && !doc.deletedAt && canRead(doc.slug, doc))
-        .map(doc => ({ slug: doc.slug, title: doc.title, tags: doc.tags, description: doc.description ?? null,
-          contentHash: doc.contentHash ?? null, sensitive: true, size: doc.size })),
+      page: allowedManifestRows(result.page, site, canRead),
       isDone: result.isDone, continueCursor: result.continueCursor,
+    };
+  },
+});
+
+function allowedManifestRows(rows: DocumentMetadata[], site: SiteCtx, canRead: Awaited<ReturnType<typeof createDocumentAccessCheck>>) {
+  return rows.filter(doc => rowBelongsToSite(doc, site) && !doc.deletedAt && canRead(doc.slug, doc))
+    .map(doc => ({ slug: doc.slug, title: doc.title, tags: doc.tags, description: doc.description ?? null,
+      contentHash: doc.contentHash ?? null, sensitive: true as const, size: doc.size }));
+}
+
+const OVERLAY_ASSET_PAGE_SIZE = 500;
+
+/**
+ * Everything a signed-in manifest needs beyond the public snapshot, read in
+ * one transaction with the revision fence that proves it is consistent:
+ * the user's allowed sensitive pages, every PDF asset path the user may see
+ * (public and sensitive, in index order, so the result equals the old
+ * listPdfAssetVisibilityPage + filterAccessibleSlugs chain), and the fence.
+ *
+ * Pass `pages`/`assets` as null to start that list, a cursor to continue, or
+ * omit it when that list is done. Callers that page must see the same fence on
+ * every call. `includeSnapshotUrl` returns the snapshot's storage URL, which
+ * stays in the server process.
+ */
+export const sessionManifestOverlay = query({
+  args: {
+    userId: v.id("users"),
+    siteSlug: v.optional(v.string()),
+    pages: v.optional(v.union(v.string(), v.null())),
+    assets: v.optional(v.union(v.string(), v.null())),
+    numItems: v.number(),
+    includeSnapshotUrl: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { userId, siteSlug, pages, assets, numItems, includeSnapshotUrl }) => {
+    if (!Number.isInteger(numItems) || numItems < 1 || numItems > 500) throw new Error("Invalid metadata page size");
+    const site = await requireSite(ctx, siteSlug);
+    if (!site.siteId || !site.site) return null;
+    const scoped = { ...site, siteId: site.siteId };
+    const fence = manifestFence(site.site);
+    const canRead = await createDocumentAccessCheck(ctx, site, userId);
+    let pageResult: { page: ReturnType<typeof allowedManifestRows>; isDone: boolean; continueCursor: string | null } = { page: [], isDone: true, continueCursor: null };
+    if (pages !== undefined) {
+      const result = await paginateDocumentMetadata(ctx, scoped, "by_site_sensitive_slug",
+        q => q.eq("siteId", site.siteId!).eq("sensitive", true),
+        { cursor: pages, numItems, maximumBytesRead: 4 * 1024 * 1024 });
+      pageResult = { page: allowedManifestRows(result.page, site, canRead), isDone: result.isDone, continueCursor: result.continueCursor };
+    }
+    let assetResult: { page: string[]; isDone: boolean; continueCursor: string | null } = { page: [], isDone: true, continueCursor: null };
+    if (assets !== undefined) {
+      // Convex allows one paginate() per function, so assets page by key:
+      // the cursor is the last row's [path, _creationTime], the index order.
+      const after = assets === null ? null : JSON.parse(assets) as [string, number];
+      const rows = await ctx.db.query("pdfAssets")
+        .withIndex("by_site_path", q => after ? q.eq("siteId", site.siteId!).gte("path", after[0]) : q.eq("siteId", site.siteId!))
+        .filter(q => after ? q.or(q.gt(q.field("path"), after[0]), q.gt(q.field("_creationTime"), after[1])) : true)
+        .take(OVERLAY_ASSET_PAGE_SIZE + 1);
+      const last = rows.length > OVERLAY_ASSET_PAGE_SIZE ? rows[OVERLAY_ASSET_PAGE_SIZE - 1] : null;
+      const result = {
+        page: rows.slice(0, OVERLAY_ASSET_PAGE_SIZE),
+        isDone: last === null,
+        continueCursor: last ? JSON.stringify([last.path, last._creationTime]) : null,
+      };
+      const owners = new Map<string, Promise<boolean>>();
+      // Same rule as the manifest's asset filter: an owner counts only if the
+      // document exists and this user can read it.
+      const ownerReadable = (slug: string) => {
+        let readable = owners.get(slug);
+        if (!readable) {
+          readable = findDocumentBySlug(ctx, site, slug).then(doc => doc !== null && canRead(slug, doc));
+          owners.set(slug, readable);
+        }
+        return readable;
+      };
+      const visible: string[] = [];
+      for (const row of result.page) {
+        if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+        const sensitive = !hasCompleteAssetVisibility(row) || row.sensitive === true;
+        if (!sensitive) { visible.push(row.path); continue; }
+        const ownerSlugs = new Set(row.ownerSlugs ?? []);
+        const sibling = await findDocumentBySlug(ctx, site, assetPathToSiblingSlug(row.path));
+        if (sibling) ownerSlugs.add(sibling.slug);
+        if (ownerSlugs.size === 0) continue;
+        const readable = await Promise.all([...ownerSlugs].map(ownerReadable));
+        if (readable.every(Boolean)) visible.push(row.path);
+      }
+      assetResult = { page: visible, isDone: result.isDone, continueCursor: result.continueCursor };
+    }
+    const snapshot = includeSnapshotUrl && fence.snapshotHash && site.site.manifestSnapshot
+      ? await ctx.storage.getUrl(site.site.manifestSnapshot.storageId) : null;
+    return {
+      fence,
+      snapshotUrl: snapshot,
+      pages: pageResult.page,
+      pagesDone: pageResult.isDone,
+      pagesCursor: pageResult.isDone ? null : pageResult.continueCursor,
+      assets: assetResult.page,
+      assetsDone: assetResult.isDone,
+      assetsCursor: assetResult.isDone ? null : assetResult.continueCursor,
     };
   },
 });

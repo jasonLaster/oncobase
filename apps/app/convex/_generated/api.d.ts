@@ -21,6 +21,7 @@ import type * as epicFhir from "../epicFhir.js";
 import type * as guestNames from "../guestNames.js";
 import type * as imageAnnotations from "../imageAnnotations.js";
 import type * as lib_accessPolicy from "../lib/accessPolicy.js";
+import type * as lib_accessRevision from "../lib/accessRevision.js";
 import type * as lib_assetVisibility from "../lib/assetVisibility.js";
 import type * as lib_conversationAuth from "../lib/conversationAuth.js";
 import type * as lib_documentMeta from "../lib/documentMeta.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   guestNames: typeof guestNames;
   imageAnnotations: typeof imageAnnotations;
   "lib/accessPolicy": typeof lib_accessPolicy;
+  "lib/accessRevision": typeof lib_accessRevision;
   "lib/assetVisibility": typeof lib_assetVisibility;
   "lib/conversationAuth": typeof lib_conversationAuth;
   "lib/documentMeta": typeof lib_documentMeta;
