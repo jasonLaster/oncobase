@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { WikiMarkdownRenderer } from "./renderer";
+import { WikiMarkdown as WikiMarkdownRenderer } from "./index.tsx";
 import { renderWikiMarkdownHtml } from "./server";
 
 test("authored drug explanations survive server HTML and become accessible client pills", () => {

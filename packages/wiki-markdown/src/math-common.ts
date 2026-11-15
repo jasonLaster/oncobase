@@ -1,7 +1,7 @@
-import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { rehypeRawEquivalent } from "./raw-html-equivalent.ts";
 
 type MarkdownNode = {
   type: string;
@@ -129,4 +129,9 @@ export function remarkCleanMath() {
 }
 
 export const markdownRemarkPlugins = [remarkGfm, remarkMath, remarkCleanMath];
-export const markdownRehypePlugins = [rehypeRaw, rehypeSlug];
+/** Plugins after the raw-HTML step. The full list (`rehype-plugins.ts`) puts
+ * rehype-raw in front; documents without raw HTML use `markdownLightRehypePlugins`. */
+export const markdownRehypeTailPlugins = [rehypeSlug];
+/** For documents `mayContainRawHtml` clears: their only raw nodes are complete
+ * comments, which rehype-raw would turn into comment nodes that render nothing. */
+export const markdownLightRehypePlugins = [rehypeRawEquivalent, ...markdownRehypeTailPlugins];

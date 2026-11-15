@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DefaultWikiImage } from "./image-renderer";
-import { WikiMarkdownRenderer } from "./renderer";
+import { WikiMarkdown as WikiMarkdownRenderer } from "./index.tsx";
 test("article images do not create eager preload requests, while explicit eager images remain supported", () => {
   const html = renderToStaticMarkup(<DefaultWikiImage src="/figure.png" alt="Figure" />);
   expect(html).toContain('loading="lazy"'); expect(html).toContain('decoding="async"');

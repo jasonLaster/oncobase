@@ -34,13 +34,9 @@ import {
 import { ImageTheater } from "./image-theater.tsx";
 import { type WikiImageComponent } from "./image-renderer.tsx";
 import { TheaterImage } from "./theater-image.tsx";
-import {
-  markdownRehypePlugins,
-  markdownRemarkPlugins,
-  protectCurrencyFromMath,
-} from "./math-common.ts";
+import { markdownRemarkPlugins } from "./math-common.ts";
+import { prepareWikiMarkdown } from "./prepare.ts";
 import { PdfChipLink, isPdfChipHref } from "./pdf-chip.tsx";
-import { expandSlidesMarkdown } from "./slides-markdown.ts";
 import { SlidesViewer, SlidesViewerControls } from "./slides-viewer.tsx";
 import { WikiMarkdownFrame } from "./frame.tsx";
 import { AnnotatedTerm } from "./annotated-term.tsx";
@@ -229,15 +225,16 @@ export const WikiMarkdownRenderer = memo(function WikiMarkdownRenderer({
   ImageComponent,
   resolveLinkHref,
   isInternalHref = isInternalWikiHref,
-  rehypePlugins = markdownRehypePlugins,
-}: WikiMarkdownProps & { rehypePlugins?: ComponentProps<typeof ReactMarkdown>["rehypePlugins"] }) {
-  const prepared = protectCurrencyFromMath(
-    expandSlidesMarkdown(
-      preprocessCitationMarkdown(
-        resolveWikilinks(content, currentSlug, apiBasePath),
-      ),
-    ),
-  );
+  rehypePlugins,
+  preparedContent,
+}: WikiMarkdownProps & {
+  /** The wrappers choose these: the full list (with rehype-raw) or, for a
+   * document without raw HTML, the light list. */
+  rehypePlugins: ComponentProps<typeof ReactMarkdown>["rehypePlugins"];
+  /** `prepareWikiMarkdown(content, currentSlug, apiBasePath)`, when the caller already has it. */
+  preparedContent?: string;
+}) {
+  const prepared = preparedContent ?? prepareWikiMarkdown(content, currentSlug, apiBasePath);
 
   // These functions are React component types. Recreating them on a metrics
   // update remounts images/tables and discards an open preview or local state.
@@ -351,8 +348,8 @@ export {
   TheaterImage,
   WikiMarkdownFrame,
   isInternalWikiHref,
-  markdownRehypePlugins,
   markdownRemarkPlugins,
+  prepareWikiMarkdown,
   preprocessCitationMarkdown,
   preprocessCitations,
   resolveAssetPath,
