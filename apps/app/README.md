@@ -75,6 +75,68 @@ Production comments use authenticated mode and fail closed when the Liveblocks
 API key is unavailable; an explicit `VITE_LIVEBLOCKS_PUBLIC_KEY` is reserved
 for local development fixtures.
 
+### Deploying
+
+`vercel.json` runs `scripts/build-vercel.ts`. Its steps are planned in
+`scripts/vercel-build-plan.ts` and tested in `vercel-build-plan.test.ts`. A
+production build runs, in order, stopping at the first failure:
+
+1. Review the public files (`public-assets.ts`).
+2. Run `bun run build`: typecheck, Vite build, then the function bundle with
+   its server budget. It builds against the Convex URL named by the production
+   `CONVEX_DEPLOY_KEY` (`prod:<name>|…` → `https://<name>.convex.cloud`).
+3. Check the bundle budget (`check-bundle-budget.ts`).
+4. Copy in the previous production builds' chunks, so open tabs keep working
+   (see below).
+5. Run `convex deploy`. Its pre-push `--cmd` refuses to push if Convex reports
+   a URL other than the one the app was built for.
+
+Convex therefore changes only after the app has built and passed every check.
+A failed build changes nothing. Convex still deploys before the new app
+serves traffic, so a Convex change must keep working for the app that is live
+now: add first, remove in a later deploy.
+
+Build variables:
+
+- `WIKI_DEPLOY_FRONTEND_ONLY=1`: skip the Convex deploy. This needs a real
+  `NEXT_PUBLIC_CONVEX_URL`.
+- `WIKI_DEPLOY_SKIP_BUNDLE_BUDGET=1`: skip the bundle budget for an emergency
+  deploy. The log says so.
+- `WIKI_ASSET_HISTORY_ORIGIN`: where to read the previous build's chunks from.
+  The default is `https://$VERCEL_PROJECT_PRODUCTION_URL`.
+
+Preview builds never deploy Convex and never copy old chunks.
+
+**Open tabs across a deploy.** Each production build reads
+`/assets/asset-history.json` from the live site. It copies the hashed files of
+up to four earlier builds from the last 14 days into its own `dist/assets`, if
+the new build no longer has them, then writes a new history. A tab still on an
+older build keeps loading its lazy routes. A file older than that window gets
+a `no-store` 404, and the reader falls back to reloading once
+(`vite:preloadError` in `src/main.tsx`). The copy runs after the bundle budget,
+so the old files are not counted, and an error in it never fails a deploy.
+
+**Gated promotion (off by default).** By default, a push to `main` goes live
+as soon as the Vercel build passes, and the deployed suite then tests
+production. To promote only after CI passes:
+
+1. In Vercel, open `diana-tnbc-wiki-vite`, then Settings → Environments →
+   Production, and turn off "Auto-assign Custom Production Domains". Pushes to
+   `main` then create staged production deployments that serve only their
+   immutable `*.vercel.app` URL.
+2. Add a `VERCEL_TOKEN` repository secret: a token that can promote
+   deployments in `jlasters-projects`. If the team slug differs, set the
+   `WIKI_VITE_VERCEL_SCOPE` repository variable.
+3. Set the repository variable `WIKI_VITE_GATED_PROMOTION=true`.
+
+The `promote` job in `wiki-vite-checks.yml` then waits for every other job
+(static, unit, the local-stack server suite, deployed shards, browser smoke,
+visual), all of which test the staged URL. If `main` has not moved on, it runs
+`vercel promote` on that exact URL. A red job leaves the previous deployment
+live. Turn the gate on only once `main` is green: a red job holds back every
+deploy. To ship by hand while the gate is on, use `vercel promote <url>` or
+Instant Rollback in the dashboard.
+
 ## Environment
 
 Production uses same-origin APIs. Optional development overrides are:

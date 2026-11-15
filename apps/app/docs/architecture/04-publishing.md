@@ -194,8 +194,9 @@ measure release readiness. Provider delays and bulk bytes preclude a universal
 ## Application deployment and operator tools
 
 Application deployment is separate from content publication. Root `vercel.json`
-uses `scripts/build-vercel.ts`; production normally deploys Convex and builds Vite
-plus API functions, while preview builds do not deploy Convex. Frontend-only
+uses `scripts/build-vercel.ts`; production builds Vite plus API functions, checks
+the budgets, and only then deploys Convex, while preview builds do not deploy
+Convex (see the app README, "Deploying"). Frontend-only
 rollouts can explicitly skip backend deployment. The standalone Bun server uses
 the same handlers. There is no Next runtime or `/api/post-deploy` workflow.
 

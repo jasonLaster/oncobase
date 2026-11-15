@@ -316,3 +316,56 @@ jobs:
             apps/app/test-summary.json
             apps/app/test-results/**/*.png
           retention-days: 7
+
+  # Gated promotion (A3). Inert until the repository variable
+  # WIKI_VITE_GATED_PROMOTION is "true". Turn it on only together with
+  # Vercel's "Auto-assign Custom Production Domains" switched off: a push to
+  # main then builds a staged production deployment (Convex already deployed
+  # by the build, after every build check passed), every job above tests that
+  # exact immutable URL, and only this job points the production domains at
+  # it. See apps/app/README.md "Deploying".
+  promote:
+    name: Promote Vite Production Deployment
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WIKI_VITE_GATED_PROMOTION == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [static, unit, server, preview-url, e2e-preview, browser-smoke, visual]
+    # Never cancel a promotion halfway; the run-level group still cancels
+    # superseded runs before they get here.
+    concurrency:
+      group: wiki-vite-promote
+      cancel-in-progress: false
+    steps:
+      - name: Skip if main has moved on
+        id: tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tip="$(gh api "repos/${REPOSITORY}/commits/main" --jq .sha)"
+          if [[ "${tip}" == "${GITHUB_SHA}" ]]; then
+            echo "current=true" >> "${GITHUB_OUTPUT}"
+          else
+            # A newer commit's run promotes its own build. Promoting this one
+            # now could roll production back past it.
+            echo "main is at ${tip}; not promoting ${GITHUB_SHA}." | tee -a "${GITHUB_STEP_SUMMARY}"
+            echo "current=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Promote the tested deployment
+        if: steps.tip.outputs.current == 'true'
+        env:
+          DEPLOYMENT_URL: ${{ needs.preview-url.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_SCOPE: ${{ vars.WIKI_VITE_VERCEL_SCOPE || 'jlasters-projects' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${VERCEL_TOKEN}" ]]; then
+            echo "VERCEL_TOKEN is not set; cannot promote ${DEPLOYMENT_URL}." >&2
+            exit 1
+          fi
+          npx --yes vercel@53.1.0 promote "${DEPLOYMENT_URL}" --yes --timeout 5m --token "${VERCEL_TOKEN}" --scope "${VERCEL_SCOPE}"
+          echo "Promoted ${DEPLOYMENT_URL} (${GITHUB_SHA})." | tee -a "${GITHUB_STEP_SUMMARY}"
