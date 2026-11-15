@@ -135,8 +135,15 @@ const storeLoaderPatterns = [
 // The two classes get their own limits from measured sizes plus ~1%:
 // paint-critical 407.8 KiB, store 802.8 KiB. A paint regression costs article
 // time on every cold load; a store regression costs only store-boot time.
-const eagerGzipBudget = 1_240_000;
-const paintGzipBudget = 421_000;
+// Phase 1 integration: the drug-term tooltip (base-ui tooltip + floating-ui,
+// 38.0 KiB) moved from paint-critical to lazy; it loads when the first drug
+// term renders. Paint 408.8 -> 371.4 KiB, so its limit drops 421,000 ->
+// 384,000 B. Eager measured 1,211.7 KiB with safe storage (A5), the manifest
+// token (P6) and Back/Forward scroll memory merged, 1,174.2 KiB after the move:
+// 1,240,000 -> 1,212,000 B. Lazy rises by the moved bytes, 3,990,000 ->
+// 4,028,000 B; the total did not grow.
+const eagerGzipBudget = 1_212_000;
+const paintGzipBudget = 384_000;
 const storeGzipBudget = 828_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
@@ -151,7 +158,7 @@ const storeGzipBudget = 828_000;
 // on that host: 3_460_000 -> 3_468_000.
 // PDF.js adds ~495 KiB gzip, exclusively on the PDF route (viewer + worker).
 // The reader's eager budget is unchanged; fonts/codecs load only when needed.
-const lazyGzipBudget = 3_990_000;
+const lazyGzipBudget = 4_028_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
