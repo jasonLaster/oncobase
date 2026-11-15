@@ -2,8 +2,10 @@
 
 import {
   Children,
+  createContext,
   isValidElement,
   memo,
+  useContext,
   useMemo,
   type AnchorHTMLAttributes,
   type ComponentProps,
@@ -194,6 +196,117 @@ const wikiUrlTransform: UrlTransform = (value) => {
   return sanitizeMarkdownUrl(value);
 };
 
+type MarkdownRenderContextValue = {
+  currentSlug: WikiMarkdownProps["currentSlug"];
+  apiBasePath: string;
+  resolveLinkHref?: WikiMarkdownProps["resolveLinkHref"];
+  isInternalHref: (href: string | undefined) => href is string;
+  LinkComponent?: WikiMarkdownProps["LinkComponent"];
+  tableLayoutAdapter?: SmartTableLayoutAdapter;
+  ImageComponent?: WikiImageComponent;
+};
+
+// The component map below is one module-level constant, so React never sees a
+// new component type. Anything that varies per page or per render (link
+// resolution, which changes as asset hashes arrive, and the table adapter)
+// comes through this context instead: a change re-renders links and images in
+// place, while tables keep their DOM and the widths smart-table gave them.
+// Rebuilding the map remounted every table on each data hand-off and shifted
+// the layout once per remount.
+const MarkdownRenderContext = createContext<MarkdownRenderContextValue>({
+  currentSlug: "",
+  apiBasePath: "",
+  isInternalHref: isInternalWikiHref,
+});
+
+function MarkdownLink({
+  href,
+  children,
+  node: _node,
+  ...props
+}: WikiMarkdownLinkProps & { node?: unknown }) {
+  const { currentSlug, apiBasePath, resolveLinkHref, isInternalHref, LinkComponent } = useContext(MarkdownRenderContext);
+  const defaultHref = resolveHref(href, currentSlug, apiBasePath);
+  const nextHref = resolveLinkHref
+    ? resolveLinkHref(defaultHref, {
+        rawHref: href,
+        currentSlug,
+        apiBasePath,
+      })
+    : defaultHref;
+
+  if (isPdfChipHref(nextHref)) {
+    return <PdfChipLink fallbackLabel={children} href={nextHref} />;
+  }
+
+  if (isInternalHref(nextHref) && LinkComponent) {
+    return (
+      <LinkComponent href={nextHref} {...props}>
+        {children}
+      </LinkComponent>
+    );
+  }
+
+  return (
+    <a href={nextHref} {...props}>
+      {children}
+    </a>
+  );
+}
+
+function MarkdownTable({
+  node,
+  ...props
+}: ComponentProps<typeof MdTable> & { node?: MarkdownTableNode }) {
+  const { currentSlug, tableLayoutAdapter } = useContext(MarkdownRenderContext);
+  return (
+    <MdTable
+      {...props}
+      layoutAdapter={tableLayoutAdapter}
+      persistenceKey={
+        currentSlug && node?.position?.start?.offset !== undefined
+          ? `${currentSlug}::prose-table-${node.position.start.offset}`
+          : undefined
+      }
+    />
+  );
+}
+
+function MarkdownImage(props: ComponentProps<typeof TheaterImage>) {
+  const { currentSlug, apiBasePath, ImageComponent } = useContext(MarkdownRenderContext);
+  return (
+    <TheaterImage
+      {...props}
+      ImageComponent={ImageComponent}
+      currentSlug={currentSlug}
+      apiBasePath={apiBasePath}
+    />
+  );
+}
+
+const MarkdownImageCell = withoutNode(MarkdownImage);
+
+const markdownComponents: Components = {
+  pre: MarkdownPreCell,
+  abbr: AnnotatedTermCell,
+  a: MarkdownLink,
+  table: MarkdownTable,
+  thead: MdTheadCell,
+  tbody: MdTbodyCell,
+  tr: MdTrCell,
+  th: MdThCell,
+  td: MdTdCell,
+  img: MarkdownImageCell,
+  iframe: function MarkdownIframe({ node, src, srcDoc: _srcDoc, sandbox: _sandbox, allow: _allow, referrerPolicy: _referrerPolicy, ...props }) {
+    const { currentSlug, apiBasePath } = useContext(MarkdownRenderContext);
+    if (!node?.properties || !("dataEducationLab" in node.properties)) {
+      return <iframe {...props} src={src} srcDoc={_srcDoc} sandbox={_sandbox} allow={_allow} referrerPolicy={_referrerPolicy} />;
+    }
+    const localSrc = resolveEducationLabSrc(src, currentSlug, apiBasePath);
+    return <iframe {...props} src={localSrc} sandbox={EDUCATION_LAB_SANDBOX} referrerPolicy="no-referrer" />;
+  },
+};
+
 export function WikiMarkdownTableEnhancer({
   layoutAdapter,
   persistenceScope,
@@ -236,90 +349,28 @@ export const WikiMarkdownRenderer = memo(function WikiMarkdownRenderer({
 }) {
   const prepared = preparedContent ?? prepareWikiMarkdown(content, currentSlug, apiBasePath);
 
-  // These functions are React component types. Recreating them on a metrics
-  // update remounts images/tables and discards an open preview or local state.
-  const components = useMemo<Components>(() => ({
-          pre: MarkdownPreCell,
-          abbr: AnnotatedTermCell,
-          a: ({
-            href,
-            children,
-            node: _node,
-            ...props
-          }: WikiMarkdownLinkProps & { node?: unknown }) => {
-            const defaultHref = resolveHref(href, currentSlug, apiBasePath);
-            const nextHref = resolveLinkHref
-              ? resolveLinkHref(defaultHref, {
-                  rawHref: href,
-                  currentSlug,
-                  apiBasePath,
-                })
-              : defaultHref;
-
-            if (isPdfChipHref(nextHref)) {
-              return <PdfChipLink fallbackLabel={children} href={nextHref} />;
-            }
-
-            if (isInternalHref(nextHref) && LinkComponent) {
-              return (
-                <LinkComponent href={nextHref} {...props}>
-                  {children}
-                </LinkComponent>
-              );
-            }
-
-            return (
-              <a href={nextHref} {...props}>
-                {children}
-              </a>
-            );
-          },
-          table: ({
-            node,
-            ...props
-          }: ComponentProps<typeof MdTable> & { node?: MarkdownTableNode }) => (
-            <MdTable
-              {...props}
-              layoutAdapter={tableLayoutAdapter}
-              persistenceKey={
-                currentSlug && node?.position?.start?.offset !== undefined
-                  ? `${currentSlug}::prose-table-${node.position.start.offset}`
-                  : undefined
-              }
-            />
-          ),
-          thead: MdTheadCell,
-          tbody: MdTbodyCell,
-          tr: MdTrCell,
-          th: MdThCell,
-          td: MdTdCell,
-          img: withoutNode((props) => (
-            <TheaterImage
-              {...props}
-              ImageComponent={ImageComponent}
-              currentSlug={currentSlug}
-              apiBasePath={apiBasePath}
-            />
-          )),
-          iframe: ({ node, src, srcDoc: _srcDoc, sandbox: _sandbox, allow: _allow, referrerPolicy: _referrerPolicy, ...props }) => {
-            if (!node?.properties || !("dataEducationLab" in node.properties)) {
-              return <iframe {...props} src={src} srcDoc={_srcDoc} sandbox={_sandbox} allow={_allow} referrerPolicy={_referrerPolicy} />;
-            }
-            const localSrc = resolveEducationLabSrc(src, currentSlug, apiBasePath);
-            return <iframe {...props} src={localSrc} sandbox={EDUCATION_LAB_SANDBOX} referrerPolicy="no-referrer" />;
-          },
-        }), [currentSlug, apiBasePath, resolveLinkHref, isInternalHref, LinkComponent, tableLayoutAdapter, ImageComponent]);
+  const markdownContext = useMemo<MarkdownRenderContextValue>(() => ({
+    currentSlug,
+    apiBasePath,
+    resolveLinkHref,
+    isInternalHref,
+    LinkComponent,
+    tableLayoutAdapter,
+    ImageComponent,
+  }), [currentSlug, apiBasePath, resolveLinkHref, isInternalHref, LinkComponent, tableLayoutAdapter, ImageComponent]);
 
   return (
     <WikiMarkdownFrame className={className}>
-      <ReactMarkdown
-        remarkPlugins={markdownRemarkPlugins}
-        rehypePlugins={rehypePlugins}
-        urlTransform={wikiUrlTransform}
-        components={components}
-      >
-        {prepared}
-      </ReactMarkdown>
+      <MarkdownRenderContext.Provider value={markdownContext}>
+        <ReactMarkdown
+          remarkPlugins={markdownRemarkPlugins}
+          rehypePlugins={rehypePlugins}
+          urlTransform={wikiUrlTransform}
+          components={markdownComponents}
+        >
+          {prepared}
+        </ReactMarkdown>
+      </MarkdownRenderContext.Provider>
       <MarkdownHeadingAnchors
         disableAnchors={disableAnchors}
         notification={notification}
