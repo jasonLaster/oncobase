@@ -119,7 +119,9 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test:unit": "bun test"
+    "lint": "bun ../../scripts/lint-ratchet.ts",
+    "lint:baseline": "bun ../../scripts/lint-ratchet.ts --update",
+    "test:unit": "bun test ./src"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.149",

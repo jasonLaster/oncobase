@@ -7,6 +7,7 @@ if (!process.env.WIKI_VITE_PREVIEW_LOGIN_PASSWORD) throw new Error("Set the site
 
 export default defineConfig({
   testDir: "./deployed-e2e",
+  forbidOnly: !!process.env.CI,
   outputDir: "./.playwright/production-reader/results",
   reporter: [["line"], ["json", { outputFile: "./.playwright/production-reader/results.json" }]],
   timeout: 120_000,

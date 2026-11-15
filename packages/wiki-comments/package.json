@@ -61,7 +61,9 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test:unit": "bun test src/*.test.ts"
+    "lint": "bun ../../scripts/lint-ratchet.ts",
+    "lint:baseline": "bun ../../scripts/lint-ratchet.ts --update",
+    "test:unit": "bun test ./src"
   },
   "dependencies": {
     "@oncobase/wiki-shell": "workspace:*"

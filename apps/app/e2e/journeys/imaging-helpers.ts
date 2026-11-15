@@ -549,6 +549,8 @@ export async function drawAnnotation(
   await page.mouse.up();
 }
 
+export type AnnotationApiMock = Awaited<ReturnType<typeof installAnnotationApiMock>>;
+
 export function latestSavedAnnotation(annotationApi: AnnotationApiMock) {
   const annotation = annotationApi.saves.at(-1)?.annotations[0];
   expect(annotation).toBeTruthy();

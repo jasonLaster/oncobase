@@ -1,0 +1,5 @@
+{
+  "@typescript-eslint/no-floating-promises": 2,
+  "jsx-a11y/iframe-has-title": 2,
+  "no-restricted-properties": 3
+}

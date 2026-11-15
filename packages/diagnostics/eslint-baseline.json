@@ -1,0 +1,12 @@
+{
+  "@typescript-eslint/no-floating-promises": 2,
+  "jsx-a11y/click-events-have-key-events": 1,
+  "jsx-a11y/heading-has-content": 1,
+  "jsx-a11y/interactive-supports-focus": 1,
+  "jsx-a11y/no-noninteractive-element-interactions": 2,
+  "jsx-a11y/no-noninteractive-tabindex": 4,
+  "jsx-a11y/no-static-element-interactions": 1,
+  "no-restricted-properties": 2,
+  "react-hooks/exhaustive-deps": 5,
+  "react-hooks/set-state-in-effect": 4
+}

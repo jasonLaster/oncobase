@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
+  forbidOnly: !!process.env.CI,
   testDir: "./e2e", testMatch: "**/chat.spec.ts", timeout: 60_000,
   expect: { timeout: 15_000 }, workers: 1,
   updateSnapshots: "none",

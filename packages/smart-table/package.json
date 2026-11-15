@@ -59,7 +59,9 @@
     "prepare": "bun run build",
     "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit",
-    "test:unit": "bun test src/example-tables.test.ts"
+    "lint": "bun ../../scripts/lint-ratchet.ts",
+    "lint:baseline": "bun ../../scripts/lint-ratchet.ts --update",
+    "test:unit": "bun test ./src"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.5",

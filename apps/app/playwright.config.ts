@@ -47,6 +47,7 @@ if (!["chromium", "firefox", "webkit"].includes(browser)) {
 
 export default defineConfig({
   testDir: "./e2e",
+  forbidOnly: !!process.env.CI,
   // Real comment writes require private traces and verified teardown. Run them
   // through the local live-backend setup, never the public CI artifact pipeline.
   testIgnore: ["**/live/comments-live.spec.ts", "**/live/chat-live.spec.ts"],

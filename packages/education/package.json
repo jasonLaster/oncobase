@@ -21,7 +21,10 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "bun ../../scripts/lint-ratchet.ts",
+    "lint:baseline": "bun ../../scripts/lint-ratchet.ts --update",
+    "test:unit": "bun test ./src"
   },
   "devDependencies": {
     "typescript": "^5",

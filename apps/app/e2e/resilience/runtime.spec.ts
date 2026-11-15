@@ -239,12 +239,12 @@ test("a slow body offers a retry that cancels the first request; a failed body r
     const original = window.fetch.bind(window);
     const state = { aborted: 0 };
     Object.assign(window, { readerPageRequests: state });
-    window.fetch = (input, init) => {
+    window.fetch = ((input, init) => {
       const url = input instanceof Request ? input.url : String(input);
       const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
       if (url.includes("/api/wiki/pages")) signal?.addEventListener("abort", () => state.aborted++, { once: true });
       return original(input, init);
-    };
+    }) as typeof window.fetch;
   });
   try {
     await page.goto(`/${slug}`);
@@ -294,7 +294,7 @@ test("prefetch never blocks or outlives navigation, and pauses on save-data and 
     const probe = { signal: false, rejected: false };
     Object.defineProperty(window, "__prefetchAbort", { value: probe });
     const originalFetch = window.fetch.bind(window);
-    window.fetch = (input, init) => {
+    window.fetch = ((input, init) => {
       const url = new URL(input instanceof Request ? input.url : String(input), location.href);
       const watched = url.pathname === "/api/wiki/pages" && url.searchParams.get("slugs") === "wiki/logistics/insurance";
       const signal = init?.signal ?? (input instanceof Request ? input.signal : null);
@@ -306,7 +306,7 @@ test("prefetch never blocks or outlives navigation, and pauses on save-data and 
         if (watched && signal?.aborted) probe.rejected = true;
         throw error;
       });
-    };
+    }) as typeof window.fetch;
   });
   await installWikiApiMocks(page, { pageOverrides: { index: { content: "# Home\n\n[Next](/about/About)" } } });
   await rank(page);
@@ -324,7 +324,7 @@ test("prefetch never blocks or outlives navigation, and pauses on save-data and 
     await waitForPageTitle(page, "About This Wiki");
     // Observe actual fetch cancellation before releasing the held response.
     await expect.poll(() => page.evaluate(() => (
-      window as Window & { __prefetchAbort: { signal: boolean; rejected: boolean } }
+      window as unknown as Window & { __prefetchAbort: { signal: boolean; rejected: boolean } }
     ).__prefetchAbort)).toEqual({ signal: true, rejected: true });
   } finally { release(); }
   await page.close();

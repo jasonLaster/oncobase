@@ -1,0 +1,5 @@
+{
+  "//": "Lint-only program for Convex functions, which apps/app/tsconfig.json does not include. Not named convex/tsconfig.json on purpose: the Convex CLI would start typechecking deploys with it.",
+  "extends": "./tsconfig.json",
+  "include": ["convex"]
+}

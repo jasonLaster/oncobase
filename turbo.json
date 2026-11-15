@@ -17,12 +17,15 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
-    "lint": {},
+    "lint": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/eslint.config.mjs", "$TURBO_ROOT$/scripts/lint-ratchet.ts"]
+    },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": ["^build"]
     },
     "test:unit": {
-      "dependsOn": ["^build", "^test:unit"]
+      "dependsOn": ["^build"]
     }
   }
 }
