@@ -7,6 +7,7 @@ import { TopicLogo } from "@oncobase/education/topic-logo";
 import { PublicThemeControl } from "@oncobase/education/theme-control";
 import { EducationFilePalette } from "./file-palette";
 import { TalkLauncher } from "./talk-launcher";
+import { OncoGuideWebMcpTools } from "./webmcp-tools";
 import { educationHref, type GuidePage } from "../lib/routes";
 
 type NavPage = Pick<GuidePage, "slug" | "title">;
@@ -61,6 +62,7 @@ export function EducationFrame({ topics, children }: { topics: Topic[]; children
       <main id="education-main" ref={main} className="edu-main" tabIndex={-1}>{children}</main>
     </div>
     <TalkLauncher />
+    <OncoGuideWebMcpTools topics={topics} />
     {paletteOpen ? <EducationFilePalette pages={topics.flatMap(topic => topic.pages)} onOpenChange={setPaletteOpen} /> : null}
   </div>;
 }

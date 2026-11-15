@@ -21,3 +21,4 @@ It was inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
 
 - The reader is a client-rendered web app; most content needs a signed-in session or the site password.
 - The public guides at https://diana-tnbc.com/education need no password, and neither do this site's pages (the home page, features, and compare).
+- In browsers with WebMCP, every page registers tools (`document.modelContext`): search_wiki, read_page, browse, open_page, show_passage and more on the reader; search_education and read_section on education pages; read_docs here.

@@ -40,6 +40,7 @@ import {
 import { updateClientRouteMetadata } from "../document-title";
 import { TopicLogo } from "@oncobase/education/topic-logo";
 import { PublicThemeControl } from "../PublicThemeControl";
+import { webMcpAvailable } from "../webmcp/webmcp-flag";
 import "./education.css";
 
 const MermaidRenderer = lazy(() =>
@@ -47,6 +48,11 @@ const MermaidRenderer = lazy(() =>
     default: module.WikiMermaidRenderer,
   })),
 );
+// Agent tools load only in browsers that expose WebMCP.
+const EducationWebMcp = lazy(() =>
+  import("./webmcp-tools").then((module) => ({ default: module.EducationWebMcp })),
+);
+const EDUCATION_WEBMCP_HELPERS = { markdownTitleToText, isEducationSlug, educationHref, educationSlugFromPathname };
 const EMPTY_PAGES: WikiManifestPage[] = [];
 type SearchResult = {
   slug: string;
@@ -469,6 +475,7 @@ export function EducationApp() {
   const closeMenu = () => setMenuOpen(false);
   return (
     <div className="education-app" data-test-id="education-app">
+      {webMcpAvailable() ? <Suspense fallback={null}><EducationWebMcp pages={pages} helpers={EDUCATION_WEBMCP_HELPERS} /></Suspense> : null}
       <a className="edu-skip" href="#education-main">
         Skip to content
       </a>

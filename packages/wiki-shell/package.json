@@ -83,7 +83,12 @@
     },
     "./styles.css": "./src/styles.css",
     "./theme.css": "./src/theme.css",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./webmcp": {
+      "types": "./src/webmcp.ts",
+      "import": "./src/webmcp.ts",
+      "default": "./src/webmcp.ts"
+    }
   },
   "scripts": {
     "build": "tsc --noEmit",

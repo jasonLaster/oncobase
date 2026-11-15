@@ -51,6 +51,7 @@ export const features: Feature[] = [
   { group: "ask", name: "AI search", summary: "Semantic search that returns the most relevant pages, each scored out of 10 with a one-line reason.", where: "/search (AI Mode)", surface: "POST /api/ai-search" },
   { group: "ask", name: "Text search", summary: "Exact matches with line numbers and highlighted snippets, grouped by page, with an interim answer while the full scan finishes.", where: "/search (Text Search)", surface: "GET /api/search" },
   { group: "ask", name: "Agent tools", summary: "The same search and read tools the chat agent uses, as a JSON endpoint: search_wiki, read_page, get_pages_by_tag, list_tags, list_pages.", where: "API only", surface: "POST /api/tools" },
+  { group: "ask", name: "In-browser agent tools", summary: "Every page registers WebMCP tools, so an AI agent in the browser can search, read, browse and follow links, and show the reader what it found: open a page at a section, highlight the quoted sentence, or start a chat. Agents see only what the reader can, and private pages stay withheld until the reader allows it on that device.", where: "Every reader, education and Oncobase page", surface: "document.modelContext (WebMCP)" },
   // Protect
   { group: "protect", name: "Password gate", summary: "A shared password in front of the whole site, with a signed cookie and no-store responses.", where: "Sign-in page", surface: "POST /api/login" },
   { group: "protect", name: "Accounts and roles", summary: "Give each person a role and choose which folders and tags they can open. A sensitive page that no role matches is visible to nobody.", where: "Admin, Roles", surface: "/api/admin/roles" },
@@ -190,6 +191,7 @@ It was inspired by Sid Sijbrandij's osteosarc.com (https://osteosarc.com/).
 
 - The reader is a client-rendered web app; most content needs a signed-in session or the site password.
 - The public guides at ${DIANA_URL}/education need no password, and neither do this site's pages (the home page, features, and compare).
+- In browsers with WebMCP, every page registers tools (\`document.modelContext\`): search_wiki, read_page, browse, open_page, show_passage and more on the reader; search_education and read_section on education pages; read_docs here.
 `;
 }
 

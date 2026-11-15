@@ -14,6 +14,7 @@ import { WikiPage } from "./pages/WikiPage";
 import { ResizableAppShell } from "./shell/ResizableAppShell";
 import { SpecialRouteMetadata } from "./shell/SpecialRouteMetadata";
 import { WikiSync } from "./sync/WikiSync";
+import { ReaderAgentTools } from "./webmcp/agent-tools";
 import type { Metrics } from "./types";
 import { ReaderPending } from "./AppStarting";
 import { useReaderStore } from "./bootstrap/reader-queries";
@@ -153,6 +154,7 @@ export function App({
   return (
     <>
       {store ? <WikiSync onMetrics={bumpMetrics} /> : null}
+      <ReaderAgentTools />
       <div className="prototype-shell" data-reader-store-ready={store ? "true" : "false"} data-reader-identity-pending={identityPending ? "true" : "false"}>
         <SpecialRouteMetadata />
         <HeaderAuthDialogHost />

@@ -140,6 +140,23 @@ export default defineConfig({
         }];
       },
     },
+    {
+      // WebMCP origin trial: one token per production origin (comma-separated).
+      // Chrome ignores tokens issued for other origins, so every site's token
+      // can ship in the one shared shell.
+      name: "webmcp-origin-trial",
+      transformIndexHtml() {
+        return (process.env.WEBMCP_ORIGIN_TRIAL_TOKENS ?? "")
+          .split(",")
+          .map((token) => token.trim())
+          .filter(Boolean)
+          .map((content) => ({
+            tag: "meta",
+            attrs: { "http-equiv": "origin-trial", content },
+            injectTo: "head-prepend" as const,
+          }));
+      },
+    },
     wikiReaderCacheVersionPlugin(),
     readerBuildMetadataPlugin(),
     readerPreloadPlugin(),

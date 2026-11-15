@@ -8,7 +8,7 @@ import {
   WikiChatState,
 } from "@oncobase/wiki-shell";
 import { useMutation, useQuery } from "convex/react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api.js";
 import type { Id } from "../../convex/_generated/dataModel.js";
 import { useWikiSession } from "../wiki-context";
@@ -43,6 +43,7 @@ function ArchivedChatsRoute() {
 
 function ChatRouteContent() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const identity = useWikiSession();
   const siteArgs = identity?.siteSlug ? { siteSlug: identity.siteSlug } : {};
   const conversation = useQuery(
@@ -52,7 +53,10 @@ function ChatRouteContent() {
   if (id === "archived") {
     return <ArchivedChatsRoute />;
   }
-  if (!id) return <ChatInterface key="new" conversationId={null} />;
+  if (!id) {
+    const prompt = searchParams.get("q")?.slice(0, 2000) || undefined;
+    return <ChatInterface key={prompt ? `new:${prompt}` : "new"} conversationId={null} initialPrompt={prompt} />;
+  }
   if (conversation === undefined) {
     return <WikiChatLoadingSkeleton data-test-id="chat-conversation-loading" />;
   }

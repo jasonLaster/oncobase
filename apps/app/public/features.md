@@ -30,6 +30,7 @@ Three ways to find things: exact words, meaning, and a conversation. Each one on
 - **AI search.** Semantic search that returns the most relevant pages, each scored out of 10 with a one-line reason. Where: /search (AI Mode). Interface: `POST /api/ai-search`.
 - **Text search.** Exact matches with line numbers and highlighted snippets, grouped by page, with an interim answer while the full scan finishes. Where: /search (Text Search). Interface: `GET /api/search`.
 - **Agent tools.** The same search and read tools the chat agent uses, as a JSON endpoint: search_wiki, read_page, get_pages_by_tag, list_tags, list_pages. Where: API only. Interface: `POST /api/tools`.
+- **In-browser agent tools.** Every page registers WebMCP tools, so an AI agent in the browser can search, read, browse and follow links, and show the reader what it found: open a page at a section, highlight the quoted sentence, or start a chat. Agents see only what the reader can, and private pages stay withheld until the reader allows it on that device. Where: Every reader, education and Oncobase page. Interface: `document.modelContext (WebMCP)`.
 
 ## Share the science without sharing the patient.
 

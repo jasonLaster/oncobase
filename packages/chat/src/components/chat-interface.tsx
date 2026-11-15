@@ -103,11 +103,14 @@ function CrossTabStream({
 interface ChatInterfaceProps {
   conversationId: string | null;
   initialMessages?: Array<{ role: "user" | "assistant"; content: string; parts?: string | unknown[] }>;
+  /** A question to send as soon as a new chat mounts (e.g. from `/chat?q=`). */
+  initialPrompt?: string;
 }
 
 export function ChatInterface({
   conversationId: initialConversationId,
   initialMessages,
+  initialPrompt,
 }: ChatInterfaceProps) {
   const { apiPath, convexApi, copy, routes, siteSlug, storageKeyPrefix } = useChatRuntime();
   const convex = useConvex();
@@ -506,6 +509,16 @@ export function ChatInterface({
     },
     [enqueueMessage, isBusy, queuedMessages.length, submitMessage]
   );
+
+  // A prefilled question joins the queue once, so it is sent the same way as
+  // a message typed while the chat is still preparing.
+  const initialPromptSent = useRef(false);
+  useEffect(() => {
+    const prompt = initialPrompt?.trim();
+    if (!prompt || initialPromptSent.current || initialConversationId) return;
+    initialPromptSent.current = true;
+    enqueueMessage(prompt);
+  }, [enqueueMessage, initialConversationId, initialPrompt]);
 
   // Drain the queue one message per settled turn. An error pauses the queue
   // until the user retries or dismisses it.

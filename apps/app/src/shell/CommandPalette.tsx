@@ -72,6 +72,8 @@ import {
 import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { setNavigationIntentForSlug } from "./navigation-intent";
 import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
+import { webMcpAvailable } from "../webmcp/webmcp-flag";
+import { agentsMayReadPrivatePages, setAgentsMayReadPrivatePages } from "../webmcp/agent-access";
 
 export type PaletteMode = "pages" | "outline" | "assets" | "tags" | "actions" | "debug";
 
@@ -81,7 +83,7 @@ type ActionItem = {
   href?: string;
   icon: ReactNode;
   run?: () => void;
-  group: "Theme" | "Navigate" | "Source" | "Search" | "Downloads" | "Tools";
+  group: "Theme" | "Navigate" | "Source" | "Search" | "Downloads" | "AI agents" | "Tools";
 };
 
 type DebugItem = {
@@ -191,6 +193,13 @@ export function CommandPalette({
     [assets, currentSlug],
   );
 
+  const [agentPrivateAccess, setAgentPrivateAccess] = useState(agentsMayReadPrivatePages);
+  const agentToolsAvailable = useMemo(webMcpAvailable, []);
+  const currentPageTitle = useMemo(
+    () => pages.find((page) => page.slug === currentSlug)?.title,
+    [currentSlug, pages],
+  );
+
   const actions = useMemo<ActionItem[]>(
     () => [
       {
@@ -274,6 +283,13 @@ export function CommandPalette({
         href: backendHref("/search", { returnTo }),
         icon: <SearchIcon size={15} aria-hidden="true" />,
       },
+      ...(currentPageTitle ? [{
+        group: "Search",
+        label: "Ask about this page",
+        description: `Start a chat about ${currentPageTitle}`,
+        href: backendHref("/chat", { q: `Summarize the key points of the page "${currentPageTitle}" (${currentSlug}).` }),
+        icon: <MessageCircleIcon size={15} aria-hidden="true" />,
+      } satisfies ActionItem] : []),
       {
         group: "Search",
         label: "New chat",
@@ -302,6 +318,19 @@ export function CommandPalette({
         href: "/tools/medical-deduction",
         icon: <CalculatorIcon size={15} aria-hidden="true" />,
       },
+      ...(agentToolsAvailable && scope === "session" ? [{
+        group: "AI agents",
+        label: agentPrivateAccess ? "Stop AI agents reading private pages" : "Allow AI agents to read private pages",
+        description: agentPrivateAccess
+          ? "Browser AI agents currently receive private page content on this device"
+          : "Browser AI agents see private page titles only, until you allow it on this device",
+        icon: agentPrivateAccess ? <PowerOffIcon size={15} aria-hidden="true" /> : <PowerIcon size={15} aria-hidden="true" />,
+        run: () => {
+          setAgentsMayReadPrivatePages(!agentPrivateAccess);
+          setAgentPrivateAccess(!agentPrivateAccess);
+          onOpenChange(false);
+        },
+      } satisfies ActionItem] : []),
       {
         group: "Tools",
         label: "Local cache tools",
@@ -313,7 +342,7 @@ export function CommandPalette({
         },
       },
     ],
-    [currentSlug, isDark, onOpenChange, relatedAssets, returnTo, scope, setMode, setQuery],
+    [agentPrivateAccess, agentToolsAvailable, currentPageTitle, currentSlug, isDark, onOpenChange, relatedAssets, returnTo, scope, setMode, setQuery],
   );
 
   const actionResults = useMemo(() => {

@@ -160,6 +160,13 @@ export function recordReaderDuration(name: "route-render" | "search-text" | "sea
     ...(data.cached === undefined ? {} : { cached: data.cached }) });
 }
 
+/** One WebMCP tool call (src/webmcp). Unknown tool names are dropped server-side. */
+export function recordWebMcpCall(call: { tool: string; durationMs: number; ok: boolean; resultBytes: number }) {
+  if (typeof window === "undefined" || !Number.isFinite(call.durationMs) || call.durationMs < 0) return;
+  enqueue({ name: "webmcp-call", start: performance.timeOrigin + performance.now() - call.durationMs, duration: Math.min(call.durationMs, 300_000),
+    status: call.ok ? 200 : 500, bytes: Math.min(Math.max(0, Math.round(call.resultBytes)), 1e9), tool: call.tool as ReaderSpan["tool"] });
+}
+
 /** How a cached presentation met a different verified identity. `startedAt`/`endedAt`
  * are performance.now() values: identity verified, then the visible store swap. */
 export function recordSessionHandoff(outcome: ReaderHandoffOutcome, startedAt: number, endedAt = performance.now()) {

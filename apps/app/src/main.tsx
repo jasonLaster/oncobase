@@ -10,6 +10,7 @@ import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
 import { observeReaderVitals, recordReaderPhase } from "./reader-telemetry";
+import { webMcpAvailable } from "./webmcp/webmcp-flag";
 // oncobase.io is the marketing site: three pages, no reader, no sign-in, no telemetry endpoint.
 const site = siteResponse();
 const initialRoute = rootRouteFor(location.pathname, educationOnlyResponse(), landingResponse(), site);
@@ -87,6 +88,13 @@ const FeaturesPage = lazy(() =>
 const ComparePage = lazy(() =>
   import("./pages/ComparePage").then((module) => ({ default: module.ComparePage })),
 );
+// Agent tools for the marketing pages, only where the browser exposes WebMCP.
+const MarketingWebMcp = lazy(() =>
+  import("./webmcp/MarketingWebMcp").then((module) => ({ default: module.MarketingWebMcp })),
+);
+function MarketingAgentTools() {
+  return webMcpAvailable() ? <Suspense fallback={null}><MarketingWebMcp /></Suspense> : null;
+}
 const TermsAndConditionsPage = lazy(() =>
   import("./pages/TermsAndConditionsPage").then((module) => ({
     default: module.TermsAndConditionsPage,
@@ -108,10 +116,10 @@ function RootRouteBoundary() {
     case "education": return <EducationApp />;
     case "login": return <LoginPage />;
     case "sign-in": return <SignInPage />;
-    case "oncobase-home": return <OncobaseHomePage />;
-    case "features": return <FeaturesPage />;
-    case "compare": return <ComparePage />;
-    case "not-found": return <MarketingNotFound />;
+    case "oncobase-home": return <><OncobaseHomePage /><MarketingAgentTools /></>;
+    case "features": return <><FeaturesPage /><MarketingAgentTools /></>;
+    case "compare": return <><ComparePage /><MarketingAgentTools /></>;
+    case "not-found": return <><MarketingNotFound /><MarketingAgentTools /></>;
     case "terms": return <TermsAndConditionsPage />;
     case "pathology": return <PathologyViewerPage />;
     case "pdf": return <PdfViewerPage />;

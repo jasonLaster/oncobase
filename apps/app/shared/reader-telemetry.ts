@@ -21,7 +21,9 @@ export const READER_PHASES = ["identity-start", "identity-ready", "identity-erro
   "resource-entry", "resource-reader", "resource-css", "resource-worker", "resource-shared-worker", "resource-wasm",
   // A cached presentation met a different verified identity: duration = wait from
   // identity to the visible store swap, offsetMs = swap since navigation, outcome below.
-  "session-handoff"] as const;
+  "session-handoff",
+  // A WebMCP tool call from an in-browser AI agent: duration, result bytes, tool below.
+  "webmcp-call"] as const;
 export type ReaderPhase = typeof READER_PHASES[number];
 /** Fixed failure classes for store-timeout (furthest boot milestone reached) and sync-error (source-kind). */
 export const READER_REASONS = ["adapter", "lock-wait", "follower", "worker-boot", "leader-boot", "store-create", "temporary",
@@ -36,9 +38,14 @@ export type ReaderHandoffOutcome = typeof READER_HANDOFF_OUTCOMES[number];
  * guard rejected the local image (fallback-*), or a tab-local temporary store. */
 export const READER_STORE_PATHS = ["fast", "leader", "fallback-journal", "fallback-changed", "fallback-invalid", "fallback-error", "memory"] as const;
 export type ReaderStorePath = typeof READER_STORE_PATHS[number];
+/** WebMCP tools the reader and education pages register (src/webmcp, src/education). */
+export const READER_WEBMCP_TOOLS = ["search_wiki", "read_page", "get_related_pages", "browse", "list_tags", "get_pages_by_tag", "list_source_files", "recent_pages",
+  "get_current_view", "open_page", "show_passage", "open_search", "open_tag", "open_source_file", "ask_wiki_chat", "list_comments",
+  "search_education", "read_section", "lesson_sections", "list_lessons", "ask_tutor", "read_docs"] as const;
+export type ReaderWebMcpTool = typeof READER_WEBMCP_TOOLS[number];
 /** serverMs/serverTraceId come from the response's Server-Timing `app` and `trace` entries. */
 export type ReaderSpan = { name: ReaderPhase; start: number; duration: number; status: number; rpcMs?: number; serverMs?: number; serverTraceId?: string; partial?: boolean; cached?: boolean;
-  reason?: ReaderReason; outcome?: ReaderHandoffOutcome; offsetMs?: number; bytes?: number; count?: number; path?: ReaderStorePath };
+  reason?: ReaderReason; outcome?: ReaderHandoffOutcome; offsetMs?: number; bytes?: number; count?: number; path?: ReaderStorePath; tool?: ReaderWebMcpTool };
 const bounded = (value: unknown, max: number) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= max;
 export type ReaderBatch = { version: 1; traceId: string; spans: ReaderSpan[]; dropped: number };
 
@@ -59,6 +66,7 @@ export function parseReaderBatch(value: unknown, now = Date.now()): ReaderBatch 
       ...(READER_REASONS.includes(item.reason as ReaderReason) ? { reason: item.reason } : {}),
       ...(READER_HANDOFF_OUTCOMES.includes(item.outcome as ReaderHandoffOutcome) ? { outcome: item.outcome } : {}),
       ...(READER_STORE_PATHS.includes(item.path as ReaderStorePath) ? { path: item.path } : {}),
+      ...(READER_WEBMCP_TOOLS.includes(item.tool as ReaderWebMcpTool) ? { tool: item.tool } : {}),
       ...(bounded(item.offsetMs, 300_000) ? { offsetMs: item.offsetMs } : {}),
       ...(Number.isInteger(item.bytes) && bounded(item.bytes, 1e9) ? { bytes: item.bytes } : {}),
       ...(Number.isInteger(item.count) && bounded(item.count, 1000) ? { count: item.count } : {}),

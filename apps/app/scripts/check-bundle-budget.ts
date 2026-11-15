@@ -60,7 +60,10 @@ const budgets: Budget[] = [
   // eager limits unchanged.
   // The session handoff (SessionHandoffSync host, handoff span) landed in the
   // same chunk: 22,077 -> ~22.2 KiB gzip. Allow 22.75 KiB.
-  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 23_296 },
+  // The WebMCP agent-tools loader (feature-detected lazy import + props from the
+  // reader shell; the tools themselves load only in browsers with WebMCP):
+  // 23,204 -> 23,482 gzip. Allow 23,552 (+256), approved 2026-11-14.
+  { label: "livestore shell chunk", pattern: /^LiveStoreRoot-[\w-]+\.js$/, maxGzipBytes: 23_552 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
