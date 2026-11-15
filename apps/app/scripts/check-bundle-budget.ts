@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { gzipSync } from "node:zlib";
+import { gzipSync as fflateGzip } from "fflate";
 import { serverBudgetFailures } from "./reader-server-budget";
 
 const distDir = path.resolve(import.meta.dir, "../dist");
@@ -24,21 +24,21 @@ type Budget = {
 const budgets: Budget[] = [
   // The identity boundary and its shared client helpers now belong to the
   // entry. This moves existing eager bytes; the aggregate limit is unchanged.
-  { label: "entry", pattern: /^index-[\w-]+\.js$/, maxGzipBytes: 24_000 },
-  { label: "react vendor", pattern: /^vendor-react-[\w-]+\.js$/, maxGzipBytes: 75_000 },
-  { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 104_000 },
-  { label: "effect vendor", pattern: /^vendor-effect-[\w-]+\.js$/, maxGzipBytes: 140_000 },
+  { label: "entry", pattern: /^index-[\w-]+\.js$/, maxGzipBytes: 24_904 },
+  { label: "react vendor", pattern: /^vendor-react-[\w-]+\.js$/, maxGzipBytes: 78_048 },
+  { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 108_104 },
+  { label: "effect vendor", pattern: /^vendor-effect-[\w-]+\.js$/, maxGzipBytes: 145_000 },
   // The raw-HTML stage (rehype-raw, parse5) left vendor-markdown for its own
   // lazy chunk, loaded only for documents with HTML (wiki-markdown raw-html.ts):
   // vendor-markdown 107.2 -> 53.8 KiB, vendor-rawhtml 50.8 KiB.
-  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 57_000 },
-  { label: "raw-HTML vendor", pattern: /^vendor-rawhtml-[\w-]+\.js$/, maxGzipBytes: 53_500 },
-  { label: "optional math vendor", pattern: /^vendor-math-[\w-]+\.js$/, maxGzipBytes: 85_000 },
-  { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 110_000 },
-  { label: "PDF viewer", pattern: /^PdfViewerPage-[\w-]+\.js$/, maxGzipBytes: 140_000 },
-  { label: "PDF worker", pattern: /^pdf\.worker\.min-[\w-]+\.mjs$/, maxGzipBytes: 390_000 },
+  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 59_216 },
+  { label: "raw-HTML vendor", pattern: /^vendor-rawhtml-[\w-]+\.js$/, maxGzipBytes: 53_088 },
+  { label: "optional math vendor", pattern: /^vendor-math-[\w-]+\.js$/, maxGzipBytes: 87_576 },
+  { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 114_408 },
+  { label: "PDF viewer", pattern: /^PdfViewerPage-[\w-]+\.js$/, maxGzipBytes: 145_408 },
+  { label: "PDF worker", pattern: /^pdf\.worker\.min-[\w-]+\.mjs$/, maxGzipBytes: 401_784 },
   // WikiSync now lives in the StoreHost chunk (budgeted below).
-  { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 45_000 },
+  { label: "sync/shared shell chunks", pattern: /^(?:WikiSync|outline|src)-[\w-]+\.js$/, maxGzipBytes: 46_856 },
   // The bootstrap bridge adds a small provider hook and fetch exemption. Keep
   // the payload parser separate, but count its runtime cost as eager below.
   // Navigation seeding adds a store-local WeakMap and a second bootstrap ID.
@@ -75,8 +75,8 @@ const budgets: Budget[] = [
   // WikiSync, formerly its own 5.4 KiB chunk). Budgets: measured plus ~2.5%.
   // Main's WebMCP agent-tools loader moved here with the rest of LiveStoreRoot's
   // React half; it carries the +256 B main approved for it on 2026-11-14.
-  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 23_040 },
-  { label: "store host chunk", pattern: /^StoreHost-[\w-]+\.js$/, maxGzipBytes: 10_752 },
+  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 23_712 },
+  { label: "store host chunk", pattern: /^StoreHost-[\w-]+\.js$/, maxGzipBytes: 11_120 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
@@ -161,9 +161,9 @@ const storeLoaderPatterns = [
 // 330,000 -> 322,000 B. The same 8,000 B move to the lazy pool, which also took
 // main's lazy WebMCP tools on rebase: eager 1,155,000 -> 1,147,000 B, lazy
 // 4,085,000 -> 4,093,000 B. The eager + lazy limit stays 5,240,000 B.
-const eagerGzipBudget = 1_147_000;
-const paintGzipBudget = 322_000;
-const storeGzipBudget = 828_000;
+const eagerGzipBudget = 1_184_000;
+const paintGzipBudget = 332_000;
+const storeGzipBudget = 855_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
 // Current production is 3330.4 KiB; the public landing and education reader
@@ -177,7 +177,7 @@ const storeGzipBudget = 828_000;
 // on that host: 3_460_000 -> 3_468_000.
 // PDF.js adds ~495 KiB gzip, exclusively on the PDF route (viewer + worker).
 // The reader's eager budget is unchanged; fonts/codecs load only when needed.
-const lazyGzipBudget = 4_093_000;
+const lazyGzipBudget = 4_217_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
@@ -191,6 +191,16 @@ function formatBytes(bytes: number) {
 const imagePattern = /\.(?:avif|webp|png|jpe?g|gif)$/i;
 const maxImageBytes = 125_000;
 
+/**
+ * Gzip size with fflate (pure JS, level 6), so macOS, Linux CI and the Vercel
+ * build measure identical bytes. node:zlib links a different zlib per
+ * platform: Vercel measured byte-identical files (wasm, pdf.worker) about 1%
+ * larger than macOS did, which failed production builds that passed locally.
+ * Budgets moved from node:zlib on macOS to fflate on 2026-11-15, each scaled by
+ * its own measured ratio (about 1.03) on one build, so headroom is unchanged.
+ */
+const gzipSize = (contents: Uint8Array) => fflateGzip(contents, { level: 6 }).byteLength;
+
 function readAssetSizes() {
   return readdirSync(assetsDir)
     .filter((name) => statSync(path.join(assetsDir, name)).isFile() && !imagePattern.test(name))
@@ -199,7 +209,7 @@ function readAssetSizes() {
       return {
         name,
         bytes: contents.byteLength,
-        gzipBytes: gzipSync(contents).byteLength,
+        gzipBytes: gzipSize(contents),
       };
     })
     .sort((a, b) => b.gzipBytes - a.gzipBytes);
