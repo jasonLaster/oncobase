@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor, SamplingDecision } from "@opentelemetry/sdk-trace-base";
 import { ROOT_CONTEXT, SpanKind } from "@opentelemetry/api";
-import { parseReaderBatch } from "../shared/reader-telemetry";
+import { parseReaderBatch, readReaderBatch, readerRouteType } from "../shared/reader-telemetry";
 import { parseManifestTelemetry } from "../shared/manifest-telemetry";
 import { handleReaderTelemetry, boundedJson } from "./reader-telemetry";
 import { traceBackendHandler } from "./backend-tracing";
@@ -17,6 +17,62 @@ test("browser telemetry reconstructs an allowlist and rejects invalid clocks and
   expect(parseReaderBatch({ ...value, spans: [{ ...value.spans[0], name: "PRIVATE" }] })).toBeNull();
   expect(parseReaderBatch({ ...value, spans: [{ ...value.spans[0], start: 0 }] })).toBeNull();
   expect(parseReaderBatch({ ...value, spans: [{ ...value.spans[0], duration: -1 }] })).toBeNull();
+});
+
+test("vitals sent when a long-open page is first hidden are accepted, and rejections name a fixed class", () => {
+  const hoursAgo = (hours: number) => Date.now() - hours * 3_600_000;
+  const vital = (start: number) => ({ ...fixture(), spans: [{ name: "vital-lcp", start, duration: 900, status: 200 }] });
+  expect(parseReaderBatch(vital(hoursAgo(3)))?.spans).toHaveLength(1);
+  expect(readReaderBatch(vital(hoursAgo(25)))).toEqual({ rejected: "span-clock" });
+  expect(readReaderBatch(vital(Date.now() + 11 * 60_000))).toEqual({ rejected: "span-clock" });
+  expect(readReaderBatch({ ...fixture(), spans: [] })).toEqual({ rejected: "shape" });
+  expect(readReaderBatch({ ...fixture(), spans: [{ ...fixture().spans[0], name: "PRIVATE" }] })).toEqual({ rejected: "span-name" });
+  expect(readReaderBatch({ ...fixture(), spans: [{ ...fixture().spans[0], duration: -1 }] })).toEqual({ rejected: "span-duration" });
+  expect(readReaderBatch({ ...fixture(), spans: [{ ...fixture().spans[0], status: 700 }] })).toEqual({ rejected: "span-status" });
+});
+
+test("page context keeps only fixed classes and labels automation", async () => {
+  const context = { synthetic: true, viewport: "narrow", input: "touch", cpu: "low", connection: "4g", route: "wiki", startup: "snapshot",
+    userAgent: "PRIVATE", url: "PRIVATE" };
+  expect(parseReaderBatch({ ...fixture(), context })!.context).toEqual({ synthetic: true, viewport: "narrow", input: "touch", cpu: "low", connection: "4g", route: "wiki", startup: "snapshot" });
+  expect(parseReaderBatch({ ...fixture(), context: { viewport: "PRIVATE", route: "/wiki/PRIVATE", synthetic: "yes" } })!.context).toBeUndefined();
+  expect(parseReaderBatch(fixture())!.context).toBeUndefined();
+
+  const exporter = new InMemorySpanExporter();
+  const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const handle = traceBackendHandler(handleReaderTelemetry, { tracer: provider.getTracer("test") });
+  const post = (body: unknown, headers: Record<string, string> = {}) => handle(new Request("https://wiki.example/api/wiki/telemetry", { method: "POST",
+    headers: { origin: "https://wiki.example", "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) }));
+  expect((await post({ ...fixture(), context }))?.status).toBe(204);
+  const labelled = exporter.getFinishedSpans().find(s => s.name === "observation.reader.request-manifest")!;
+  expect(labelled.attributes).toMatchObject({ "oncobase.synthetic": true, "reader.viewport": "narrow", "reader.input": "touch", "reader.cpu": "low",
+    "reader.connection": "4g", "reader.route_type": "wiki", "reader.startup": "snapshot" });
+  expect(JSON.stringify(labelled.attributes)).not.toContain("PRIVATE");
+  exporter.reset();
+  // A person's browser: no label. The test-run header labels the request and everything recorded under it.
+  expect((await post(fixture()))?.status).toBe(204);
+  expect(exporter.getFinishedSpans().every(s => s.attributes["oncobase.synthetic"] === undefined)).toBe(true);
+  exporter.reset();
+  expect((await post(fixture(), { "x-wiki-test-run": "1" }))?.status).toBe(204);
+  expect(exporter.getFinishedSpans().map(s => s.attributes["oncobase.synthetic"])).toEqual([true, true]);
+  exporter.reset();
+  expect((await post({ ...fixture(), spans: [{ ...fixture().spans[0], start: 0 }] }))?.status).toBe(400);
+  expect(exporter.getFinishedSpans().at(-1)!.attributes["reader.telemetry.rejected"]).toBe("span-clock");
+  await provider.shutdown();
+});
+
+test("route families come from the top-level app and first path segment, never a page", () => {
+  expect(readerRouteType("reader", "/wiki/treatment/PRIVATE")).toBe("wiki");
+  expect(readerRouteType("reader", "/sources/PRIVATE")).toBe("wiki");
+  expect(readerRouteType("reader", "/")).toBe("wiki");
+  expect(readerRouteType("reader", "/search")).toBe("search");
+  expect(readerRouteType("reader", "/admin/roles")).toBe("admin");
+  expect(readerRouteType("reader", "/tags/PRIVATE")).toBe("tags");
+  expect(readerRouteType("login", "/")).toBe("landing");
+  expect(readerRouteType("login", "/login")).toBe("sign-in");
+  expect(readerRouteType("dicom", "/tools/dicom-viewer")).toBe("tools");
+  expect(readerRouteType("education", "/education/PRIVATE")).toBe("education");
+  expect(readerRouteType("oncobase-home", "/")).toBe("other");
 });
 
 test("render-error spans keep only their boundary scope and status", () => {

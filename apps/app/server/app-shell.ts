@@ -7,7 +7,8 @@ import { injectHeadMetadata } from "./html-head";
 import { pageDescription, pageSocialImageUrl } from "./page-social-metadata";
 import { safeStaticPath, staticHeaders } from "./static-files";
 import { handleMarketingRequest, isMarketingRequest, movedToMarketingSite } from "./marketing-site";
-import { traceBackendCache, traceBackendPhase, traceConvexClient } from "./backend-tracing";
+import { traceBackendAttributes, traceBackendCache, traceBackendPhase, traceConvexClient } from "./backend-tracing";
+import { isProbePath, probeResponse, shellOutcome, shellPathClass } from "./shell-telemetry";
 import { existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -44,7 +45,7 @@ import {
   tagFromPathname,
 } from "./legacy-route-metadata.js";
 import { safeLocalRedirect } from "../src/safe-redirect.js";
-import { isEducationPathname } from "../src/education-access";
+import { isEducationPathname, isEducationSlug } from "../src/education-access";
 import { isPublicEducationPage } from "./education-access";
 import { educationHref, educationSlugFromPathname, isEducationHubPathname } from "../src/education-routes";
 
@@ -70,7 +71,9 @@ type ManifestPageResult = {
   continueCursor: string | null;
 };
 
-const canonicalSlugCache = new Map<string, CanonicalSlugCacheEntry>();
+// Scoped to the client it was read through: one per process in production, and
+// handlers built on different backends (tests) cannot see each other's listing.
+const canonicalSlugCaches = new WeakMap<ConvexHttpClient, Map<string, CanonicalSlugCacheEntry>>();
 const requestPublicPages = new WeakMap<Request, Map<string, Promise<FunctionReturnType<typeof api.documents.getBySlug>>>>();
 
 function publicPageForRequest(request: Request, client: ConvexHttpClient, siteSlug: string, slug: string) {
@@ -152,6 +155,8 @@ function explicitCanonicalRedirectResponse(request: Request) {
 
 async function publicCanonicalSlugMap(client: ConvexHttpClient, siteSlug: string) {
   const now = Date.now();
+  let canonicalSlugCache = canonicalSlugCaches.get(client);
+  if (!canonicalSlugCache) canonicalSlugCaches.set(client, canonicalSlugCache = new Map());
   const cached = canonicalSlugCache.get(siteSlug);
   traceBackendCache("canonical-slugs", Boolean(cached && cached.expires > now));
   if (cached && cached.expires > now) return cached.map;
@@ -538,8 +543,10 @@ async function robotsPolicyResponse(
     console.warn("[wiki-vite-server] robots policy lookup failed", error);
   }
 
+  // Crawlers ask for the sitemap regardless; name it wherever something is indexable.
+  const sitemap = allowIndexing || allowEducation ? `Sitemap: ${new URL("/sitemap.xml", request.url).toString()}\n` : "";
   return new Response(
-    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n${!allowIndexing && allowEducation ? "Allow: /education\n" : ""}`,
+    `User-agent: *\n${allowIndexing ? "Allow" : "Disallow"}: /\n${!allowIndexing && allowEducation ? "Allow: /education\n" : ""}${sitemap}`,
     {
       headers: {
         "Cache-Control": "no-cache",
@@ -548,6 +555,38 @@ async function robotsPolicyResponse(
       },
     },
   );
+}
+
+/**
+ * The pages robots.txt lets a crawler index: every public page of an open site,
+ * or only the public education library of a gated one. Slugs come from the
+ * same public listing the canonical redirects use, so nothing sensitive or
+ * gated can appear here.
+ */
+async function sitemapResponse(request: Request, client: ConvexHttpClient) {
+  const failure = (status: number) => new Response(status === 404 ? "Not found" : "Sitemap temporarily unavailable", {
+    status, headers: { "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8", Vary: "Host" } });
+  try {
+    const siteSlug = await resolveSiteSlug(request, client);
+    if (!siteSlug) return failure(404);
+    const gateConfig = await getRequestPasswordGateConfig(request, client, siteSlug);
+    if (gateConfig.enabled && siteSlug !== DEFAULT_SITE_SLUG) return failure(404);
+    const slugs = [...new Set((await publicCanonicalSlugMap(client, siteSlug)).values())].sort();
+    const encode = (slug: string) => `/${slug.split("/").map(encodeURIComponent).join("/")}`;
+    const paths = gateConfig.enabled
+      ? ["/education", ...slugs.filter(isEducationSlug).map(educationHref)]
+      : ["/", ...slugs.filter(slug => slug !== "index").map(encode)];
+    const origin = new URL(request.url).origin;
+    const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+    return new Response(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${
+        [...new Set(paths)].slice(0, 50_000).map(pathname => `  <url><loc>${escape(`${origin}${pathname}`)}</loc></url>`).join("\n")}\n</urlset>\n`,
+      { headers: { "Cache-Control": "public, max-age=3600", "Content-Type": "application/xml; charset=utf-8", Vary: "Host" } },
+    );
+  } catch (error) {
+    console.warn("[wiki-vite-server] sitemap lookup failed", error);
+    return failure(503);
+  }
 }
 
 export function createAppShellHandler({
@@ -564,6 +603,9 @@ export function createAppShellHandler({
     const url = new URL(request.url);
     if (url.pathname === "/robots.txt") {
       return robotsPolicyResponse(request, client);
+    }
+    if (url.pathname === "/sitemap.xml") {
+      return sitemapResponse(request, client);
     }
     const directPath = safeStaticPath(distDir, url.pathname === "/" ? "/index.html" : url.pathname);
     if (directPath === null) {
@@ -587,9 +629,12 @@ export function createAppShellHandler({
     }
 
     if (!directFileExists && hasExtension && !isMarkdownAlias) {
+      // Explicitly uncacheable. The platform applies the one-year immutable
+      // header for /assets/* to any response that does not set its own, and a
+      // browser must not remember for a year that a chunk was missing mid-deploy.
       return new Response("Not found", {
         status: 404,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
       });
     }
 
@@ -599,7 +644,11 @@ export function createAppShellHandler({
         traceBackendPhase("shell.headers", () => htmlHeaders(request, client, filePath)),
       ]);
       const { "X-Wiki-Reader-Account": accountTag, "X-Wiki-Reader-Access": readerAccess, ...responseHeaders } = headers;
-      const accountHtml = html.replace("</head>", `<meta name="wiki-reader-account" content="${accountTag}" /><meta name="wiki-reader-access" content="${readerAccess}" /></head>`);
+      // Also on <html>: the inline preload script at the top of the head runs
+      // before these metas are parsed and must not fetch the reader for a
+      // document that will not start it (the landing page).
+      const accountHtml = html.replace(/<html(?=[\s>])/, `<html data-reader-access="${readerAccess}"`)
+        .replace("</head>", `<meta name="wiki-reader-account" content="${accountTag}" /><meta name="wiki-reader-access" content="${readerAccess}" /></head>`);
       return new Response(accountHtml, { headers: responseHeaders });
     }
 
@@ -627,6 +676,16 @@ export function createWikiViteHandler({
   const handleAppShellRequest = createAppShellHandler({ client, distDir, indexHtml });
 
   return async function handleWikiViteRequest(request: Request): Promise<Response> {
+    const { pathname } = new URL(request.url);
+    const pathClass = shellPathClass(pathname);
+    // Most 404s are scanners asking for dot files and WordPress paths. Answer
+    // before the gate so they cost no site or database lookup.
+    const response = isProbePath(pathname) ? probeResponse() : await respond(request);
+    traceBackendAttributes({ "shell.path_class": pathClass, "shell.outcome": shellOutcome(response.status, pathClass, response.headers.get("content-type")) });
+    return response;
+  };
+
+  async function respond(request: Request): Promise<Response> {
     const started = performance.now();
     const { pathname } = new URL(request.url);
     // oncobase.io is a separate, public site on the same deployment: no gate, session, or database.
@@ -663,5 +722,5 @@ export function createWikiViteHandler({
     const response = await handleAppShellRequest(request);
     response.headers.append("Server-Timing", `wiki-shell;dur=${(performance.now() - started).toFixed(1)}`);
     return response;
-  };
+  }
 }

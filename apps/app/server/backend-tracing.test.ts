@@ -89,7 +89,14 @@ test("phase spans parent database reads and record only aggregate result sizes",
   expect(query.parentSpanContext?.spanId).toBe(phase.spanContext().spanId);
   expect(query.attributes["convex.result.rows"]).toBe(2);
   expect(query.attributes["convex.result.content_characters"]).toBe(11);
+  // The route rides on the RPC, so reports group by it without a trace-id join.
+  expect(query.attributes["oncobase.request.route"]).toBe("/api/search");
+  expect(spans.every(span => span.attributes["oncobase.synthetic"] === undefined)).toBe(true);
   expect(JSON.stringify(spans.map(span => span.attributes))).not.toContain("PRIVATE");
+  exporter.reset();
+  // End-to-end runs send this header on every request; every span they cause is labelled.
+  await handler(new Request("https://example.test/api/search", { headers: { "x-wiki-test-run": "1" } }));
+  expect(exporter.getFinishedSpans().map(span => span.attributes["oncobase.synthetic"])).toEqual([true, true, true]);
   await provider.shutdown();
 });
 

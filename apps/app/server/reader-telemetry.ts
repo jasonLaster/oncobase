@@ -1,5 +1,5 @@
-import { parseReaderBatch } from "../shared/reader-telemetry";
-import { recordRemoteSpan } from "./backend-tracing";
+import { readReaderBatch } from "../shared/reader-telemetry";
+import { recordRemoteSpan, SYNTHETIC_ATTRIBUTE, traceBackendAttributes } from "./backend-tracing";
 
 export async function boundedJson(request: Request, limit = 16_384): Promise<unknown> {
   if (Number(request.headers.get("content-length")) > limit || !request.body) throw new Error("Invalid telemetry size");
@@ -36,10 +36,24 @@ export async function handleReaderTelemetry(request: Request) {
   if (process.env.WIKI_BACKEND_TRACING === "0") return new Response(null, { status: 204, headers });
   if (!admitBatch()) return new Response(null, { status: 429, headers });
   try {
-    const batch = parseReaderBatch(await boundedJson(request));
-    if (!batch) return new Response(null, { status: 400, headers });
+    const result = readReaderBatch(await boundedJson(request));
+    if ("rejected" in result) {
+      // A fixed class on the request span: why a batch was refused, never its content.
+      traceBackendAttributes({ "reader.telemetry.rejected": result.rejected });
+      return new Response(null, { status: 400, headers });
+    }
+    const { batch } = result;
+    const context = batch.context ?? {};
+    // Page-level classes repeat on every span so one filter splits any percentile.
+    const page = {
+      ...(context.synthetic ? { [SYNTHETIC_ATTRIBUTE]: true } : {}),
+      ...(context.viewport ? { "reader.viewport": context.viewport } : {}), ...(context.input ? { "reader.input": context.input } : {}),
+      ...(context.cpu ? { "reader.cpu": context.cpu } : {}), ...(context.connection ? { "reader.connection": context.connection } : {}),
+      ...(context.route ? { "reader.route_type": context.route } : {}), ...(context.startup ? { "reader.startup": context.startup } : {}),
+    };
+    if (batch.dropped > 0) traceBackendAttributes({ "reader.telemetry.dropped": batch.dropped });
     for (const span of batch.spans) recordRemoteSpan(`reader.${span.name}`, span.start, span.duration, {
-      "oncobase.client.trace_id": batch.traceId, "telemetry.source": "browser", "telemetry.clock": "client",
+      ...page, "oncobase.client.trace_id": batch.traceId, "telemetry.source": "browser", "telemetry.clock": "client",
       "http.response.status_code": span.status, ...(span.rpcMs === undefined ? {} : { "convex.rpc_sum_ms": span.rpcMs }),
       // Client duration minus serverMs is network, CDN and platform overhead.
       ...(span.serverMs === undefined ? {} : { "server.duration_ms": span.serverMs }),
@@ -56,5 +70,8 @@ export async function handleReaderTelemetry(request: Request) {
     }, span.status === 0 || span.status >= 400);
     console.info("oncobase.reader", JSON.stringify(batch));
     return new Response(null, { status: 204, headers });
-  } catch { return new Response(null, { status: 400, headers }); }
+  } catch {
+    traceBackendAttributes({ "reader.telemetry.rejected": "body" });
+    return new Response(null, { status: 400, headers });
+  }
 }

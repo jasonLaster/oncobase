@@ -9,7 +9,7 @@ import { BrowserRouter, useLocation } from "react-router";
 import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
 import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
-import { observeReaderVitals, recordReaderPhase } from "./reader-telemetry";
+import { observeReaderVitals, recordReaderPhase, setReaderTelemetryRoute } from "./reader-telemetry";
 import { webMcpAvailable } from "./webmcp/webmcp-flag";
 // oncobase.io is the marketing site: three pages, no reader, no sign-in, no telemetry endpoint.
 const site = siteResponse();
@@ -58,6 +58,7 @@ publishRuntimeEnvironment({
   // Reading response metadata keeps server-only releases out of JS hashes.
   commitSha: document.querySelector<HTMLMetaElement>('meta[name="wiki-build-commit"]')?.content || undefined,
 });
+setReaderTelemetryRoute(initialRoute, location.pathname);
 if (site === "diana") observeReaderVitals();
 recordReaderPhase("boot-script", undefined, bootScriptStart);
 

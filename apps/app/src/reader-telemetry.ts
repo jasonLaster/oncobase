@@ -1,4 +1,4 @@
-import { READER_PHASES, READER_REASONS, type ReaderHandoffOutcome, type ReaderPhase, type ReaderReason, type ReaderSpan } from "../shared/reader-telemetry";
+import { READER_CONNECTIONS, READER_PHASES, READER_REASONS, readerRouteType, type ReaderContext, type ReaderHandoffOutcome, type ReaderPhase, type ReaderReason, type ReaderSpan, type ReaderStartup } from "../shared/reader-telemetry";
 import { storeBootPath } from "./livestore/store-boot-path";
 import { noteNetworkFailure, noteNetworkResponse } from "./sync/connectivity";
 import { isOncobaseHost } from "./site-host";
@@ -7,7 +7,42 @@ import { isOncobaseHost } from "./site-host";
 let id: string | undefined;
 let queue: ReaderSpan[] = [];
 let timer: ReturnType<typeof setTimeout> | undefined;
-let count = 0, dropped = 0;
+let dropped = 0;
+// A burst covers boot; the refill keeps a tab that stays open reporting (a fixed
+// per-page cap silenced exactly the long-lived tabs) while a loop cannot flood.
+export const SPAN_BURST = 256, SPAN_REFILL_MS = 2_000;
+export function createSpanBudget(burst = SPAN_BURST, refillMs = SPAN_REFILL_MS) {
+  let tokens = burst, refilledAt: number | undefined;
+  return (now: number) => {
+    tokens = Math.min(burst, tokens + (now - (refilledAt ?? now)) / refillMs);
+    refilledAt = now;
+    if (tokens < 1) return false;
+    tokens--;
+    return true;
+  };
+}
+const admitSpan = createSpanBudget();
+let route: ReaderContext["route"], startup: ReaderStartup | undefined;
+/** The first document's route family. Call once at boot. */
+export function setReaderTelemetryRoute(rootRoute: string, pathname: string) { route = readerRouteType(rootRoute, pathname); }
+/** What the reader's first paint came from. */
+export function setReaderTelemetryStartup(value: ReaderStartup) { startup ??= value; }
+// Coarse classes only (see shared/reader-telemetry.ts): enough to split a
+// percentile by phone and desktop or by people and automation, nothing more.
+function pageContext(): ReaderContext {
+  try {
+    const cores = navigator.hardwareConcurrency || 0;
+    const connection = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection?.effectiveType as ReaderContext["connection"];
+    return {
+      ...(navigator.webdriver ? { synthetic: true } : {}),
+      viewport: window.innerWidth < 640 ? "narrow" : window.innerWidth < 1024 ? "medium" : "wide",
+      input: window.matchMedia?.("(pointer: coarse)").matches ? "touch" : "pointer",
+      ...(cores ? { cpu: cores <= 4 ? "low" : cores <= 8 ? "mid" : "high" } : {}),
+      ...(connection && READER_CONNECTIONS.includes(connection) ? { connection } : {}),
+      ...(route ? { route } : {}), ...(startup ? { startup } : {}),
+    };
+  } catch { return {}; }
+}
 // Vitals finalize when the page is first hidden, just before the beacon.
 const finalizers: Array<() => void> = [];
 function traceId() {
@@ -25,7 +60,7 @@ function flush(beacon = false) {
   // The page may not run again after hide: drain every batch, not only the first.
   do {
     if (!queue.length) return;
-    const payload = JSON.stringify({ version: 1, traceId: traceId(), spans: queue.splice(0, 32), dropped });
+    const payload = JSON.stringify({ version: 1, traceId: traceId(), spans: queue.splice(0, 32), dropped, context: pageContext() });
     // Failure is deliberately best-effort: no retries or impact on reader work.
     try {
       if (beacon && navigator.sendBeacon?.("/api/wiki/telemetry", new Blob([payload], { type: "application/json" }))) continue;
@@ -41,7 +76,7 @@ function enqueue(span: ReaderSpan) {
   if (isOncobaseHost(window.location.hostname)) return;
   try {
     traceId();
-    if (count++ >= 256) { dropped++; return; }
+    if (!admitSpan(performance.now())) { dropped++; return; }
     queue.push(span);
     if (queue.length >= 32) flush();
     else timer ??= setTimeout(() => flush(), 2000);

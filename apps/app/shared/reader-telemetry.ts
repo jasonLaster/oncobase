@@ -47,16 +47,75 @@ export type ReaderWebMcpTool = typeof READER_WEBMCP_TOOLS[number];
 export type ReaderSpan = { name: ReaderPhase; start: number; duration: number; status: number; rpcMs?: number; serverMs?: number; serverTraceId?: string; partial?: boolean; cached?: boolean;
   reason?: ReaderReason; outcome?: ReaderHandoffOutcome; offsetMs?: number; bytes?: number; count?: number; path?: ReaderStorePath; tool?: ReaderWebMcpTool };
 const bounded = (value: unknown, max: number) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= max;
-export type ReaderBatch = { version: 1; traceId: string; spans: ReaderSpan[]; dropped: number };
+
+// Coarse page-level classes, the same for every span of a page view. They exist
+// to split percentiles (phone vs desktop, cold vs cached, people vs automation);
+// none identifies a browser, a person or a page.
+export const READER_VIEWPORTS = ["narrow", "medium", "wide"] as const;
+export const READER_INPUTS = ["touch", "pointer"] as const;
+export const READER_CPUS = ["low", "mid", "high"] as const;
+export const READER_CONNECTIONS = ["slow-2g", "2g", "3g", "4g"] as const;
+export const READER_ROUTE_TYPES = ["wiki", "landing", "sign-in", "search", "chat", "admin", "diagnostics", "comments", "tags", "tools", "education", "share", "other"] as const;
+/** What the first paint came from: the saved local snapshot, the page data inlined in the document, or the network. */
+export const READER_STARTUPS = ["snapshot", "bootstrap", "network"] as const;
+export type ReaderRouteType = typeof READER_ROUTE_TYPES[number];
+export type ReaderStartup = typeof READER_STARTUPS[number];
+export type ReaderContext = {
+  /** Browser automation (`navigator.webdriver`): end-to-end tests and other scripted traffic. */
+  synthetic?: boolean; viewport?: typeof READER_VIEWPORTS[number]; input?: typeof READER_INPUTS[number]; cpu?: typeof READER_CPUS[number];
+  connection?: typeof READER_CONNECTIONS[number]; route?: ReaderRouteType; startup?: ReaderStartup;
+};
+export type ReaderBatch = { version: 1; traceId: string; spans: ReaderSpan[]; dropped: number; context?: ReaderContext };
+
+/** Route family of the first document, from the top-level app and the first path segment only. */
+export function readerRouteType(rootRoute: string, pathname: string): ReaderRouteType {
+  if (rootRoute === "login") return pathname === "/" ? "landing" : "sign-in";
+  if (rootRoute === "sign-in" || rootRoute === "password") return "sign-in";
+  if (rootRoute === "education" || rootRoute === "share") return rootRoute;
+  if (rootRoute === "pathology" || rootRoute === "pdf" || rootRoute === "dicom") return "tools";
+  if (rootRoute !== "reader") return "other";
+  const segment = pathname.split("/")[1] ?? "";
+  return (["search", "chat", "admin", "diagnostics", "comments", "tags", "tools"] as const).find(name => name === segment) ?? "wiki";
+}
+
+function parseReaderContext(value: unknown): ReaderContext | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const item = value as Record<string, unknown>;
+  const pick = <T extends string>(allowed: readonly T[], candidate: unknown) => allowed.includes(candidate as T) ? candidate as T : undefined;
+  const context: ReaderContext = {
+    ...(item.synthetic === true ? { synthetic: true } : {}),
+    viewport: pick(READER_VIEWPORTS, item.viewport), input: pick(READER_INPUTS, item.input), cpu: pick(READER_CPUS, item.cpu),
+    connection: pick(READER_CONNECTIONS, item.connection), route: pick(READER_ROUTE_TYPES, item.route), startup: pick(READER_STARTUPS, item.startup),
+  };
+  for (const key of Object.keys(context) as Array<keyof ReaderContext>) if (context[key] === undefined) delete context[key];
+  return Object.keys(context).length ? context : undefined;
+}
+
+/** A browser clock may run ahead by this much. */
+const MAX_FUTURE_SKEW_MS = 600_000;
+/** Vitals are measured from navigation and sent when the page is first hidden,
+ * which can be hours later. A ten-minute limit rejected those batches whole. */
+export const MAX_SPAN_AGE_MS = 24 * 3_600_000;
+export const READER_BATCH_REJECTIONS = ["shape", "span-name", "span-clock", "span-duration", "span-status"] as const;
+export type ReaderBatchRejection = typeof READER_BATCH_REJECTIONS[number];
+
+export function parseReaderBatch(value: unknown, now = Date.now()): ReaderBatch | null {
+  const result = readReaderBatch(value, now);
+  return "batch" in result ? result.batch : null;
+}
 
 // Reconstruct a strict allowlist, rather than forwarding arbitrary properties.
-export function parseReaderBatch(value: unknown, now = Date.now()): ReaderBatch | null {
-  if (!value || typeof value !== "object") return null;
+// A rejection names a fixed class, so a rising 400 rate can be explained.
+export function readReaderBatch(value: unknown, now = Date.now()): { batch: ReaderBatch } | { rejected: ReaderBatchRejection } {
+  if (!value || typeof value !== "object") return { rejected: "shape" };
   const body = value as ReaderBatch;
-  if (body.version !== 1 || !/^[a-f0-9]{32}$/.test(body.traceId) || /^0+$/.test(body.traceId) || !Array.isArray(body.spans) || body.spans.length > 32 || !body.spans.length) return null;
+  if (body.version !== 1 || !/^[a-f0-9]{32}$/.test(body.traceId) || /^0+$/.test(body.traceId) || !Array.isArray(body.spans) || body.spans.length > 32 || !body.spans.length) return { rejected: "shape" };
   const spans: ReaderSpan[] = [];
   for (const item of body.spans) {
-    if (!item || !READER_PHASES.includes(item.name) || !Number.isFinite(item.start) || Math.abs(now - item.start) > 600_000 || !Number.isFinite(item.duration) || item.duration < 0 || item.duration > 300_000 || !Number.isInteger(item.status) || item.status < 0 || item.status > 599) return null;
+    if (!item || !READER_PHASES.includes(item.name)) return { rejected: "span-name" };
+    if (!Number.isFinite(item.start) || item.start - now > MAX_FUTURE_SKEW_MS || now - item.start > MAX_SPAN_AGE_MS) return { rejected: "span-clock" };
+    if (!Number.isFinite(item.duration) || item.duration < 0 || item.duration > 300_000) return { rejected: "span-duration" };
+    if (!Number.isInteger(item.status) || item.status < 0 || item.status > 599) return { rejected: "span-status" };
     spans.push({ name: item.name, start: item.start, duration: item.duration, status: item.status,
       ...(typeof item.rpcMs === "number" && Number.isFinite(item.rpcMs) && item.rpcMs >= 0 && item.rpcMs <= 300_000 ? { rpcMs: item.rpcMs } : {}),
       ...(typeof item.serverMs === "number" && Number.isFinite(item.serverMs) && item.serverMs >= 0 && item.serverMs <= 300_000 ? { serverMs: item.serverMs } : {}),
@@ -72,5 +131,7 @@ export function parseReaderBatch(value: unknown, now = Date.now()): ReaderBatch 
       ...(Number.isInteger(item.count) && bounded(item.count, 1000) ? { count: item.count } : {}),
     });
   }
-  return { version: 1, traceId: body.traceId, spans, dropped: Number.isInteger(body.dropped) && body.dropped >= 0 && body.dropped <= 1e6 ? body.dropped : 0 };
+  const context = parseReaderContext(body.context);
+  return { batch: { version: 1, traceId: body.traceId, spans, dropped: Number.isInteger(body.dropped) && body.dropped >= 0 && body.dropped <= 1e6 ? body.dropped : 0,
+    ...(context ? { context } : {}) } };
 }

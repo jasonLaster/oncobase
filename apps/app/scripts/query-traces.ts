@@ -6,10 +6,10 @@ import { parse } from "dotenv";
 const { values } = parseArgs({ options: {
   "env-file": { type: "string" }, since: { type: "string", default: "24h" },
   trace: { type: "string" }, query: { type: "string" }, limit: { type: "string", default: "100" }, report: { type: "boolean" },
-  "timeout-ms": { type: "string", default: "60000" }, help: { type: "boolean" },
+  "timeout-ms": { type: "string", default: "60000" }, help: { type: "boolean" }, "include-synthetic": { type: "boolean" },
 } });
 if (values.help) {
-  console.log("bun scripts/query-traces.ts [--env-file PATH] [--since 24h] [--trace ID] [--limit 100] [--query APL] [--report] [--timeout-ms 60000]\nOutputs Axiom tabular JSON. Trace lookup also matches browser/manifest correlation IDs. --report prints aggregate bottleneck tables over the full window. Query permission is required.");
+  console.log("bun scripts/query-traces.ts [--env-file PATH] [--since 24h] [--trace ID] [--limit 100] [--query APL] [--report] [--include-synthetic] [--timeout-ms 60000]\nOutputs Axiom tabular JSON. Trace lookup also matches browser/manifest correlation IDs. --report prints aggregate bottleneck tables over the full window. It leaves out traffic labelled as automation (end-to-end runs) unless --include-synthetic is given; spans recorded before the label existed are unlabelled and still counted. Query permission is required.");
   process.exit(0);
 }
 const file = values["env-file"] ?? [resolve(".env.local"), resolve("../../.env.local")].find(existsSync);
@@ -55,13 +55,22 @@ if (!values.report) {
 const columns = new Set((await query(`['${dataset}'] | getschema`)).tables[0]!.columns[0]!.map(String));
 const attr = (name: string) => columns.has(`attributes.${name}`) ? `['attributes.${name}']` : `['attributes.custom']['${name}']`;
 const num = (name: string) => `todouble(${attr(name)})`;
-const ds = `['${dataset}']`;
+const all = `['${dataset}']`;
+// End-to-end runs against a deployment once made up 96% of browser boots and
+// halved the apparent LCP. Reports describe people unless asked otherwise.
+const synthetic = `tostring(${attr("oncobase.synthetic")}) == 'true'`;
+const ds = values["include-synthetic"] ? all : `${all} | where not(${synthetic})`;
+const browserSpan = `name startswith 'reader.' or name startswith 'observation.reader.'`;
 const caches = ["site-host", "canonical-slugs", "pii-patterns", "search-corpus", "manifest-snapshot", "manifest-derived"];
 const sections: Array<[string, string]> = [
+  ["Traffic: people vs labelled automation (spans from before the label shipped count as people)",
+    `${all} | extend source = iff(${browserSpan}, 'browser', iff(kind == 'server', 'server request', 'other')), automated = ${synthetic} | summarize spans=count(), automated=countif(automated) by source | extend automated_pct = 100.0 * automated / spans | order by spans desc`],
   ["Span latency by name (ms; total = serial-equivalent seconds)",
     `${ds} | extend ms = duration / 1ms | summarize n=count(), p50=percentile(ms, 50), p95=percentile(ms, 95), p99=percentile(ms, 99), total_s=sum(ms) / 1000 by name | order by total_s desc | take 40`],
   ["Convex RPCs by request route",
-    `${ds} | where name startswith 'convex.' | join kind=inner (${ds} | where kind == 'server' | project trace_id, route=name) on trace_id | extend ms = duration / 1ms | summarize n=count(), p50=percentile(ms, 50), p95=percentile(ms, 95), max=max(ms), total_s=sum(ms) / 1000 by route, name | order by total_s desc | take 25`],
+    // Grouped by the route stamped on each RPC. A join on trace id multiplied
+    // counts whenever one trace (a publish) held many request spans.
+    `${ds} | where name startswith 'convex.' | extend ms = duration / 1ms, labelled = tostring(${attr("oncobase.request.route")}) | extend route = iff(isempty(labelled), '(before route label)', labelled) | summarize n=count(), p50=percentile(ms, 50), p95=percentile(ms, 95), max=max(ms), total_s=sum(ms) / 1000 by route, name | order by total_s desc | take 25`],
   ["Self time: request duration not covered by direct child spans (untraced CPU, serialization)",
     `${ds} | where kind == 'server' | join kind=leftouter (${ds} | where isnotempty(parent_span_id) | summarize child_ms=sum(duration / 1ms) by span_id=parent_span_id) on span_id | extend ms = duration / 1ms, self_ms = max_of(0.0, duration / 1ms - coalesce(child_ms, 0.0)) | summarize n=count(), p50=percentile(ms, 50), self_p50=percentile(self_ms, 50), self_p95=percentile(self_ms, 95), self_total_s=sum(self_ms) / 1000 by name | order by self_total_s desc | take 20`],
   ["Platform: cold starts, in-instance concurrency, event-loop saturation",
@@ -82,11 +91,23 @@ const sections: Array<[string, string]> = [
   ["Search: corpus loads behind exhaustive answers (state miss = the request waited for a cold load)",
     `${ds} | where kind == 'server' and isnotempty(${attr("search.corpus.load_ms")}) | extend state = tostring(${attr("search.corpus.state")}) | summarize n=count(), load_p50=percentile(${num("search.corpus.load_ms")}, 50), load_p95=percentile(${num("search.corpus.load_ms")}, 95), prepare_p50=percentile(${num("search.corpus.prepare_ms")}, 50), rpcs_p50=percentile(${num("search.corpus.rpcs")}, 50), ranges_p50=percentile(${num("search.corpus.ranges")}, 50), reused_p50=percentile(${num("search.corpus.reused_ranges")}, 50), pages_max=max(${num("search.corpus.pages")}), mchars_max=max(${num("search.corpus.characters")}) / 1000000 by state | order by n desc`],
   ["Browser: duration vs server time (gap = network, CDN, platform)",
-    `${ds} | where name startswith 'reader.' or name startswith 'observation.reader.' | extend ms = coalesce(${num("measurement.duration_ms")}, duration / 1ms), server = ${num("server.duration_ms")}, cached = tostring(${attr("reader.cached")}) | summarize n=count(), p50=percentile(ms, 50), p75=percentile(ms, 75), p95=percentile(ms, 95), server_p50=percentile(server, 50), gap_p75=percentile(ms - server, 75) by name, cached | order by name asc | take 60`],
+    `${ds} | where ${browserSpan} | extend ms = coalesce(${num("measurement.duration_ms")}, duration / 1ms), server = ${num("server.duration_ms")}, cached = tostring(${attr("reader.cached")}) | summarize n=count(), p50=percentile(ms, 50), p75=percentile(ms, 75), p95=percentile(ms, 95), server_p50=percentile(server, 50), gap_p75=percentile(ms - server, 75) by name, cached | order by name asc | take 60`],
   // Marks are ms since navigation. resource-* spans: ms = first fetch start to
   // last response end, offset = fetch start since navigation, bytes = transfer.
   ["Browser boot: critical path (ms since navigation; resources: offset + fetch span, bytes, cache-hit share)",
     `${ds} | where name matches regex '^(observation[.])?reader[.](boot-|store-|resource-|identity-|storage-ready|reader-ready|reader-live-handoff|vital-lcp)' | extend span = extract('(reader[.].*)$', 1, name) | extend ms = coalesce(${num("measurement.duration_ms")}, duration / 1ms), offset = ${num("reader.offset_ms")}, bytes = ${num("reader.transfer_bytes")}, cached = tostring(${attr("reader.cached")}) == 'true' | summarize n=count(), p50=percentile(ms, 50), p75=percentile(ms, 75), p95=percentile(ms, 95), offset_p50=percentile(offset, 50), end_p50=percentile(offset + ms, 50), bytes_p50=percentile(bytes, 50), cached_pct=100.0 * countif(cached) / count() by span | order by p50 asc | take 60`],
+  // Page-level classes sent with every batch. startup: snapshot = saved local
+  // copy painted first, bootstrap = page data inlined in the document, network = neither.
+  ["Browser vitals and readiness by viewport and first-paint source",
+    `${ds} | where name matches regex '^(observation[.])?reader[.](vital-lcp|vital-inp|reader-ready|store-boot-complete)$' | extend span = extract('(reader[.].*)$', 1, name), ms = coalesce(${num("measurement.duration_ms")}, duration / 1ms), viewport = tostring(${attr("reader.viewport")}), startup = tostring(${attr("reader.startup")}) | summarize n=count(), p50=percentile(ms, 50), p75=percentile(ms, 75), p90=percentile(ms, 90), p95=percentile(ms, 95) by span, viewport, startup | order by span asc, n desc | take 60`],
+  ["Browser vitals by route family, input and connection",
+    `${ds} | where name matches regex '^(observation[.])?reader[.](vital-lcp|vital-inp)$' | extend span = extract('(reader[.].*)$', 1, name), ms = coalesce(${num("measurement.duration_ms")}, duration / 1ms) | summarize n=count(), p50=percentile(ms, 50), p75=percentile(ms, 75), p95=percentile(ms, 95) by span, route=tostring(${attr("reader.route_type")}), input=tostring(${attr("reader.input")}), connection=tostring(${attr("reader.connection")}) | order by span asc, n desc | take 60`],
+  // document = HTML; asset-miss = a file that does not exist; probe = scanner
+  // paths (dot files, wp-*, .php). path = first-segment family, never a slug.
+  ["HTML shell: outcomes by path family",
+    `${ds} | where name == 'wiki /reader/shell' | extend ms = duration / 1ms | summarize n=count(), p50=percentile(ms, 50), p95=percentile(ms, 95) by outcome=tostring(${attr("shell.outcome")}), path=tostring(${attr("shell.path_class")}), status=tostring(${attr("http.response.status_code")}) | order by n desc | take 30`],
+  ["Browser telemetry: refused batches by reason, and spans the page dropped",
+    `${ds} | where name == 'wiki /api/wiki/telemetry' | summarize n=count(), dropped_spans=sum(${num("reader.telemetry.dropped")}) by status=tostring(${attr("http.response.status_code")}), rejected=tostring(${attr("reader.telemetry.rejected")}) | order by n desc | take 20`],
   // fast = guarded local OPFS image; leader = no local state; fallback-* = the
   // guard rejected the local image (journal, changed between reads, invalid
   // header, storage error); memory = temporary store. store-fast-path is the

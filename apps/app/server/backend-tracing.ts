@@ -15,7 +15,11 @@ export type BackendProfile = {
   calls: Array<{ operation: string; name: string; durationMs: number; failed: boolean; pending: boolean }>;
   phases: Array<{ name: string; durationMs: number }>;
 };
-type RequestTrace = { tracer?: Tracer; span?: Span; root?: Span; profile: BackendProfile; historicalSpans?: boolean };
+type RequestTrace = { tracer?: Tracer; span?: Span; root?: Span; profile: BackendProfile; historicalSpans?: boolean; synthetic?: boolean };
+/** Set by the end-to-end suites on every request (playwright.config.ts) and by
+ * automated browsers in their telemetry. Labels a trace; grants nothing. */
+export const SYNTHETIC_ATTRIBUTE = "oncobase.synthetic";
+const syntheticAttributes = (synthetic: boolean | undefined) => synthetic ? { [SYNTHETIC_ATTRIBUTE]: true } : {};
 const requests = new AsyncLocalStorage<RequestTrace>();
 let provider: BasicTracerProvider | undefined;
 let initializing: Promise<Tracer | undefined> | undefined;
@@ -124,6 +128,7 @@ export function traceBackendHandler(
       ...(coldStart ? { "faas.init_ms": Math.round(process.uptime() * 1000) } : {}),
     };
     const route = options.route ?? routeName(request);
+    const synthetic = request.headers.get("x-wiki-test-run") === "1";
     const incoming = publishParent(request);
     const clientTraceId = request.headers.get("x-wiki-reader-trace") ?? trace.getSpanContext(incoming)?.traceId;
     const correlation = clientTraceId && /^[a-f0-9]{32}$/.test(clientTraceId) ? clientTraceId : undefined;
@@ -133,11 +138,11 @@ export function traceBackendHandler(
     const parent = retained && !historicalSpans ? propagation.extract(ROOT_CONTEXT, {}, { keys: () => [], get: () => undefined }) : incoming;
     const span = tracer?.startSpan(`wiki ${route}`, {
       kind: SpanKind.SERVER, startTime: Date.now() - (performance.now() - started),
-      attributes: { "oncobase.safe": true, "telemetry.init_ms": initializationMs, ...processAttributes, "http.route": route, "http.request.method": request.method,
+      attributes: { "oncobase.safe": true, "telemetry.init_ms": initializationMs, ...processAttributes, "http.route": route, "http.request.method": request.method, ...syntheticAttributes(synthetic),
         ...(EDUCATION_API_ALIASES[new URL(request.url).pathname] ? { "oncobase.route.alias": "education" } : {}), ...(correlation ? { "oncobase.client.trace_id": correlation } : {}) },
     }, parent);
     const profile: BackendProfile = { route, attributes: { "telemetry.init_ms": initializationMs, ...processAttributes }, durationMs: 0, status: 500, calls: [], phases: [] };
-    return requests.run({ tracer, span, root: span, profile, historicalSpans }, async () => {
+    return requests.run({ tracer, span, root: span, profile, historicalSpans, synthetic }, async () => {
       try {
         let response = await handler(request);
         // Redirect/fetch responses can have immutable headers. Telemetry must
@@ -222,7 +227,11 @@ export function traceConvexClient(client: ConvexHttpClient, tracerOverride?: Tra
         const tracer = tracerOverride ?? current.tracer;
         const span = tracer?.startSpan(`convex.${property} ${name}`, {
           kind: SpanKind.CLIENT,
-          attributes: { "oncobase.safe": true, "rpc.system": "convex", "rpc.method": name, "convex.operation": property },
+          // The request route on the RPC itself: a report can group by it without
+          // joining on trace id, which multiplies counts when one trace (a
+          // publish) holds many request spans.
+          attributes: { "oncobase.safe": true, "rpc.system": "convex", "rpc.method": name, "convex.operation": property,
+            "oncobase.request.route": current.profile.route, ...syntheticAttributes(current.synthetic) },
         }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
         const call = { operation: property, name, durationMs: 0, failed: false, pending: true };
         current.profile.calls.push(call);
@@ -274,7 +283,7 @@ export async function traceBackendPhase<T>(name: BackendPhase, run: () => T | Pr
   const current = requests.getStore();
   if (!current) return run();
   const started = performance.now();
-  const span = current.tracer?.startSpan(name, { kind: SpanKind.INTERNAL, attributes: { "oncobase.safe": true } }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
+  const span = current.tracer?.startSpan(name, { kind: SpanKind.INTERNAL, attributes: { "oncobase.safe": true, ...syntheticAttributes(current.synthetic) } }, current.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
   return requests.run({ ...current, span: span ?? current.span }, async () => {
     try { return await run(); }
     catch (error) { span?.setStatus({ code: SpanStatusCode.ERROR }); span?.setAttribute("error.type", errorType(error)); throw error; }
@@ -336,7 +345,7 @@ export function recordRemoteSpan(name: string, start: number, duration: number, 
     // A relay receives already-completed work. Link to the receipt, never make
     // that later request the parent of a historical browser/job operation.
     ...(historical && current.span ? { links: [{ context: current.span.spanContext(), attributes: { "telemetry.relationship": "received-by" } }] } : {}),
-    attributes: { ...attributes, "oncobase.safe": true,
+    attributes: { ...syntheticAttributes(current?.synthetic), ...attributes, "oncobase.safe": true,
       ...(remote ? { "measurement.start_unix_ms": start, "measurement.duration_ms": duration } : {}) },
   }, !historical && current?.span ? trace.setSpan(ROOT_CONTEXT, current.span) : ROOT_CONTEXT);
   if (failed) span?.setStatus({ code: SpanStatusCode.ERROR });

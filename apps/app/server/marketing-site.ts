@@ -84,7 +84,8 @@ export async function handleMarketingRequest(
       canonicalUrl: `${url.origin}${url.pathname}`,
       noIndex: false,
     });
-    const body = withHead.replace(
+    // The <html> stamp lets the inline preload script skip the reader on preview aliases too.
+    const body = withHead.replace(/<html(?=[\s>])/, '<html data-wiki-site="oncobase"').replace(
       "</head>",
       '<meta name="wiki-site" content="oncobase" /><meta name="wiki-reader-account" content="public" /><meta name="wiki-reader-access" content="public" /></head>',
     );

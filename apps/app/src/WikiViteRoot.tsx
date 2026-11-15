@@ -7,6 +7,7 @@ import { explicitReaderScope, identityRetryDelayMs } from "./reader-session";
 import { takeReaderSession } from "./reader-session-prefetch";
 import { WikiIdentityPendingContext } from "./wiki-context";
 import { markSessionHandoff, markVisualPhase } from "./visual-phase";
+import { setReaderTelemetryStartup } from "./reader-telemetry";
 import { keepsPresentationMounted } from "./bootstrap/session-handoff";
 import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, STARTUP_CACHE_EPOCH } from "./bootstrap/reader-startup-cache";
 import { contentSlugFromRouteSlug, slugFromPath } from "./wiki-utils";
@@ -165,6 +166,9 @@ export function WikiViteRoot() {
   }, []);
   const [readerModule, setReaderModule] = useState<ReaderModuleState>({ status: "loading" });
   const [identityPending, setIdentityPending] = useState(true);
+  // Telemetry only: which source painted first, so cold and cached loads are not averaged together.
+  const [firstPaintSource] = useState(() => cached ? "snapshot" as const : document.getElementById(PAGE_BOOTSTRAP_ID) ? "bootstrap" as const : "network" as const);
+  useEffect(() => setReaderTelemetryStartup(firstPaintSource), [firstPaintSource]);
   const [responsePresentationIdentity] = useState(() => {
     const query = new URLSearchParams(location.search);
     // Fresh public presentation only. This value never selects a store,

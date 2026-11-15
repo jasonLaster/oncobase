@@ -214,6 +214,8 @@ describe("wiki Vite app-shell password gate", () => {
     const anonymous = await handler(request("/", { headers: { Cookie: hint } }));
     const anonymousHtml = await anonymous.text();
     expect(anonymousHtml).toContain('<meta name="wiki-reader-access" content="landing" />');
+    // Readable by the inline preload script at the top of the head, before the metas parse.
+    expect(anonymousHtml).toContain('<html data-reader-access="landing">');
     expect(anonymousHtml).not.toContain("wiki-page-bootstrap");
     lookup.mockClear();
     const response = await handler(request("/", { headers: await authenticatedHeaders(hint) }));
@@ -349,6 +351,26 @@ describe("wiki Vite app-shell password gate", () => {
     expect(response.status).toBe(400);
   });
 
+  test("a missing file is never cacheable, and scanner paths end before any site lookup", async () => {
+    let queries = 0;
+    const counting = { query: async (...args: Parameters<ReturnType<typeof fakeClient>["query"]>) => { queries++; return fakeClient().query(...args); } };
+    const handler = createWikiViteHandler({ client: counting as never, distDir });
+    // The platform adds a one-year immutable header to /assets/* responses
+    // that do not set their own. A chunk missing mid-deploy must not stick.
+    for (const pathname of ["/assets/missing-chunk.js", "/apple-touch-icon-precomposed.png"]) {
+      const response = await handler(request(pathname));
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+    }
+    queries = 0;
+    for (const pathname of ["/.env", "/.git/config", "/wp-login.php", "/wp-admin/setup-config.php", "/.claude/settings.json"]) {
+      const response = await handler(request(pathname));
+      expect([pathname, response.status, response.headers.get("cache-control"), response.headers.get("location")])
+        .toEqual([pathname, 404, "no-store", null]);
+    }
+    expect(queries).toBe(0);
+  });
+
   test("the retired /__reader/ namespace is always a private 404", async () => {
     const handler = createWikiViteHandler({ client: fakeClient() as never, distDir });
     for (const pathname of ["/__reader/html/abc/def", "/__READER/x", "/%5f%5freader/x"]) {
@@ -480,6 +502,7 @@ describe("wiki Vite app-shell password gate", () => {
         expect(html).toContain(`<link rel="canonical" href="https://oncobase.io${pathname}" />`);
         expect(html).toContain('<meta name="wiki-site" content="oncobase" />');
         expect(html).toContain('<meta name="wiki-reader-access" content="public" />');
+        expect(html).toContain('<html data-wiki-site="oncobase">');
         expect(html).not.toContain("noindex");
         // No wiki page data rides along on a public marketing page.
         expect(html).not.toContain('id="wiki-page-bootstrap"');
@@ -711,14 +734,38 @@ describe("wiki Vite app-shell password gate", () => {
     expect(robots.headers.get("content-type")).toBe("text/plain; charset=utf-8");
     expect(robots.headers.get("cache-control")).toBe("no-cache");
     expect(robots.headers.get("vary")).toBe("Host");
-    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\nAllow: /education\n");
+    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\nAllow: /education\nSitemap: http://127.0.0.1/sitemap.xml\n");
 
     const publicHandler = createWikiViteHandler({
       client: fakeClient({ passwordGate: false }) as never,
       distDir,
     });
     const publicRobots = await publicHandler(request("/robots.txt"));
-    expect(await publicRobots.text()).toBe("User-agent: *\nAllow: /\n");
+    expect(await publicRobots.text()).toBe("User-agent: *\nAllow: /\nSitemap: http://127.0.0.1/sitemap.xml\n");
+
+    // A gated site lists only its public education library; an open site lists its public pages.
+    const listing = (passwordGate: boolean) => ({
+      async query(ref: FunctionReference<"query">, args: Record<string, unknown>) {
+        if (getFunctionName(ref) === "documents:listManifestPage") {
+          return { page: [{ slug: "index" }, { slug: "wiki/public" }, { slug: "wiki/education/cells & <signals>" }, { slug: "wiki/education/index" }], isDone: true, continueCursor: null };
+        }
+        return fakeClient({ passwordGate }).query(ref, args);
+      },
+    });
+    const gatedSitemap = await createWikiViteHandler({ client: listing(true) as never, distDir })(request("/sitemap.xml"));
+    expect(gatedSitemap.status).toBe(200);
+    expect(gatedSitemap.headers.get("content-type")).toBe("application/xml; charset=utf-8");
+    expect(gatedSitemap.headers.get("cache-control")).toBe("public, max-age=3600");
+    const gatedXml = await gatedSitemap.text();
+    expect(gatedXml.match(/<loc>[^<]*<\/loc>/g)).toEqual([
+      "<loc>http://127.0.0.1/education</loc>",
+      "<loc>http://127.0.0.1/education/cells%20%26%20%3Csignals%3E</loc>",
+      "<loc>http://127.0.0.1/education/index</loc>",
+    ]);
+    expect(gatedXml).not.toContain("wiki/public");
+    const openXml = await (await createWikiViteHandler({ client: listing(false) as never, distDir })(request("/sitemap.xml"))).text();
+    expect(openXml).toContain("<loc>http://127.0.0.1/</loc>");
+    expect(openXml).toContain("<loc>http://127.0.0.1/wiki/public</loc>");
 
     const shell = await handler(
       request("/", { headers: await authenticatedHeaders() }),

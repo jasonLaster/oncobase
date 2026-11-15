@@ -7,7 +7,6 @@ import {
   type WikiManifest,
   type WikiManifestValidation,
   type WikiManifestPage,
-  type WikiScope,
 } from "@oncobase/wiki-content";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
@@ -49,13 +48,17 @@ export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
 import { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
 import { setManifestReceivedBytes, setPageTransfer } from "./transfer-progress";
 import { readerOnline } from "./connectivity";
+import {
+  announcesManifestCheck,
+  MANIFEST_FRESH_MS,
+  nextManifestCheckDelay,
+  nextManifestRetryDelay,
+  timerMayCheck,
+  type ManifestCheckReason,
+} from "./manifest-poll-policy";
 export { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
 
-const MANIFEST_FRESH_MS: Record<WikiScope, number> = {
-  public: 60_000,
-  session: 30_000,
-};
-const MANIFEST_RETRY_MS = 30_000;
+const CHECK_REASON_RANK: Record<ManifestCheckReason, number> = { timer: 0, attention: 1, load: 2, user: 3 };
 
 /** `background={false}` syncs the current route only (manifest and body), for a
  * store that is preparing to replace a presentation and not yet visible. */
@@ -77,6 +80,16 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
     controller: AbortController;
   } | null>(null);
   const manifestFailures = useRef(0);
+  // Why the next manifest check runs, and how many unattended checks in a row
+  // found nothing new. See manifest-poll-policy.ts.
+  const pendingCheckReason = useRef<ManifestCheckReason | null>(null);
+  const unchangedChecks = useRef(0);
+  const checkedStore = useRef<typeof store | null>(null);
+  const requestManifestCheck = useCallback((reason: ManifestCheckReason) => {
+    const pending = pendingCheckReason.current;
+    if (!pending || CHECK_REASON_RANK[reason] > CHECK_REASON_RANK[pending]) pendingCheckReason.current = reason;
+    setNetworkTick(value => value + 1);
+  }, []);
   const inFlight = useRef(new Map<string, AbortController>());
   useEffect(() => () => {
     validationInFlight.current?.controller.abort();
@@ -98,7 +111,7 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       if (!navigationPending.current) return;
       navigationPending.current = false;
       forceValidationRef.current = true;
-      setNetworkTick(value => value + 1);
+      requestManifestCheck("attention");
     };
     const departing = () => {
       navigationPending.current = true;
@@ -114,7 +127,7 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       window.removeEventListener("beforeunload", departing);
       window.removeEventListener("pageshow", resume);
     };
-  }, []);
+  }, [requestManifestCheck]);
   const client = useMemo(() => {
     const baseUrl = import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
     return createWikiContentClient({ fetch: readerFetch,
@@ -258,11 +271,9 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
   );
 
   useEffect(() => {
-    const onOnline = () => { setNetworkTick(value => value + 1); setPageRetryTick(value => value + 1); };
+    const onOnline = () => { requestManifestCheck("attention"); setPageRetryTick(value => value + 1); };
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        setNetworkTick((value) => value + 1);
-      }
+      if (document.visibilityState === "visible") requestManifestCheck("attention");
     };
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -270,18 +281,31 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, []);
+  }, [requestManifestCheck]);
 
   useEffect(() => {
     const onRefreshManifest = () => {
       validationInFlight.current?.controller.abort();
       validationInFlight.current = null;
       forceValidationRef.current = true;
-      setNetworkTick((value) => value + 1);
+      requestManifestCheck("user");
     };
     window.addEventListener(REFRESH_MANIFEST_EVENT, onRefreshManifest);
     return () => window.removeEventListener(REFRESH_MANIFEST_EVENT, onRefreshManifest);
-  }, []);
+  }, [requestManifestCheck]);
+
+  // Reading is attention: a navigation restores the base cadence, and checks
+  // right away when the manifest is older than its freshness window.
+  const navigatedSlug = useRef(currentSlug);
+  useEffect(() => {
+    if (navigatedSlug.current === currentSlug) return;
+    navigatedSlug.current = currentSlug;
+    unchangedChecks.current = 0;
+    const state = store.query(siteState$) as SiteStateRow | null;
+    if (!validationInFlight.current && state?.lastValidatedAt && Date.now() - state.lastValidatedAt >= MANIFEST_FRESH_MS[scope]) {
+      requestManifestCheck("attention");
+    }
+  }, [currentSlug, requestManifestCheck, scope, store]);
 
   useEffect(() => {
     let cancelled = false;
@@ -292,7 +316,8 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       // A run that resolves after cleanup must not leave a timer behind.
       if (cancelled) return;
       refreshTimer = window.setTimeout(
-        () => setNetworkTick((value) => value + 1),
+        // A hidden tab stops here. Becoming visible requests its own check.
+        () => { if (timerMayCheck(document.visibilityState)) requestManifestCheck("timer"); },
         Math.max(0, delayMs),
       );
     };
@@ -307,6 +332,10 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       const now = Date.now();
       const forceValidation = forceValidationRef.current;
       forceValidationRef.current = false;
+      const reason: ManifestCheckReason = checkedStore.current !== store ? "load" : pendingCheckReason.current ?? "attention";
+      pendingCheckReason.current = null;
+      checkedStore.current = store;
+      if (reason !== "timer") unchangedChecks.current = 0;
       const freshnessMs = MANIFEST_FRESH_MS[scope];
       const cacheAge = cachedState ? now - cachedState.lastValidatedAt : Number.POSITIVE_INFINITY;
 
@@ -325,11 +354,15 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       // a real outage fails fast into the offline handling below.
       const syncStart = performance.now();
       setManifestReceivedBytes(0);
-      onMetrics({
-        status: "syncing",
-        navigationFreshness: "checking",
-        message: cachedManifest ? "Checking for wiki updates" : "Loading manifest",
-      });
+      // Unattended checks stay silent: flipping the status every interval made
+      // the live region announce "Checking…" to screen readers all day.
+      if (announcesManifestCheck(reason, Boolean(cachedManifest))) {
+        onMetrics({
+          status: "syncing",
+          navigationFreshness: "checking",
+          message: cachedManifest ? "Checking for wiki updates" : "Loading manifest",
+        });
+      }
       try {
         const validationKey = `${scope}:${cachedManifest?.manifestHash ?? "empty"}`;
         requestController = validationInFlight.current?.key === validationKey
@@ -355,7 +388,6 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
           }
         }
         if (cancelled) return;
-        manifestFailures.current = 0;
         const validatedAt = Date.now();
         const hasCompleteSnapshot =
           Boolean(cachedManifest) && (cachedState?.lastValidatedAt ?? 0) > 0;
@@ -369,9 +401,11 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
                 : "Provisional manifest loaded; retrying full manifest",
               manifestBytes: cachedState?.manifestSize ?? 0,
             });
-            scheduleRefresh(MANIFEST_RETRY_MS);
+            scheduleRefresh(nextManifestRetryDelay(manifestFailures.current++));
             return;
           }
+          manifestFailures.current = 0;
+          if (reason === "timer") unchangedChecks.current += 1;
           store.commit(
             events.manifestValidated({
               manifestHash: cachedManifest.manifestHash,
@@ -386,7 +420,7 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
             eventCount: 1,
             lastSyncMs: performance.now() - syncStart,
           });
-          scheduleRefresh(freshnessMs);
+          scheduleRefresh(nextManifestCheckDelay(scope, unchangedChecks.current));
           return;
         }
 
@@ -400,7 +434,7 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
             message: "Partial refresh ignored; using complete cached manifest",
             manifestBytes: cachedState?.manifestSize ?? 0,
           });
-          scheduleRefresh(MANIFEST_RETRY_MS);
+          scheduleRefresh(nextManifestRetryDelay(manifestFailures.current++));
           return;
         }
         const manifest = validation.manifest;
@@ -409,6 +443,8 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
         // instead of being blocked by work for a document the reader is leaving.
         await new Promise<void>(resolve => window.setTimeout(resolve, 0));
         if (cancelled || navigationPending.current) return;
+        unchangedChecks.current = 0;
+        if (!validation.partial) manifestFailures.current = 0;
         manifestRef.current = manifest;
         // A manifest is one LiveStore event, so its tree and indexes replace
         // the prior snapshot in the materializer's single transaction.
@@ -440,7 +476,7 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
           storageQuotaBytes: storage.quota,
           storagePressure: storage.pressure,
         });
-        scheduleRefresh(validation.partial ? MANIFEST_RETRY_MS : freshnessMs);
+        scheduleRefresh(validation.partial ? nextManifestRetryDelay(manifestFailures.current++) : freshnessMs);
 
         // BackgroundPrefetch handles ranked warming after the active body is ready.
       } catch (error) {
@@ -466,7 +502,7 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
                 ? "Refresh failed; using cached manifest"
                 : "Offline: using local cache",
             });
-            scheduleRefresh(MANIFEST_RETRY_MS);
+            scheduleRefresh(nextManifestRetryDelay(manifestFailures.current++));
           } else {
             onMetrics({
               status: readerOnline() ? "error" : "offline",
@@ -487,7 +523,7 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       cancelled = true;
       if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
     };
-  }, [client, fetchSlug, networkTick, onMetrics, readCachedManifest, scope, store]);
+  }, [client, fetchSlug, networkTick, onMetrics, readCachedManifest, requestManifestCheck, scope, store]);
 
   useEffect(() => {
     for (const [key, controller] of inFlight.current) {
@@ -541,7 +577,7 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       if (!page) {
         onMetrics({ status: "syncing", navigationFreshness: "checking", message: "Refreshing manifest before retry" });
         forceValidationRef.current = true;
-        setNetworkTick((value) => value + 1);
+        requestManifestCheck("user");
       }
 
       onMetrics({ status: "syncing", message: `Retrying ${currentSlug}`, failedBodySlug: null });
@@ -552,7 +588,7 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
 
     window.addEventListener(RETRY_PAGE_EVENT, onRetryPage);
     return () => window.removeEventListener(RETRY_PAGE_EVENT, onRetryPage);
-  }, [currentSlug, fetchSlug, onMetrics]);
+  }, [currentSlug, fetchSlug, onMetrics, requestManifestCheck]);
 
   useEffect(() => {
     if (currentSlug !== "index") rememberSlug(currentSlug);
