@@ -76,7 +76,10 @@ const budgets: Budget[] = [
   // Main's WebMCP agent-tools loader moved here with the rest of LiveStoreRoot's
   // React half; it carries the +256 B main approved for it on 2026-11-14.
   { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 23_712 },
-  { label: "store host chunk", pattern: /^StoreHost-[\w-]+\.js$/, maxGzipBytes: 11_120 },
+  // A1 step 1 moved WikiSync's effects into a plain, unit-tested
+  // SyncController: 10,959 -> 11,312 B gzip (raw is smaller; the denser code
+  // compresses worse). +256 B; the store pool total is unchanged.
+  { label: "store host chunk", pattern: /^StoreHost-[\w-]+\.js$/, maxGzipBytes: 11_376 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
