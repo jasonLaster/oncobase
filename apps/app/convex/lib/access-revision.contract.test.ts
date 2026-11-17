@@ -388,6 +388,23 @@ test("overlay asset pages are exact across duplicate paths and page boundaries",
   expect(seen).toEqual(expected);
 });
 
+test("overlay calls report the rows they read by outcome, counts only", async () => {
+  const s = await setup();
+  await s.t.run(async ctx => {
+    const file = (path: string, fields: { sensitive?: boolean; ownerSlugs?: string[]; deletedAt?: number }) =>
+      ctx.db.insert("fileAssets", { siteId: s.fx.siteId, path, blobUrl: `https://blob.invalid/${path}`, sizeBytes: 1, uploadedAt: 1, ...fields });
+    await file("pub.png", { sensitive: false, ownerSlugs: [] });
+    await file("care/a.png", { sensitive: true, ownerSlugs: ["care/a"] });
+    await file("care/gone.png", { sensitive: true, ownerSlugs: ["care/a"], deletedAt: 5 });
+    await file("path/c.png", { sensitive: true, ownerSlugs: ["path/c"] });
+  });
+  const result = (await s.t.query(api.access.sessionManifestOverlay, { siteSlug: SITE, userId: s.fx.reader, numItems: 10, files: null }))!;
+  // Public rows are never read: the index starts at the sensitive group.
+  expect(result.scan.files).toEqual({ read: 3, deleted: 1, denied: 1, kept: 1 });
+  expect(result.scan.assets).toEqual({ read: 0, deleted: 0, denied: 0, kept: 0 });
+  expect(result.files).toEqual(["care/a.png"]);
+});
+
 test("overlay files list only the user's readable sensitive files, with stored hashes, across groups and pages", async () => {
   const s = await setup();
   await s.t.run(async ctx => {
@@ -450,5 +467,5 @@ test("the access policy code is fingerprinted with ACCESS_POLICY_VERSION", () =>
     source("lib/accessPolicy.ts"), source("lib/assetVisibility.ts"),
   ].join("\n--\n");
   const fingerprint = createHash("sha256").update(policy).digest("hex").slice(0, 16);
-  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 2, fingerprint: "383ab4b11b03859a" });
+  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 2, fingerprint: "5661d284cc3bfff3" });
 });

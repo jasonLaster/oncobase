@@ -838,6 +838,10 @@ const OVERLAY_ASSET_PAGE_SIZE = 500;
 
 type OverlayAssetPage = { page: string[]; hashes: Array<string | null>; isDone: boolean; continueCursor: string | null };
 
+/** Rows one overlay call read, by outcome. Telemetry only: counts, never paths. */
+type OverlayScan = { read: number; deleted: number; denied: number; kept: number };
+const emptyScan = (): OverlayScan => ({ read: 0, deleted: 0, denied: 0, kept: 0 });
+
 /**
  * Everything a signed-in manifest needs beyond the public snapshot, read in
  * one transaction with the revision fence that proves it is consistent:
@@ -872,11 +876,14 @@ export const sessionManifestOverlay = query({
     const fence = manifestFence(site.site);
     const canRead = await createDocumentAccessCheck(ctx, site, userId);
     let pageResult: { page: ReturnType<typeof allowedManifestRows>; isDone: boolean; continueCursor: string | null } = { page: [], isDone: true, continueCursor: null };
+    let pageScan = emptyScan();
     if (pages !== undefined) {
       const result = await paginateDocumentMetadata(ctx, scoped, "by_site_sensitive_slug",
         q => q.eq("siteId", site.siteId!).eq("sensitive", true),
         { cursor: pages, numItems, maximumBytesRead: 4 * 1024 * 1024 });
       pageResult = { page: allowedManifestRows(result.page, site, canRead), isDone: result.isDone, continueCursor: result.continueCursor };
+      pageScan = { read: result.page.length, deleted: result.page.filter(doc => doc.deletedAt).length, denied: 0, kept: pageResult.page.length };
+      pageScan.denied = pageScan.read - pageScan.deleted - pageScan.kept;
     }
     const owners = new Map<string, Promise<boolean>>();
     // Same rule as the manifest's asset filter: an owner counts only if the
@@ -899,6 +906,7 @@ export const sessionManifestOverlay = query({
     // Files are many (~18k on a real site) and almost all public, so only the
     // sensitive ones page here, by index: `sensitive: true`, then legacy rows
     // without the flag. Cursor: [group, path, _creationTime].
+    const scan = { pages: emptyScan(), assets: emptyScan(), files: emptyScan() };
     const visibleSensitiveFiles = async (cursor: string | null): Promise<OverlayAssetPage> => {
       const groups = [true, undefined] as const;
       const after = cursor === null ? null : JSON.parse(cursor) as [number, string, number];
@@ -916,8 +924,10 @@ export const sessionManifestOverlay = query({
           .take(budget + 1);
         const last = rows.length > budget ? rows[budget - 1] : null;
         for (const row of rows.slice(0, budget)) {
-          if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
-          if (!(await readableSensitive(row))) continue;
+          scan.files.read++;
+          if (!rowBelongsToSite(row, site) || row.deletedAt) { scan.files.deleted++; continue; }
+          if (!(await readableSensitive(row))) { scan.files.denied++; continue; }
+          scan.files.kept++;
           page.push(row.path);
           hashes.push(row.contentHash ?? null);
         }
@@ -941,9 +951,11 @@ export const sessionManifestOverlay = query({
       const page: string[] = [];
       const hashes: Array<string | null> = [];
       for (const row of rows.slice(0, OVERLAY_ASSET_PAGE_SIZE)) {
-        if (!rowBelongsToSite(row, site) || row.deletedAt) continue;
+        scan.assets.read++;
+        if (!rowBelongsToSite(row, site) || row.deletedAt) { scan.assets.deleted++; continue; }
         const sensitive = !hasCompleteAssetVisibility(row) || row.sensitive === true;
-        if (sensitive && !(await readableSensitive(row))) continue;
+        if (sensitive && !(await readableSensitive(row))) { scan.assets.denied++; continue; }
+        scan.assets.kept++;
         page.push(row.path);
         hashes.push(row.contentHash ?? null);
       }
@@ -957,6 +969,8 @@ export const sessionManifestOverlay = query({
     return {
       fence,
       snapshotUrl: snapshot,
+      // Additive: older app servers ignore it.
+      scan: { ...scan, pages: pageScan },
       pages: pageResult.page,
       pagesDone: pageResult.isDone,
       pagesCursor: pageResult.isDone ? null : pageResult.continueCursor,

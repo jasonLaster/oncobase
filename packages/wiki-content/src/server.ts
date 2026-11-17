@@ -134,8 +134,13 @@ export type WikiManifestState = {
   publishing: boolean;
 };
 
+/** Rows one overlay call read, by outcome (telemetry; absent from older backends). */
+export type WikiOverlayScan = { read: number; deleted: number; denied: number; kept: number };
+export type WikiOverlayStats = { calls: number } & Record<"pages" | "assets" | "files", WikiOverlayScan>;
+
 export type WikiSessionOverlayPage = {
   fence: WikiManifestState;
+  scan?: Record<"pages" | "assets" | "files", WikiOverlayScan>;
   /** Only when requested and the fence names a current snapshot. */
   snapshot: { hash: string; read: () => Promise<BodyInit> } | null;
   pages: WikiManifestPage[];
@@ -266,6 +271,8 @@ export type WikiApiContext = {
   decorateHeaders?: (headers: HeadersInit) => HeadersInit;
   logger?: Pick<Console, "error" | "warn">;
   onManifestFallback?: (reason: "snapshot-unavailable" | "snapshot-invalid" | "private-query" | "snapshot-changed" | "overlay-unavailable" | "overlay-changed") => void;
+  /** Totals for one signed-in overlay read: how many calls and rows it took. */
+  onManifestOverlay?: (stats: WikiOverlayStats) => void;
   onManifestPhase?: (phase: "read" | "overlay" | "assets" | "filter" | "tree" | "hash" | "serialize" | "snapshot-encode" | "snapshot-derive", durationMs: number) => void;
   // A fixed, public subset of the public manifest (e.g. the education curriculum
   // for logged-out readers). It is derived from the verified public snapshot by
@@ -701,6 +708,16 @@ async function overlayManifest(context: WikiApiContext, user: WikiApiSessionUser
   const first = await list(user, { pages: null, assets: null, files: null, numItems: MANIFEST_PAGE_SIZE, includeSnapshot: true });
   if (!first) { reportFallback(context, "overlay-unavailable"); return null; }
   const { fence } = first;
+  const zero = (): WikiOverlayScan => ({ read: 0, deleted: 0, denied: 0, kept: 0 });
+  const stats: WikiOverlayStats = { calls: 0, pages: zero(), assets: zero(), files: zero() };
+  const tally = (page: WikiSessionOverlayPage) => {
+    stats.calls++;
+    for (const list of ["pages", "assets", "files"] as const) {
+      const scan = page.scan?.[list];
+      if (scan) for (const key of ["read", "deleted", "denied", "kept"] as const) stats[list][key] += scan[key];
+    }
+  };
+  tally(first);
   if (fence.publishing || !fence.snapshotHash || !first.snapshot || first.snapshot.hash !== fence.snapshotHash) {
     reportFallback(context, "snapshot-unavailable");
     return null;
@@ -732,6 +749,7 @@ async function overlayManifest(context: WikiApiContext, user: WikiApiSessionUser
       numItems: MANIFEST_PAGE_SIZE, includeSnapshot: false,
     });
     if (!next || !sameFence(next.fence, fence)) { reportFallback(context, "overlay-changed"); return null; }
+    tally(next);
     if (!pagesDone) { overlay.push(...next.pages); pagesDone = next.pagesDone; pagesCursor = next.pagesCursor; }
     if (!assetsDone) { collect(assets, "pdf", next.assets, next.assetHashes); assetsDone = next.assetsDone; assetsCursor = next.assetsCursor; }
     if (!filesDone) {
@@ -740,6 +758,7 @@ async function overlayManifest(context: WikiApiContext, user: WikiApiSessionUser
       filesDone = next.filesDone; filesCursor = next.filesCursor ?? null;
     }
   }
+  try { context.onManifestOverlay?.(stats); } catch { /* Telemetry cannot break the manifest. */ }
   const { raw } = await loadVerifiedBase(context, first.snapshot);
   const pages = [...raw.pages, ...overlay];
   if (new Set(pages.map(page => page.slug)).size !== pages.length) throw new Error("Manifest membership changed");

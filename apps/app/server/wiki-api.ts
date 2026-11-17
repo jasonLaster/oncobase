@@ -102,6 +102,11 @@ export function createWikiApiHandler(client = createClient()) {
       access: createAccessAdapter(client, siteSlug),
       manifestPrioritySlugs: MANIFEST_PRIORITY_SLUGS,
       onManifestFallback: (reason: string) => traceBackendAttributes({ "manifest.fallback_reason": reason }),
+      onManifestOverlay: (stats: Parameters<NonNullable<WikiApiContext["onManifestOverlay"]>>[0]) => traceBackendAttributes({
+        "manifest.overlay.calls": stats.calls,
+        ...Object.fromEntries((["pages", "assets", "files"] as const).flatMap(list =>
+          (["read", "deleted", "denied", "kept"] as const).map(key => [`manifest.overlay.${list}_${key}`, stats[list][key]]))),
+      }),
       onManifestPhase: (name: Parameters<NonNullable<WikiApiContext["onManifestPhase"]>>[0], ms: number) => recordRemoteSpan(`manifest.${name}`, Date.now() - ms, ms, { "telemetry.source": "api" }),
       manifestSnapshotCache,
       manifestArtifacts: artifactsFor(siteSlug),

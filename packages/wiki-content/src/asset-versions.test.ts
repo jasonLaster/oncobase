@@ -95,7 +95,7 @@ describe("asset hashes in the manifest", () => {
 });
 
 describe("asset hashes in the signed-in overlay", () => {
-  async function overlayFixture(options: { files: boolean }) {
+  async function overlayFixture(options: { files: boolean; onOverlay?: WikiApiContext["onManifestOverlay"] }) {
     const f = fixture();
     const snapshot = await f.build();
     const json = JSON.stringify(snapshot);
@@ -116,6 +116,11 @@ describe("asset hashes in the signed-in overlay", () => {
           assets: args.assets === null ? f.pdfs.map(row => row.path) : [],
           assetHashes: args.assets === null ? f.pdfs.map(row => row.contentHash) : [],
           assetsDone: true, assetsCursor: null,
+          scan: {
+            pages: { read: 2, deleted: 0, denied: 1, kept: 1 },
+            assets: { read: 3, deleted: 1, denied: 0, kept: 2 },
+            files: { read: 4, deleted: 2, denied: 1, kept: 1 },
+          },
         };
         if (options.files) {
           // Two pages of sensitive files, so the files cursor is followed.
@@ -132,6 +137,7 @@ describe("asset hashes in the signed-in overlay", () => {
     };
     f.context.getManifestSnapshot = async () => ({ hash: snapshot.manifestHash, revision: 1, read: async () => json });
     f.context.manifestSnapshotCache = createManifestSnapshotCache();
+    f.context.onManifestOverlay = options.onOverlay;
     const response = await createWikiManifestResponse(
       new Request("https://test/api/wiki/manifest?scope=session", { headers: { "x-user": "reader" } }), f.context);
     expect(response.headers.get("X-Wiki-Manifest-Source")).toBe("snapshot-overlay");
@@ -148,6 +154,17 @@ describe("asset hashes in the signed-in overlay", () => {
       "file:private/scan.png": "scan-1",
     });
     expect(requests.map(args => args.files)).toEqual([null, "more"]);
+  });
+
+  test("the overlay's per-call scan counts are summed and reported once", async () => {
+    const reports: unknown[] = [];
+    await overlayFixture({ files: true, onOverlay: stats => reports.push(stats) });
+    expect(reports).toEqual([{
+      calls: 2,
+      pages: { read: 4, deleted: 0, denied: 2, kept: 2 },
+      assets: { read: 6, deleted: 2, denied: 0, kept: 4 },
+      files: { read: 8, deleted: 4, denied: 2, kept: 2 },
+    }]);
   });
 
   test("a backend that predates the files list still serves PDFs (with hashes when given)", async () => {
