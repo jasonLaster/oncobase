@@ -135,8 +135,10 @@ export type WikiManifestState = {
 };
 
 /** Rows one overlay call read, by outcome (telemetry; absent from older backends). */
-export type WikiOverlayScan = { read: number; deleted: number; denied: number; kept: number };
-export type WikiOverlayStats = { calls: number } & Record<"pages" | "assets" | "files", WikiOverlayScan>;
+export type WikiOverlayScan = { read: number; deleted: number; denied: number; kept: number;
+  /** Owner/sibling document reads behind the asset and file checks (newer backends). */
+  lookups?: number };
+export type WikiOverlayStats = { calls: number; lookups: number } & Record<"pages" | "assets" | "files", WikiOverlayScan>;
 
 export type WikiSessionOverlayPage = {
   fence: WikiManifestState;
@@ -709,12 +711,13 @@ async function overlayManifest(context: WikiApiContext, user: WikiApiSessionUser
   if (!first) { reportFallback(context, "overlay-unavailable"); return null; }
   const { fence } = first;
   const zero = (): WikiOverlayScan => ({ read: 0, deleted: 0, denied: 0, kept: 0 });
-  const stats: WikiOverlayStats = { calls: 0, pages: zero(), assets: zero(), files: zero() };
+  const stats: WikiOverlayStats = { calls: 0, lookups: 0, pages: zero(), assets: zero(), files: zero() };
   const tally = (page: WikiSessionOverlayPage) => {
     stats.calls++;
     for (const list of ["pages", "assets", "files"] as const) {
       const scan = page.scan?.[list];
       if (scan) for (const key of ["read", "deleted", "denied", "kept"] as const) stats[list][key] += scan[key];
+      stats.lookups += scan?.lookups ?? 0;
     }
   };
   tally(first);

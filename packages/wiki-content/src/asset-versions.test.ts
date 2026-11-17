@@ -118,8 +118,8 @@ describe("asset hashes in the signed-in overlay", () => {
           assetsDone: true, assetsCursor: null,
           scan: {
             pages: { read: 2, deleted: 0, denied: 1, kept: 1 },
-            assets: { read: 3, deleted: 1, denied: 0, kept: 2 },
-            files: { read: 4, deleted: 2, denied: 1, kept: 1 },
+            assets: { read: 3, deleted: 1, denied: 0, kept: 2, lookups: 2 },
+            files: { read: 4, deleted: 2, denied: 1, kept: 1, lookups: 1 },
           },
         };
         if (options.files) {
@@ -161,6 +161,7 @@ describe("asset hashes in the signed-in overlay", () => {
     await overlayFixture({ files: true, onOverlay: stats => reports.push(stats) });
     expect(reports).toEqual([{
       calls: 2,
+      lookups: 6,
       pages: { read: 4, deleted: 0, denied: 2, kept: 2 },
       assets: { read: 6, deleted: 2, denied: 0, kept: 4 },
       files: { read: 8, deleted: 4, denied: 2, kept: 2 },

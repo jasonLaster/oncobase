@@ -104,6 +104,7 @@ export function createWikiApiHandler(client = createClient()) {
       onManifestFallback: (reason: string) => traceBackendAttributes({ "manifest.fallback_reason": reason }),
       onManifestOverlay: (stats: Parameters<NonNullable<WikiApiContext["onManifestOverlay"]>>[0]) => traceBackendAttributes({
         "manifest.overlay.calls": stats.calls,
+        "manifest.overlay.lookups": stats.lookups,
         ...Object.fromEntries((["pages", "assets", "files"] as const).flatMap(list =>
           (["read", "deleted", "denied", "kept"] as const).map(key => [`manifest.overlay.${list}_${key}`, stats[list][key]]))),
       }),

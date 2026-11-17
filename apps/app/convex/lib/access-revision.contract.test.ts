@@ -408,7 +408,10 @@ test("overlay calls report the rows they read by outcome, counts only", async ()
   expect(result.scan.assets.read).toBe(result.assets.length + result.scan.assets.denied);
   // Public rows and tombstones are never read: the index starts at live
   // sensitive rows.
-  expect(result.scan.files).toEqual({ read: 2, deleted: 0, denied: 1, kept: 1 });
+  const { lookups, ...files } = result.scan.files;
+  expect(files).toEqual({ read: 2, deleted: 0, denied: 1, kept: 1 });
+  // care/a and path/c, each read once although PDFs and files both name them.
+  expect(lookups + result.scan.assets.lookups).toBe(2);
   expect(result.files).toEqual(["care/a.png"]);
 });
 
@@ -455,6 +458,76 @@ test("overlay files list only the user's readable sensitive files, with stored h
   expect(visibility.page).toEqual([{ path: "pub.png", ownerSlugs: [], sensitive: false, contentHash: "pub-1" }]);
 });
 
+test("overlay asset checks read each document once and match the per-slug oracle", async () => {
+  const s = await setup();
+  await s.t.run(async ctx => {
+    const siteId = s.fx.siteId;
+    const doc = (slug: string, sensitive: boolean, tags: string[] = []) => ctx.db.insert("documents", {
+      siteId, slug, title: slug, content: "body", tags, sensitive, contentHash: slug, sizeBytes: 4, updatedAt: 1 });
+    const pdf = (p: string, fields: { sensitive?: boolean; ownerSlugs?: string[] }) => ctx.db.insert("pdfAssets", {
+      siteId, path: p, blobUrl: `https://blob.invalid/${p}`, sizeBytes: 1, uploadedAt: 1, ...fields });
+    const file = (p: string, fields: { sensitive?: boolean; ownerSlugs?: string[] }) => ctx.db.insert("fileAssets", {
+      siteId, path: p, blobUrl: `https://blob.invalid/${p}`, sizeBytes: 1, uploadedAt: 1, ...fields });
+    for (let i = 0; i < 60; i++) {
+      const n = String(i).padStart(3, "0");
+      // Readable to the reader (care tag), unreadable (path/), and public.
+      await doc(`care/d${n}`, true, ["care"]);
+      await doc(`path/d${n}`, true);
+      await doc(`pub/d${n}`, false);
+      // PDFs whose sibling is also their owner, whose sibling is another
+      // readable or unreadable document, whose sibling does not exist, and
+      // rows without complete visibility metadata.
+      await pdf(`care/d${n}.pdf`, { sensitive: true, ownerSlugs: [`care/d${n}`] });
+      await pdf(`pub/d${n}.pdf`, { sensitive: true, ownerSlugs: [`care/d${n}`] });
+      await pdf(`path/d${n}.pdf`, { sensitive: true, ownerSlugs: [`care/d${n}`] });
+      await pdf(`care/d${n}/scan.pdf`, { sensitive: true, ownerSlugs: [`care/d${n}`, `pub/d${n}`] });
+      await pdf(`legacy/d${n}.pdf`, {});
+      await pdf(`care/d${n}x.pdf`, { ownerSlugs: [] });
+      await pdf(`pub/d${n}-public.pdf`, { sensitive: false, ownerSlugs: [] });
+      // Sensitive files share a handful of owners; some name a missing one.
+      for (let j = 0; j < 4; j++) await file(`care/d${n}/fig${j}.png`, { sensitive: true, ownerSlugs: [`care/d${String(i % 5).padStart(3, "0")}`] });
+      await file(`path/d${n}.png`, { sensitive: true, ownerSlugs: [`path/d${n}`] });
+      await file(`gone/d${n}.png`, { sensitive: true, ownerSlugs: [`gone/d${n}`] });
+      await file(`legacy/d${n}.png`, { ownerSlugs: [`care/d${n}`] });
+    }
+  });
+  const rows = await s.t.run(async ctx => ({
+    // eslint-disable-next-line no-restricted-syntax -- Test oracle reads the fixture site's rows by its id.
+    pdfs: await ctx.db.query("pdfAssets").withIndex("by_site_path", q => q.eq("siteId", s.fx.siteId)).collect(),
+    // eslint-disable-next-line no-restricted-syntax -- Test oracle reads the fixture site's rows by its id.
+    files: await ctx.db.query("fileAssets").withIndex("by_site_path", q => q.eq("siteId", s.fx.siteId)).collect(),
+  }));
+  const sibling = (p: string) => p.replace(/\.[^/.]+$/, "");
+  const complete = (row: { sensitive?: boolean; ownerSlugs?: string[] }) => typeof row.sensitive === "boolean" && Array.isArray(row.ownerSlugs);
+  const byIndex = (a: { path: string; _creationTime: number }, b: { path: string; _creationTime: number }) =>
+    a.path < b.path ? -1 : a.path > b.path ? 1 : a._creationTime - b._creationTime;
+  const checked = [...rows.pdfs.filter(row => !complete(row) || row.sensitive), ...rows.files.filter(row => row.sensitive !== false)];
+  const distinct = new Set(checked.flatMap(row => [...(row.ownerSlugs ?? []), sibling(row.path)]));
+  for (const userId of [s.fx.reader, s.fx.other]) {
+    // Oracle: the owners plus an existing sibling, each present and readable.
+    const access = new Map((await s.t.query(api.access.filterAccessibleSlugs, { siteSlug: SITE, userId, slugs: [...distinct] })).map(row => [row.slug, row]));
+    const visible = (row: { path: string; ownerSlugs?: string[] }) => {
+      const owners = new Set(row.ownerSlugs ?? []);
+      if (access.get(sibling(row.path))?.hasDocument) owners.add(sibling(row.path));
+      return owners.size > 0 && [...owners].every(slug => access.get(slug)?.hasDocument && access.get(slug)?.allowed);
+    };
+    const expectedAssets = rows.pdfs.slice().sort(byIndex).filter(row => (complete(row) && !row.sensitive) || visible(row)).map(row => row.path);
+    const sensitiveFiles = (group: boolean | undefined) => rows.files.filter(row => row.sensitive === group).sort(byIndex);
+    const expectedFiles = [...sensitiveFiles(true), ...sensitiveFiles(undefined)].filter(visible).map(row => row.path);
+    const result = (await s.t.query(api.access.sessionManifestOverlay, { siteSlug: SITE, userId, numItems: 500, assets: null, files: null }))!;
+    expect(result.assetsDone && result.filesDone).toBe(true);
+    expect(result.assets).toEqual(expectedAssets);
+    expect(result.files).toEqual(expectedFiles);
+    expect(result.assets.length).toBeGreaterThan(60);
+    // Each distinct owner or sibling slug is read once per call, however many
+    // rows name it; public PDFs with complete metadata need no lookup.
+    // (Awaiting each row's sibling and re-reading it as an owner took 1024
+    // sequential lookups for this fixture; 662 distinct slugs remain.)
+    expect(result.scan.assets.lookups + result.scan.files.lookups).toBe(distinct.size);
+    expect(result.scan.pages).not.toHaveProperty("lookups");
+  }
+});
+
 test("the access policy code is fingerprinted with ACCESS_POLICY_VERSION", () => {
   // If this fails you changed who-can-read-what code. Decide whether existing
   // tokens may survive the deploy; if not (the safe default), bump
@@ -474,5 +547,5 @@ test("the access policy code is fingerprinted with ACCESS_POLICY_VERSION", () =>
     source("lib/accessPolicy.ts"), source("lib/assetVisibility.ts"),
   ].join("\n--\n");
   const fingerprint = createHash("sha256").update(policy).digest("hex").slice(0, 16);
-  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 2, fingerprint: "1b863781eae9906e" });
+  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 2, fingerprint: "f2dc42c9a2fd73cb" });
 });
