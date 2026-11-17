@@ -6,6 +6,7 @@ import {
 } from "@oncobase/wiki-shell";
 import {
   CheckIcon,
+  LinkIcon,
   LockKeyhole,
 } from "lucide-react";
 import { type ReactNode, lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -41,7 +42,7 @@ export function PageActions({
   slug: string;
   title: string;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"markdown" | "link" | null>(null);
   const [sharing, setSharing] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -51,19 +52,28 @@ export function PageActions({
     };
   }, []);
 
-  const markCopied = () => {
+  const markCopied = (kind: "markdown" | "link") => {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    setCopied(true);
-    resetTimerRef.current = setTimeout(() => setCopied(false), 1800);
+    setCopied(kind);
+    resetTimerRef.current = setTimeout(() => setCopied(null), 1800);
   };
 
   const copyMarkdown = async () => {
     try {
       await copyTextToClipboard(`# ${title}\n\n${content}`);
-      markCopied();
+      markCopied("markdown");
     } catch (error) {
       // Clipboard permission can be denied; leave the copy icon unchanged.
       console.warn("[wiki-vite] copy page failed", error);
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await copyTextToClipboard(window.location.href);
+      markCopied("link");
+    } catch (error) {
+      console.warn("[wiki-vite] copy page link failed", error);
     }
   };
 
@@ -75,8 +85,11 @@ export function PageActions({
         <LockKeyhole size={16} />
       </WikiPageActionButton> : null}
       {sharing ? <Suspense fallback={null}><PageShareDialog key={slug} slug={slug} title={title} onClose={() => setSharing(false)} /></Suspense> : null}
+      <ActionButton label="Copy page link" onClick={copyLink}>
+        {copied === "link" ? <CheckIcon size={16} /> : <LinkIcon size={16} />}
+      </ActionButton>
       <ActionButton label="Copy page as markdown" onClick={copyMarkdown}>
-        {copied ? <CheckIcon size={16} /> : <CopyPageIcon />}
+        {copied === "markdown" ? <CheckIcon size={16} /> : <CopyPageIcon />}
       </ActionButton>
     </div>
   );
