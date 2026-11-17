@@ -180,64 +180,31 @@ const materializers = State.SQLite.materializers(events, {
     compactTreeJson,
     pagesJson,
     assetsJson,
-  }, { query }) => {
+  }) => {
     const pages = JSON.parse(pagesJson) as Array<typeof manifestPageSchema.Type>;
     const assets = JSON.parse(assetsJson) as unknown[];
-    const pagesBySlug = new Map(pages.map((page) => [page.slug, page]));
-    // Reconciliation needs metadata only, not every cached Markdown body.
-    const cachedContent = query({ query: "SELECT slug, contentHash, missingAt, contentStatus FROM pageContent", bindValues: {} }) as Array<
-      Pick<typeof tables.pageContent.rowSchema.Type, "slug" | "contentHash" | "missingAt" | "contentStatus">
-    >;
-
-    const reconcileContent = cachedContent.map((page) => {
-      const manifestPage = pagesBySlug.get(page.slug);
-      if (!manifestPage) {
-        return tables.pageContent.update({
-          expectedContentHash: null,
-          contentStatus: "deleted",
-          staleAt: null,
-          deletedAt: receivedAt,
-          missingAt: null,
-        }).where({ slug: page.slug });
-      }
-
-      if (page.missingAt != null || page.contentStatus === "missing") {
-        return tables.pageContent.update({
-          title: manifestPage.title,
-          tagsJson: JSON.stringify(manifestPage.tags),
-          expectedContentHash: manifestPage.contentHash,
-          sensitive: manifestPage.sensitive,
-          size: manifestPage.size,
-          contentStatus: "missing",
-          staleAt: null,
-          deletedAt: null,
-        }).where({ slug: page.slug });
-      }
-
-      if (page.contentHash !== manifestPage.contentHash) {
-        return tables.pageContent.update({
-          title: manifestPage.title,
-          tagsJson: JSON.stringify(manifestPage.tags),
-          expectedContentHash: manifestPage.contentHash,
-          sensitive: manifestPage.sensitive,
-          contentStatus: "stale",
-          staleAt: receivedAt,
-          deletedAt: null,
-          missingAt: null,
-        }).where({ slug: page.slug });
-      }
-
-      return tables.pageContent.update({
-        title: manifestPage.title,
-        tagsJson: JSON.stringify(manifestPage.tags),
-        expectedContentHash: manifestPage.contentHash,
-        sensitive: manifestPage.sensitive,
-        contentStatus: "fresh",
-        staleAt: null,
-        deletedAt: null,
-        missingAt: null,
-      }).where({ slug: page.slug });
-    });
+    // Reconcile cached bodies against the manifest in SQL, after pageIndex
+    // holds the new pages. The statements depend only on this event, never
+    // on rows read here: a materializer that read pageContent produced
+    // different statements when a body arrived before a replay, and
+    // LiveStore's dev check ("Materializer hash mismatch") shut the store
+    // down. Order matters: missing rows are settled before stale/fresh.
+    const content = (sql: string, bindValues: unknown[] = []) => ({ sql, bindValues, writeTables: new Set(["pageContent"]) });
+    const reconcileContent = [
+      content(`UPDATE pageContent SET expectedContentHash = NULL, contentStatus = 'deleted', staleAt = NULL, deletedAt = ?, missingAt = NULL
+        WHERE slug NOT IN (SELECT slug FROM pageIndex)`, [receivedAt]),
+      content(`UPDATE pageContent SET title = p.title, tagsJson = p.tagsJson, expectedContentHash = p.contentHash, sensitive = p.sensitive,
+          size = p.size, contentStatus = 'missing', staleAt = NULL, deletedAt = NULL
+        FROM pageIndex AS p WHERE p.slug = pageContent.slug AND (pageContent.missingAt IS NOT NULL OR pageContent.contentStatus = 'missing')`),
+      content(`UPDATE pageContent SET title = p.title, tagsJson = p.tagsJson, expectedContentHash = p.contentHash, sensitive = p.sensitive,
+          contentStatus = 'stale', staleAt = ?, deletedAt = NULL, missingAt = NULL
+        FROM pageIndex AS p WHERE p.slug = pageContent.slug AND pageContent.missingAt IS NULL AND pageContent.contentStatus != 'missing'
+          AND pageContent.contentHash IS NOT p.contentHash`, [receivedAt]),
+      content(`UPDATE pageContent SET title = p.title, tagsJson = p.tagsJson, expectedContentHash = p.contentHash, sensitive = p.sensitive,
+          contentStatus = 'fresh', staleAt = NULL, deletedAt = NULL, missingAt = NULL
+        FROM pageIndex AS p WHERE p.slug = pageContent.slug AND pageContent.missingAt IS NULL AND pageContent.contentStatus != 'missing'
+          AND pageContent.contentHash IS p.contentHash`),
+    ];
 
     return [
       tables.siteState.insert({

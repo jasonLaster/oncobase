@@ -221,6 +221,31 @@ describe("wiki vite LiveStore schema", () => {
     ]);
   });
 
+  test("reconciliation refreshes current bodies and keeps missing ones missing, with the manifest's metadata", async () => {
+    const store = await makeStore();
+    const manifest = (pages: Array<{ slug: string; title: string; hash: string; tags?: string[]; sensitive?: boolean }>) =>
+      events.manifestApplied({
+        siteSlug: "diana", scope: "public", manifestHash: crypto.randomUUID(), generatedAt: "2026-05-09T12:00:00.000Z",
+        receivedAt: 50, manifestSize: 100, compactTreeJson: "[]", assetsJson: "[]",
+        pagesJson: JSON.stringify(pages.map(page => ({ slug: page.slug, title: page.title, tags: page.tags ?? [], description: null,
+          contentHash: page.hash, sensitive: page.sensitive ?? false, size: 40 }))),
+      });
+    store.commit(
+      manifest([{ slug: "index", title: "Index", hash: "hash-1" }, { slug: "gone", title: "Gone", hash: "g-1" }]),
+      events.pageContentFetched({ slug: "index", title: "Old title", content: "# Hello", tags: [], contentHash: "hash-1", sensitive: false, size: 7, fetchedAt: 2 }),
+      events.pageContentMissing({ slug: "gone", contentHash: "g-1", missingAt: 3 }),
+      manifest([
+        { slug: "index", title: "New title", hash: "hash-1", tags: ["care"], sensitive: true },
+        { slug: "gone", title: "Gone again", hash: "g-2" },
+      ]),
+    );
+    const index = store.query(pageContentBySlug$("index"))!;
+    expect(index).toEqual(expect.objectContaining({ contentStatus: "fresh", title: "New title", tagsJson: '["care"]', sensitive: true,
+      expectedContentHash: "hash-1", staleAt: null, deletedAt: null, missingAt: null, content: "# Hello" }));
+    const gone = store.query(pageContentBySlug$("gone"))!;
+    expect(gone).toEqual(expect.objectContaining({ contentStatus: "missing", title: "Gone again", expectedContentHash: "g-2", size: 40, missingAt: 3 }));
+  });
+
   test("separates missing pages and cache resets", async () => {
     const store = await makeStore();
     store.commit(
