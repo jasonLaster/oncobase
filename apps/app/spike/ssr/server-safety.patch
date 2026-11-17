@@ -1,0 +1,48 @@
+diff --git a/apps/app/src/pages/WikiPage.tsx b/apps/app/src/pages/WikiPage.tsx
+index 11628b9da..7a64b76fa 100644
+--- a/apps/app/src/pages/WikiPage.tsx
++++ b/apps/app/src/pages/WikiPage.tsx
+@@ -202,7 +202,7 @@ export const WikiPage = memo(function WikiPage({
+   const identity = useWikiSession();
+   const identityPending = useWikiIdentityPending();
+   const online = useBrowserOnline();
+-  const returnUrl = new URL(location.pathname + location.search + location.hash, window.location.origin);
++  const returnUrl = new URL(location.pathname + location.search + location.hash, "http://reader.invalid"); /* SPIKE: origin unused, only path+search+hash */
+   returnUrl.searchParams.delete("scope");
+   const signInHref = `/sign-in?redirect=${encodeURIComponent(returnUrl.pathname + returnUrl.search + returnUrl.hash)}`;
+   const [toast, setToast] = useState<string | null>(null);
+diff --git a/apps/app/src/shell/Header.tsx b/apps/app/src/shell/Header.tsx
+index f92801b08..9d15ed03c 100644
+--- a/apps/app/src/shell/Header.tsx
++++ b/apps/app/src/shell/Header.tsx
+@@ -116,7 +116,7 @@ export function HeaderCommandPaletteHost() {
+ 
+ export function HeaderAuthDialogHost() {
+   const { setSessionUser, submitAuth } = useWikiViteAuth();
+-  const [authDialogOpen, setAuthDialogOpen] = useState(() => window.__wikiReaderShortcuts?.pending === "signin" || new URLSearchParams(location.search).get("reader-action") === "signin");
++  const [authDialogOpen, setAuthDialogOpen] = useState(() => typeof window !== "undefined" && (window.__wikiReaderShortcuts?.pending === "signin" || new URLSearchParams(location.search).get("reader-action") === "signin")); /* SPIKE */
+   const [authMode, setAuthMode] =
+     useState<WikiActionsMenuAuthMode>("signin");
+ 
+@@ -162,7 +162,7 @@ function useWikiAuthState() {
+   const [sessionUser, setSessionUser] = useState<WikiActionsMenuUser | null>(null);
+   const [sessionLoading, setSessionLoading] = useState(true);
+   const identityPending = useWikiIdentityPending();
+-  const [initialAccountPending] = useState(() => document.getElementById("wiki-html-first")?.hasAttribute("data-account-pending") === true);
++  const [initialAccountPending] = useState(() => typeof document !== "undefined" && document.getElementById("wiki-html-first")?.hasAttribute("data-account-pending") === true) /* SPIKE */;
+   const accountPending = initialAccountPending || identityPending;
+ 
+   useEffect(() => {
+diff --git a/apps/app/src/shell/ReaderStatus.tsx b/apps/app/src/shell/ReaderStatus.tsx
+index 41af1baea..a2d314c09 100644
+--- a/apps/app/src/shell/ReaderStatus.tsx
++++ b/apps/app/src/shell/ReaderStatus.tsx
+@@ -20,7 +20,7 @@ export function receivedLabel(bytes: number) {
+ }
+ 
+ /** Reachability as the reader observed it, not `navigator.onLine` alone (see connectivity.ts). */
+-export function useBrowserOnline() { return useSyncExternalStore(subscribeReaderOnline, readerOnline); }
++export function useBrowserOnline() { return useSyncExternalStore(subscribeReaderOnline, readerOnline, () => true); /* SPIKE */ }
+ 
+ export function NavigationStatus({ freshness, hasPages }: { freshness: NavigationFreshness; hasPages: boolean }) {
+   const slow = useSlowLoading(freshness === "checking");
