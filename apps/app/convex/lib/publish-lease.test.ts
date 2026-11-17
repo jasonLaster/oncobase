@@ -4,6 +4,7 @@ import schema from "../schema";
 import { api, internal } from "../_generated/api";
 import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { PUBLISH_LEASE_MS } from "./publishRun";
+import { drainScheduled } from "./drain-scheduled.testutil";
 
 const runId = "scoped:11111111-1111-1111-1111-111111111111";
 const other = "scoped:22222222-2222-2222-2222-222222222222";
@@ -47,6 +48,7 @@ test("a live owned lease can be renewed; the stale expiry check then leaves it a
   expect((await site())!.publishRunId).toBe(runId);
   expect((await site())!.lastPublishStatus).toBe("running");
   expect(await write()).toEqual({ skipped: false });
+  await drainScheduled(t);
 });
 
 test("only the owning run can renew, and never after its lease expired", async () => {
@@ -66,4 +68,5 @@ test("only the owning run can renew, and never after its lease expired", async (
   await expect(t.mutation(api.sites.renewPublish, { slug: "fixture", runId })).rejects.toThrow("does not own");
   await t.run(ctx => ctx.db.patch(siteId, { publishLockUntil: Date.now() + 1_000 }));
   expect((await t.mutation(api.sites.renewPublish, { slug: "fixture", runId: other })).lockUntil).toBeGreaterThan(Date.now() + 1_000);
+  await drainScheduled(t);
 });

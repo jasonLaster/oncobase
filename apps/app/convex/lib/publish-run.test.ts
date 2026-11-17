@@ -4,6 +4,7 @@ import schema from "../schema";
 import { api, internal } from "../_generated/api";
 import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { MANIFEST_SNAPSHOT_VERSION } from "./manifestRevision";
+import { drainScheduled } from "./drain-scheduled.testutil";
 
 test("owned publish writes stay in scope, coalesce invalidation, and reject old writers/abort/finish", async () => {
   const t = convexTest(schema, {
@@ -79,7 +80,7 @@ test("owned publish writes stay in scope, coalesce invalidation, and reject old 
     expect((await site())!.manifestRevision).toBe(revision);
     expect(await t.mutation(api.sites.finishPublish, { slug: "fixture", runId })).toEqual({ revision: revision + 1 });
   }
-  await t.run(async ctx => { for (const job of await ctx.db.system.query("_scheduled_functions").collect()) await ctx.scheduler.cancel(job._id); });
+  await drainScheduled(t);
 });
 
 
@@ -132,7 +133,7 @@ test("owned no-ops preserve revisions; missing snapshots rebuild and old runs in
   await begin();
   await t.run(ctx => ctx.db.patch(id, { publishRunChanged: undefined }));
   expect(await finish()).toEqual({ revision: 12 });
-  await t.run(async ctx => { for (const job of await ctx.db.system.query("_scheduled_functions").collect()) await ctx.scheduler.cancel(job._id); });
+  await drainScheduled(t);
 });
 
 
@@ -172,6 +173,6 @@ test("manifest strategy follows actual writes, with bounded journals and conserv
     await t.mutation(internal.sites.cleanupPublishChanges, { siteId, runId });
     // eslint-disable-next-line no-restricted-syntax -- Test fixture queries its explicit site/run index.
     if (scenario !== "129") expect(await t.run(ctx => ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", siteId).eq("runId", runId)).collect())).toEqual([]);
-    await t.run(async ctx => { for (const job of await ctx.db.system.query("_scheduled_functions").collect()) await ctx.scheduler.cancel(job._id); });
+    await drainScheduled(t);
   }
 });

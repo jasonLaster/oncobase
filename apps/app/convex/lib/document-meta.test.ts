@@ -6,6 +6,7 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { SERVICE_ISSUER, SERVICE_SUBJECT } from "./serviceAuth";
 import { insertDocument } from "./documentMeta";
+import { drainScheduled } from "./drain-scheduled.testutil";
 
 const modules = {
   "../access.ts": () => import("../access"),
@@ -23,11 +24,9 @@ function setup() {
 }
 type T = ReturnType<typeof setup>;
 
-/** Writes schedule manifest builds; cancel them so convex-test timers do not
+/** Writes schedule manifest builds; drain them so convex-test timers do not
  * fire into later suites after this test's transaction context is gone. */
-async function cancelScheduled(t: T) {
-  await t.run(async ctx => { for (const job of await ctx.db.system.query("_scheduled_functions").collect()) await ctx.scheduler.cancel(job._id); });
-}
+const cancelScheduled = (t: T) => drainScheduled(t);
 
 const siteRow = (slug: string) => ({
   slug, name: slug, ownerEmail: "owner@example.test", status: "active" as const, domains: [], publishTokenHash: "fixture",

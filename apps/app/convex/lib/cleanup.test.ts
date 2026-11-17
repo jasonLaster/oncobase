@@ -4,6 +4,7 @@ import { convexTest } from "convex-test";
 import schema from "../schema";
 import { internal } from "../_generated/api";
 import { PURGE_BATCH_SIZE } from "../cleanup";
+import { drainScheduled } from "./drain-scheduled.testutil";
 
 const modules = { "../cleanup.ts": () => import("../cleanup"), "../_generated/server.js": () => import("../_generated/server") };
 
@@ -30,4 +31,5 @@ test("expired sessions and OAuth states are purged in bounded batches; live rows
   expect(await t.mutation(internal.cleanup.purgeExpiredOAuthStates, {})).toEqual({ deleted: 1 });
   expect((await t.run(ctx => ctx.db.query("epicFhirOAuthStates").collect())).map(row => row.stateHash)).toEqual(["pending"]);
   expect((await t.run(ctx => ctx.db.system.query("_scheduled_functions").collect())).filter(job => job.name.includes("OAuthStates"))).toHaveLength(0);
+  await drainScheduled(t);
 });
