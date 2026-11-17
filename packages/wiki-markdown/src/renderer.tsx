@@ -43,6 +43,7 @@ import { SlidesViewer, SlidesViewerControls } from "./slides-viewer.tsx";
 import { WikiMarkdownFrame } from "./frame.tsx";
 import { AnnotatedTerm } from "./annotated-term.tsx";
 import { EDUCATION_LAB_SANDBOX, resolveEducationLabSrc } from "./education-lab.ts";
+import { WikiComponentFigure, type WikiMdxComponents } from "./wiki-component.tsx";
 import {
   isInternalWikiHref,
   resolveAssetPath,
@@ -87,6 +88,8 @@ export type WikiMarkdownProps = {
     context: WikiMarkdownResolveHrefContext,
   ) => string | undefined;
   isInternalHref?: (href: string | undefined) => href is string;
+  /** React components MDX pages may import by name from "@oncobase/wiki-markdown", beyond the built-ins. */
+  mdxComponents?: WikiMdxComponents;
 };
 
 function mermaidTitle(source: string) {
@@ -204,6 +207,7 @@ type MarkdownRenderContextValue = {
   LinkComponent?: WikiMarkdownProps["LinkComponent"];
   tableLayoutAdapter?: SmartTableLayoutAdapter;
   ImageComponent?: WikiImageComponent;
+  mdxComponents?: WikiMdxComponents;
 };
 
 // The component map below is one module-level constant, so React never sees a
@@ -297,6 +301,16 @@ const markdownComponents: Components = {
   th: MdThCell,
   td: MdTdCell,
   img: MarkdownImageCell,
+  figure: function MarkdownFigure({ node, children, ...props }) {
+    const { currentSlug, apiBasePath, mdxComponents } = useContext(MarkdownRenderContext);
+    const properties = (node?.properties ?? {}) as Record<string, unknown>;
+    if (!("dataWikiComponent" in properties)) return <figure {...props}>{children}</figure>;
+    return (
+      <WikiComponentFigure properties={properties} currentSlug={currentSlug} apiBasePath={apiBasePath} components={mdxComponents}>
+        {children}
+      </WikiComponentFigure>
+    );
+  },
   iframe: function MarkdownIframe({ node, src, srcDoc: _srcDoc, sandbox: _sandbox, allow: _allow, referrerPolicy: _referrerPolicy, ...props }) {
     const { currentSlug, apiBasePath } = useContext(MarkdownRenderContext);
     if (!node?.properties || !("dataEducationLab" in node.properties)) {
@@ -338,6 +352,7 @@ export const WikiMarkdownRenderer = memo(function WikiMarkdownRenderer({
   ImageComponent,
   resolveLinkHref,
   isInternalHref = isInternalWikiHref,
+  mdxComponents,
   rehypePlugins,
   preparedContent,
 }: WikiMarkdownProps & {
@@ -357,7 +372,8 @@ export const WikiMarkdownRenderer = memo(function WikiMarkdownRenderer({
     LinkComponent,
     tableLayoutAdapter,
     ImageComponent,
-  }), [currentSlug, apiBasePath, resolveLinkHref, isInternalHref, LinkComponent, tableLayoutAdapter, ImageComponent]);
+    mdxComponents,
+  }), [currentSlug, apiBasePath, resolveLinkHref, isInternalHref, LinkComponent, tableLayoutAdapter, ImageComponent, mdxComponents]);
 
   return (
     <WikiMarkdownFrame className={className}>
@@ -410,7 +426,10 @@ export {
   sanitizeMarkdownUrl,
   splitWikilinkAlias,
 };
+export { BUILT_IN_WIKI_MDX_COMPONENTS, WikiComponentFigure } from "./wiki-component.tsx";
+export { toPortableMarkdown } from "./mdx-components.ts";
 export type {
+  WikiMdxComponents,
   WikiImageComponent,
   WikiMarkdownNotificationAdapter,
   WikiMarkdownRouteAdapter,

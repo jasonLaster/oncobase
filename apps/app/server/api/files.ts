@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api.js";
 import { traceBackendPhase } from "../backend-tracing";
 import { fetchBlob } from "../blob-fetch";
 import { canReadEducationAsset, isEducationSlug } from "../education-access";
+import { isWikiComponentAssetPath } from "@oncobase/wiki-markdown/mdx";
 import { canUserAccessSlug, getSessionUser, hasValidAuthCookie, withSiteSlug } from "../reader-access";
 import { blobRequestHeaders, normalizeFilePath } from "./common";
 
@@ -144,7 +145,9 @@ export async function handleFileRequest(
   if (!filePath) return new Response("Missing path parameter", { status: 400 });
 
   const normalized = normalizeFilePath(filePath);
-  const mimeType = isEducationSlug(normalized) && path.extname(normalized).toLowerCase() === ".html"
+  // Every .html response carries a sandbox CSP below, so it never runs with the wiki origin.
+  const mimeType = (isEducationSlug(normalized) || isWikiComponentAssetPath(normalized)) &&
+    path.extname(normalized).toLowerCase() === ".html"
     ? "text/html; charset=utf-8" : getMimeType(normalized);
   if (!mimeType) return new Response("File type not supported", { status: 400 });
 
@@ -295,7 +298,7 @@ export async function handleFileRequest(
   if (etag ?? upstreamEtag) headers.set("ETag", (etag ?? upstreamEtag)!);
   const contentLength = upstream.headers.get("content-length");
   if (ext === ".html") {
-    // Curriculum labs can run their scripts without receiving the wiki origin.
+    // Curriculum labs and MDX components run their scripts without receiving the wiki origin.
     headers.set("Content-Security-Policy", "sandbox allow-scripts allow-popups");
     headers.set("Content-Disposition", `inline; filename="${filename.replace(/["\r\n]/g, "")}"`);
   }

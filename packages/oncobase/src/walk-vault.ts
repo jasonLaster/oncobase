@@ -375,7 +375,22 @@ function extractReferences(raw: string) {
     }
   }
 
+  // MDX pages import HTML components and name static fallbacks for copy/print.
+  for (const match of raw.matchAll(/^import[ \t]+[^\n]+?[ \t]+from[ \t]+(["'])(\.{1,2}\/[^"'\n]+)\1/gm)) {
+    references.push(match[2]);
+  }
+  for (const match of raw.matchAll(/\sfallback=(["'])([^"'\n]+)\1/g)) {
+    references.push(match[2]);
+  }
+
   return references;
+}
+
+/** Executable HTML is limited to curriculum labs and MDX components/ folders. */
+function isExecutableHtmlAsset(relativePath: string) {
+  if (relativePath.startsWith("wiki/education/")) return true;
+  const parts = relativePath.split("/");
+  return parts.slice(0, -1).includes("components") && !parts.some(p => !p || p === "." || p === "..");
 }
 
 function referencedAssetPaths(
@@ -470,9 +485,9 @@ function assetsFromEntries(entries: Entry[], documents: Array<DocumentEntry | Do
     for (const { filePath, relativePath } of entries) {
       const ext = path.extname(filePath).toLowerCase();
       const isPdf = PDF_EXTENSIONS.has(ext);
-      // Executable HTML is a curriculum asset, not a general vault upload type.
+      // Executable HTML is a curriculum or MDX component asset, not a general vault upload type.
       const isFile = FILE_ASSET_EXTENSIONS.has(ext) ||
-        (ext === ".html" && relativePath.startsWith("wiki/education/"));
+        (ext === ".html" && isExecutableHtmlAsset(relativePath));
       if (!isPdf && !isFile) continue;
       assets.push({
         filePath,

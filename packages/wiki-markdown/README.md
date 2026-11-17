@@ -84,3 +84,36 @@ Server-rendered HTML hosts must include `SlidesViewerControls` as a client
 enhancer inside the same `WikiMarkdownFrame` as the rendered HTML. The Next app's
 `MarkdownRenderer` already does this. Hosts that render the shared
 `WikiMarkdown` component get the controls automatically.
+
+## MDX components
+
+A page can import components and use them as block JSX elements. The page is
+still parsed as markdown: imports are recognised only at the start of a line
+outside code fences, and nothing in the page is executed.
+
+```mdx
+import YieldChart from "./components/yield-chart.html"
+import { SlidesViewer } from "@oncobase/wiki-markdown"
+
+<YieldChart height={450} title="Yield by specimen"
+  fallback="./images/yield-chart.png" alt="Bar chart of expected yield" />
+```
+
+- **HTML components.** A default import of a local `.html` file inside a
+  `components/` folder renders as an iframe with
+  `sandbox="allow-scripts allow-popups"`, and the file API serves it with the
+  same sandbox CSP, so its scripts never receive the wiki origin. The publisher
+  uploads only `.html` files in `components/` folders (and `wiki/education/`
+  labs), owned by the importing page. The frame inherits the reader's
+  `color-scheme`, so `prefers-color-scheme` inside the component follows the
+  app theme. To size the frame to its content, the component can post
+  `parent.postMessage({ type: "oncobase:component-height", height }, "*")`.
+- **React components.** Named imports from `@oncobase/wiki-markdown` resolve
+  against the built-ins (`SlidesViewer`) plus the host's `mdxComponents` prop.
+  `currentSlug` is passed automatically. Static HTML renders show only the
+  fallback.
+- **Props** must be literals: `"strings"`, `{450}`, `{true}`, or JSON such as
+  `{[{"src":"a.png"}]}`. Expressions render a visible component error.
+- **`fallback`** names a static image of the component. Copy as markdown
+  (`toPortableMarkdown`, also used by `/api/page-copy`) and print use it in place
+  of the live component. Without one, copy emits a link to the HTML source.

@@ -12,6 +12,7 @@ import {
   protectCurrencyFromMath,
 } from "./math.ts";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
+import { expandWikiMdx } from "./mdx-components.ts";
 import { resolveWikilinks } from "./paths.ts";
 import { formatWikiHtml, type WikiHtmlAdapters } from "./server-format.ts";
 export type { WikiHtmlAdapters } from "./server-format.ts";
@@ -51,7 +52,7 @@ function stripLegacyTableDirectives(md: string): string {
 
 
 export function renderWikiMarkdownHtml(md: string, currentSlug?: string, adapters?: WikiHtmlAdapters): string {
-  const citationLinked = preprocessCitationMarkdown(resolveWikilinks(md, currentSlug));
+  const citationLinked = preprocessCitationMarkdown(resolveWikilinks(expandWikiMdx(md), currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
   const mermaidExtracted = extractMermaidBlocks(slidesExpanded, adapters?.mermaidOptions);
   const cleanMd = protectCurrencyFromMath(
@@ -66,7 +67,7 @@ export async function renderWikiMarkdownHtmlAsync(
   currentSlug?: string,
   adapters?: WikiHtmlAdapters,
 ): Promise<string> {
-  const citationLinked = preprocessCitationMarkdown(resolveWikilinks(md, currentSlug));
+  const citationLinked = preprocessCitationMarkdown(resolveWikilinks(expandWikiMdx(md), currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
   const mermaidExtracted = extractMermaidBlocks(slidesExpanded, adapters?.mermaidOptions);
   const cleanMd = protectCurrencyFromMath(

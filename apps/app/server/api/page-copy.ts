@@ -1,5 +1,6 @@
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api.js";
+import { toPortableMarkdown } from "@oncobase/wiki-markdown/mdx";
 import { isEducationSlug } from "../education-access";
 import { canUserAccessSlug, getSessionUser, redactText, withSiteSlug } from "../reader-access";
 
@@ -25,7 +26,7 @@ export async function handlePageCopyRequest(
     withSiteSlug(siteSlug, { slug }),
   );
   if (publicPage && (!educationOnly || publicPage.sensitive === false && isEducationSlug(publicPage.slug))) {
-    return new Response(await redactText(client, siteSlug, publicPage.content), {
+    return new Response(toPortableMarkdown(await redactText(client, siteSlug, publicPage.content)), {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
         "Content-Disposition": `attachment; filename="${markdownFilename(slug)}"`,
@@ -55,7 +56,7 @@ export async function handlePageCopyRequest(
     return new Response("Not found", { status: 404 });
   }
 
-  return new Response(await redactText(client, siteSlug, privatePage.content), {
+  return new Response(toPortableMarkdown(await redactText(client, siteSlug, privatePage.content)), {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
       "Content-Disposition": `attachment; filename="${markdownFilename(slug)}"`,

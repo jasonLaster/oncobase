@@ -1,4 +1,5 @@
 import { CopyPageIcon } from "../shell/copy-page-icon";
+import { toPortableMarkdown } from "@oncobase/wiki-markdown/mdx";
 import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiPageActionButton,
@@ -60,7 +61,8 @@ export function PageActions({
 
   const copyMarkdown = async () => {
     try {
-      await copyTextToClipboard(`# ${title}\n\n${content}`);
+      // MDX components copy as their static fallback image.
+      await copyTextToClipboard(`# ${title}\n\n${toPortableMarkdown(content)}`);
       markCopied("markdown");
     } catch (error) {
       // Clipboard permission can be denied; leave the copy icon unchanged.
