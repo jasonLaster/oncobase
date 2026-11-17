@@ -12,8 +12,7 @@ import { canPrefetch, planPrefetch, PREFETCH_LIMITS, type CachedPage } from "./p
 import { readerOnline } from "./connectivity";
 import type { MetricsPatch } from "../types";
 
-import { FOREGROUND_FETCH_EVENT, WARM_CACHE_EVENT } from "./events";
-export { FOREGROUND_FETCH_EVENT, WARM_CACHE_EVENT };
+import { on } from "../reader-bus";
 
 export function BackgroundPrefetch({ onMetrics, isForegroundBusy }: {
   onMetrics: (patch: MetricsPatch) => void;
@@ -155,8 +154,8 @@ export function BackgroundPrefetch({ onMetrics, isForegroundBusy }: {
     document.addEventListener("visibilitychange", interrupt);
     window.addEventListener("offline", interrupt);
     window.addEventListener("online", interrupt);
-    window.addEventListener(FOREGROUND_FETCH_EVENT, interrupt);
-    window.addEventListener(WARM_CACHE_EVENT, warm);
+    const offForeground = on("foreground-fetch", interrupt);
+    const offWarm = on("warm-cache", warm);
     document.addEventListener("pointerover", onIntent);
     document.addEventListener("focusin", onIntent);
     document.addEventListener("pointerout", onLeave);
@@ -175,8 +174,8 @@ export function BackgroundPrefetch({ onMetrics, isForegroundBusy }: {
       document.removeEventListener("visibilitychange", interrupt);
       window.removeEventListener("offline", interrupt);
       window.removeEventListener("online", interrupt);
-      window.removeEventListener(FOREGROUND_FETCH_EVENT, interrupt);
-      window.removeEventListener(WARM_CACHE_EVENT, warm);
+      offForeground();
+      offWarm();
     };
   }, [activeSlug, ready, scope, state?.manifestHash, store, onMetrics, isForegroundBusy]);
   return null;

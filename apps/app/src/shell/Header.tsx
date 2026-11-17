@@ -35,9 +35,8 @@ import { safeLocalStorage, safeSessionStorage } from "@oncobase/safe-storage";
 import { useReaderStoreKit } from "../bootstrap/reader-queries";
 import { useWikiSession, useWikiIdentityPending } from "../wiki-context";
 import type { PaletteMode } from "./CommandPalette";
+import { emit, on } from "../reader-bus";
 import type {} from "../bootstrap/reader-shortcuts";
-
-const OPEN_COMMAND_PALETTE_EVENT = "wiki-vite-open-command-palette";
 
 const loadCommandPalette = () => import("./CommandPalette");
 const CommandPalette = lazy(() =>
@@ -47,11 +46,7 @@ const CommandPalette = lazy(() =>
 );
 
 export function openCommandPalette(mode: PaletteMode = "pages") {
-  window.dispatchEvent(
-    new CustomEvent<{ mode: PaletteMode }>(OPEN_COMMAND_PALETTE_EVENT, {
-      detail: { mode },
-    }),
-  );
+  emit("open-command-palette", mode);
 }
 
 export function HeaderCommandPaletteHost() {
@@ -76,14 +71,7 @@ export function HeaderCommandPaletteHost() {
     setPaletteOpen(true);
   }, []);
 
-  useEffect(() => {
-    const onOpenPalette = (event: Event) => {
-      const customEvent = event as CustomEvent<{ mode?: PaletteMode }>;
-      openPalette(customEvent.detail?.mode ?? "pages");
-    };
-    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenPalette);
-    return () => window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenPalette);
-  }, [openPalette]);
+  useEffect(() => on("open-command-palette", openPalette), [openPalette]);
 
   useEffect(() => {
     const early = window.__wikiReaderShortcuts;

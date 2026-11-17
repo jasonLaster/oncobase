@@ -6,11 +6,10 @@ import { useLocation } from "react-router";
 import type { MetricsPatch } from "../types";
 import { useWikiScope } from "../wiki-context";
 import { contentSlugFromRouteSlug, rememberSlug, slugFromPath } from "../wiki-utils";
+import { on } from "../reader-bus";
 import { BackgroundPrefetch } from "./BackgroundPrefetch";
-export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
-import { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
+import { REFRESH_MANIFEST_EVENT } from "./events";
 import { createSyncController, type SyncController } from "./sync-controller";
-export { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
 
 /** Binds a `SyncController` to React and the window: one controller per
  * store, scope and client, fed route changes and the events it reacts to.
@@ -54,8 +53,10 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("beforeunload", onDeparting);
     window.addEventListener("pageshow", onResumed);
+    // The window name is the test bridge (see ./events); the bus is the app's.
     window.addEventListener(REFRESH_MANIFEST_EVENT, onRefresh);
-    window.addEventListener(RETRY_PAGE_EVENT, onRetry);
+    const offRefresh = on("refresh-manifest", onRefresh);
+    const offRetry = on("retry-page", onRetry);
     controllerRef.current = next;
     return () => {
       window.removeEventListener("online", onOnline);
@@ -63,7 +64,8 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
       window.removeEventListener("beforeunload", onDeparting);
       window.removeEventListener("pageshow", onResumed);
       window.removeEventListener(REFRESH_MANIFEST_EVENT, onRefresh);
-      window.removeEventListener(RETRY_PAGE_EVENT, onRetry);
+      offRefresh();
+      offRetry();
       next.dispose();
       if (controllerRef.current === next) controllerRef.current = null;
     };

@@ -5,7 +5,8 @@ import { expandCompactFileTree, type CompactFileNode, type FileNode } from "@onc
 import { useWebMcpTools, type WebMcpCall } from "@oncobase/wiki-shell/webmcp";
 import { assets$, fileTree$, pageContentBySlug$, pageIndex$ } from "../livestore/queries";
 import type { AssetIndexRow, PageContentRow, PageIndexRow } from "../types";
-import { AGENT_ACCESS_CHANGE_EVENT, agentsMayReadPrivatePages } from "./agent-access";
+import { agentsMayReadPrivatePages } from "./agent-access";
+import { on } from "../reader-bus";
 import { createReaderTools } from "./reader-tools";
 
 const env = import.meta.env as Record<string, string | undefined>;
@@ -73,11 +74,7 @@ export function ReaderWebMcp({
 
   // Re-register when consent changes so descriptions and results agree.
   const [accessVersion, setAccessVersion] = useState(0);
-  useEffect(() => {
-    const onChange = () => setAccessVersion((value) => value + 1);
-    window.addEventListener(AGENT_ACCESS_CHANGE_EVENT, onChange);
-    return () => window.removeEventListener(AGENT_ACCESS_CHANGE_EVENT, onChange);
-  }, []);
+  useEffect(() => on("agent-access-change", () => setAccessVersion((value) => value + 1)), []);
 
   useWebMcpTools(tools, { key: `${scope}:${signedIn ? "1" : "0"}:${accessVersion}`, onCall });
   return null;

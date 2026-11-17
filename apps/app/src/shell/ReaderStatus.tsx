@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { NavigationFreshness } from "../types";
-import { REFRESH_MANIFEST_EVENT } from "../sync/events";
+import { emit } from "../reader-bus";
 import { useManifestReceivedBytes } from "../sync/transfer-progress";
 import { readerOnline, subscribeReaderOnline } from "../sync/connectivity";
 
@@ -34,7 +34,7 @@ export function NavigationStatus({ freshness, hasPages }: { freshness: Navigatio
         {label ? <><span className="reader-status-dot" aria-hidden="true" />{label}</> : null}
       </span>
       {freshness === "checking" && slow && receivedBytes > 0 ? <span className="reader-transfer-detail">{receivedLabel(receivedBytes)}</span> : null}
-      {freshness === "saved" || slow ? <button type="button" className="reader-transfer-retry" aria-label="Retry loading pages" onClick={() => window.dispatchEvent(new Event(REFRESH_MANIFEST_EVENT))}>Retry</button> : null}
+      {freshness === "saved" || slow ? <button type="button" className="reader-transfer-retry" aria-label="Retry loading pages" onClick={() => emit("refresh-manifest")}>Retry</button> : null}
       </span>
     </div>
   );

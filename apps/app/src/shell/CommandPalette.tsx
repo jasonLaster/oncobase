@@ -55,7 +55,7 @@ import { flattenFileTree, isListedManifestAsset } from "@oncobase/wiki-content";
 import { bootstrappedNavigation } from "../bootstrap/seed-state";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { readLiveStoreDevtoolsEnabled, reloadWithLiveStoreDevtools } from "../livestore/devtools";
-import { WARM_CACHE_EVENT } from "../sync/events";
+import { emit } from "../reader-bus";
 import type { AssetIndexRow, PageIndexRow } from "../types";
 import { useWikiScope } from "../wiki-context";
 import {
@@ -361,7 +361,7 @@ export function CommandPalette({
         description: "Queue eager markdown fetches for local reading",
         icon: <ZapIcon size={15} aria-hidden="true" />,
         run: () => {
-          window.dispatchEvent(new Event(WARM_CACHE_EVENT));
+          emit("warm-cache");
           onOpenChange(false);
         },
       },

@@ -65,7 +65,7 @@ import { useWikiIdentityPending, useWikiScope, useWikiSession } from "../wiki-co
 import { assetFileName, assetHashesByPath, assetHref, relatedAssetsForSlug, versionedFileUrl } from "../wiki-assets";
 import { AssetVersionsContext } from "./asset-versions-context";
 import { VersionedWikiImage } from "./versioned-assets";
-import { REFRESH_MANIFEST_EVENT, RETRY_PAGE_EVENT } from "../sync/events";
+import { emit } from "../reader-bus";
 import { useBrowserOnline } from "../shell/ReaderStatus";
 import { PageTransferActivity as PageActivity } from "../shell/PageTransferActivity";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
@@ -393,7 +393,7 @@ export const WikiPage = memo(function WikiPage({
     });
   }, [onMetrics, page?.content, page?.slug, routeSlug, slug]);
 
-  const retryPage = identityPending ? undefined : () => window.dispatchEvent(new Event(RETRY_PAGE_EVENT));
+  const retryPage = identityPending ? undefined : () => emit("retry-page");
   const loadingPage = routeIndex && !routeIndex.sensitive ? (
     <DocumentOutlineShell
       articleClassName="page-shell"
@@ -471,7 +471,7 @@ export const WikiPage = memo(function WikiPage({
           actions={
             <WikiPageActionButton
               data-test-id="retry-page-fetch"
-              onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
+              onClick={() => emit("retry-page")}
             >
               Retry
             </WikiPageActionButton>
@@ -497,7 +497,7 @@ export const WikiPage = memo(function WikiPage({
           actions={
             <WikiPageActionButton
               data-test-id="retry-page-fetch"
-              onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
+              onClick={() => emit("retry-page")}
             >
               Retry
             </WikiPageActionButton>
@@ -524,7 +524,7 @@ export const WikiPage = memo(function WikiPage({
           This page is available, but navigation could not be loaded.
           <WikiPageActionButton
             data-test-id="retry-navigation"
-            onClick={() => window.dispatchEvent(new Event(REFRESH_MANIFEST_EVENT))}
+            onClick={() => emit("refresh-manifest")}
           >
             Retry navigation
           </WikiPageActionButton>

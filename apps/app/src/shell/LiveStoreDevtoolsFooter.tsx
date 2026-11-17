@@ -10,7 +10,7 @@ import { useStore } from "@livestore/react";
 import type { WikiScope } from "@oncobase/wiki-content";
 import { reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { events } from "../livestore/schema";
-import { WARM_CACHE_EVENT } from "../sync/events";
+import { emit } from "../reader-bus";
 import type { Metrics } from "../types";
 import { MetricsPanel } from "./MetricsPanel";
 import { ScopeSwitcher } from "./Header";
@@ -45,7 +45,7 @@ export function LiveStoreDevtoolsFooter({
     store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
     window.location.reload();
   };
-  const warmCache = () => window.dispatchEvent(new Event(WARM_CACHE_EVENT));
+  const warmCache = () => emit("warm-cache");
 
   return (
     <footer

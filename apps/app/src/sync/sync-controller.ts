@@ -33,7 +33,7 @@ import { isStoredBodyCurrent } from "./prefetch-policy";
 import { clearStartupSnapshot as clearStartupCache } from "../bootstrap/reader-startup-cache";
 import { cachedStartupStores, hasBootstrappedPage as hasBootstrappedPageIn } from "../bootstrap/seed-state";
 import { readerOnline } from "./connectivity";
-import { FOREGROUND_FETCH_EVENT } from "./events";
+import { emit } from "../reader-bus";
 import { setManifestReceivedBytes as setManifestBytes, setPageTransfer as setTransfer } from "./transfer-progress";
 
 const CHECK_REASON_RANK: Record<ManifestCheckReason, number> = { timer: 0, attention: 1, load: 2, user: 3 };
@@ -89,7 +89,7 @@ export function createSyncController(env: SyncEnvironment, initialSlug: string) 
     seededFromStartupCache = cachedStartupStores.has(store as Store),
     online: isOnline = readerOnline,
     visibility = () => document.visibilityState,
-    foregroundFetch = () => window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT)),
+    foregroundFetch = () => emit("foreground-fetch"),
     setPageTransfer = setTransfer,
     setManifestReceivedBytes = setManifestBytes,
     storageSnapshot = readStorageSnapshot,

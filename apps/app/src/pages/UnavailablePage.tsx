@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { WikiPageActionButton } from "@oncobase/wiki-shell";
 import { WikiEmptyState, WikiSensitiveUnavailable } from "@oncobase/wiki-shell/page-states";
-import { RETRY_PAGE_EVENT } from "../sync/events";
+import { emit } from "../reader-bus";
 
 export default function UnavailablePage({ before, publicView, signInHref, restricted = false, slug }: {
   before?: ReactNode;
@@ -44,7 +44,7 @@ export default function UnavailablePage({ before, publicView, signInHref, restri
               Go home
             </Link>
             <WikiPageActionButton
-              onClick={() => window.dispatchEvent(new Event(RETRY_PAGE_EVENT))}
+              onClick={() => emit("retry-page")}
             >
               Retry
             </WikiPageActionButton>

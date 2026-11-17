@@ -4,7 +4,6 @@ import {
 } from "@oncobase/smart-table";
 import { COMMENTS_PANE_EVENT } from "@oncobase/wiki-shell";
 
-const OUTLINE_STATE_EVENT = "wiki-vite:outline-state-change";
 const GUTTER = 20;
 
 function isVisibleElement(element: Element | null): element is HTMLElement {
@@ -74,10 +73,6 @@ function scheduleAnimationFrame(callback: () => void) {
   };
 }
 
-export function dispatchOutlineStateChange() {
-  window.dispatchEvent(new Event(OUTLINE_STATE_EVENT));
-}
-
 export const wikiViteSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
   shouldUseOverlay() {
     return window.matchMedia("(min-width: 1024px)").matches;
@@ -145,7 +140,6 @@ export const wikiViteSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
     const scrollContainer = getDefaultVerticalScrollContainer(shell);
     window.addEventListener("resize", scheduler.schedule);
     window.addEventListener("scroll", scheduler.schedule, { passive: true });
-    window.addEventListener(OUTLINE_STATE_EVENT, scheduler.schedule);
     window.addEventListener(COMMENTS_PANE_EVENT, scheduler.schedule);
     if (
       scrollContainer !== document.documentElement &&
@@ -164,7 +158,6 @@ export const wikiViteSmartTableLayoutAdapter: SmartTableLayoutAdapter = {
       ) {
         scrollContainer.removeEventListener("scroll", scheduler.schedule);
       }
-      window.removeEventListener(OUTLINE_STATE_EVENT, scheduler.schedule);
       window.removeEventListener(COMMENTS_PANE_EVENT, scheduler.schedule);
       window.removeEventListener("scroll", scheduler.schedule);
       window.removeEventListener("resize", scheduler.schedule);
