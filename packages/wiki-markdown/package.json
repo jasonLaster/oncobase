@@ -75,6 +75,11 @@
       "types": "./src/raw-html-loader.ts",
       "import": "./src/raw-html-loader.ts",
       "default": "./src/raw-html-loader.ts"
+    },
+    "./mdx": {
+      "types": "./src/mdx-components.ts",
+      "import": "./src/mdx-components.ts",
+      "default": "./src/mdx-components.ts"
     }
   },
   "scripts": {

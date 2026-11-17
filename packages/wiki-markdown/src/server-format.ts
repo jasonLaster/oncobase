@@ -2,6 +2,7 @@ import { decodeHTMLAttribute } from "entities";
 import type { RenderOptions } from "beautiful-mermaid";
 import { resolveHref, resolveImageSrc, sanitizeMarkdownUrl } from "./paths.ts";
 import { EDUCATION_LAB_SANDBOX, resolveEducationLabSrc } from "./education-lab.ts";
+import { WIKI_COMPONENT_SANDBOX, resolveWikiComponentSrc } from "./mdx-components.ts";
 
 function escapeAttribute(value: string) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -184,10 +185,32 @@ function fixEducationLabs(html: string, currentSlug?: string, adapters: WikiHtml
   });
 }
 
+/** HTML components become sandboxed frames; the fallback image stays for print.
+ * React components cannot run in static HTML, so they keep only the fallback. */
+function fixWikiComponents(html: string, currentSlug?: string, adapters: WikiHtmlAdapters = {}) {
+  return html.replace(/<figure\b([^>]*\sdata-wiki-component="[^"]*"[^>]*)>([\s\S]*?)<\/figure>/g, (_tag, rawAttributes: string, inner: string) => {
+    const attr = (name: string) => {
+      const value = rawAttributes.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
+      return value === undefined ? undefined : decodeHTMLAttribute(value);
+    };
+    const name = attr("data-wiki-component") ?? "";
+    const fallback = inner.trim() ? `<div class="wiki-component-fallback">${inner}</div>` : "";
+    let live = "";
+    if (attr("data-wiki-component-kind") === "html") {
+      const localSrc = resolveWikiComponentSrc(attr("data-wiki-component-src"), currentSlug);
+      const src = adapters.resolveFrameSrc?.(localSrc, currentSlug) ?? localSrc;
+      const height = Number(attr("data-wiki-component-height")) || 480;
+      live = `<div class="wiki-component-live"><iframe class="wiki-component-frame" title="${escapeAttribute(attr("data-wiki-component-title") ?? name)}" ` +
+        `src="${escapeAttribute(src)}" width="100%" height="${height}" loading="lazy" sandbox="${WIKI_COMPONENT_SANDBOX}" referrerpolicy="no-referrer"></iframe></div>`;
+    }
+    return `<figure class="wiki-component" data-wiki-component="${escapeAttribute(name)}">${live}${fallback}</figure>`;
+  });
+}
+
 export function formatWikiHtml(raw: string, currentSlug?: string, adapters: WikiHtmlAdapters = {}) {
-  let html = fixEducationLabs(decorateRenderedImages(
+  let html = fixWikiComponents(fixEducationLabs(decorateRenderedImages(
     fixPdfLinks(fixImageSrcs(expandThemeImages(fixMarkdownLinks(decorateRenderedTables(raw), currentSlug)), currentSlug)),
-  ), currentSlug, adapters);
+  ), currentSlug, adapters), currentSlug, adapters);
   if (adapters.resolveHref) html = html.replace(/href="([^"]*)"/g, (_match, href) =>
     `href="${escapeAttribute(adapters.resolveHref!(decodeHTMLAttribute(href), currentSlug))}"`);
   if (adapters.resolveImageSrc) html = html.replace(/(<img\b[^>]*?\s)src="([^"]*)"/g, (_match, before, src) =>

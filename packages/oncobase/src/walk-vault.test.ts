@@ -41,6 +41,22 @@ describe("readVaultDocuments", () => {
     expect(readVaultAssets(vault).some(asset => asset.relativePath === "sources/capture.html")).toBe(false);
   });
 
+  test("publishes MDX component HTML and fallback images owned by the importing page", () => {
+    const vault = makeVault();
+    fs.mkdirSync(path.join(vault, "wiki/research/components"), { recursive: true });
+    fs.mkdirSync(path.join(vault, "wiki/research/images"), { recursive: true });
+    fs.writeFileSync(path.join(vault, "wiki/research/components/chart.html"), "<!doctype html><h1>Chart</h1>");
+    fs.writeFileSync(path.join(vault, "wiki/research/images/chart.png"), "png");
+    fs.writeFileSync(path.join(vault, "wiki/research/loose.html"), "<!doctype html><h1>Loose</h1>");
+    fs.writeFileSync(path.join(vault, "wiki/research/review.mdx"),
+      '# Review\nimport Chart from "./components/chart.html"\n\n<Chart height={400} fallback="./images/chart.png" />\n');
+    const assets = readVaultAssets(vault, { referencedBy: new Set(["wiki/research/review"]) });
+    expect(assets.map(asset => asset.relativePath).sort()).toEqual(["wiki/research/components/chart.html", "wiki/research/images/chart.png"]);
+    expect(assets.find(asset => asset.relativePath.endsWith(".html"))).toMatchObject({
+      contentType: "text/html; charset=utf-8", ownerSlugs: ["wiki/research/review"] });
+    expect(readVaultAssets(vault).some(asset => asset.relativePath === "wiki/research/loose.html")).toBe(false);
+  });
+
   test("hash changes when frontmatter title changes", () => {
     const vault = makeVault();
     const original = writeDoc(

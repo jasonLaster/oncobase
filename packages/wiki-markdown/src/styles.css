@@ -731,3 +731,29 @@
   }
 }
 /* ---- end mobile markdown tables ---- */
+
+/* ---- MDX components ---- */
+.wiki-markdown .wiki-component {
+  margin: 1.5rem 0;
+}
+.wiki-markdown .wiki-component-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  color-scheme: light dark;
+}
+/* The fallback image is for copy/print; on screen the live component replaces it. */
+.wiki-markdown .wiki-component:has(.wiki-component-live > :not(.wiki-component-error)) .wiki-component-fallback {
+  display: none;
+}
+@media print {
+  .wiki-markdown .wiki-component:has(.wiki-component-fallback) .wiki-component-live { display: none; }
+  .wiki-markdown .wiki-component .wiki-component-fallback { display: block; }
+}
+.wiki-markdown .wiki-component-error {
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  opacity: 0.8;
+}

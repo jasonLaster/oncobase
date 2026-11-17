@@ -1,0 +1,110 @@
+import { expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { WikiMarkdown } from "./index.tsx";
+import { renderWikiMarkdownHtml } from "./server.ts";
+import {
+  expandWikiMdx,
+  isWikiComponentAssetPath,
+  parseComponentAttributes,
+  resolveWikiComponentSrc,
+  toPortableMarkdown,
+  wikiMdxReferences,
+} from "./mdx-components.ts";
+
+const slug = "wiki/research/reviews/yield";
+const page = `---
+title: Yield
+---
+import YieldChart from "./components/yield-chart.html"
+import { SlidesViewer, Missing } from "@oncobase/wiki-markdown"
+
+# Yield
+
+Intro paragraph.
+
+<YieldChart height={450} title="Yield by specimen" fallback="./images/yield-chart.png" alt="Bar chart of yield" />
+
+<SlidesViewer images={[{"src":"images/a.png","alt":"A"}]} />
+
+\`\`\`mdx
+import Nope from "./components/nope.html"
+<YieldChart height={1} />
+\`\`\`
+`;
+const frameSrc = "/api/file?path=wiki%2Fresearch%2Freviews%2Fcomponents%2Fyield-chart.html";
+
+test("plain markdown is untouched", () => {
+  const md = "# Title\n\nWe import data from \"x\" here.\n\n<div>raw</div>\n";
+  expect(expandWikiMdx(md)).toBe(md);
+  expect(toPortableMarkdown(md)).toBe(md);
+});
+
+test("props accept only literals", () => {
+  expect(parseComponentAttributes(` height={450} title="A > B" ok data='x' list={[1,"two"]} obj={{"a":1}}`))
+    .toEqual({ height: 450, title: "A > B", ok: true, data: "x", list: [1, "two"], obj: { a: 1 } });
+  expect(() => parseComponentAttributes(" height={window.innerHeight}")).toThrow("literal");
+  expect(() => parseComponentAttributes(" onClick={() => alert(1)}")).toThrow();
+});
+
+test("client and server render an imported HTML component as a sandboxed frame with a print fallback", () => {
+  const client = renderToStaticMarkup(createElement(WikiMarkdown, { content: page, currentSlug: slug }));
+  const server = renderWikiMarkdownHtml(page, slug);
+  for (const html of [client, server]) {
+    expect(html).toContain(`src="${frameSrc}"`);
+    expect(html).toContain('sandbox="allow-scripts allow-popups"');
+    expect(html).toContain('height="450"');
+    expect(html).toContain('title="Yield by specimen"');
+    expect(html).toContain("wiki-component-fallback");
+    expect(html).toContain("yield-chart.png");
+    expect(html).not.toContain("import YieldChart");
+    expect(html).not.toContain("allow-same-origin");
+    expect(html).not.toContain("node=");
+  }
+  // Code fences keep their literal MDX.
+  expect(client).toContain("import Nope from");
+  // React registry: SlidesViewer resolves, unknown names explain themselves.
+  expect(client).toContain("slides-viewer");
+  expect(renderToStaticMarkup(createElement(WikiMarkdown, {
+    content: 'import { Missing } from "@oncobase/wiki-markdown"\n\n<Missing />\n', currentSlug: slug,
+  }))).toContain("Missing is not available");
+});
+
+test("hosts can register their own React components", () => {
+  const Hello = ({ name }: { name: string }) => createElement("strong", null, `Hello ${name}`);
+  const html = renderToStaticMarkup(createElement(WikiMarkdown, {
+    content: 'import { Hello } from "@oncobase/wiki-markdown"\n\n<Hello name="Diana" />\n', currentSlug: slug, mdxComponents: { Hello },
+  }));
+  expect(html).toContain("<strong>Hello Diana</strong>");
+});
+
+test("copy-as-markdown swaps components for their fallback image", () => {
+  const portable = toPortableMarkdown(page);
+  expect(portable).not.toContain("import YieldChart");
+  expect(portable).toContain("![Bar chart of yield](./images/yield-chart.png)");
+  expect(portable).not.toContain("<SlidesViewer");
+  expect(portable).toContain("import Nope from"); // fenced example survives
+  expect(toPortableMarkdown('import C from "./components/c.html"\n\n<C title="Chart" />\n')).toContain("[Chart](./components/c.html)");
+});
+
+test("publisher references include component sources and fallbacks", () => {
+  expect(wikiMdxReferences(page)).toEqual(["./components/yield-chart.html", "./images/yield-chart.png"]);
+});
+
+test("component sources must be local HTML inside a components folder", () => {
+  expect(resolveWikiComponentSrc("./components/yield-chart.html", slug)).toBe(frameSrc);
+  for (const bad of ["https://x.test/components/a.html", "//x/components/a.html", "./a.html", "./components/a.js",
+    "../../../../components/a.html", "./components/a.html?x=1", "javascript:alert(1)", ""]) {
+    expect(() => resolveWikiComponentSrc(bad, slug)).toThrow("components/");
+  }
+  expect(isWikiComponentAssetPath("wiki/x/components/a.html")).toBe(true);
+  expect(isWikiComponentAssetPath("wiki/x/a.html")).toBe(false);
+  expect(isWikiComponentAssetPath("wiki/x/components/../a.html")).toBe(false);
+});
+
+test("invalid imports and tags render visible errors instead of failing the page", () => {
+  const html = renderWikiMarkdownHtml('import X from "https://evil.test/x.html"\nimport Y from "./components/y.html"\n\n<Y height={innerHeight} />\n', slug);
+  expect(html).toContain("Component error: Unsupported import source");
+  expect(html).not.toContain("<iframe");
+  expect(html).toContain("Only literal props");
+});
