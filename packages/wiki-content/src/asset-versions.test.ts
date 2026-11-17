@@ -110,7 +110,7 @@ describe("asset hashes in the signed-in overlay", () => {
         requests.push({ ...args });
         const result: WikiSessionOverlayPage = {
           fence: { ...fence },
-          snapshot: args.includeSnapshot ? { hash: snapshot.manifestHash, read: async () => json } : null,
+          snapshot: args.includeSnapshot ? { hash: snapshot.manifestHash, read: async () => { requests.push({ read: "overlay" }); return json; } } : null,
           pages: args.pages === null ? [page("private/plan", true)] : [],
           pagesDone: true, pagesCursor: null,
           assets: args.assets === null ? f.pdfs.map(row => row.path) : [],
@@ -135,7 +135,7 @@ describe("asset hashes in the signed-in overlay", () => {
         return result;
       },
     };
-    f.context.getManifestSnapshot = async () => ({ hash: snapshot.manifestHash, revision: 1, read: async () => json });
+    f.context.getManifestSnapshot = async () => ({ hash: snapshot.manifestHash, revision: 1, read: async () => { requests.push({ read: "current" }); return json; } });
     f.context.manifestSnapshotCache = createManifestSnapshotCache();
     f.context.onManifestOverlay = options.onOverlay;
     const response = await createWikiManifestResponse(
@@ -153,7 +153,15 @@ describe("asset hashes in the signed-in overlay", () => {
       "file:wiki/images/legacy.jpg": null,
       "file:private/scan.png": "scan-1",
     });
-    expect(requests.map(args => args.files)).toEqual([null, "more"]);
+    expect(requests.filter(args => !("read" in args)).map(args => args.files)).toEqual([null, "more"]);
+  });
+
+  test("the public base loads once, alongside the overlay calls rather than after them", async () => {
+    const { requests } = await overlayFixture({ files: true });
+    const reads = requests.flatMap((args, index) => "read" in args ? [index] : []);
+    expect(reads).toHaveLength(1);
+    // Started before the overlay's second call, not after the last one.
+    expect(reads[0]).toBeLessThan(requests.findIndex(args => args.files === "more"));
   });
 
   test("the overlay's per-call scan counts are summed and reported once", async () => {

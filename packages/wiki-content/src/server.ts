@@ -707,6 +707,14 @@ type OverlayManifest = { pages: ManifestPages; assets: WikiManifestAsset[]; fenc
 async function overlayManifest(context: WikiApiContext, user: WikiApiSessionUser): Promise<OverlayManifest | null> {
   const list = context.access?.listSessionManifestOverlay;
   if (!list) return null;
+  // Load the verified public base while the overlay pages through Convex
+  // instead of after it: on a fresh instance that is ~0.6 s of storage read,
+  // parse and hash. The first overlay call names the same snapshot hash in
+  // the common case, and the per-instance cache shares the in-flight load
+  // (a failed load is evicted, so the awaited read below simply retries).
+  if (context.manifestSnapshotCache && context.getManifestSnapshot) {
+    void context.getManifestSnapshot().then(snapshot => snapshot ? loadVerifiedBase(context, snapshot) : undefined).catch(() => undefined);
+  }
   const first = await list(user, { pages: null, assets: null, files: null, numItems: MANIFEST_PAGE_SIZE, includeSnapshot: true });
   if (!first) { reportFallback(context, "overlay-unavailable"); return null; }
   const { fence } = first;
