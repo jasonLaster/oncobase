@@ -210,7 +210,10 @@ export default defineSchema({
     deletedAt: v.optional(v.number()),
   })
     .index("by_path", ["path"])
-    .index("by_site_path", ["siteId", "path"]),
+    .index("by_site_path", ["siteId", "path"])
+    // The signed-in manifest overlay reads only live rows; tombstones (about
+    // 45% of PDF rows on a real site) would otherwise page through it.
+    .index("by_site_live_path", ["siteId", "deletedAt", "path"]),
 
   fileAssets: defineTable({
     siteId: v.optional(v.id("sites")),
@@ -227,9 +230,11 @@ export default defineSchema({
   })
     .index("by_path", ["path"])
     .index("by_site_path", ["siteId", "path"])
-    // The signed-in manifest overlay lists only sensitive (and legacy
+    // The signed-in manifest overlay lists only live sensitive (and legacy
     // unflagged) files; the public ones come from the public snapshot.
-    .index("by_site_sensitive_path", ["siteId", "sensitive", "path"]),
+    // Tombstones were 94% of the sensitive rows it read before deletedAt
+    // joined the index (26 sequential calls per cold signed-in manifest).
+    .index("by_site_sensitive_live_path", ["siteId", "sensitive", "deletedAt", "path"]),
 
   dicomSeries: defineTable({
     siteId: v.optional(v.id("sites")),

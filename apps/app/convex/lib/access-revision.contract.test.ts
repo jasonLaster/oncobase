@@ -397,11 +397,18 @@ test("overlay calls report the rows they read by outcome, counts only", async ()
     await file("care/a.png", { sensitive: true, ownerSlugs: ["care/a"] });
     await file("care/gone.png", { sensitive: true, ownerSlugs: ["care/a"], deletedAt: 5 });
     await file("path/c.png", { sensitive: true, ownerSlugs: ["path/c"] });
+    await ctx.db.insert("pdfAssets", { siteId: s.fx.siteId, path: "care/live.pdf", blobUrl: "https://blob.invalid/l", sizeBytes: 1, sensitive: false, ownerSlugs: [], uploadedAt: 1 });
+    await ctx.db.insert("pdfAssets", { siteId: s.fx.siteId, path: "care/old.pdf", blobUrl: "https://blob.invalid/o", sizeBytes: 1, sensitive: false, ownerSlugs: [], uploadedAt: 1, deletedAt: 5 });
   });
-  const result = (await s.t.query(api.access.sessionManifestOverlay, { siteSlug: SITE, userId: s.fx.reader, numItems: 10, files: null }))!;
-  // Public rows are never read: the index starts at the sensitive group.
-  expect(result.scan.files).toEqual({ read: 3, deleted: 1, denied: 1, kept: 1 });
-  expect(result.scan.assets).toEqual({ read: 0, deleted: 0, denied: 0, kept: 0 });
+  const result = (await s.t.query(api.access.sessionManifestOverlay, { siteSlug: SITE, userId: s.fx.reader, numItems: 10, files: null, assets: null }))!;
+  expect(result.assets).toContain("care/live.pdf");
+  expect(result.assets).not.toContain("care/old.pdf");
+  // The tombstone is skipped by the index, not read and dropped.
+  expect(result.scan.assets.deleted).toBe(0);
+  expect(result.scan.assets.read).toBe(result.assets.length + result.scan.assets.denied);
+  // Public rows and tombstones are never read: the index starts at live
+  // sensitive rows.
+  expect(result.scan.files).toEqual({ read: 2, deleted: 0, denied: 1, kept: 1 });
   expect(result.files).toEqual(["care/a.png"]);
 });
 
@@ -467,5 +474,5 @@ test("the access policy code is fingerprinted with ACCESS_POLICY_VERSION", () =>
     source("lib/accessPolicy.ts"), source("lib/assetVisibility.ts"),
   ].join("\n--\n");
   const fingerprint = createHash("sha256").update(policy).digest("hex").slice(0, 16);
-  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 2, fingerprint: "5661d284cc3bfff3" });
+  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 2, fingerprint: "1b863781eae9906e" });
 });

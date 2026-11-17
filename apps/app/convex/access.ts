@@ -916,8 +916,8 @@ export const sessionManifestOverlay = query({
       for (let group = after?.[0] ?? 0; group < groups.length; group++) {
         const from = after && after[0] === group ? after : null;
         const rows = await ctx.db.query("fileAssets")
-          .withIndex("by_site_sensitive_path", q => {
-            const base = q.eq("siteId", site.siteId!).eq("sensitive", groups[group]);
+          .withIndex("by_site_sensitive_live_path", q => {
+            const base = q.eq("siteId", site.siteId!).eq("sensitive", groups[group]).eq("deletedAt", undefined);
             return from ? base.gte("path", from[1]) : base;
           })
           .filter(q => from ? q.or(q.gt(q.field("path"), from[1]), q.gt(q.field("_creationTime"), from[2])) : true)
@@ -944,7 +944,10 @@ export const sessionManifestOverlay = query({
       // the cursor is the last row's [path, _creationTime], the index order.
       const after = cursor === null ? null : JSON.parse(cursor) as [string, number];
       const rows = await ctx.db.query(table)
-        .withIndex("by_site_path", q => after ? q.eq("siteId", site.siteId!).gte("path", after[0]) : q.eq("siteId", site.siteId!))
+        .withIndex("by_site_live_path", q => {
+          const live = q.eq("siteId", site.siteId!).eq("deletedAt", undefined);
+          return after ? live.gte("path", after[0]) : live;
+        })
         .filter(q => after ? q.or(q.gt(q.field("path"), after[0]), q.gt(q.field("_creationTime"), after[1])) : true)
         .take(OVERLAY_ASSET_PAGE_SIZE + 1);
       const last = rows.length > OVERLAY_ASSET_PAGE_SIZE ? rows[OVERLAY_ASSET_PAGE_SIZE - 1] : null;
