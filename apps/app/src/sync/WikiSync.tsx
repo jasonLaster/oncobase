@@ -1,37 +1,132 @@
-import { readerFetch } from "../reader-telemetry";
+import { readerFetch, syncErrorReason } from "../reader-telemetry";
 import { useStore } from "@livestore/react";
-import { createWikiContentClient } from "@oncobase/wiki-content";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  createWikiContentClient,
+  WIKI_MANIFEST_SCHEMA_VERSION,
+  type CompactFileNode,
+  type WikiManifest,
+  type WikiManifestValidation,
+  type WikiManifestPage,
+} from "@oncobase/wiki-content";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
-import type { MetricsPatch } from "../types";
+import {
+  assets$,
+  fileTree$,
+  pageContentBySlug$,
+  pageIndex$,
+  pageIndexBySlug$,
+  siteState$,
+} from "../livestore/queries";
+import { events } from "../livestore/schema";
+import type {
+  AssetIndexRow,
+  MetricsPatch,
+  PageContentRow,
+  PageIndexRow,
+  SiteStateRow,
+} from "../types";
 import { useWikiScope } from "../wiki-context";
-import { contentSlugFromRouteSlug, rememberSlug, slugFromPath, storageSnapshot } from "../wiki-utils";
+import {
+  byteSize,
+  contentSlugFromRouteSlug,
+  isAuthError,
+  normalizeFetchedPageSlug,
+  parseJsonArray,
+  rememberSlug,
+  slugFromPath,
+  storageSnapshot,
+} from "../wiki-utils";
+import { manifestToEvent, pageToEvent } from "../livestore/wiki-events";
+
 import { BackgroundPrefetch, FOREGROUND_FETCH_EVENT } from "./BackgroundPrefetch";
+import { isStoredBodyCurrent } from "./prefetch-policy";
 import { clearStartupSnapshot } from "../bootstrap/reader-startup-cache";
 import { hasBootstrappedPage, cachedStartupStores } from "../bootstrap/seed-state";
 export { WARM_CACHE_EVENT } from "./BackgroundPrefetch";
 import { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
 import { setManifestReceivedBytes, setPageTransfer } from "./transfer-progress";
 import { readerOnline } from "./connectivity";
-import { SyncController } from "./sync-controller";
+import {
+  announcesManifestCheck,
+  MANIFEST_FRESH_MS,
+  nextManifestCheckDelay,
+  nextManifestRetryDelay,
+  timerMayCheck,
+  type ManifestCheckReason,
+} from "./manifest-poll-policy";
 export { RETRY_PAGE_EVENT, REFRESH_MANIFEST_EVENT } from "./events";
 
-/** Binds a `SyncController` to React and the window: one controller per
- * store, scope and client, fed route changes and the events it reacts to.
- * `background={false}` syncs the current route only (manifest and body), for
- * a store that is preparing to replace a presentation and not yet visible. */
+const CHECK_REASON_RANK: Record<ManifestCheckReason, number> = { timer: 0, attention: 1, load: 2, user: 3 };
+
+/** `background={false}` syncs the current route only (manifest and body), for a
+ * store that is preparing to replace a presentation and not yet visible. */
 export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: MetricsPatch) => void; background?: boolean }) {
   const { store } = useStore();
   const scope = useWikiScope();
   const location = useLocation();
   const currentSlug = contentSlugFromRouteSlug(slugFromPath(location.pathname));
-  // Read when a controller is created, so it starts on the current route.
+  const [networkTick, setNetworkTick] = useState(0);
+  const [pageRetryTick, setPageRetryTick] = useState(0);
+  const manifestRef = useRef<WikiManifest | null>(null);
   const currentSlugRef = useRef(currentSlug);
-  useEffect(() => { currentSlugRef.current = currentSlug; }, [currentSlug]);
-  // The latest callback, without recreating the controller when it changes.
-  const onMetricsRef = useRef(onMetrics);
-  useEffect(() => { onMetricsRef.current = onMetrics; }, [onMetrics]);
-
+  // The HTTP page can be newer than a recently cached navigation manifest.
+  const forceValidationRef = useRef(hasBootstrappedPage(store, currentSlug) || cachedStartupStores.has(store));
+  const navigationPending = useRef(false);
+  const validationInFlight = useRef<{
+    key: string;
+    promise: Promise<WikiManifestValidation>;
+    controller: AbortController;
+  } | null>(null);
+  const manifestFailures = useRef(0);
+  // Why the next manifest check runs, and how many unattended checks in a row
+  // found nothing new. See manifest-poll-policy.ts.
+  const pendingCheckReason = useRef<ManifestCheckReason | null>(null);
+  const unchangedChecks = useRef(0);
+  const checkedStore = useRef<typeof store | null>(null);
+  const requestManifestCheck = useCallback((reason: ManifestCheckReason) => {
+    const pending = pendingCheckReason.current;
+    if (!pending || CHECK_REASON_RANK[reason] > CHECK_REASON_RANK[pending]) pendingCheckReason.current = reason;
+    setNetworkTick(value => value + 1);
+  }, []);
+  const inFlight = useRef(new Map<string, AbortController>());
+  useEffect(() => () => {
+    validationInFlight.current?.controller.abort();
+    validationInFlight.current = null;
+    for (const controller of inFlight.current.values()) controller.abort();
+    inFlight.current.clear();
+  }, [store]);
+  const isForegroundBusy = useCallback(
+    () => inFlight.current.size > 0 || validationInFlight.current !== null,
+    [],
+  );
+  useEffect(() => {
+    currentSlugRef.current = currentSlug;
+  }, [currentSlug]);
+  useEffect(() => {
+    let resumeTimer: number | undefined;
+    const resume = () => {
+      if (resumeTimer !== undefined) window.clearTimeout(resumeTimer);
+      if (!navigationPending.current) return;
+      navigationPending.current = false;
+      forceValidationRef.current = true;
+      requestManifestCheck("attention");
+    };
+    const departing = () => {
+      navigationPending.current = true;
+      if (resumeTimer !== undefined) window.clearTimeout(resumeTimer);
+      // A canceled/failed navigation must not leave the current reader paused.
+      // Successful navigation destroys this timer along with the old document.
+      resumeTimer = window.setTimeout(resume, 1000);
+    };
+    window.addEventListener("beforeunload", departing);
+    window.addEventListener("pageshow", resume);
+    return () => {
+      if (resumeTimer !== undefined) window.clearTimeout(resumeTimer);
+      window.removeEventListener("beforeunload", departing);
+      window.removeEventListener("pageshow", resume);
+    };
+  }, [requestManifestCheck]);
   const client = useMemo(() => {
     const baseUrl = import.meta.env.VITE_WIKI_API_ORIGIN ?? "";
     return createWikiContentClient({ fetch: readerFetch,
@@ -42,61 +137,459 @@ export function WikiSync({ onMetrics, background = true }: { onMetrics: (patch: 
     });
   }, [scope]);
 
-  const controllerRef = useRef<SyncController | null>(null);
+  const readCachedManifest = useCallback((): WikiManifest | null => {
+    const state = store.query(siteState$) as SiteStateRow | null;
+    const fileTree = store.query(fileTree$) as { treeJson: string } | null;
+    if (!state?.manifestHash || state.scope !== scope || !fileTree) return null;
+
+    const pages = store.query(pageIndex$) as PageIndexRow[];
+    const assets = store.query(assets$) as AssetIndexRow[];
+    return {
+      schemaVersion: WIKI_MANIFEST_SCHEMA_VERSION,
+      siteSlug: state.siteSlug,
+      scope: state.scope,
+      manifestHash: state.manifestHash,
+      generatedAt: state.generatedAt,
+      compactTree: parseJsonArray<CompactFileNode>(fileTree.treeJson),
+      pages: pages.map((page) => ({
+        slug: page.slug,
+        title: page.title,
+        tags: parseJsonArray<string>(page.tagsJson),
+        description: page.description,
+        contentHash: page.contentHash,
+        sensitive: page.sensitive,
+        size: page.size,
+      })),
+      assets: assets.map((asset) => ({ ...asset })),
+    };
+  }, [scope, store]);
+
+  const fetchSlug = useCallback(
+    async (slug: string, pageIndex?: WikiManifestPage, force = false) => {
+      const cacheKey = `${scope}:${slug}`;
+      const existing = inFlight.current.get(cacheKey);
+      if (existing && !force) return;
+      existing?.abort();
+
+      const cached = store.query(pageContentBySlug$(slug)) as PageContentRow | null;
+      // P11: the manifest names each body by its hash. A stored body with the
+      // listed hash is that body, however long ago it arrived, so there is
+      // nothing to ask. A publish changes the hash (and so the URL below);
+      // the manifest check on load, attention and its timer delivers it.
+      if (!force && isStoredBodyCurrent(cached, pageIndex)) return;
+
+      const controller = new AbortController();
+      inFlight.current.set(cacheKey, controller);
+      if (slug === currentSlugRef.current) {
+        setPageTransfer({ slug, receivedBytes: 0 });
+        onMetrics({ failedBodySlug: null });
+      }
+      window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT));
+      try {
+        // Forced reads (retry, a startup snapshot) bypass the HTTP cache.
+        const batch = await client.fetchPages({ slugs: [slug], signal: controller.signal,
+          ...(force ? {} : { versions: [pageIndex?.contentHash] }),
+          onProgress: receivedBytes => {
+            if (!controller.signal.aborted && slug === currentSlugRef.current) setPageTransfer({ slug, receivedBytes });
+          },
+        });
+        if (controller.signal.aborted) return;
+        const page = normalizeFetchedPageSlug(slug, batch.pages);
+        if (page) {
+          store.commit(pageToEvent(page));
+          onMetrics({
+            markdownBytes: page.size,
+            eventCount: 1,
+            ...(slug === currentSlugRef.current ? { failedBodySlug: null } : {}),
+          });
+        } else {
+          const unavailable = batch.unavailable?.find((item) => item.slug === slug);
+          if (unavailable) {
+            store.commit(
+              events.pageContentUnavailable({
+                slug: unavailable.slug,
+                title: unavailable.title,
+                tags: unavailable.tags,
+                contentHash: unavailable.contentHash,
+                sensitive: unavailable.sensitive,
+                size: unavailable.size,
+                unavailableAt: Date.now(),
+              }),
+            );
+            onMetrics({ eventCount: 1 });
+            return;
+          }
+          store.commit(
+            events.pageContentMissing({
+              slug,
+              contentHash: pageIndex?.contentHash ?? null,
+              missingAt: Date.now(),
+            }),
+          );
+          onMetrics({ eventCount: 1 });
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (isAuthError(error)) {
+          clearStartupSnapshot();
+          store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
+          onMetrics({
+            status: "error",
+            errorReason: "auth",
+            message: "Session expired; local session cache cleared",
+            eventCount: 1,
+            failedBodyFetches: 1,
+          });
+        } else if (!readerOnline()) {
+          // Keep the current page up; the online listener retries this route.
+          onMetrics({ status: "offline", navigationFreshness: "offline", message: "Offline: using local cache", failedBodyFetches: 1 });
+        } else {
+          onMetrics({
+            ...(slug === currentSlugRef.current
+              ? {
+                  status: "error" as const,
+                  errorReason: syncErrorReason("body", error),
+                  message: `Failed to fetch markdown for ${slug}`,
+                  failedBodySlug: slug,
+                }
+              : {}),
+            failedBodyFetches: 1,
+          });
+        }
+        throw error;
+      } finally {
+        if (inFlight.current.get(cacheKey) === controller) {
+          inFlight.current.delete(cacheKey);
+          if (slug === currentSlugRef.current) setPageTransfer(null);
+        }
+      }
+    },
+    [client, onMetrics, scope, store],
+  );
+
   useEffect(() => {
-    const next = new SyncController({
-      store,
-      client,
-      scope,
-      onMetrics: patch => onMetricsRef.current(patch),
-      hasBootstrappedPage: slug => hasBootstrappedPage(store, slug),
-      seededFromStartupCache: cachedStartupStores.has(store),
-      online: readerOnline,
-      visibility: () => document.visibilityState,
-      foregroundFetch: () => window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT)),
-      setPageTransfer,
-      setManifestReceivedBytes,
-      storageSnapshot,
-      clearStartupSnapshot,
-      setTimeout: (callback, ms) => window.setTimeout(callback, ms),
-      clearTimeout: id => window.clearTimeout(id),
-      now: Date.now,
-      elapsed: () => performance.now(),
-    }, currentSlugRef.current);
-    next.start();
-    const onOnline = () => next.online();
-    const onVisibility = () => next.visibilityChanged();
-    const onDeparting = () => next.departing();
-    const onResumed = () => next.resumed();
-    const onRefresh = () => next.refreshManifest();
-    const onRetry = () => next.retryPage();
+    const onOnline = () => { requestManifestCheck("attention"); setPageRetryTick(value => value + 1); };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") requestManifestCheck("attention");
+    };
     window.addEventListener("online", onOnline);
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("beforeunload", onDeparting);
-    window.addEventListener("pageshow", onResumed);
-    window.addEventListener(REFRESH_MANIFEST_EVENT, onRefresh);
-    window.addEventListener(RETRY_PAGE_EVENT, onRetry);
-    controllerRef.current = next;
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("online", onOnline);
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("beforeunload", onDeparting);
-      window.removeEventListener("pageshow", onResumed);
-      window.removeEventListener(REFRESH_MANIFEST_EVENT, onRefresh);
-      window.removeEventListener(RETRY_PAGE_EVENT, onRetry);
-      next.dispose();
-      if (controllerRef.current === next) controllerRef.current = null;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [client, scope, store]);
+  }, [requestManifestCheck]);
 
-  // Runs after the controller effect, so a new controller already has this
-  // route and the call is a no-op; afterwards it forwards each navigation.
-  useEffect(() => { controllerRef.current?.setRoute(currentSlug); }, [currentSlug]);
+  useEffect(() => {
+    const onRefreshManifest = () => {
+      validationInFlight.current?.controller.abort();
+      validationInFlight.current = null;
+      forceValidationRef.current = true;
+      requestManifestCheck("user");
+    };
+    window.addEventListener(REFRESH_MANIFEST_EVENT, onRefreshManifest);
+    return () => window.removeEventListener(REFRESH_MANIFEST_EVENT, onRefreshManifest);
+  }, [requestManifestCheck]);
+
+  // Reading is attention: a navigation restores the base cadence, and checks
+  // right away when the manifest is older than its freshness window.
+  const navigatedSlug = useRef(currentSlug);
+  useEffect(() => {
+    if (navigatedSlug.current === currentSlug) return;
+    navigatedSlug.current = currentSlug;
+    unchangedChecks.current = 0;
+    const state = store.query(siteState$) as SiteStateRow | null;
+    if (!validationInFlight.current && state?.lastValidatedAt && Date.now() - state.lastValidatedAt >= MANIFEST_FRESH_MS[scope]) {
+      requestManifestCheck("attention");
+    }
+  }, [currentSlug, requestManifestCheck, scope, store]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let refreshTimer: number | undefined;
+    let requestController: AbortController | undefined;
+
+    const scheduleRefresh = (delayMs: number) => {
+      // A run that resolves after cleanup must not leave a timer behind.
+      if (cancelled) return;
+      refreshTimer = window.setTimeout(
+        // A hidden tab stops here. Becoming visible requests its own check.
+        () => { if (timerMayCheck(document.visibilityState)) requestManifestCheck("timer"); },
+        Math.max(0, delayMs),
+      );
+    };
+
+    async function run() {
+      const cachedManifest =
+        manifestRef.current?.scope === scope
+          ? manifestRef.current
+          : readCachedManifest();
+      manifestRef.current = cachedManifest;
+      const cachedState = store.query(siteState$) as SiteStateRow | null;
+      const now = Date.now();
+      const forceValidation = forceValidationRef.current;
+      forceValidationRef.current = false;
+      const reason: ManifestCheckReason = checkedStore.current !== store ? "load" : pendingCheckReason.current ?? "attention";
+      pendingCheckReason.current = null;
+      checkedStore.current = store;
+      if (reason !== "timer") unchangedChecks.current = 0;
+      const freshnessMs = MANIFEST_FRESH_MS[scope];
+      const cacheAge = cachedState ? now - cachedState.lastValidatedAt : Number.POSITIVE_INFINITY;
+
+      if (cachedManifest && !forceValidation && cacheAge < freshnessMs) {
+        onMetrics({
+          status: "ready",
+          navigationFreshness: "current",
+          message: `Using fresh manifest ${cachedManifest.manifestHash.slice(0, 8)}`,
+          manifestBytes: cachedState?.manifestSize ?? 0,
+        });
+        scheduleRefresh(freshnessMs - cacheAge);
+        return;
+      }
+
+      // Always try: navigator.onLine can be false while the network works, and
+      // a real outage fails fast into the offline handling below.
+      const syncStart = performance.now();
+      setManifestReceivedBytes(0);
+      // Unattended checks stay silent: flipping the status every interval made
+      // the live region announce "Checking…" to screen readers all day.
+      if (announcesManifestCheck(reason, Boolean(cachedManifest))) {
+        onMetrics({
+          status: "syncing",
+          navigationFreshness: "checking",
+          message: cachedManifest ? "Checking for wiki updates" : "Loading manifest",
+        });
+      }
+      try {
+        const validationKey = `${scope}:${cachedManifest?.manifestHash ?? "empty"}`;
+        requestController = validationInFlight.current?.key === validationKey
+          ? validationInFlight.current.controller : new AbortController();
+        const validationPromise =
+          validationInFlight.current?.key === validationKey
+            ? validationInFlight.current.promise
+            : client.validateManifest(cachedManifest?.manifestHash,
+              receivedBytes => { if (!requestController?.signal.aborted) setManifestReceivedBytes(receivedBytes); },
+              requestController.signal);
+        validationInFlight.current = {
+          key: validationKey,
+          promise: validationPromise,
+          controller: requestController,
+        };
+        window.dispatchEvent(new Event(FOREGROUND_FETCH_EVENT));
+        let validation: WikiManifestValidation;
+        try {
+          validation = await validationPromise;
+        } finally {
+          if (validationInFlight.current?.promise === validationPromise) {
+            validationInFlight.current = null;
+          }
+        }
+        if (cancelled) return;
+        const validatedAt = Date.now();
+        const hasCompleteSnapshot =
+          Boolean(cachedManifest) && (cachedState?.lastValidatedAt ?? 0) > 0;
+        if (validation.status === "unchanged" && cachedManifest) {
+          if (validation.partial) {
+            onMetrics({
+              status: "ready",
+              navigationFreshness: "saved",
+              message: hasCompleteSnapshot
+                ? "Partial refresh ignored; using complete cached manifest"
+                : "Provisional manifest loaded; retrying full manifest",
+              manifestBytes: cachedState?.manifestSize ?? 0,
+            });
+            scheduleRefresh(nextManifestRetryDelay(manifestFailures.current++));
+            return;
+          }
+          manifestFailures.current = 0;
+          if (reason === "timer") unchangedChecks.current += 1;
+          store.commit(
+            events.manifestValidated({
+              manifestHash: cachedManifest.manifestHash,
+              validatedAt,
+            }),
+          );
+          onMetrics({
+            status: "ready",
+            navigationFreshness: "current",
+            message: `Manifest ${cachedManifest.manifestHash.slice(0, 8)} is current`,
+            manifestBytes: cachedState?.manifestSize ?? 0,
+            eventCount: 1,
+            lastSyncMs: performance.now() - syncStart,
+          });
+          scheduleRefresh(nextManifestCheckDelay(scope, unchangedChecks.current));
+          return;
+        }
+
+        if (validation.status !== "modified") {
+          throw new Error("Manifest validation returned no replacement snapshot");
+        }
+        if (validation.partial && hasCompleteSnapshot) {
+          onMetrics({
+            status: "ready",
+            navigationFreshness: "saved",
+            message: "Partial refresh ignored; using complete cached manifest",
+            manifestBytes: cachedState?.manifestSize ?? 0,
+          });
+          scheduleRefresh(nextManifestRetryDelay(manifestFailures.current++));
+          return;
+        }
+        const manifest = validation.manifest;
+        // Leave the fetch promise's microtask checkpoint before starting the
+        // atomic import. This lets a queued navigation run its departure hook
+        // instead of being blocked by work for a document the reader is leaving.
+        await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+        if (cancelled || navigationPending.current) return;
+        unchangedChecks.current = 0;
+        if (!validation.partial) manifestFailures.current = 0;
+        manifestRef.current = manifest;
+        // A manifest is one LiveStore event, so its tree and indexes replace
+        // the prior snapshot in the materializer's single transaction.
+        if (validation.partial) {
+          store.commit(
+            manifestToEvent(manifest, validatedAt),
+            events.manifestMarkedProvisional({
+              manifestHash: manifest.manifestHash,
+            }),
+          );
+        } else {
+          store.commit(manifestToEvent(manifest, validatedAt));
+        }
+        const activeSlug = currentSlugRef.current;
+        const activePage = manifest.pages.find((page) => page.slug === activeSlug);
+        void fetchSlug(activeSlug, activePage).catch(() => undefined);
+        const storage = await storageSnapshot();
+        if (cancelled) return;
+        onMetrics({
+          status: "ready",
+          navigationFreshness: validation.partial ? "saved" : "current",
+          message: validation.partial
+            ? "Provisional manifest loaded; retrying full manifest"
+            : `Manifest ${manifest.manifestHash.slice(0, 8)} loaded`,
+          manifestBytes: byteSize(JSON.stringify(manifest)),
+          eventCount: 1,
+          lastSyncMs: performance.now() - syncStart,
+          opfsBytes: storage.usage,
+          storageQuotaBytes: storage.quota,
+          storagePressure: storage.pressure,
+        });
+        scheduleRefresh(validation.partial ? nextManifestRetryDelay(manifestFailures.current++) : freshnessMs);
+
+        // BackgroundPrefetch handles ranked warming after the active body is ready.
+      } catch (error) {
+        if (requestController?.signal.aborted) return;
+        if (!cancelled) {
+          if (isAuthError(error)) {
+            clearStartupSnapshot();
+            store.commit(events.cacheResetRequested({ requestedAt: Date.now() }));
+            onMetrics({
+              status: "error",
+              errorReason: "auth",
+              navigationFreshness: "saved",
+              message: "Session expired; local session cache cleared",
+              eventCount: 1,
+            });
+            return;
+          }
+          if (cachedManifest) {
+            onMetrics({
+              status: readerOnline() ? "ready" : "offline",
+              navigationFreshness: readerOnline() ? "saved" : "offline",
+              message: readerOnline()
+                ? "Refresh failed; using cached manifest"
+                : "Offline: using local cache",
+            });
+            scheduleRefresh(nextManifestRetryDelay(manifestFailures.current++));
+          } else {
+            onMetrics({
+              status: readerOnline() ? "error" : "offline",
+              errorReason: syncErrorReason("manifest", error),
+              navigationFreshness: readerOnline() ? "saved" : "offline",
+              message: error instanceof Error ? error.message : String(error),
+            });
+            // A brief lost connection must not strand an empty reader until
+            // reload. Keep one bounded retry timer, also resumed by online.
+            scheduleRefresh(Math.min(30_000, 5_000 * 2 ** Math.min(manifestFailures.current++, 3)));
+          }
+        }
+      }
+    }
+
+    void run();
+    return () => {
+      cancelled = true;
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+    };
+  }, [client, fetchSlug, networkTick, onMetrics, readCachedManifest, requestManifestCheck, scope, store]);
+
+  useEffect(() => {
+    for (const [key, controller] of inFlight.current) {
+      if (key !== `${scope}:${currentSlug}`) controller.abort();
+    }
+    // The current HTTP response already supplied this body. A fresh manifest
+    // still reconciles updates/removals through the normal fetch path above.
+    if (hasBootstrappedPage(store, currentSlug)) return;
+    const state = store.query(siteState$) as SiteStateRow | null;
+    const indexedPage = store.query(pageIndexBySlug$(currentSlug)) as PageIndexRow | null;
+    const page = indexedPage
+        ? {
+            slug: indexedPage.slug,
+            title: indexedPage.title,
+            tags: parseJsonArray<string>(indexedPage.tagsJson),
+            description: indexedPage.description,
+            contentHash: indexedPage.contentHash,
+            sensitive: indexedPage.sensitive,
+            size: indexedPage.size,
+          }
+        : undefined;
+    if (page) {
+      void fetchSlug(currentSlug, page, cachedStartupStores.has(store)).catch(() => undefined);
+      return;
+    }
+
+    if (state?.lastValidatedAt) {
+      const cached = store.query(pageContentBySlug$(currentSlug)) as PageContentRow | null;
+      if (cached?.contentStatus !== "missing") {
+        store.commit(
+          events.pageContentMissing({
+            slug: currentSlug,
+            contentHash: null,
+            missingAt: Date.now(),
+          }),
+        );
+        onMetrics({ eventCount: 1 });
+      }
+    } else {
+      // The body endpoint independently enforces the gate and access rules and
+      // includes its metadata. A cold reader need not wait for the entire site
+      // manifest before requesting the one document the user asked to read.
+      void fetchSlug(currentSlug).catch(() => undefined);
+    }
+  }, [currentSlug, fetchSlug, pageRetryTick, onMetrics, scope, store]);
+
+  useEffect(() => {
+    const onRetryPage = () => {
+      const manifest = manifestRef.current;
+      const page = manifest?.pages.find((item) => item.slug === currentSlug);
+      if (!page) {
+        onMetrics({ status: "syncing", navigationFreshness: "checking", message: "Refreshing manifest before retry" });
+        forceValidationRef.current = true;
+        requestManifestCheck("user");
+      }
+
+      onMetrics({ status: "syncing", message: `Retrying ${currentSlug}`, failedBodySlug: null });
+      // The page endpoint authorizes independently. Even an empty or failed
+      // manifest must not turn Retry into another page-list waterfall.
+      void fetchSlug(currentSlug, page, true).catch(() => undefined);
+    };
+
+    window.addEventListener(RETRY_PAGE_EVENT, onRetryPage);
+    return () => window.removeEventListener(RETRY_PAGE_EVENT, onRetryPage);
+  }, [currentSlug, fetchSlug, onMetrics, requestManifestCheck]);
 
   useEffect(() => {
     if (currentSlug !== "index") rememberSlug(currentSlug);
   }, [currentSlug]);
 
-  const isForegroundBusy = useCallback(() => controllerRef.current?.isForegroundBusy() ?? false, []);
   return background ? <BackgroundPrefetch onMetrics={onMetrics} isForegroundBusy={isForegroundBusy} /> : null;
 }
