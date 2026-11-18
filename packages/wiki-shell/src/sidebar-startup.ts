@@ -17,6 +17,9 @@ export const SIDEBAR_MAX_WIDTH = 480;
  */
 export function installSidebarStartupState() {
   try {
+    // Serialized into the document head, so it cannot import safe-storage;
+    // the surrounding try/catch is its guard against blocked storage.
+    // eslint-disable-next-line no-restricted-properties
     const stored = window.localStorage.getItem("sidebar-width");
     if (stored === null) return;
     const width = Number.parseInt(stored, 10);
