@@ -1,0 +1,317 @@
+diff --git a/apps/app/src/App.tsx b/apps/app/src/App.tsx
+index 76ee79597..8a1eb1386 100644
+--- a/apps/app/src/App.tsx
++++ b/apps/app/src/App.tsx
+@@ -1,4 +1,11 @@
+-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
++import { lazy, Profiler, Suspense, useCallback, useEffect, useState, type ProfilerOnRenderCallback } from "react";
++
++// SPIKE: per-region render timings (only reported by react-dom/profiling).
++const onRegionRender: ProfilerOnRenderCallback = (id, phase, actualDuration, _base, startTime, commitTime) => {
++  if (typeof window === "undefined") return;
++  const w = window as { __PROF__?: unknown[] };
++  (w.__PROF__ ??= []).push({ id, phase, actual: Math.round(actualDuration), start: Math.round(startTime), commit: Math.round(commitTime) });
++};
+ import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
+ import { WikiChatLoadingSkeleton, WikiChatMain, WikiChatPage } from "@oncobase/wiki-shell";
+ import { Outlet, Route, Routes } from "react-router";
+@@ -164,10 +171,10 @@ export function App({
+         <SkipLink />
+         <RouteFocus />
+         <SpecialRouteMetadata />
+-        <HeaderAuthDialogHost />
+-        <HeaderCommandPaletteHost />
+-        <ResizableAppShell sidebar={<Sidebar freshness={navigationFreshness} />}>
+-          <main className="content-shell" id={MAIN_CONTENT_ID}>
++        <Profiler id="header-hosts" onRender={onRegionRender}><HeaderAuthDialogHost />
++        <HeaderCommandPaletteHost /></Profiler>
++        <ResizableAppShell sidebar={/* SPIKE: hydrate off the root pass */ <Suspense fallback={null}><Profiler id="sidebar" onRender={onRegionRender}><Sidebar freshness={navigationFreshness} /></Profiler></Suspense>}>
++          <Profiler id="main" onRender={onRegionRender}><main className="content-shell" id={MAIN_CONTENT_ID}>
+             <RouteErrorBoundary>
+               <Suspense fallback={<PageFallback />}>
+                 <Routes>
+@@ -190,7 +197,7 @@ export function App({
+                 </Routes>
+               </Suspense>
+             </RouteErrorBoundary>
+-          </main>
++          </main></Profiler>
+         </ResizableAppShell>
+         {devtoolsFooterVisible && store ? (
+           <StoreScoped><Suspense fallback={null}>
+@@ -203,7 +210,7 @@ export function App({
+             />
+           </Suspense></StoreScoped>
+         ) : null}
+-        <MobileNav freshness={navigationFreshness} />
++        <Profiler id="mobile-nav" onRender={onRegionRender}><MobileNav freshness={navigationFreshness} /></Profiler>
+       </div>
+     </>
+   );
+diff --git a/apps/app/src/pages/ArticleBody.tsx b/apps/app/src/pages/ArticleBody.tsx
+new file mode 100644
+index 000000000..eb38ed894
+--- /dev/null
++++ b/apps/app/src/pages/ArticleBody.tsx
+@@ -0,0 +1,82 @@
++// SPIKE (P3 hydration path): the article's markdown body in its own chunk, so
++// a server-rendered article stays as server HTML (a dehydrated Suspense
++// boundary at OffscreenLane) while the chrome hydrates without the markdown
++// pipeline on its critical path.
++//
++// Long documents render as one Suspense boundary per top-level section, on
++// the server and the client alike. On the client each section waits for its
++// own gate: gates open one at a time, each after the previous section has
++// committed and the page is idle, so every hydration commit is one section's
++// parse and layout instead of all of them in one long task. Known gaps for a
++// real implementation: reference-style links and footnotes defined in another
++// section, and duplicate heading slugs across sections. P12 (parse at publish
++// time) removes the parse altogether.
++import { WikiMarkdown } from "@oncobase/wiki-markdown/browser";
++import { memo, Suspense, use, useEffect, useMemo, type ComponentProps } from "react";
++
++type Props = ComponentProps<typeof WikiMarkdown>;
++const SPLIT_BYTES = 16 * 1024;
++
++export function splitSections(content: string): string[] {
++  if (content.length < SPLIT_BYTES) return [content];
++  const lines = content.split("\n");
++  const sections: string[] = [];
++  let current: string[] = [];
++  let fence: string | null = null;
++  for (const line of lines) {
++    const marker = /^(\s*)(`{3,}|~{3,})/.exec(line)?.[2];
++    if (marker) fence = fence === null ? marker[0]! : (marker[0] === fence ? null : fence);
++    if (fence === null && /^#{1,2} /.test(line) && current.some(l => l.trim())) {
++      sections.push(current.join("\n"));
++      current = [];
++    }
++    current.push(line);
++  }
++  if (current.length) sections.push(current.join("\n"));
++  return sections;
++}
++
++// Sequential hydration gates (client only; the server renders every section).
++let opened = 0;
++const waiting = new Map<number, { promise: Promise<void>; resolve: () => void }>();
++function gateFor(index: number) {
++  if (typeof window === "undefined" || index < opened) return null;
++  let gate = waiting.get(index);
++  if (!gate) {
++    let resolve!: () => void;
++    const promise = new Promise<void>(r => { resolve = r; });
++    gate = { promise, resolve };
++    waiting.set(index, gate);
++  }
++  return gate.promise;
++}
++function openThrough(index: number) {
++  while (opened <= index) { waiting.get(opened)?.resolve(); waiting.delete(opened); opened++; }
++}
++const idle = (callback: () => void) => {
++  const ric = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
++  if (ric) ric(callback, { timeout: 300 }); else setTimeout(callback, 16);
++};
++
++const Section = memo(function Section({ index, ...props }: Props & { index: number }) {
++  const gate = gateFor(index);
++  if (gate) use(gate);
++  // This section has committed: let the next one hydrate once the page is idle.
++  useEffect(() => { idle(() => openThrough(index + 1)); }, [index]);
++  return <WikiMarkdown {...props} />;
++});
++
++export default function ArticleBody(props: Props) {
++  const sections = useMemo(() => splitSections(props.content), [props.content]);
++  useEffect(() => { idle(() => openThrough(0)); }, []);
++  if (sections.length <= 1) return <WikiMarkdown {...props} />;
++  return (
++    <div className="wiki-markdown-sections" data-sections={sections.length}>
++      {sections.map((section, index) => (
++        <Suspense key={index} fallback={null}>
++          <Section {...props} index={index} content={section} />
++        </Suspense>
++      ))}
++    </div>
++  );
++}
+diff --git a/apps/app/src/pages/WikiPage.tsx b/apps/app/src/pages/WikiPage.tsx
+index 11628b9da..45f62920b 100644
+--- a/apps/app/src/pages/WikiPage.tsx
++++ b/apps/app/src/pages/WikiPage.tsx
+@@ -2,13 +2,12 @@ import { recordReaderDuration, recordReaderPhase } from "../reader-telemetry";
+ import { initialReaderPage } from "../bootstrap/initial-reader-data";
+ import { readerQuery, useInitialReaderData, useReaderQuery, EMPTY_READER_ROWS } from "../bootstrap/reader-queries";
+ import { DocumentComments } from "@oncobase/wiki-comments/wrapper";
+-import {
+-  MarkdownTitle,
+-  WikiMarkdown,
+-  type MarkdownTitleLinkProps,
+-  type WikiMarkdownLinkProps,
+-  type WikiMarkdownNotificationAdapter,
++import type {
++  MarkdownTitleLinkProps,
++  WikiMarkdownLinkProps,
++  WikiMarkdownNotificationAdapter,
+ } from "@oncobase/wiki-markdown/browser";
++import { MarkdownTitle } from "@oncobase/wiki-markdown/title-react";
+ import {
+   openWikiAuthDialog,
+   DocumentOutlineShell,
+@@ -134,6 +133,12 @@ function titleLink({ href, children, ...props }: MarkdownTitleLinkProps) {
+ }
+ 
+ // Module constant: a fresh element each render defeated WikiMarkdown's memo.
++// SPIKE: the body is its own chunk behind a Suspense boundary (ArticleBody.tsx).
++// The body's chunk starts once the root pass has committed and the page is
++// idle (entry sets __ssrAfterRoot), so its hydration never competes with the
++// chrome's or with the first input.
++const WikiMarkdown = lazy(() => (typeof window === "undefined" ? Promise.resolve()
++  : (window as { __ssrAfterRoot?: Promise<unknown> }).__ssrAfterRoot ?? Promise.resolve()).then(() => import("./ArticleBody")));
+ const MARKDOWN_BODY_FALLBACK = <WikiMarkdownBodySkeleton data-test-id="page-loading" />;
+ 
+ function formatBreadcrumbLabel(part: string) {
+@@ -202,7 +207,7 @@ export const WikiPage = memo(function WikiPage({
+   const identity = useWikiSession();
+   const identityPending = useWikiIdentityPending();
+   const online = useBrowserOnline();
+-  const returnUrl = new URL(location.pathname + location.search + location.hash, window.location.origin);
++  const returnUrl = new URL(location.pathname + location.search + location.hash, "http://reader.invalid"); /* SPIKE: origin unused, only path+search+hash */
+   returnUrl.searchParams.delete("scope");
+   const signInHref = `/sign-in?redirect=${encodeURIComponent(returnUrl.pathname + returnUrl.search + returnUrl.hash)}`;
+   const [toast, setToast] = useState<string | null>(null);
+@@ -586,7 +591,7 @@ export const WikiPage = memo(function WikiPage({
+         fallback={retry => <ArticleBodyError retry={retry} />}
+       >
+         <AssetVersionsContext.Provider value={assetHashes}>
+-          <WikiMarkdown
++          <Suspense fallback={MARKDOWN_BODY_FALLBACK}><WikiMarkdown
+             loadingFallback={MARKDOWN_BODY_FALLBACK}
+             content={page.content}
+             className={page.content.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
+@@ -597,7 +602,7 @@ export const WikiPage = memo(function WikiPage({
+             notification={notification}
+             routeAdapter={routeAdapter}
+             tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
+-          />
++          /></Suspense>
+         </AssetVersionsContext.Provider>
+         <MermaidRendererSlot content={page.content} />
+       </ScopedErrorBoundary>
+diff --git a/apps/app/src/shell/Header.tsx b/apps/app/src/shell/Header.tsx
+index f92801b08..18d50ed1a 100644
+--- a/apps/app/src/shell/Header.tsx
++++ b/apps/app/src/shell/Header.tsx
+@@ -23,6 +23,7 @@ import {
+   useCallback,
+   useContext,
+   useEffect,
++  useLayoutEffect,
+   useMemo,
+   useState,
+   useSyncExternalStore,
+@@ -73,7 +74,10 @@ export function HeaderCommandPaletteHost() {
+ 
+   useEffect(() => on("open-command-palette", openPalette), [openPalette]);
+ 
+-  useEffect(() => {
++  // SPIKE: adopt the pre-JS shortcut queue in the commit itself, so a chord
++  // pressed before hydration opens the palette in the first interactive frame
++  // instead of after the passive-effect flush.
++  useLayoutEffect(() => {
+     const early = window.__wikiReaderShortcuts;
+     const shortcuts = early?.controller ?? createCommandPaletteChords({});
+     const openSignIn = () => window.dispatchEvent(new CustomEvent(WIKI_AUTH_DIALOG_EVENT, { detail: { mode: "signin" } }));
+@@ -85,7 +89,8 @@ export function HeaderCommandPaletteHost() {
+     });
+     delete window.__wikiReaderShortcuts;
+     if (early?.pending === "signin") openSignIn();
+-    else if (early?.pending) openCommandPalette(early.pending);
++    // Directly: the bus listener above is a passive effect, not mounted yet.
++    else if (early?.pending) openPalette(early.pending);
+     return shortcuts.dispose;
+   }, [openPalette]);
+ 
+@@ -116,7 +121,7 @@ export function HeaderCommandPaletteHost() {
+ 
+ export function HeaderAuthDialogHost() {
+   const { setSessionUser, submitAuth } = useWikiViteAuth();
+-  const [authDialogOpen, setAuthDialogOpen] = useState(() => window.__wikiReaderShortcuts?.pending === "signin" || new URLSearchParams(location.search).get("reader-action") === "signin");
++  const [authDialogOpen, setAuthDialogOpen] = useState(() => typeof window !== "undefined" && (window.__wikiReaderShortcuts?.pending === "signin" || new URLSearchParams(location.search).get("reader-action") === "signin")); /* SPIKE */
+   const [authMode, setAuthMode] =
+     useState<WikiActionsMenuAuthMode>("signin");
+ 
+@@ -162,7 +167,7 @@ function useWikiAuthState() {
+   const [sessionUser, setSessionUser] = useState<WikiActionsMenuUser | null>(null);
+   const [sessionLoading, setSessionLoading] = useState(true);
+   const identityPending = useWikiIdentityPending();
+-  const [initialAccountPending] = useState(() => document.getElementById("wiki-html-first")?.hasAttribute("data-account-pending") === true);
++  const [initialAccountPending] = useState(() => typeof document !== "undefined" && document.getElementById("wiki-html-first")?.hasAttribute("data-account-pending") === true) /* SPIKE */;
+   const accountPending = initialAccountPending || identityPending;
+ 
+   useEffect(() => {
+diff --git a/apps/app/src/shell/Navigation.tsx b/apps/app/src/shell/Navigation.tsx
+index e5afefc2e..db3da0ac8 100644
+--- a/apps/app/src/shell/Navigation.tsx
++++ b/apps/app/src/shell/Navigation.tsx
+@@ -444,6 +444,25 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
+     (nextOpen: boolean) => setNavState({ open: nextOpen, pathname }),
+     [pathname],
+   );
++  const closeNav = useCallback(() => setOpen(false), [setOpen]);
++  // SPIKE: hydrate the drawer's tree off the root pass. The element keeps its
++  // identity across drawer open/close so React leaves the boundary dehydrated
++  // (an update to a dehydrated boundary forces a synchronous hydration).
++  const treeElement = useMemo(() => (
++              <Suspense fallback={null}><WikiTree
++                activeAncestorSlugs={activeAncestorSlugs}
++                activeSlug={activeSlug}
++                defaultDirectoryOpen={defaultDirectoryOpen}
++                expandedSlugs={expandedSlugs}
++                formatNodeName={formatTreeLabel}
++                getFileHref={fileHrefForNode}
++                onNavigate={closeNav}
++                onToggleDirectory={toggleDirectory}
++                renderNodeIcon={nodeIcon}
++                renderPageLink={renderPageLink}
++                tree={tree}
++              /></Suspense>
++  ), [activeAncestorSlugs, activeSlug, expandedSlugs, closeNav, toggleDirectory, renderPageLink, tree]);
+   const openPageNavigation = useCallback(() => {
+     setActiveTab("pages");
+     setOutlineItems(collectMobileOutlineItems());
+@@ -604,19 +623,7 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
+                 sessionUser={sessionUser}
+               />
+               <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
+-              <WikiTree
+-                activeAncestorSlugs={activeAncestorSlugs}
+-                activeSlug={activeSlug}
+-                defaultDirectoryOpen={defaultDirectoryOpen}
+-                expandedSlugs={expandedSlugs}
+-                formatNodeName={formatTreeLabel}
+-                getFileHref={fileHrefForNode}
+-                onNavigate={() => setOpen(false)}
+-                onToggleDirectory={toggleDirectory}
+-                renderNodeIcon={nodeIcon}
+-                renderPageLink={renderPageLink}
+-                tree={tree}
+-              />
++              {treeElement}
+             </>
+           )}
+         </nav>
+diff --git a/apps/app/src/shell/ReaderStatus.tsx b/apps/app/src/shell/ReaderStatus.tsx
+index 41af1baea..a2d314c09 100644
+--- a/apps/app/src/shell/ReaderStatus.tsx
++++ b/apps/app/src/shell/ReaderStatus.tsx
+@@ -20,7 +20,7 @@ export function receivedLabel(bytes: number) {
+ }
+ 
+ /** Reachability as the reader observed it, not `navigator.onLine` alone (see connectivity.ts). */
+-export function useBrowserOnline() { return useSyncExternalStore(subscribeReaderOnline, readerOnline); }
++export function useBrowserOnline() { return useSyncExternalStore(subscribeReaderOnline, readerOnline, () => true); /* SPIKE */ }
+ 
+ export function NavigationStatus({ freshness, hasPages }: { freshness: NavigationFreshness; hasPages: boolean }) {
+   const slow = useSlowLoading(freshness === "checking");
