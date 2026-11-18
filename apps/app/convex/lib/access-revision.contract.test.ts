@@ -85,6 +85,7 @@ const MUTATIONS: Record<string, Effect> = {
   "pageShares:create": { none: "share links authorize one page by bearer token, outside manifests" },
   "pageShares:revoke": { none: "share links authorize one page by bearer token, outside manifests" },
   "prefetch:recordVisit": { none: "visit counts only order prefetching" },
+  "palettePicks:record": { none: "palette picks only judge ranking" },
   "conversations:create": NO_MANIFEST_DATA,
   "conversations:beginRun": NO_MANIFEST_DATA,
   "conversations:updateStreaming": NO_MANIFEST_DATA,

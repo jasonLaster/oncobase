@@ -56,6 +56,7 @@ import {
   buildWikiFilePaletteState,
   WikiFilePalette,
   type WikiFilePalettePage,
+  type WikiFilePalettePick,
 } from "@oncobase/wiki-shell/file-palette";
 import { flattenFileTree, isListedManifestAsset } from "@oncobase/wiki-content";
 import { bootstrappedNavigation } from "../bootstrap/seed-state";
@@ -78,7 +79,7 @@ import { setNavigationIntentForSlug } from "./navigation-intent";
 import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
 import { webMcpAvailable } from "../webmcp/webmcp-flag";
 import { paletteJevEnabled, setPaletteJevEnabled } from "./palette-jev-flag";
-import { fetchRecommendedSlugs, recommendCandidates } from "./palette-recommend";
+import { fetchRecommendedSlugs, recommendCandidates, recordPalettePick } from "./palette-recommend";
 import { paletteBoost } from "./palette-boost";
 import { agentsMayReadPrivatePages, setAgentsMayReadPrivatePages } from "../webmcp/agent-access";
 
@@ -197,6 +198,7 @@ export function CommandPalette({
     const candidates = recommendCandidates(pages, search, fuzzy.map(page => page.slug));
     return candidates.length ? fetchRecommendedSlugs(search, candidates, scope, signal) : [];
   }, [filePalettePages, pages, scope]);
+  const recordPick = useCallback((pick: WikiFilePalettePick) => recordPalettePick(pick, scope), [scope]);
 
   const outlineResults = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -544,6 +546,7 @@ export function CommandPalette({
         // startup snapshot carries the whole tree and is searchable before sync.
         loading={!manifestTree && !(!store && initial?.treeComplete)}
         onOpenChange={onOpenChange}
+        onPick={recordPick}
         onSelectPage={openPage}
         open={open}
         pageIcon={<FileTextIcon size={16} aria-hidden="true" />}

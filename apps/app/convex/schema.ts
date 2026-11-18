@@ -179,6 +179,19 @@ export default defineSchema({
     .index("by_site_token", ["siteId", "tokenHash"])
     .index("by_site_document", ["siteId", "documentId", "revokedAt"]),
 
+  // What readers typed into the file palette and which page they opened, for
+  // judging palette ranking (scripts/eval-palette-judge.ts). Gated readers only.
+  palettePicks: defineTable({
+    siteId: v.id("sites"),
+    query: v.string(),
+    slug: v.string(),
+    position: v.number(),
+    recommended: v.boolean(),
+    recommendedSlugs: v.array(v.string()),
+    signedIn: v.boolean(),
+    at: v.number(),
+  }).index("by_site_at", ["siteId", "at"]),
+
   pageVisitStats: defineTable({
     siteId: v.id("sites"),
     slug: v.string(),

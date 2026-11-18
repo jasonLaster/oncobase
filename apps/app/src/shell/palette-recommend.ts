@@ -91,3 +91,14 @@ export async function fetchRecommendedSlugs(query: string, candidates: Recommend
   const body = await response.json().catch(() => null) as { results?: Array<{ slug: string }> } | null;
   return (body?.results ?? []).map(result => result.slug);
 }
+
+/** Tells the server which page the reader opened for what they typed
+ * (server/api/palette-pick.ts). Survives the navigation it precedes, and a
+ * pick that fails to record is simply lost. */
+export function recordPalettePick(pick: { query: string; slug: string; position: number; recommended: boolean; recommendedSlugs: string[] }, scope: "public" | "session") {
+  void fetch(`/api/wiki/palette-pick?scope=${scope}`, {
+    method: "POST", credentials: "same-origin", keepalive: true,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(pick),
+  }).catch(() => undefined);
+}

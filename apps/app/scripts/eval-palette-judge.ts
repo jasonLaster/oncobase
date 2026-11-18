@@ -1,6 +1,7 @@
 /** Judges the file palette with Jev instead of hand-labelled answers.
  *
  *   bun --env-file=<.env.local> scripts/eval-palette-judge.ts generate <vault> <cases.json> [--pages=60 | --pages-from=visited.json]
+ *   bun scripts/eval-palette-judge.ts picks <vault> <cases.json> --from=<picks.jsonl>
  *   bun --env-file=<.env.local> scripts/eval-palette-judge.ts run <vault> <cases.json> [--cache=scores.json] [--out=report.json] [--only=substr] [--misses]
  *
  * `generate` samples pages across the vault's folders and asks a writing model
@@ -11,6 +12,10 @@
  * actually open instead of a sample ([{ slug, visits }], e.g. from browser
  * history), and the summary then weighs each query by its page's visits. Jev's scores stand in for labels: the eval
  * reports how far each step's first page falls below the best page Jev found.
+ * `picks` turns real palette picks into cases: export them with
+ * `npx convex data palettePicks --prod --format jsonl --limit 10000` (from
+ * apps/app; without --prod the CLI reads the dev deployment). Each query
+ * counts once per pick, and its page is the one the reader opened.
  * Cases describe real pages, so keep the cases file out of this public repo. */
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -27,7 +32,7 @@ const [mode, vault, casesPath] = process.argv.slice(2);
 if (!mode || !vault || !casesPath) throw Error("Usage: eval-palette-judge.ts generate|run <vault> <cases.json>");
 const flag = (name: string) => process.argv.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
 const token = process.env.AI_GATEWAY_API_KEY;
-if (!token) throw Error("AI_GATEWAY_API_KEY is not set (pass --env-file)");
+if (!token && mode !== "picks") throw Error("AI_GATEWAY_API_KEY is not set (pass --env-file)");
 
 async function* markdown(dir: string): AsyncGenerator<string> {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -57,6 +62,23 @@ const candidateOf = (slug: string): PaletteCandidate => {
   const tags = page ? JSON.parse(page.tagsJson) as string[] : [];
   return { slug, title: page?.title, ...(tags.length ? { tags: tags.slice(0, 8) } : {}), ...(page?.description ? { description: page.description.slice(0, 300) } : {}) };
 };
+
+if (mode === "picks") {
+  // Same query and page: one case, counted once per pick.
+  const counts = new Map<string, Case>();
+  for (const line of (await readFile(flag("from")!, "utf8")).split("\n")) {
+    if (!line.trim()) continue;
+    const pick = JSON.parse(line) as { query: string; slug: string };
+    if (!bySlug.has(pick.slug)) continue;
+    const key = `${pick.query.toLowerCase()}\u0000${pick.slug}`;
+    const row = counts.get(key) ?? { query: pick.query, slug: pick.slug, style: "pick", visits: 0 };
+    row.visits! += 1;
+    counts.set(key, row);
+  }
+  await writeFile(casesPath, JSON.stringify([...counts.values()], null, 2));
+  console.log(`${counts.size} cases from picks`);
+  process.exit(0);
+}
 
 if (mode === "generate") {
   // Folders a reader opens, weighted toward what they open most.
@@ -97,7 +119,7 @@ if (mode === "generate") {
   process.exit(0);
 }
 
-const decide = createDecider({ token: () => token, models: DECISION_MODELS, timeoutMs: 15_000 });
+const decide = createDecider({ token: () => token!, models: DECISION_MODELS, timeoutMs: 15_000 });
 const POOL = 60;
 const cases = (JSON.parse(await readFile(casesPath, "utf8")) as Case[]).filter(item => !flag("only") || item.query.includes(flag("only")!));
 const cachePath = flag("cache");

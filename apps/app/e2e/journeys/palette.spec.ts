@@ -187,6 +187,11 @@ test.describe("command palette (mocked backend)", () => {
       if (hold) await new Promise<void>(resolve => held.push(resolve));
       await route.fulfill({ json: { model: "typesafe-ai/jev", results: [{ slug: "wiki/updates/week-5-april-12-to-18", score: 2.6 }, { slug: "wiki/logistics/insurance", score: 2.2 }] } });
     });
+    const picks: unknown[] = [];
+    await page.route("**/api/wiki/palette-pick*", async (route) => {
+      picks.push(route.request().postDataJSON());
+      await route.fulfill({ status: 204 });
+    });
     await gotoWiki(page, "/");
     await page.keyboard.press(`${mod}+K`);
     const palette = page.getByTestId("command-palette");
@@ -222,6 +227,11 @@ test.describe("command palette (mocked backend)", () => {
     await expect(options.nth(0)).toHaveAttribute("aria-selected", "true");
     await expect(options.nth(1)).toContainText(/insurance/i);
     await input.press("Enter");
+    // The pick is recorded with the query and where the page was listed.
+    await expect.poll(() => picks).toEqual([{
+      query: "logistics plan", slug: "wiki/updates/week-5-april-12-to-18", position: 1, recommended: true,
+      recommendedSlugs: ["wiki/updates/week-5-april-12-to-18", "wiki/logistics/insurance"],
+    }]);
     await expect(page).toHaveURL(/\/wiki\/updates\/week-5-april-12-to-18$/);
 
     // The action turns it off and returns to Find files; the choice persists on this device.

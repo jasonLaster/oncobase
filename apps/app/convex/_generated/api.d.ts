@@ -39,6 +39,7 @@ import type * as manifestDeltaBuilder from "../manifestDeltaBuilder.js";
 import type * as manifestCache from "../manifestCache.js";
 import type * as migrations from "../migrations.js";
 import type * as pageShares from "../pageShares.js";
+import type * as palettePicks from "../palettePicks.js";
 import type * as pathology from "../pathology.js";
 import type * as prefetch from "../prefetch.js";
 import type * as sites from "../sites.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   manifestCache: typeof manifestCache;
   migrations: typeof migrations;
   pageShares: typeof pageShares;
+  palettePicks: typeof palettePicks;
   pathology: typeof pathology;
   prefetch: typeof prefetch;
   sites: typeof sites;

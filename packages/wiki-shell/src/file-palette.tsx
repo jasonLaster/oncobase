@@ -182,6 +182,9 @@ export type WikiFilePaletteProps = {
   loadingIcon?: ReactNode;
   onOpenChange: (open: boolean) => void;
   onSelectPage: (page: WikiFilePalettePage) => void;
+  /** Told which page was opened for a typed query, where it was listed and
+   * what was recommended, so the host can learn what readers look for. */
+  onPick?: (pick: WikiFilePalettePick) => void;
   open: boolean;
   pageIcon?: ReactNode;
   pages: WikiFilePalettePage[];
@@ -192,6 +195,15 @@ export type WikiFilePaletteProps = {
   recommend?: (query: string, signal: AbortSignal) => Promise<string[]>;
   searchIcon?: ReactNode;
   testId?: string;
+};
+
+export type WikiFilePalettePick = {
+  query: string;
+  slug: string;
+  /** 1-based place in the list as shown (Recommended first). */
+  position: number;
+  recommended: boolean;
+  recommendedSlugs: string[];
 };
 
 const EMPTY_RECOMMENDED: string[] = [];
@@ -205,6 +217,7 @@ export function WikiFilePalette({
   loadingIcon,
   onOpenChange,
   onSelectPage,
+  onPick,
   open,
   pageIcon,
   pages,
@@ -385,10 +398,26 @@ export function WikiFilePalette({
     [activeIndex, rowVirtualizer, visibleEntries.length, visibleRows],
   );
 
+  const selectPage = useCallback((page: WikiFilePalettePage) => {
+    // Only what was ranked for what is typed: a pick made before the deferred
+    // ranking caught up would record a list the reader never saw.
+    if (onPick && query && rankedQuery === query) {
+      const first = visibleRows[0];
+      const matchesAt = visibleRows.findIndex((row) => row.type === "heading" && row.label === "Matches");
+      const rowAt = visibleRows.findIndex((row) => row.type === "page" && row.page === page);
+      onPick({
+        query, slug: page.slug, position: visibleEntries.indexOf(page) + 1,
+        recommended: first?.type === "heading" && first.label === "Recommended" && (matchesAt === -1 || rowAt < matchesAt),
+        recommendedSlugs,
+      });
+    }
+    onSelectPage(page);
+  }, [onPick, onSelectPage, query, rankedQuery, recommendedSlugs, visibleEntries, visibleRows]);
+
   const selectActive = useCallback(() => {
     const page = visibleEntries[activeIndex];
-    if (page) onSelectPage(page);
-  }, [activeIndex, onSelectPage, visibleEntries]);
+    if (page) selectPage(page);
+  }, [activeIndex, selectPage, visibleEntries]);
 
   const onInputKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
@@ -502,7 +531,7 @@ export function WikiFilePalette({
               activeIndex={activeIndex}
               activeRowIndex={activeRowIndex}
               onActiveIndexChange={setActiveIndex}
-              onSelect={onSelectPage}
+              onSelect={selectPage}
               pageIcon={pageIcon}
               rows={visibleRows}
               rowVirtualizer={rowVirtualizer}

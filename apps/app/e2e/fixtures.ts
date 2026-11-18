@@ -405,6 +405,7 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
   await page.route("**/api/wiki/prefetch**", route => route.fulfill({ json: { enabled: false, slugs: [] } }));
   // Jev recommendations are on by default: answer with none, so mocked specs never reach a real model.
   await page.route("**/api/wiki/palette-recommend**", route => route.fulfill({ json: { model: null, results: [] } }));
+  await page.route("**/api/wiki/palette-pick**", route => route.fulfill({ status: 204 }));
   options.pageOverrides = { ...options.pageOverrides };
   const siteSlug = options.siteSlug ?? defaultSiteSlug;
   let manifestFailure = options.manifestFailure === true;
