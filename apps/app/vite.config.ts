@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { livestoreDevtoolsPlugin } from "@livestore/devtools-vite";
 import {
   assertWikiReaderCacheGenerations,
@@ -148,6 +149,17 @@ export default defineConfig({
   worker: { format: "es" },
   plugins: [
     pdfAssetsPlugin(),
+    {
+      // react-router 7 ships dist/production but its package "exports" only
+      // name dist/development, so every bundler picks the development build
+      // (dev-only warnings and checks, ~14 KiB gzip on the paint path).
+      // Production builds resolve the bare specifier to the production file;
+      // the dev server keeps the development build and its warnings.
+      name: "react-router-production-build",
+      config: (_config, { command }) => command === "build"
+        ? { resolve: { alias: [{ find: /^react-router$/, replacement: fileURLToPath(new URL("../../node_modules/react-router/dist/production/index.mjs", import.meta.url)) }] } }
+        : undefined,
+    },
     {
       name: "wiki-reader-startup-shortcuts",
       transformIndexHtml() {
