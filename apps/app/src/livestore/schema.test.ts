@@ -287,4 +287,4 @@ test("bulk manifest import preserves a full site's metadata and replacement sema
   expect(store.query(pageIndex$)).toHaveLength(1);
   expect(store.query(assets$)).toEqual([]);
   expect(store.query(siteState$)?.manifestHash).toBe("bulk-1");
-});
+}, 30_000); // 6,600 pages: ~0.3s locally, but 5-7s on a loaded CI runner during the parallel unit run.

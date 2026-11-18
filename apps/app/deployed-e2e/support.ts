@@ -41,9 +41,14 @@ export async function gateCookieHeader(baseURL: string) {
   }
 }
 
-/** Passes the gate in the page's browser context. */
+/** Passes the gate in the page's browser context. The cookie goes in the
+ * context's cookie jar, not an extra Cookie header: once the reader sets its
+ * own cookie (wiki_reader_shell), Chromium sends the jar and drops the extra
+ * header, so later fetches lost the gate and answered 401. */
 export async function passGate(page: Page, baseURL: string) {
-  await page.context().setExtraHTTPHeaders({ Cookie: await gateCookieHeader(baseURL) });
+  const header = await gateCookieHeader(baseURL);
+  const separator = header.indexOf("=");
+  await page.context().addCookies([{ name: header.slice(0, separator), value: header.slice(separator + 1), url: baseURL }]);
 }
 
 /** Opens the page and waits until the client-rendered reader shows its document. */

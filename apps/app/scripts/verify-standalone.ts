@@ -134,11 +134,19 @@ try {
   ) {
     throw new Error("Standalone bot metadata smoke exposed a canonical URL behind the password gate");
   }
+  // Wiki pages carry a per-page share image (/api/share-image), so the card is
+  // the large-image kind and the image itself must render for the bot.
+  const twitterImage = botMetadataHtml.match(/name="twitter:image" content="([^"]+)"/)?.[1];
   if (
-    !/name="twitter:card" content="summary"/.test(botMetadataHtml) ||
-    !/name="twitter:title" content="[^"]*Insurance/i.test(botMetadataHtml)
+    !/name="twitter:card" content="summary_large_image"/.test(botMetadataHtml) ||
+    !/name="twitter:title" content="[^"]*Insurance/i.test(botMetadataHtml) ||
+    !twitterImage
   ) {
     throw new Error("Standalone bot metadata smoke did not inject Twitter card tags");
+  }
+  const shareImage = await fetch(twitterImage.replaceAll("&amp;", "&"), { headers: { "User-Agent": "Slackbot-LinkExpanding 1.0" } });
+  if (shareImage.status !== 200 || !shareImage.headers.get("content-type")?.startsWith("image/")) {
+    throw new Error(`Standalone share image failed: ${shareImage.status} ${shareImage.headers.get("content-type")}`);
   }
   if (!/name="robots" content="noindex,nofollow"/.test(botMetadataHtml)) {
     throw new Error(

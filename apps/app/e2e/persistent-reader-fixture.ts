@@ -9,15 +9,19 @@ import { createConnection, createServer, type Socket } from "node:net";
 // denied-storage fallback. Playwright applies the configured context options
 // and records traces/screenshots for this context through its normal runner.
 export const test = base.extend({
-  baseURL: async ({ browserName, baseURL }, use) => {
+  baseURL: async ({ browserName, baseURL }, use, testInfo) => {
     if (browserName !== "webkit") {
       await use(baseURL);
       return;
     }
     const upstream = new URL(baseURL ?? "http://127.0.0.1:60001");
-    if (upstream.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(upstream.hostname)) {
-      throw new Error("WebKit durable-cache tests require a loopback production-build server");
-    }
+    // The fresh-origin relay below only works for a loopback http server. The
+    // deployed WebKit smoke (HTTPS on Vercel) used to fail every test here in
+    // setup; skip visibly instead so the gap reads as coverage, not a red job.
+    testInfo.skip(
+      upstream.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(upstream.hostname),
+      "WebKit durable-cache tests need a loopback production-build server (fresh origin per test)",
+    );
     // This WebKit build retains OPFS across separate user-data directories.
     // Give each test a fresh origin as well as a fresh profile. A loopback TCP
     // relay preserves Host, headers, redirects and WebSockets without logging
