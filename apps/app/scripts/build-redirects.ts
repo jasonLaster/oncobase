@@ -140,6 +140,16 @@ const sourceRedirects: Redirect[] = [
     destination: `/project-management/views/${slug}`,
   })),
 
+  // Diana's survival-scenario review was renamed to adjuvant planning (2026-11-18).
+  {
+    source: "/wiki/research/reviews/2026-11-residual-risk-calibration",
+    destination: "/wiki/research/reviews/2026-11-adjuvant-planning",
+  },
+  {
+    source: "/wiki/research/reviews/2026-11-residual-risk-calibration/:path*",
+    destination: "/wiki/research/reviews/2026-11-adjuvant-planning/:path*",
+  },
+
   // Source reorg 2026-05-15 — final destinations
   // The September wiki reorganization reuses these paths for authored reviews
   // and essays. Keep the older source aliases without redirecting live pages.

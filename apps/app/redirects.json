@@ -355,6 +355,16 @@
     "permanent": true
   },
   {
+    "source": "/wiki/research/reviews/2026-11-residual-risk-calibration",
+    "destination": "/wiki/research/reviews/2026-11-adjuvant-planning",
+    "permanent": true
+  },
+  {
+    "source": "/wiki/research/reviews/2026-11-residual-risk-calibration/:path*",
+    "destination": "/wiki/research/reviews/2026-11-adjuvant-planning/:path*",
+    "permanent": true
+  },
+  {
     "source": "/wiki/research",
     "destination": "/wiki/research/index",
     "permanent": true
