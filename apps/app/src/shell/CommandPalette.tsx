@@ -32,6 +32,9 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+// Subpaths, not the package index: a module the index re-exports is evaluated
+// with the index, which the paint-critical shell imports, so palette-only code
+// imported through the index would download before the article paints.
 import {
   WikiCommandBackdrop,
   WikiCommandEmpty,
@@ -42,11 +45,13 @@ import {
   WikiCommandList,
   WikiCommandPanel,
   WikiCommandSearch,
+} from "@oncobase/wiki-shell/palette";
+import {
   getWikiThemePreference,
   setWikiThemePreference,
   subscribeWikiSystemTheme,
   subscribeWikiThemePreference,
-} from "@oncobase/wiki-shell";
+} from "@oncobase/wiki-shell/theme";
 import {
   WikiFilePalette,
   type WikiFilePalettePage,

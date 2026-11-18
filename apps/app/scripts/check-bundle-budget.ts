@@ -177,8 +177,16 @@ const storeLoaderPatterns = [
 // 4,121.1 KiB; no download changed. Move 5,000 B of allowance with it:
 // paint 332,000 -> 327,000, eager 1,184,000 -> 1,179,000, lazy 4,217,000 ->
 // 4,222,000 (below). The eager + lazy limit is unchanged.
-const eagerGzipBudget = 1_179_000;
-const paintGzipBudget = 327_000;
+// The command palette's own modules (palette.tsx, command-palette-pages.ts and
+// fuzzysort) left the @oncobase/wiki-shell index: a module the index re-exports
+// was placed with the index, in the shell chunk the article needs. Only the
+// lazy CommandPalette chunk uses them, now through subpaths. Same base, before
+// -> after (fflate gzip): shell chunk src-* 20,811 -> 16,315 B, paint
+// 322,464 -> 317,967 B (-4,497 B), lazy +4.2 KiB, total unchanged. Allowance
+// moves with it: paint 327,000 -> 322,500, eager 1,179,000 -> 1,174,500, lazy
+// 4,222,000 -> 4,226,500.
+const eagerGzipBudget = 1_174_500;
+const paintGzipBudget = 322_500;
 const storeGzipBudget = 855_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
@@ -193,7 +201,7 @@ const storeGzipBudget = 855_000;
 // on that host: 3_460_000 -> 3_468_000.
 // PDF.js adds ~495 KiB gzip, exclusively on the PDF route (viewer + worker).
 // The reader's eager budget is unchanged; fonts/codecs load only when needed.
-const lazyGzipBudget = 4_222_000;
+const lazyGzipBudget = 4_226_500;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
