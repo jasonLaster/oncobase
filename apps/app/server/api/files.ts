@@ -246,7 +246,11 @@ export async function handleFileRequest(
   const cacheControl = versionMatch
     ? privateCache ? VERSIONED_PRIVATE_CACHE_CONTROL : "public, max-age=31536000, immutable"
     : privateCache ? "private, max-age=60, stale-while-revalidate=3600" : "public, max-age=86400";
-  const vary = privateCache ? "Accept, Cookie, Host, Range" : "Accept, Host, Range";
+  // A validated `?v=` response is the same bytes for every cookie this browser
+  // can hold, so it does not vary on Cookie: the reader rewrites its own
+  // cookies while navigating, and `Vary: Cookie` turned each rewrite into a
+  // full refetch of every versioned image. Sign-out clears it (Clear-Site-Data).
+  const vary = privateCache && !versionMatch ? "Accept, Cookie, Host, Range" : "Accept, Host, Range";
   const versionHeaders: Record<string, string> = requestedVersion === null ? {}
     : { [WIKI_VERSION_HEADER]: versionMatch ? "match" : "mismatch" };
   const etag = fileAssetEtag(asset.contentHash);

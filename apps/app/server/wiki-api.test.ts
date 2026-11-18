@@ -2293,7 +2293,10 @@ describe("P11 content-addressed private reads", () => {
     expect(response!.headers.get("cache-control")).toBe(YEAR);
     expect(response!.headers.get("cache-control")).not.toContain("public");
     expect(response!.headers.get("etag")).toBe('"scanhash"');
-    expect(response!.headers.get("vary")).toContain("Cookie");
+    // Content-addressed bytes do not vary on Cookie: the reader rewrites its
+    // own cookies while navigating, which would otherwise refetch every image.
+    expect(response!.headers.get("vary")).not.toContain("Cookie");
+    expect(response!.headers.get("vary")).toContain("Host");
   }));
 
   test("an unversioned private file keeps the gate's no-store, now with an ETag", () => withBlob(async () => {
@@ -2311,6 +2314,7 @@ describe("P11 content-addressed private reads", () => {
     expect(response?.status).toBe(200);
     expect(response!.headers.get("cache-control")).toBe("private, no-store");
     expect(response!.headers.get("x-wiki-version")).toBe("mismatch");
+    expect(response!.headers.get("vary")).toContain("Cookie");
   }));
 
   test("an unauthorized v is a 404 as today, with no long cache and no Blob read", () => withBlob(async (fetchCalls) => {

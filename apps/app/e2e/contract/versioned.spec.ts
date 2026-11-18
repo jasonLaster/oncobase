@@ -43,7 +43,7 @@ test("versioned pages and files: long private cache only for a validated v", asy
     const versioned = await care.get(pageUrl(PRIVATE_SLUG, pageHash!));
     expect(versioned.headers()["cache-control"]).toBe(YEAR);
     expect(versioned.headers()["x-wiki-version"]).toBe("match");
-    expect(versioned.headers().vary).toContain("Cookie");
+    expect(versioned.headers().vary).not.toContain("Cookie");
     expect((await versioned.json()).pages[0].slug).toBe(PRIVATE_SLUG);
     assertPrivate(await care.get(pageUrl(PRIVATE_SLUG)), "unversioned page");
     const stale = await care.get(pageUrl(PRIVATE_SLUG, "0".repeat(64)));

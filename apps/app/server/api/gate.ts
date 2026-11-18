@@ -106,9 +106,8 @@ export function isValidatedVersionedResponse(headers: Headers) {
 
 export function privatePasswordGateHeaders(headers: HeadersInit) {
   const nextHeaders = decorateViteHeaders(headers);
-  nextHeaders.set("Cache-Control", isValidatedVersionedResponse(nextHeaders)
-    ? VERSIONED_PRIVATE_CACHE_CONTROL
-    : "private, no-store");
+  const versioned = isValidatedVersionedResponse(nextHeaders);
+  nextHeaders.set("Cache-Control", versioned ? VERSIONED_PRIVATE_CACHE_CONTROL : "private, no-store");
   nextHeaders.delete("CDN-Cache-Control");
   const vary = new Set(
     (nextHeaders.get("Vary") ?? "")
@@ -116,7 +115,10 @@ export function privatePasswordGateHeaders(headers: HeadersInit) {
       .map((value) => value.trim())
       .filter(Boolean),
   );
-  vary.add("Cookie");
+  // Content-addressed bytes do not depend on which cookies ride along (see
+  // files.ts); everything else from the gated site varies on Cookie.
+  if (versioned) vary.delete("Cookie");
+  else vary.add("Cookie");
   vary.add("Host");
   nextHeaders.set("Vary", [...vary].join(", "));
   return nextHeaders;

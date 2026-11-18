@@ -88,7 +88,7 @@ test("versioned images: immutable on a match, a new URL after republishing, no l
     expect(versioned.status()).toBe(200);
     expect(versioned.headers()["cache-control"]).toBe(YEAR);
     expect(versioned.headers().etag).toBe(`"${first}"`);
-    expect(versioned.headers().vary).toContain("Cookie");
+    expect(versioned.headers().vary).not.toContain("Cookie");
 
     // Republish the asset with new bytes: the manifest names a new hash, so a new URL.
     const second = `${nonce}-b`;

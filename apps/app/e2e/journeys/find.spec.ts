@@ -65,8 +65,14 @@ test.describe("finding things (real backend)", () => {
     // The previous query's summary is still on screen: wait for the new results.
     await expect(page.getByTestId("search-text-result").first()).toContainText(/pembrolizumab/i);
 
-    await input.fill("zzzzqqqq");
-    await input.press("Enter");
+    // The form is keyed on the URL query, so it remounts (and resets its text)
+    // when the previous search commits, which can land just after the URL
+    // assertion. Retry until the miss's own URL takes.
+    await expect(async () => {
+      await input.fill("zzzzqqqq");
+      await input.press("Enter");
+      await expect(page).toHaveURL(/q=zzzzqqqq/, { timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
     await expect(page.getByTestId("search-text-empty")).toBeVisible();
   });
 
