@@ -1,6 +1,11 @@
 # P3 server rendering: design spike and plan (2026-11-17)
 
-Status: plan for review. Nothing here is shipped. Scope: proposal item P3 ("Render the shell and article on the server, then hydrate"), `plans/2026-11-13-application-improvement-proposal.md` §4.1, §5 A1, §8 Phase 2, §9 decision 1. The throwaway prototype is on a separate commit marked SPIKE (`apps/app/spike/ssr/`). It changes no app source; the three render guards it needed are kept as `spike/ssr/server-safety.patch`.
+Status: plan for review. Nothing here is shipped. Scope: proposal item P3 ("Render the shell and article on the server, then hydrate"), `plans/2026-11-13-application-improvement-proposal.md` §4.1, §5 A1, §8 Phase 2, §9 decision 1. The throwaway prototype is on a separate commit marked SPIKE (`apps/app/spike/ssr/`). It changes no app source. The app-source edits it needed are patch files:
+
+- `spike/ssr/server-safety.patch`: the first spike's three render guards.
+- `spike/ssr/hydration-path.patch`: the paint-to-responsive spike (§8).
+
+Revision 2 (same day) adds §8 and updates §1, §4, §6 and §7. The user decision behind it: input made before hydration must be replayed, not dropped. Nothing lands until the gap between article first paint and the page responding to input is under 100 ms on the mobile lab profile.
 
 ## 1. Recommendation
 
@@ -9,6 +14,12 @@ Do it, in four stages behind a server flag. The client hydrates only when the do
 - **One tree.** The server renders the same element tree `ReaderSession` already renders while it presents the inlined payload before the store exists (`src/ReaderRoot.tsx:143-156`), from the same payload object it writes into the same response. The client calls `hydrateRoot` on that DOM. The store then attaches through the existing handoff (`ReaderRoot.tsx:92-95`). Nothing is cloned and nothing is swapped. This is what separates P3 from the September experiment (`specs/client-rendered-reader-2026-09-11.md`).
 - **The payload stays.** It is the hydration data and it seeds the store (`bootstrap/seed-page.ts`). SSR adds HTML next to it. It does not add a new data path, a new redaction path or a new cache.
 - **SSR is an enhancement that can fail.** If the payload is missing, the render times out or errors, or the page is over the size cap, the response is exactly today's document (payload only) and the client takes the `createRoot` path.
+- **The first visible frame is already interactive, and earlier input is never dropped** (§8).
+  - A head script captures clicks and keys from first paint and replays them into the same node once React has hydrated it.
+  - The chrome hydrates first; the article body hydrates later, section by section.
+  - The entry module is render-blocking until the root pass has committed.
+  - On the mobile lab profile, input at paint gets a response in 42–89 ms (median; worst 96 ms) on a normal page and on an 18-table page.
+  - The price is first paint: about 1.9 s, against 1.3–1.5 s ungated, in the same harness. It is still well ahead of today's 2.3 s client-rendered article.
 - **Retire the localStorage startup snapshot and the reader-shell cookie** once SSR is the default (stage 3). A snapshot must not drive a first render that has to match server HTML. And the cookie tells the server to skip the payload (`server/app-shell.ts:434`), which would also skip SSR.
 
 ## 2. Evidence (spike, 2026-11-17, laptop: macOS arm64, Node 25.9, Bun 1.3.12, React 19.2.6, React Router 7.15)
@@ -171,6 +182,7 @@ Each stage is one PR series, flag-controlled: `WIKI_READER_SSR = off | opt-in | 
   - The boot inputs object (§3.1).
   - The sidebar head script.
   - `src/server-entry.tsx` plus its Vite SSR build in CI, with a new `READER_SSR_BUDGET_BYTES` (start at 1,400 KiB and ratchet down). The HTML-handler budget stays at 200 KiB: the renderer must remain a dynamic import.
+  - Revision 2: the hydration path from §8.6, items 1–6. They help the client-rendered reader too: a smaller paint set, no long tasks on big pages, cheaper controls on big pages.
 - Tests:
   - `server-entry.test.tsx` (bun, no DOM). Fixtures: normal, math, raw HTML, mermaid, 18-table, sensitive, redaction canary. Asserts: no `<template data-msg` fallback; article and tree present; two renders byte-equal; the HTML contains a canary only if the payload does.
   - Boot-inputs equality (§3.1).
@@ -182,13 +194,16 @@ Each stage is one PR series, flag-controlled: `WIKI_READER_SSR = off | opt-in | 
 - Tests:
   - Extend `e2e/contract/content-first.spec.ts`. With scripts held, `#root` already contains the article and tree. `window.__WIKI_HYDRATION__` is empty after hydration. "A user without access gets no restricted page, content or slugs in the document" also covers the HTML.
   - A mocked hydration matrix spec covering every condition in §3.3, plus a key queued before hydration and a link clicked before hydration.
+  - Replay spec (§8.7): click, Enter and Space on a control before hydration are replayed exactly once; a link before hydration navigates natively; Ctrl+K at paint opens the palette; a field typed into before hydration keeps its text; nothing is replayed after the node is gone.
   - Surface gates (`surfaces:gates` plus `visual.spec.ts`) with SSR forced on. Visual baselines must not change after settle.
 - perf:lab changes:
   - Add a `gate-cold` scenario (the proposal appendix had one) and an `--ssr on|off` A/B.
   - Replace the "first `.wiki-markdown p` in DOM" metric, which under SSR fires at HTML parse, with **`articlePaintMs`**: Element Timing on the article's first block, recorded in RUM as well.
   - Add `inertMs` (hydration complete minus article paint), `hydrationLongestTaskMs`, and the server `shell.render` span.
+  - Revision 2: port the spike's `gap.ts` probes as **`paintToResponsiveMs`** (§8.1), plus the idle-baseline and dropped-input counts.
 - Exit to stage 2:
-  - Mobile lab `gate-cold` `articlePaintMs` ≤ 1.5 s, down from about 2.3 s. The ≤ 1.2 s Phase 2 target is expected only with P4.
+  - Revision 2, gating: `paintToResponsiveMs` under 100 ms, median **and** worst of 5 cold loads, on the mobile profile, for a normal page and the 18-table page, for both the drawer click and Ctrl+K. Zero dropped inputs after paint.
+  - Mobile lab `gate-cold` `articlePaintMs` ≤ 1.5 s, down from about 2.3 s. The ≤ 1.2 s Phase 2 target is expected only with P4. With the render gate (§8.5) the spike paints at ~1.9 s, so this exit needs the critical-path cuts in §8.6 item 7 first. Otherwise the user decides between the gap target and this one (§7 Q7).
   - Zero hydration errors in the e2e matrix. RUM mismatch rate < 0.1% of SSR loads over 7 days.
   - Every layout-shift gate under 0.1.
   - `shell.render` p95 ≤ 60 ms for pages under the cap. Shell function p95 up by no more than 80 ms. Cold start p50 up by no more than 100 ms.
@@ -211,8 +226,8 @@ Each stage is one PR series, flag-controlled: `WIKI_READER_SSR = off | opt-in | 
 
 **Stage 4. Large pages (with P12/P14).**
 
-- Raise the size cap as parsing gets cheaper. Add the content-addressed render cache (§3.2). Wrap the article in its own Suspense boundary, and per-section if needed, so hydration yields.
-- Exit: `panel18` and `large30` SSR'd under the cap; mobile `hydrationLongestTaskMs` ≤ 200 ms on the large page (845 / 708 ms in the spike).
+- Raise the size cap as parsing gets cheaper. Add the content-addressed render cache (§3.2). The section boundaries and sequential gates move to stage 0 in revision 2. What is left here is P12, so sections stop parsing on the client.
+- Exit: `panel18` and `large30` SSR'd under the cap. Mobile `hydrationLongestTaskMs` ≤ 50 ms on the large page: 845 / 708 ms in the first spike, ≤ 62 ms after §8.
 
 ## 5. Afterwards: what goes and what backing out costs
 
@@ -230,7 +245,10 @@ Each stage is one PR series, flag-controlled: `WIKI_READER_SSR = off | opt-in | 
 
 ## 6. Risks
 
-- **Inert controls between paint and hydration** (~0.8 s on mobile for a normal page). This is the September failure mode in a smaller form. Measure `inertMs`, and decide on click capture (open question 1).
+- **Inert controls between paint and hydration.** The first spike measured ~0.8 s on mobile for a normal page; this is the September failure mode in a smaller form. Revision 2 addresses it with replay plus the render gate (§8). The remaining risks:
+  - Input made **before** the gated first paint is dropped by the browser (§8.5).
+  - The gate holds only while the entry module is evaluating synchronously, so a stray `await` before hydration silently brings the gap back. Add a test: the root-commit mark must come before FCP.
+  - The replay script reads React's private `__reactProps$` expando to know a node is live. Pin it with a test per React upgrade.
 - **CPU-bound renders on shared Fluid instances.** One 18-table page holds the event loop for 150–300 ms and ~290 MiB. Mitigated by the size cap, the render budget, the render cache and P12.
 - **Server/client skew.** The SSR bundle and the client chunks come from one build. An HTML document cached by the CDN references its own build's chunks, which P22 keeps available.
 - **Hidden mismatches.** Server snapshots convert mismatches into post-hydration re-renders: no error, but possibly a shift. The CLS gates and visual specs, not the error counter, catch these.
@@ -238,9 +256,126 @@ Each stage is one PR series, flag-controlled: `WIKI_READER_SSR = off | opt-in | 
 
 ## 7. Open questions
 
-1. **Inert window.** Accept ~0.8 s of inert buttons on mobile (links work, shortcuts queue), or extend the pre-JS shortcut script to capture clicks on `[data-reader-action]` controls and replay them after hydration? I lean towards accepting it for stage 1, measuring it, and adding capture only if RUM shows taps in the window.
+1. **Inert window.** Decided 2026-11-17: input before hydration is replayed, and the paint-to-responsive gap must be under 100 ms (§8).
 2. **Size cap.** Start at 64 KiB of markdown? I need the production page-size distribution (from the manifest) to know what share of loads that covers.
 3. **Public CDN caching.** Should ungated SSR HTML keep `s-maxage=300, stale-while-revalidate=3600` (stale for up to an hour after a publish, then replaced in place), or should SSR documents get a shorter window? Separately: `Vary: User-Agent` on public HTML (`app-shell.ts:610`) fragments the CDN cache. Is it still needed?
 4. **The snapshot's other jobs.** Deleting it loses full-tree palette search before the manifest arrives, and the instant repeat-visit paint on a flaky network. Is a 600 ms warm-load bar enough to delete it?
 5. **Order against P4.** The spike shows first paint bounded by the 49 KB-gzip stylesheet. Reaching ≤ 1.2 s probably needs P4. Do P4 alongside stage 1, or accept 1.5 s as the P3 exit?
 6. **Education and other routes.** Stage 1 excludes `/education`, `/search`, `/tags/*` and the special routes. Should any of them be in P3 scope, or left to P19 (prerendered marketing)?
+7. **Gap against paint (revision 2).** On 1.6 Mbps, the sub-100 ms gap comes from holding first paint until the chrome is hydrated (§8.5). In the spike that put paint at ~1.9 s instead of 1.3–1.5 s. Choose one:
+   - (a) Keep the gate and buy the paint back with the critical-path cuts (§8.6 item 7).
+   - (b) Gate with a short deadline instead of 3 s, so slow JS paints early and replay covers the rest. The gap is then over 100 ms on the slowest loads.
+   - (c) No gate. Replay alone gives 245–505 ms gaps, with nothing dropped.
+
+   I recommend (a), with (b)'s deadline as the safety valve.
+
+## 8. Paint-to-responsive gap and input replay (spike revision 2, 2026-11-17)
+
+### 8.1 The metric
+
+**`paintToResponsiveMs`**: on the perf lab's mobile profile (390×844, DPR 3, 4× CPU, 1.6 Mbps / 750 Kbps, 150 ms RTT), a real input (CDP `Input.dispatch*`) is issued 16 ms after the article's first paint. The metric is the time from that input until the control's own effect is in the DOM. Report the median and the worst of 5 cold loads, for a normal page and the 18-table page.
+
+- **Article paint:** Element Timing `renderTime` of the article's first paragraph (`elementtiming="article"`). It matches FCP in every gated run.
+- **Probes:**
+  - The mobile drawer trigger: the sheet loses `inert`. A chrome control.
+  - Ctrl+K: `[role=dialog]` appears. Goes through the pre-JS shortcut queue.
+- **Idle baseline:** the same probe at paint+6 s, fully hydrated and idle. It separates the control's own cost from the hydration gap.
+- **Also recorded:**
+  - When `hydrateRoot` is called, and when the root pass commits (a layout effect).
+  - When each region hydrates: header, drawer trigger, article actions, body. The first frame whose node carries React props; polled, so an upper bound when the main thread is busy.
+  - Long tasks after paint.
+  - The replay log, and recoverable hydration errors.
+
+Harness: `spike/ssr/gap.ts`, summarized by `gap-summary.py`. It serves the SSR HTML plus a client build of the same tree, gzipped, from a static server: production TTFB is not included. Clicks are scheduled from a calibration load with drift correction and land within about ±30 ms of paint; a click that landed before paint is listed as such.
+
+### 8.2 What React 19.2.6 does with early input (read from `node_modules/react-dom/cjs/react-dom-client.development.js`)
+
+- **Before `hydrateRoot`:** no React listener exists, so a click is lost.
+- **After `hydrateRoot`, on a dehydrated boundary:** `dispatchEvent` (line 23576) tries a SyncLane hydration of the blocking boundary. If the boundary is still blocked (its lazy code is not loaded), it calls `nativeEvent.stopPropagation()` and the event is gone (line 23652). **Discrete events are not replayed.** Only continuous events (hover, focus) are queued (`queueIfContinuousEvent`).
+- **Suspense boundaries hydrate later.** A dehydrated boundary met during the root pass is deferred to OffscreenLane (`workInProgress.lanes = 536870912`, line 10866) and hydrated in its own later, time-sliced render. That is what lets the chrome go live before the article body.
+- **A supported way to prioritize a target exists:** `root.unstable_scheduleHydration(target)` (line 27915).
+- **Updates force hydration.** An update that reaches a dehydrated boundary forces it to hydrate synchronously, so elements passed into a boundary must keep their identity (the spike memoizes the drawer tree's element).
+
+Next.js has the same React behaviour and no pre-JS capture. Angular's jsaction is the model for what follows.
+
+### 8.3 Replay design (`spike/ssr/replay.ts`, inlined into the head like `bootstrap/reader-shortcuts.ts`)
+
+- **Captures** `click` and `keydown` in the capture phase on `document`, from first paint until **the target node itself** is hydrated. React sets an own `__reactProps$*` property on a host node when it hydrates it.
+- **Only interactive controls** inside `#root`: `button`, `[role=button|treeitem|tab|menuitem]`, `summary`, `[data-reader-action]`.
+  - **Links are never captured:** an unhydrated link navigates natively.
+  - **Fields are never captured:** `input`, `textarea`, `select` and `contenteditable` type natively.
+  - **Modifier chords stay with the shortcut script.**
+  - **Enter and Space on a native button** are left to the browser, which turns them into a click that is then captured.
+- **Deduplicates with React** by owning the event. `stopImmediatePropagation` on `document`, before React's root listeners, means React never sees it, never drops it and never handles it twice. Clicks also get `preventDefault`. The node is marked `data-ssr-pending` (an inline `cursor: progress; opacity: .55` pressed state) and `root.unstable_scheduleHydration(node)` is called.
+- **Replays on every frame:** each queued event is re-dispatched (same coordinates, keys and modifiers) into the same node as soon as it is live, so React's handler runs. Events whose node was removed are dropped and logged.
+
+Verified on the mobile profile:
+
+| Case | Result |
+| --- | --- |
+| Clicks at paint, ungated | 30 of 30 replayed, 0 dropped (iterations 1, 2 and the final ungated run) |
+| Ctrl+K at paint | Opened the palette in 18 of 18 gated loads (three configurations) and 6 of 6 ungated, through the existing shortcut queue. One intermediate build opened 0 of 6: my layout-effect change dispatched the open event before its listener was mounted. Fixed in iteration 8 |
+| Link with the entry bundle blocked | Not prevented, not captured: native navigation to a new document (2 of 2) |
+| Recoverable hydration errors | None in any run |
+
+Not exercised in the spike: keydown replay on a focused unhydrated control, and a field typed into before hydration. No field exists in the first frame today. Both belong in the stage 1 replay spec.
+
+### 8.4 Iterations (mobile profile; medians, worst in brackets; 5 cold loads per page unless noted)
+
+| # | Change | Normal: paint / gap | 18-table: paint / gap | Notes |
+| --- | --- | --- | --- | --- |
+| 0 | First spike as is | 1496 / **click dropped** (5/5) | 1848 / **dropped** (5/5) | Chrome hydrated +595 / +790 ms after paint; 873–940 ms tasks on the 18-table page |
+| 1 | + replay script | 1504 / 457 (461) | 1884 / 378 (387) | 10/10 replayed |
+| 2 | + lazy article body in its own Suspense boundary (critical path 276 → 213 KiB gzip) | 1472 / 266 (286) | 1864 / 282 (299) | Re-measured with clicks within ±10 ms of paint |
+| 3 | + Suspense around the sidebar and the drawer tree (memoized element) | 1504 / 238 (270) | 1844 / 272 (277) | |
+| 4 | + render-blocking entry (`<script type=module blocking=render>`, top-level await on the root commit, 3 s valve) | 1744 / 78 (86) | 2024 / 166 (202) | 2 clicks landed before paint and were dropped by the browser |
+| 5 | + body split into one Suspense boundary per section; body chunk starts after root commit + idle | 1732 / 75 (79) | 2048 / 175 (202) | Idle baseline: the drawer itself costs 175 ms on the 18-table page (full relayout of a 739 KB DOM) |
+| 6 | + `content-visibility: auto` on sections (P14 preview) | 1736 / 81 (86) | 1812 / 52 (83) | Idle baseline 41 / 35 ms; 237–293 ms body tasks remain |
+| 7 | + sequential section gates (one section hydrates per idle period) | 1740 / 47 (54) | 1816 / 64 (85) | Long tasks after paint ≤ 106 ms (typically 50–60); body hydrated +1.0 s after paint, was +1.9 s |
+| — | Ctrl+K at paint, iteration 7 code (3 loads) | 282 (302) | 296 (307) | Lazy palette chunk. Preloaded in the gate: 190 / 181. Idle: 19 / 26 |
+| 8 | + root pass hydrated synchronously inside the gate (`flushSync(() => hydrateRoot(…))`) + palette as a static import + shortcut queue adopted in a layout effect | **1864 / 78 (89)** | **1972 / 42 (95)** | Ctrl+K **89 (96) / 80 (91)**. Idle 45 / 37. Long tasks after paint ≤ 76 / ≤ 62 ms. Root commit lands before first paint in every run. Critical path 219.6 KiB gzip |
+| — | Iteration 7 code, ungated (replay only) | 1480 / 245 (281) | 1316 / 475 (505) | 10/10 replayed. This is the price of not gating |
+
+### 8.5 Why the gate is what closes the gap, and what it costs
+
+- **The bandwidth floor.** Without the gate, the gap is the time for the chrome's JavaScript to arrive after the article has painted. The hydrate path needs ~165 KiB gzip of JS plus 50 KiB of CSS before the chrome can respond, and at 1.6 Mbps that is ~1 s of link. The HTML and CSS that paint the article share the same link and finish first. Iterations 2–3 cut the JS and the root-pass work, and still left 238–282 ms.
+- **What the gate does.** It makes the first visible frame the hydrated one: paint waits for JS plus root hydration. On this profile that costs about +380 ms (normal) and +650 ms (18-table) of first paint against the ungated build. The 18-table page loses more because its 36 KB-gzip document competes for the link.
+- **Chrome unblocks at the first `await`.** Chrome lifts the render block on a module script once its evaluation reaches the first real `await`, not when its top-level await settles. Iteration 4 painted mid-hydration, and an awaited palette import painted 150 ms **before** `hydrateRoot`. Iteration 8 therefore hydrates the root pass synchronously (`flushSync`) inside module evaluation, and anything the first frame needs must be a static import. The math and raw-HTML preloads must move behind the lazy body, which is the only place that needs them now.
+- **Input before the first paint is dropped by the browser.** A render-blocked document receives no input: 4 of the 40 scheduled clicks in iterations 4–7 landed before paint and never reached the capture script. In a cold load there is nothing visible to click. On a same-origin navigation, though, the previous page stays on screen (paint holding) and taps on it are lost.
+- **The safety valve:** a head timer removes the render-blocking script, which unblocks rendering per spec. It was set at 3 s; it never fired with JS present, and a stalled-bundle test is still to do. A failed fetch unblocks at once.
+
+### 8.6 What the hydration path needs (for stage 0)
+
+1. **The replay script** (§8.3), inlined into the head next to the shortcut script, with a unit test that pins React's `__reactProps$` marker.
+2. **Chrome first.**
+   - The article body in its own lazy chunk behind a Suspense boundary (`WikiPage` → `ArticleBody`). It stays as server HTML until hydrated.
+   - Suspense around the desktop sidebar and the drawer tree. Elements passed into a dehydrated boundary keep their identity.
+   - `MarkdownTitle` from `title-react` (already lazy) rather than `browser`.
+3. **The body after the root.**
+   - Its chunk starts after the root commit plus an idle period.
+   - It is split into one Suspense boundary per top-level section, on server and client alike.
+   - Sections hydrate one per idle period (sequential gates via `use()`).
+   - Correctness gaps to close: footnotes and reference-style links across sections, duplicate heading slugs. P12 (parse at publish time) is the cleaner end state.
+   - Fizz outlines large section boundaries into `$RC` scripts; set `progressiveChunkSize` if inline HTML is preferred.
+4. **`content-visibility: auto` on sections** (P14). It took the drawer on the 18-table page from 175 to 35 ms idle, and paint from 2,048 to 1,812 ms.
+5. **The gate.** Render-blocking entry module, root pass via `flushSync(hydrateRoot)`, first-frame code as static imports, a deadline valve. Test that the root-commit mark comes before FCP.
+6. **Queued shortcuts adopted in a layout effect** (`Header.tsx`), calling `openPalette` directly. The bus listener is a passive effect and is not mounted yet. The palette chunk joins the paint set (+6.5 KiB gzip).
+7. **Buying the paint back** (not done in the spike, measured as candidates on the critical path). Each 20 KiB gzip is ~100 ms of first paint on this profile:
+   - React Router's `dist/development` chunk is in the production build: 14.2 KiB gzip.
+   - The `@oncobase/wiki-shell` barrel: 20 KiB.
+   - The lazy-title wrapper: 13.6 KiB.
+   - `reader-startup-cache` with fflate (3.6 KiB) and `visual-phase` (3.4 KiB), which the first frame does not need.
+   - Per-surface CSS (P4): 50 KiB now.
+   - Production serves HTTP/2 with priorities; the spike's static server was HTTP/1.1.
+
+### 8.7 Remaining blockers and limits
+
+- **Long tasks.** They are 55–76 ms after paint, not ≤ 50 ms. What remains:
+  - One section's parse and commit (~55–60 ms at 4× CPU), which P12 or smaller sections address.
+  - The post-commit passive-effect flush (~60–75 ms), which could be audited per effect.
+- **Paint against gap.** See open question 7.
+- **Not covered by the harness:**
+  - The math/raw-HTML page (`large30`) on the final configuration. Its awaited preloads would break the gate until item 5 moves them.
+  - Real devices.
+  - Origin TTFB.
+  - The signed-in tree (session payload), which adds the account controls to the root pass.
