@@ -53,9 +53,5 @@ export function seedInitialPage(store: BootstrapStore, identity: WikiSessionIden
   if (!Number.isFinite(age) || age < 0 || age > BOOTSTRAP_MAX_AGE_MS) return releaseBootstrapJson();
   const accepted = seedPagePayload(store, raw, identity, request);
   releaseBootstrapJson();
-  if (accepted) {
-    const host = document.getElementById("wiki-html-first");
-    if (host) host.dataset.bootstrapSeeded = "true";
-    performance.mark("wiki-page-bootstrap-seeded");
-  }
+  if (accepted) performance.mark("wiki-page-bootstrap-seeded");
 }

@@ -58,6 +58,7 @@ import {
   contentSlugFromRouteSlug,
   hrefForSlug,
   parseJsonArray,
+  signInHrefFor,
   slugFromPath,
   storageSnapshot,
 } from "../wiki-utils";
@@ -202,9 +203,7 @@ export const WikiPage = memo(function WikiPage({
   const identity = useWikiSession();
   const identityPending = useWikiIdentityPending();
   const online = useBrowserOnline();
-  const returnUrl = new URL(location.pathname + location.search + location.hash, window.location.origin);
-  returnUrl.searchParams.delete("scope");
-  const signInHref = `/sign-in?redirect=${encodeURIComponent(returnUrl.pathname + returnUrl.search + returnUrl.hash)}`;
+  const signInHref = signInHrefFor(location);
   const [toast, setToast] = useState<string | null>(null);
   const routeSlug = slugFromPath(location.pathname);
   const slug = contentSlugFromRouteSlug(routeSlug);

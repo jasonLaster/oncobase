@@ -23,6 +23,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -114,11 +115,21 @@ export function HeaderCommandPaletteHost() {
   ) : null;
 }
 
+/** A sign-in asked for before the reader mounted: the pre-JS shortcut queue or `?reader-action=signin`. */
+export function startupSignInRequested(pending: string | null | undefined, search: string) {
+  return pending === "signin" || new URLSearchParams(search).get("reader-action") === "signin";
+}
+
 export function HeaderAuthDialogHost() {
   const { setSessionUser, submitAuth } = useWikiViteAuth();
-  const [authDialogOpen, setAuthDialogOpen] = useState(() => window.__wikiReaderShortcuts?.pending === "signin" || new URLSearchParams(location.search).get("reader-action") === "signin");
+  // Closed in the first render on server and client alike; a startup request
+  // opens it in a layout effect, before the first paint.
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authMode, setAuthMode] =
     useState<WikiActionsMenuAuthMode>("signin");
+  useLayoutEffect(() => {
+    if (startupSignInRequested(window.__wikiReaderShortcuts?.pending, location.search)) setAuthDialogOpen(true);
+  }, []);
 
   useEffect(() => {
     const onOpenAuthDialog = (event: Event) => {
@@ -162,8 +173,7 @@ function useWikiAuthState() {
   const [sessionUser, setSessionUser] = useState<WikiActionsMenuUser | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const identityPending = useWikiIdentityPending();
-  const [initialAccountPending] = useState(() => document.getElementById("wiki-html-first")?.hasAttribute("data-account-pending") === true);
-  const accountPending = initialAccountPending || identityPending;
+  const accountPending = identityPending;
 
   useEffect(() => {
     let cancelled = false;

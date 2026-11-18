@@ -20,7 +20,9 @@ export function receivedLabel(bytes: number) {
 }
 
 /** Reachability as the reader observed it, not `navigator.onLine` alone (see connectivity.ts). */
-export function useBrowserOnline() { return useSyncExternalStore(subscribeReaderOnline, readerOnline); }
+/** Server-rendered (and hydrating) frames assume online; the client's own answer follows. */
+export const serverReaderOnline = () => true;
+export function useBrowserOnline() { return useSyncExternalStore(subscribeReaderOnline, readerOnline, serverReaderOnline); }
 
 export function NavigationStatus({ freshness, hasPages }: { freshness: NavigationFreshness; hasPages: boolean }) {
   const slow = useSlowLoading(freshness === "checking");

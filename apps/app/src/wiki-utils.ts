@@ -47,6 +47,14 @@ export function returnToHref(pathname: string, search = "", hash = "") {
   return `${pathname}${search}${hash}`;
 }
 
+/** The sign-in link for a route, returning to it without an explicit `scope`.
+ * Path-only (no origin), so it renders the same on the server. */
+export function signInHrefFor(location: { pathname: string; search: string; hash: string }) {
+  const returnUrl = new URL(location.pathname + location.search + location.hash, "http://reader.invalid");
+  returnUrl.searchParams.delete("scope");
+  return `/sign-in?redirect=${encodeURIComponent(returnUrl.pathname + returnUrl.search + returnUrl.hash)}`;
+}
+
 export function parseJsonArray<T>(raw: string, fallback: T[] = []): T[] {
   try {
     const parsed = JSON.parse(raw) as unknown;
