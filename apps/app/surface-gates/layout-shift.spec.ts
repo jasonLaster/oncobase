@@ -20,6 +20,8 @@ async function measureLayoutShift(browser: Browser, surface: Surface, viewport: 
   try {
     const page = await context.newPage();
     await page.addInitScript((entries) => {
+      // Test fixture running in the page: seeds a saved preference before boot.
+      // eslint-disable-next-line no-restricted-globals
       for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value);
       const state = { cls: 0, shifts: [] as string[] };
       (window as unknown as { __layoutShift: typeof state }).__layoutShift = state;
