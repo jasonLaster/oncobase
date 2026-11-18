@@ -174,19 +174,52 @@ SSR keeps that by construction:
 
 Each stage is one PR series, flag-controlled: `WIKI_READER_SSR = off | opt-in | public | all`. `opt-in` honours `?readerSsr=1` (lab and e2e); `?readerSsr=0` always opts out.
 
-**Stage 0. Server-safe first frame (S–M, no behaviour change).**
+**Stage 0. Server-safe first frame (S–M, no behaviour change).** Landed on branch `ssr-stage0` (2026-11-17, not pushed).
 
-- Work:
-  - Fixes 1–5 from §2.1.
-  - Delete the dead `wiki-html-first` code and the first-frame snapshot leftovers (`livestore/first-frame-snapshot.ts`, the key sweep in `main.tsx:32-38`).
-  - The boot inputs object (§3.1).
-  - The sidebar head script.
-  - `src/server-entry.tsx` plus its Vite SSR build in CI, with a new `READER_SSR_BUDGET_BYTES` (start at 1,400 KiB and ratchet down). The HTML-handler budget stays at 200 KiB: the renderer must remain a dynamic import.
-  - Revision 2: the hydration path from §8.6, items 1–6. They help the client-rendered reader too: a smaller paint set, no long tasks on big pages, cheaper controls on big pages.
-- Tests:
-  - `server-entry.test.tsx` (bun, no DOM). Fixtures: normal, math, raw HTML, mermaid, 18-table, sensitive, redaction canary. Asserts: no `<template data-msg` fallback; article and tree present; two renders byte-equal; the HTML contains a canary only if the payload does.
-  - Boot-inputs equality (§3.1).
-- Exit: CI green, with the SSR bundle built and budgeted. No user-visible change.
+- **Server-safety fixes (§2.1)**, each covered by a test that renders under Bun with no `window` or `document` (`src/server-safety.test.tsx`; the `useBrowserOnline` and dialog cases fail on the old code):
+  1. `useBrowserOnline` has a server snapshot (online).
+  2. The dead HTML-first code is gone: the account state no longer reads `#wiki-html-first` in render, seeding no longer stamps it, and `styles.css` no longer styles it.
+  3. The startup sign-in request (shortcut queue, `?reader-action=signin`) is captured as data and exposed through `useSyncExternalStore` with a server snapshot of `false`. A client render opens the dialog in its first render, as before; a server render, and a hydrating client, start closed.
+  4. `WikiPage`'s sign-in link comes from `signInHrefFor` (path only, no `window.location.origin`).
+  5. `preloadOptionalMarkdownStages` (`@oncobase/wiki-markdown/optional-stages`) loads exactly the math and raw-HTML stages `WikiMarkdown` would wait for, using its own two checks.
+- **Sidebar head script** (`wiki-shell/src/sidebar-startup.ts`, injected by `vite.config.ts`):
+  - It puts the saved width and collapse state on `<html>` before the first paint: `data-initial-sidebar-state` and `--wiki-sidebar-width`.
+  - The rail's width is `var(--wiki-sidebar-width, 256px)`, the same markup for every visitor. The current client uses the variable too, and `setResizableSidebarWidth` keeps it in sync.
+- **Boot inputs (§3.1)**: `ReaderBootInputs` plus three pure derivations (`documentSessionIdentity`, `documentPublicIdentity`, `documentInitialReaderData`).
+  - The client still snapshots the live document at the old moments: seeding removes the payload nodes, and a consumed page must not be read again.
+  - `boot-inputs.test.ts` builds documents with the server's own `page-bootstrap.ts`, reads them back from the HTML, and gets the same identity and first frame.
+- **The renderer** `src/server-entry.tsx`: `firstFrameFor` and `ReaderFirstFrame` (main.tsx's boundaries over `PresentingReader`, which `ReaderSession` now renders too).
+  - `renderReaderFirstFrame` returns null without a presentable payload, on error, or over its time budget (250 ms default, enforced by elapsed time as well as the abort signal).
+  - It uses `react-dom/static` `prerender` with `progressiveChunkSize: Infinity`. **Finding:** a streamed render outlined the article (a lazy module suspends on first use) and revealed it from an inline `$RC` script, behind React 19.2's ~300 ms reveal throttle, so the first paint would have been the skeleton.
+  - `server-entry.test.tsx`: no fallback or outlined boundary; byte-identical renders; math; raw HTML; 18 tables; a session page only for its identity and never under `?scope=public`; null for no payload, a sensitive page, or over budget.
+- **Build and budget**: `scripts/build-reader-ssr.ts` builds the renderer into `.vercel-functions/reader-ssr/` from `build-vercel-functions.ts`, with everything bundled.
+  - `READER_SSR_BUDGET_BYTES` = 1,080 KiB against a measured 1,021.0 KiB in 31 modules. The build fails if the renderer is missing, over budget, or statically imported by the HTML handler (185.6 KiB of 200 KiB).
+  - Under Node 25 the built module imports in 37 ms and renders a small page in 54 ms cold, 6 ms warm.
+  - No response uses it, so `WIKI_READER_SSR` is not needed yet.
+- **Not done in stage 0**, moved to stage 1 or left as written:
+  - The replay script and the render gate (§8.6 items 1 and 5): stage 1, by decision.
+  - The chrome-first hydration path (§8.6 items 2–4 and 6): stage 1. Each changes the client-rendered reader's behaviour (lazy body, Suspense boundaries, palette in the paint set).
+  - The first-frame snapshot leftovers (`dismissFirstFrameSnapshot`, `main.tsx`'s key sweep): kept. They still retire nodes and keys written by older releases.
+  - Mermaid and redaction-canary renderer fixtures: stage 1, with the wired response.
+- **Critical-path trims** (separate commits, each an A/B from the same base: `vite build`, then the paint closure from `check-bundle-budget.ts`, fflate gzip level 6):
+
+  | Change | Paint set before → after (gzip bytes) | Notes |
+  | --- | ---: | --- |
+  | Budget counts the real entry (`bundle-entry.ts`) | 320.2 → 314.9 KiB as counted (−5,022 B) | Measurement fix: swr's `index-*.js` (5,022 B, DICOM/pathology only) matched the entry pattern. No download changed. Allowance moved paint → lazy |
+  | Palette modules out of the wiki-shell index | 322,464 → 317,967 B (**−4,497 B**) | The index re-exported `palette.tsx` and `command-palette-pages.ts` (with fuzzysort), so they were placed in the paint-critical shell chunk (20,811 → 16,315 B). `"sideEffects"` alone did nothing (−14 B). CommandPalette now imports subpaths |
+  | Lazy-title wrapper | not a saving | Real build: the wrapper is inside the renderer chunk and `title-react-impl` is a 0.5 KiB lazy chunk. The 13.6 KiB in §8.6 came from the spike's chunking |
+  | React Router production build | ~0.5 KiB | Done on main (43779c2ae). The 14.2 KiB claim in §8.6 was wrong |
+  | lucide icons built per icon (measured, **not committed**) | 317,967 → 313,659 B (−4,308 B) | `vendor-icons` held all 142 icons any route uses, on the paint path (the lucide index is re-exported the same way). Building each icon from its own module moves 138 off paint, but the total grows +9.5 KiB (29 single-icon lazy chunks) and WikiViteRoot's budget would need +3.2 KiB. Needs a decision (open question 8) |
+  | P4 per-surface CSS | not attempted | The stylesheet is 64,866 B of the paint set. Splitting it means explicit `<link>`s per surface and reverses `cssCodeSplit: false`; not contained enough for stage 0 |
+
+  - Stage 0's own additions, measured the same way: sidebar script +~0.1 KiB, boot inputs +599 B (a shared 1.6 KiB chunk).
+  - Final paint set: 318,726 B (311.3 KiB) against 322,464 B for the corrected main base.
+- Exit (met, 2026-11-17):
+  - `bunx turbo run lint typecheck test:unit --continue`: 46 of 46 tasks green.
+  - Fresh `bun run build` and bundle budget green.
+  - Mocked e2e: 154 passed, 79 skipped (env-gated), 0 failed.
+  - Surface gates on the local stack (`surfaces:gates`): 121 of 121 passed.
+  - Layout shift with the two new saved-sidebar cases (360 px and collapsed reader article): 33 of 33 under 0.1.
 
 **Stage 1. Public-scope documents, opt-in, then `public` (M).**
 
@@ -268,6 +301,7 @@ Each stage is one PR series, flag-controlled: `WIKI_READER_SSR = off | opt-in | 
    - (c) No gate. Replay alone gives 245–505 ms gaps, with nothing dropped.
 
    I recommend (a), with (b)'s deadline as the safety valve.
+8. **Per-icon lucide imports.** A build-only transform that rewrites `import { X } from "lucide-react"` to the icon's own module saves 4,308 B of paint (138 of 142 icons leave the paint path). The price is +9.5 KiB in total, as 29 single-icon lazy chunks each with its own gzip overhead and request, plus a +3.2 KiB raise of WikiViteRoot's budget. Take it, take it with a lazy-only icons group (not yet measured), or leave it? The plugin is ready, but outside the branch.
 
 ## 8. Paint-to-responsive gap and input replay (spike revision 2, 2026-11-17)
 
@@ -360,12 +394,13 @@ Not exercised in the spike: keydown replay on a focused unhydrated control, and 
 4. **`content-visibility: auto` on sections** (P14). It took the drawer on the 18-table page from 175 to 35 ms idle, and paint from 2,048 to 1,812 ms.
 5. **The gate.** Render-blocking entry module, root pass via `flushSync(hydrateRoot)`, first-frame code as static imports, a deadline valve. Test that the root-commit mark comes before FCP.
 6. **Queued shortcuts adopted in a layout effect** (`Header.tsx`), calling `openPalette` directly. The bus listener is a passive effect and is not mounted yet. The palette chunk joins the paint set (+6.5 KiB gzip).
-7. **Buying the paint back** (not done in the spike, measured as candidates on the critical path). Each 20 KiB gzip is ~100 ms of first paint on this profile:
-   - React Router's `dist/development` chunk is in the production build: 14.2 KiB gzip.
-   - The `@oncobase/wiki-shell` barrel: 20 KiB.
-   - The lazy-title wrapper: 13.6 KiB.
-   - `reader-startup-cache` with fflate (3.6 KiB) and `visual-phase` (3.4 KiB), which the first frame does not need.
-   - Per-surface CSS (P4): 50 KiB now.
+7. **Buying the paint back.** Each 20 KiB gzip is ~100 ms of first paint on this profile. *Corrected 2026-11-17 by A/B builds of the real app (stage 0 above):* the spike's numbers came from the spike's own chunking and overstated most items.
+   - React Router's development build: ~0.5 KiB (done on main), not 14.2 KiB.
+   - wiki-shell index: −4.5 KiB (done), not 20 KiB.
+   - Lazy-title wrapper: nothing to save.
+   - Per-icon lucide: −4.3 KiB of paint for +9.5 KiB total (open question 8).
+   - `reader-startup-cache` with fflate (3.9 KiB) and `visual-phase` (4.4 KiB) are still on the paint path. The first decodes the startup snapshot for the cached first paint and goes with it in stage 3.
+   - Per-surface CSS (P4): 63.3 KiB.
    - Production serves HTTP/2 with priorities; the spike's static server was HTTP/1.1.
 
 ### 8.7 Remaining blockers and limits
