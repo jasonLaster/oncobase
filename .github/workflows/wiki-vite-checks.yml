@@ -240,6 +240,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: preview-url
+    # Browsers and their system libraries come preinstalled: `playwright install
+    # --with-deps` spent the whole 20 minutes on a slow Ubuntu mirror twice on
+    # 2026-11-18. Keep the tag equal to apps/app's @playwright/test version.
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+      options: --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -248,13 +254,13 @@ jobs:
         browser: [webkit]
     steps:
       - uses: actions/checkout@v5
+      # setup-bun unpacks a zip file.
+      - name: Install unzip
+        run: apt-get update -qq && apt-get install -y -qq unzip
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.12
       - run: bun install --frozen-lockfile
-      - name: Install browser
-        working-directory: apps/app
-        run: bunx playwright install --with-deps ${{ matrix.browser }}
       - name: Check anonymous and synthetic browser startup
         working-directory: apps/app
         env:
