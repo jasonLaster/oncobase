@@ -403,6 +403,8 @@ export async function installWikiApiMocks(page: Page, options: MockOptions = {})
   // Synthetic reader visits must never update real popularity statistics.
   // Prefetch-specific tests override this route explicitly.
   await page.route("**/api/wiki/prefetch**", route => route.fulfill({ json: { enabled: false, slugs: [] } }));
+  // Jev recommendations are on by default: answer with none, so mocked specs never reach a real model.
+  await page.route("**/api/wiki/palette-recommend**", route => route.fulfill({ json: { model: null, results: [] } }));
   options.pageOverrides = { ...options.pageOverrides };
   const siteSlug = options.siteSlug ?? defaultSiteSlug;
   let manifestFailure = options.manifestFailure === true;

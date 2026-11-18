@@ -176,7 +176,7 @@ test.describe("command palette (mocked backend)", () => {
     await waitForPageTitle(page, "Care planning overview");
   });
 
-  test("with the Jev flag on, recommended pages list first and Enter opens the top one", async ({ page }) => {
+  test("Jev recommendations list first by default, Enter opens the top one, and the action turns them off", async ({ page }) => {
     const asked: Array<{ query: string; candidates: Array<{ slug: string; tags?: string[] }> }> = [];
     // Requests wait until the test answers every one held so far, while `hold` is on.
     let hold = true;
@@ -192,29 +192,19 @@ test.describe("command palette (mocked backend)", () => {
     const palette = page.getByTestId("command-palette");
     const input = page.getByTestId("command-palette-input");
 
-    // Off by default: typing asks nothing.
-    await input.fill("insurance");
-    await expect(palette.getByRole("option").first()).toContainText(/insurance/i);
-    await page.waitForTimeout(400);
-    expect(asked).toHaveLength(0);
-
-    // The action toggles the flag and returns to Find files.
-    await input.press("Escape");
-    await page.keyboard.press(`${mod}+K`);
-    await page.keyboard.press("A");
-    await page.getByRole("button", { name: /Recommend pages with Jev/ }).click();
     // The matches show at once, under a Recommended group that holds its place while Jev answers.
-    await page.getByTestId("command-palette-input").fill("logistics");
+    await input.fill("logistics");
     await expect(palette.getByText("Finding the best pages…")).toBeVisible();
     await expect(palette.getByRole("option").first()).toContainText(/insurance/i);
-    await expect.poll(() => asked.length).toBe(1);
+    await expect.poll(() => asked.length).toBeGreaterThanOrEqual(1);
     answer();
     await expect(palette).toHaveAttribute("data-recommend", "done");
     await expect(palette.getByText("Finding the best pages…")).toHaveCount(0);
 
     // Fuzzy search finds nothing for this query; the recommendations still do.
-    await page.getByTestId("command-palette-input").fill("logistics plan");
-    await expect.poll(() => asked.length).toBe(2);
+    const before = asked.length;
+    await input.fill("logistics plan");
+    await expect.poll(() => asked.length).toBeGreaterThan(before);
     answer();
     await expect(palette).toHaveAttribute("data-recommend", "done");
     expect(asked.at(-1)?.query).toBe("logistics plan");
@@ -224,15 +214,21 @@ test.describe("command palette (mocked backend)", () => {
     await expect(options.nth(0)).toContainText(/week 5/i);
     await expect(options.nth(0)).toHaveAttribute("aria-selected", "true");
     await expect(options.nth(1)).toContainText(/insurance/i);
-    await page.getByTestId("command-palette-input").press("Enter");
+    await input.press("Enter");
     await expect(page).toHaveURL(/\/wiki\/updates\/week-5-april-12-to-18$/);
 
-    // The choice persists on this device.
+    // The action turns it off and returns to Find files; the choice persists on this device.
     hold = false;
+    await page.keyboard.press(`${mod}+K`);
+    await page.keyboard.press("A");
+    await page.getByRole("button", { name: /Stop recommending pages with Jev/ }).click();
     await page.reload();
     await page.keyboard.press(`${mod}+K`);
-    await page.getByTestId("command-palette-input").fill("logistics");
-    await expect(palette).toHaveAttribute("data-recommend", "done");
-    expect(asked.at(-1)?.query).toBe("logistics");
+    const count = asked.length;
+    await page.getByTestId("command-palette-input").fill("insurance");
+    await expect(palette.getByRole("option").first()).toContainText(/insurance/i);
+    await page.waitForTimeout(400);
+    expect(asked).toHaveLength(count);
+    await expect(palette.getByText("Recommended", { exact: true })).toHaveCount(0);
   });
 });
