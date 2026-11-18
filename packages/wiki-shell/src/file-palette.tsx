@@ -29,7 +29,6 @@ export type WikiFilePalettePage = {
 
 export type WikiFilePaletteRow =
   | { type: "heading"; label: string }
-  | { type: "status"; label: string }
   | { type: "page"; page: WikiFilePalettePage; pageIndex: number };
 
 export type WikiFilePaletteState = {
@@ -76,7 +75,6 @@ export function buildWikiFilePaletteState(
   query: string,
   recentSlugs: string[] = [],
   recommendedSlugs: string[] = [],
-  recommendPending = false,
 ): WikiFilePaletteState {
   return buildCommandPaletteRows({
     pages,
@@ -84,7 +82,6 @@ export function buildWikiFilePaletteState(
     query,
     recentSlugs: recentSlugs.slice(0, WIKI_FILE_PALETTE_MAX_RECENT),
     recommendedSlugs,
-    recommendPending,
   });
 }
 
@@ -120,19 +117,6 @@ function WikiFilePaletteEntries({
         {virtualItems.map((virtualItem) => {
           const row = rows[virtualItem.index];
           if (!row) return null;
-
-          if (row.type === "status") {
-            return (
-              <div
-                aria-live="polite"
-                className="wiki-shell-file-palette-status"
-                key={`status-${virtualItem.index}`}
-                style={{ transform: `translateY(${virtualItem.start}px)` }}
-              >
-                {row.label}
-              </div>
-            );
-          }
 
           if (row.type === "heading") {
             return (
@@ -209,8 +193,8 @@ export type WikiFilePaletteProps = {
 };
 
 const EMPTY_RECOMMENDED: string[] = [];
-const RECOMMEND_DEBOUNCE_MS = 150;
-const PALETTE_STATUS_HEIGHT = 40;
+/** Asks again once typing pauses; each keystroke cancels the pending ask. */
+const RECOMMEND_DEBOUNCE_MS = 250;
 
 export function WikiFilePalette({
   footer,
@@ -245,8 +229,9 @@ export function WikiFilePalette({
     setActiveIndex(0);
   }, []);
 
-  // Recommendations belong to the query they were asked for, so a stale
-  // answer never shows under a newer query.
+  // The last answer stays on screen while the next one is asked for, so the
+  // group never blinks out as you type; a spinner in the search box shows
+  // that a newer answer is coming.
   const [recommendation, setRecommendation] = useState<{ query: string; slugs: string[] } | null>(null);
   useEffect(() => {
     if (!open || !recommend || query.length < 2) return;
@@ -259,14 +244,14 @@ export function WikiFilePalette({
     }, RECOMMEND_DEBOUNCE_MS);
     return () => { window.clearTimeout(timeout); controller.abort(); };
   }, [open, query, recommend]);
-  const answered = recommendation?.query === query;
-  const recommendedSlugs = answered ? recommendation.slugs : EMPTY_RECOMMENDED;
+  const asking = Boolean(recommend) && query.length >= 2;
+  const recommendedSlugs = asking && recommendation ? recommendation.slugs : EMPTY_RECOMMENDED;
   // From the first keystroke until the answer for this query arrives.
-  const recommending = Boolean(recommend) && query.length >= 2 && !answered;
+  const recommending = asking && recommendation?.query !== query;
 
   const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(
-    () => buildWikiFilePaletteState(pages, query, recentSlugs, recommendedSlugs, recommending),
-    [pages, query, recentSlugs, recommendedSlugs, recommending],
+    () => buildWikiFilePaletteState(pages, query, recentSlugs, recommendedSlugs),
+    [pages, query, recentSlugs, recommendedSlugs],
   );
 
   // Recommendations arrive after the matches: keep the page the reader has
@@ -286,10 +271,10 @@ export function WikiFilePalette({
 
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
-    estimateSize: (index) => {
-      const type = visibleRows[index]?.type;
-      return type === "heading" ? PALETTE_HEADING_HEIGHT : type === "status" ? PALETTE_STATUS_HEIGHT : PALETTE_ROW_HEIGHT;
-    },
+    estimateSize: (index) =>
+      visibleRows[index]?.type === "heading"
+        ? PALETTE_HEADING_HEIGHT
+        : PALETTE_ROW_HEIGHT,
     getScrollElement: () => listElement,
     overscan: 8,
   });
@@ -478,6 +463,8 @@ export function WikiFilePalette({
             data-test-id="command-palette-input"
             onChange={(event) => {
               setSearch(event.target.value);
+              // Clearing the query starts recommendations over.
+              if (event.target.value.trim().length < 2) setRecommendation(null);
               setActiveIndex(0);
               rowVirtualizer.scrollToIndex(0, { align: "start" });
             }}
@@ -487,7 +474,9 @@ export function WikiFilePalette({
             role="combobox"
             value={search}
           />
-          {searchIcon}
+          {recommending ? (
+            <span aria-label="Finding recommended pages" className="wiki-shell-file-palette-spinner" role="status" />
+          ) : searchIcon}
         </WikiCommandSearch>
         <WikiCommandList
           aria-label="pages results"

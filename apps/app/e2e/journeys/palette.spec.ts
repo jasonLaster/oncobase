@@ -192,25 +192,32 @@ test.describe("command palette (mocked backend)", () => {
     const palette = page.getByTestId("command-palette");
     const input = page.getByTestId("command-palette-input");
 
-    // The matches show at once, under a Recommended group that holds its place while Jev answers.
+    // The matches show at once; a spinner in the search box shows Jev is working.
     await input.fill("logistics");
-    await expect(palette.getByText("Finding the best pages…")).toBeVisible();
+    const spinner = palette.getByRole("status", { name: "Finding recommended pages" });
+    await expect(spinner).toBeVisible();
     await expect(palette.getByRole("option").first()).toContainText(/insurance/i);
     await expect.poll(() => asked.length).toBeGreaterThanOrEqual(1);
     answer();
     await expect(palette).toHaveAttribute("data-recommend", "done");
-    await expect(palette.getByText("Finding the best pages…")).toHaveCount(0);
-
-    // Fuzzy search finds nothing for this query; the recommendations still do.
-    const before = asked.length;
-    await input.fill("logistics plan");
-    await expect.poll(() => asked.length).toBeGreaterThan(before);
-    answer();
-    await expect(palette).toHaveAttribute("data-recommend", "done");
-    expect(asked.at(-1)?.query).toBe("logistics plan");
-    expect(asked.at(-1)?.candidates.find(candidate => candidate.slug === "wiki/logistics/insurance")?.tags).toEqual(["logistics", "insurance"]);
+    await expect(spinner).toHaveCount(0);
     await expect(palette.getByText("Recommended", { exact: true })).toBeVisible();
     const options = palette.getByRole("option");
+    await expect(options.nth(0)).toContainText(/week 5/i);
+
+    // Typing asks again after a pause; the last recommendations stay until the new ones arrive.
+    const before = asked.length;
+    await input.pressSequentially(" plan", { delay: 30 });
+    await expect(spinner).toBeVisible();
+    await expect(palette.getByText("Recommended", { exact: true })).toBeVisible();
+    await expect(options.nth(0)).toContainText(/week 5/i);
+    await expect.poll(() => asked.length).toBeGreaterThan(before);
+    // One ask for the paused query, not one per keystroke.
+    expect(asked.slice(before).map(request => request.query)).toEqual(["logistics plan"]);
+    answer();
+    await expect(palette).toHaveAttribute("data-recommend", "done");
+    await expect(spinner).toHaveCount(0);
+    expect(asked.at(-1)?.candidates.find(candidate => candidate.slug === "wiki/logistics/insurance")?.tags).toEqual(["logistics", "insurance"]);
     await expect(options.nth(0)).toContainText(/week 5/i);
     await expect(options.nth(0)).toHaveAttribute("aria-selected", "true");
     await expect(options.nth(1)).toContainText(/insurance/i);

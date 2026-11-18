@@ -1580,17 +1580,22 @@ html[data-initial-sidebar-state="collapsed"]
   width: 100%;
 }
 
-.wiki-shell-file-palette-status {
-  align-items: center;
-  color: var(--muted-foreground);
-  display: flex;
-  font-size: 0.8125rem;
-  height: 2.5rem;
-  left: 0;
-  padding: 0 0.5rem 0 2.5rem;
-  position: absolute;
-  top: 0;
-  width: 100%;
+.wiki-shell-file-palette-spinner {
+  animation: wiki-shell-file-palette-spin 0.8s linear infinite;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  border-top-color: var(--muted-foreground);
+  flex: none;
+  height: 1rem;
+  width: 1rem;
+}
+
+@keyframes wiki-shell-file-palette-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-shell-file-palette-spinner { animation-duration: 2.4s; }
 }
 
 .wiki-shell-file-palette .wiki-shell-file-palette-item {

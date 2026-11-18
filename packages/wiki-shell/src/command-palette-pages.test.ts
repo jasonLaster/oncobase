@@ -242,18 +242,6 @@ describe("recommended pages", () => {
     expect(rows.visibleRows.filter(row => row.type === "page").map(row => row.type === "page" && row.pageIndex)).toEqual(rows.visibleEntries.map((_, index) => index));
   });
 
-  test("while recommendations load, the group holds its place above the matches", () => {
-    const rows = buildCommandPaletteRows({
-      pages: entries, prepared: prepareCommandPalettePages(entries), query: "tissue", recentSlugs: [], recommendPending: true,
-    });
-    expect(rows.visibleRows.slice(0, 3).map(row => row.type === "page" ? row.page.slug : `${row.type}: ${row.label}`)).toEqual([
-      "heading: Recommended", "status: Finding the best pages…", "heading: Matches",
-    ]);
-    // Enter opens the first match until the recommendations arrive.
-    const firstRow = rows.visibleRows.find(row => row.type === "page");
-    expect(firstRow?.type === "page" && firstRow.pageIndex).toBe(0);
-  });
-
   test("without recommendations the list is the plain ranked matches", () => {
     expect(build([]).visibleRows.some(row => row.type === "heading")).toBe(false);
   });

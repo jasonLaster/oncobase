@@ -29,7 +29,6 @@ export type CommandPalettePreparedPage = {
 
 export type CommandPaletteRow =
   | { type: "heading"; label: string }
-  | { type: "status"; label: string }
   | { type: "page"; page: CommandPalettePageEntry; pageIndex: number };
 
 export type CommandPaletteRowSet = {
@@ -171,7 +170,6 @@ export function buildCommandPaletteRows({
   query,
   recentSlugs,
   recommendedSlugs = [],
-  recommendPending = false,
 }: {
   pages: CommandPalettePageEntry[];
   prepared: CommandPalettePreparedPage[];
@@ -179,8 +177,6 @@ export function buildCommandPaletteRows({
   recentSlugs: string[];
   /** Pages a host recommends for this query (best first), listed above the matches. */
   recommendedSlugs?: string[];
-  /** The host is still choosing recommendations: hold their place at the top. */
-  recommendPending?: boolean;
 }): CommandPaletteRowSet {
   const empty: CommandPaletteRowSet = {
     recentEntries: [],
@@ -250,13 +246,12 @@ export function buildCommandPaletteRows({
     const recommended = [...new Set(recommendedSlugs.map((slug) => overviewBySlug.get(slug) ?? slug))]
       .map((slug) => bySlug.get(slug))
       .filter((page): page is CommandPalettePageEntry => Boolean(page));
-    if (recommended.length > 0 || recommendPending) {
+    if (recommended.length > 0) {
       const shown = new Set(recommended.map((page) => page.slug));
       const matches = ranked.filter((page) => !shown.has(page.slug));
       const visibleEntries = [...recommended, ...matches];
       const visibleRows: CommandPaletteRow[] = [
         { type: "heading", label: "Recommended" },
-        ...(recommended.length === 0 ? [{ type: "status" as const, label: "Finding the best pages…" }] : []),
         ...recommended.map((page, pageIndex) => ({ type: "page" as const, page, pageIndex })),
         ...(matches.length > 0 ? [{ type: "heading" as const, label: "Matches" }] : []),
         ...matches.map((page, index) => ({ type: "page" as const, page, pageIndex: recommended.length + index })),
