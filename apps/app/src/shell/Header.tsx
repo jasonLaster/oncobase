@@ -23,7 +23,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -120,16 +119,23 @@ export function startupSignInRequested(pending: string | null | undefined, searc
   return pending === "signin" || new URLSearchParams(search).get("reader-action") === "signin";
 }
 
+const noSubscription = () => () => {};
+const serverStartupSignIn = () => false;
+
 export function HeaderAuthDialogHost() {
   const { setSessionUser, submitAuth } = useWikiViteAuth();
-  // Closed in the first render on server and client alike; a startup request
-  // opens it in a layout effect, before the first paint.
-  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  // A startup sign-in request, captured once per mount as data (it renders
+  // nothing itself). A client render opens the dialog in its first render, as
+  // before; a server render, and a client hydrating one, start closed (the
+  // server snapshot) and open right after.
+  const [startupRequest] = useState(() => typeof window !== "undefined" &&
+    startupSignInRequested(window.__wikiReaderShortcuts?.pending, location.search));
+  const startupSignIn = useSyncExternalStore(noSubscription, () => startupRequest, serverStartupSignIn);
+  const [startupDismissed, setStartupDismissed] = useState(false);
+  const [requestedOpen, setAuthDialogOpen] = useState(false);
+  const authDialogOpen = requestedOpen || (startupSignIn && !startupDismissed);
   const [authMode, setAuthMode] =
     useState<WikiActionsMenuAuthMode>("signin");
-  useLayoutEffect(() => {
-    if (startupSignInRequested(window.__wikiReaderShortcuts?.pending, location.search)) setAuthDialogOpen(true);
-  }, []);
 
   useEffect(() => {
     const onOpenAuthDialog = (event: Event) => {
@@ -149,7 +155,7 @@ export function HeaderAuthDialogHost() {
     <WikiAuthDialog
       initialMode={authMode}
       onAuthSubmit={submitAuth}
-      onClose={() => setAuthDialogOpen(false)}
+      onClose={() => { setAuthDialogOpen(false); setStartupDismissed(true); }}
       onSessionChange={setSessionUser}
       open={authDialogOpen}
     />
