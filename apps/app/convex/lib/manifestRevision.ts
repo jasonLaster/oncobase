@@ -21,7 +21,9 @@ export async function queueManifestBuild(ctx: MutationCtx, siteId: Id<"sites">, 
   const queuedAt = Date.now();
   const generation = (site.manifestBuildGeneration ?? 0) + 1;
   await ctx.db.patch(siteId, { manifestBuildQueuedAt: queuedAt, manifestBuildGeneration: generation });
-  await ctx.scheduler.runAfter(delayMs, internal.manifestBuilder.build, { siteSlug: site.slug, queuedAt, generation, attempt, ...(clientTraceId ? { clientTraceId } : {}), ...(delta ? { delta } : {}) });
+  // Deltas run in the default runtime; they hand off to the Node full builder
+  // themselves when the snapshot cannot be patched.
+  await ctx.scheduler.runAfter(delayMs, delta ? internal.manifestDeltaBuilder.build : internal.manifestBuilder.build, { siteSlug: site.slug, queuedAt, generation, attempt, ...(clientTraceId ? { clientTraceId } : {}), ...(delta ? { delta } : {}) });
 }
 
 // Called in the same transaction as every manifest-affecting write. This also

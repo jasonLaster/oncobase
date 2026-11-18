@@ -1,10 +1,18 @@
 import { expect, test } from "bun:test";
 import { getFunctionName } from "convex/server";
 import { createHash } from "node:crypto";
-import { build } from "../manifestBuilder";
+import { build as fullBuild } from "../manifestBuilder";
+import { build as deltaBuild } from "../manifestDeltaBuilder";
 import { MANIFEST_SNAPSHOT_VERSION } from "./manifestRevision";
 
-const handler = (build as unknown as { _handler: (ctx: any, args: any) => Promise<null> })._handler;
+type Handler = (ctx: any, args: any) => Promise<null>;
+const handler = (fullBuild as unknown as { _handler: Handler })._handler;
+const deltaHandler = (deltaBuild as unknown as { _handler: Handler })._handler;
+const withoutTelemetry = async (run: () => Promise<unknown>) => {
+  const savedOrigin = process.env.WIKI_TELEMETRY_ORIGIN;
+  delete process.env.WIKI_TELEMETRY_ORIGIN;
+  try { await run(); } finally { if (savedOrigin !== undefined) process.env.WIKI_TELEMETRY_ORIGIN = savedOrigin; }
+};
 
 test("scheduled public additions use the delta and forward ownership to installation", async () => {
   const core = { schemaVersion: 1, siteSlug: "alpha", scope: "public", compactTree: [], pages: [], assets: [] };
@@ -15,7 +23,7 @@ test("scheduled public additions use the delta and forward ownership to installa
   const savedOrigin = process.env.WIKI_TELEMETRY_ORIGIN;
   delete process.env.WIKI_TELEMETRY_ORIGIN;
   try {
-    await handler({
+    await deltaHandler({
       runQuery: async (ref: any) => {
         const name = getFunctionName(ref); queries.push(name);
         if (name === "manifestCache:revision") return 1;
@@ -58,4 +66,51 @@ test("a failed install and failed blob cleanup still reach durable retry handlin
   } finally {
     if (savedOrigin !== undefined) process.env.WIKI_TELEMETRY_ORIGIN = savedOrigin;
   }
+});
+
+test("a delta that cannot be patched hands off to the Node full builder under the same ownership", async () => {
+  for (const scenario of ["base-unavailable", "full-required"] as const) {
+    const scheduled: any[] = [], mutations: any[] = [];
+    await withoutTelemetry(() => deltaHandler({
+      runQuery: async (ref: any) => {
+        const name = getFunctionName(ref);
+        if (name === "manifestCache:revision") return scenario === "full-required" ? 5 : 1;
+        if (name === "manifestCache:deltaBase") return null;
+        if (name === "documents:internal_publisherManifestPages") return [];
+        throw Error(`Unexpected query ${name}`);
+      },
+      storage: { get: async () => { throw Error("No base to read"); }, store: async () => { throw Error("Delta must not store"); } },
+      runMutation: async (ref: any, args: any) => { mutations.push({ name: getFunctionName(ref), ...args }); return null; },
+      scheduler: { runAfter: async (delay: number, ref: any, args: any) => { scheduled.push({ delay, name: getFunctionName(ref), ...args }); } },
+    }, { siteSlug: "alpha", queuedAt: 10, generation: 9, attempt: 0, clientTraceId: "b".repeat(32), delta: { baseRevision: 0, slugs: ["page"] } }));
+    expect(mutations).toEqual([]);
+    expect(scheduled).toHaveLength(1);
+    const { fallback, ...job } = scheduled[0];
+    // Same queue lease and generation, no delta: the full build owns installation.
+    expect(job).toEqual({ delay: 0, name: "manifestBuilder:build", siteSlug: "alpha", queuedAt: 10, generation: 9, attempt: 0, clientTraceId: "b".repeat(32) });
+    expect(fallback.reason).toBe(scenario);
+    if (scenario === "base-unavailable") expect(typeof fallback.deltaReadMs).toBe("number");
+    else expect(fallback.deltaReadMs).toBeUndefined();
+  }
+});
+
+test("the full builder ignores a legacy delta and records the fallback reason", async () => {
+  const queries: string[] = [], logged: any[] = [];
+  const info = console.info;
+  console.info = (_label: string, json: string) => { logged.push(JSON.parse(json)); };
+  try {
+    await withoutTelemetry(() => handler({
+      runQuery: async (ref: any) => {
+        const name = getFunctionName(ref); queries.push(name);
+        if (name === "manifestCache:revision") return 2;
+        if (name === "documents:internal_listManifestPage" || name === "documents:internal_listPdfAssetVisibilityPage" || name === "documents:internal_listFileAssetVisibilityPage") return { page: [], isDone: true, continueCursor: null };
+        throw Error(`Unexpected query ${name}`);
+      },
+      storage: { store: async () => "full-blob", delete: async () => {} },
+      runMutation: async () => "installed",
+    }, { siteSlug: "alpha", generation: 3, delta: { baseRevision: 1, slugs: ["page"] }, fallback: { reason: "unsupported-pages", deltaReadMs: 12 } }));
+  } finally { console.info = info; }
+  expect(queries).not.toContain("manifestCache:deltaBase");
+  expect(logged).toHaveLength(1);
+  expect(logged[0]).toMatchObject({ incremental: false, strategyReason: "unsupported-pages", outcome: "installed", succeeded: true, phases: { deltaRead: 12 } });
 });

@@ -165,10 +165,12 @@ test("manifest strategy follows actual writes, with bounded journals and conserv
     expect((await t.run(ctx => ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", siteId).eq("runId", runId)).collect())).length).toBeGreaterThan(0);
     await t.mutation(api.sites.finishPublish, { slug: "fixture", runId });
     const jobs = await t.run(ctx => ctx.db.system.query("_scheduled_functions").collect());
-    const build = jobs.find(job => job.name === "manifestBuilder:build")!;
+    const deltaScenario = scenario === "one" || scenario === "bulk";
+    // Deltas run in the default runtime; everything else goes straight to the Node full builder.
+    const build = jobs.find(job => job.name === (deltaScenario ? "manifestDeltaBuilder:build" : "manifestBuilder:build"))!;
     expect(build).toBeDefined();
     const args = build.args[0] as { delta?: { slugs: string[] } };
-    if (scenario === "one" || scenario === "bulk") expect(args.delta?.slugs).toEqual(["doc-0"]);
+    if (deltaScenario) expect(args.delta?.slugs).toEqual(["doc-0"]);
     else expect(args.delta).toBeUndefined();
     await t.mutation(internal.sites.cleanupPublishChanges, { siteId, runId });
     // eslint-disable-next-line no-restricted-syntax -- Test fixture queries its explicit site/run index.
