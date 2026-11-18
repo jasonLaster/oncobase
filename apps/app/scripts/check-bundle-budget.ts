@@ -211,7 +211,10 @@ const storeGzipBudget = 855_000;
 // conversation, call UI with its own styles), loaded only when a reader opens
 // Talk: 4_229_000 -> 4_235_000. The call chunk then took on the avatar's
 // styles (7.8 KiB), and Vercel measured 4136.2 KiB: 4_235_000 -> 4_238_000.
-const lazyGzipBudget = 4_238_000;
+// Voice navigation (open_page via the palette's Jev ranking) adds 0.9 KiB to the
+// call chunk and splits palette-recommend into a shared 1.0 KiB chunk; local
+// 4_235_996, and Vercel measures ~0.8 KiB higher: 4_238_000 -> 4_240_000.
+const lazyGzipBudget = 4_240_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

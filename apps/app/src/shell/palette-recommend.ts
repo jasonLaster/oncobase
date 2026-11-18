@@ -66,8 +66,10 @@ export function recommendCandidates(pages: PageIndexRow[], query: string, fuzzyS
     if (/-(raw|formatted)$/.test(entry.row.slug) && bySlug.has(entry.row.slug.replace(/-(raw|formatted)$/, "-overview"))) continue;
     chosen.set(entry.row.slug, entry);
   }
+  // Clipped to what the route accepts: one page without a frontmatter title
+  // (a poster's long first heading) would otherwise fail the whole request.
   return [...chosen.values()].slice(0, limit).map(({ row, tags }) => ({
-    slug: row.slug, title: row.title, ...(tags.length ? { tags: tags.slice(0, 8) } : {}),
+    slug: row.slug, title: row.title.slice(0, 300), ...(tags.length ? { tags: tags.slice(0, 8).map(tag => tag.slice(0, 80)) } : {}),
     ...(row.description ? { description: row.description.slice(0, 300) } : {}),
   }));
 }

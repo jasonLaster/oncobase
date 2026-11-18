@@ -2,9 +2,13 @@ import { safeLocalStorage } from "@oncobase/safe-storage";
 import { connectTalk, TalkStartError, type TalkEvent, type TalkFailure, type TalkTransport } from "@oncobase/education/talk-transport";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
+import { EMPTY_READER_ROWS, readerQuery, useInitialReaderData, useReaderQuery } from "../bootstrap/reader-queries";
+import type { PageIndexRow } from "../types";
+import { useWikiScope } from "../wiki-context";
 import { isDocumentRoute } from "../shell/document-routes";
-import { contentSlugFromRouteSlug, slugFromPath } from "../wiki-utils";
+import { contentSlugFromRouteSlug, hrefForSlug, slugFromPath } from "../wiki-utils";
+import { findTalkPage } from "./find-page";
 import { PageConversation, type PageTalkStatus, type TalkPage } from "./page-conversation";
 import { TalkAvatar } from "./TalkAvatar";
 import talkCss from "./talk.css?inline";
@@ -126,6 +130,13 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
   const conversation = useRef<PageConversation | null>(null);
   const live = consented && !ended;
   const start = useRef<HTMLButtonElement>(null);
+  // open_page reads these when the voice asks, so they live in a ref.
+  const navigate = useNavigate();
+  const scope = useWikiScope();
+  const initial = useInitialReaderData();
+  const pages = useReaderQuery(readerQuery.pageIndex, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
+  const reader = useRef({ navigate, scope, pages });
+  useEffect(() => { reader.current = { navigate, scope, pages }; }, [navigate, scope, pages]);
 
   // The consent card takes focus, and Escape dismisses it.
   useEffect(() => {
@@ -161,6 +172,14 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
       pointAt: heading => pointAtHeading(heading),
       onStatus: setStatus,
       onActivity: resetIdle,
+      findPage: request => findTalkPage(reader.current.pages, request, reader.current.scope),
+      navigate: slug => reader.current.navigate(hrefForSlug(slug)),
+      goBack: () => {
+        // React Router numbers this visit's entries; 0 is where the visit began.
+        if (!((window.history.state as { idx?: number } | null)?.idx)) return false;
+        void reader.current.navigate(-1);
+        return true;
+      },
     }, talkPageForPath(window.location.pathname));
     conversation.current = current;
 

@@ -116,6 +116,34 @@ test.describe("talk with the page (mocked backend, fake Realtime)", () => {
     await expect(launcher).toBeFocused();
   });
 
+  test("the voice opens a page the reader names (Jev picks it) and goes back", async ({ page }) => {
+    await setUp(page);
+    const asked: Array<{ query: string; candidates: Array<{ slug: string }> }> = [];
+    await page.route("**/api/wiki/palette-recommend**", async route => {
+      asked.push(route.request().postDataJSON());
+      await route.fulfill({ json: { model: "typesafe-ai/jev", results: [{ slug: "wiki/education/reading-a-tumor/index", score: 2.6 }] } });
+    });
+    await gotoWiki(page, "/wiki/logistics/insurance");
+    await startCall(page, () => page.getByTestId("talk-launcher").click());
+    const outputs = () => page.evaluate(() => window.__talk.sent.filter(event => event.item?.type === "function_call_output").map(event => JSON.parse(event.item!.output!)));
+
+    await page.evaluate(() => window.__talk.emit({ type: "response.done", response: { status: "completed", output: [{ type: "function_call", call_id: "open1", name: "open_page", arguments: JSON.stringify({ request: "the tumor reading lesson" }) }] } }));
+    await waitForPageTitle(page, "Reading a Tumor");
+    await expect(page).toHaveURL(/\/wiki\/education\/reading-a-tumor/);
+    await expect.poll(outputs).toEqual([expect.objectContaining({ status: "opened", title: "Reading a Tumor" })]);
+    // No page is named exactly that, so Jev chose from the reader's own candidates.
+    expect(asked[0]!.query).toBe("the tumor reading lesson");
+    expect(asked[0]!.candidates.map(candidate => candidate.slug)).toContain("wiki/education/reading-a-tumor/index");
+    // The new page's text went in once, before the answer, and the call stayed up.
+    expect((await notes(page)).filter(note => note.includes("Review morphology and biomarkers together."))).toHaveLength(1);
+    await expect(page.getByTestId("talk-call")).toBeVisible();
+
+    await page.evaluate(() => window.__talk.emit({ type: "response.done", response: { status: "completed", output: [{ type: "function_call", call_id: "back1", name: "go_back", arguments: "{}" }] } }));
+    await waitForPageTitle(page, "Treatment Plan");
+    await expect.poll(async () => (await outputs()).at(-1)).toMatchObject({ status: "went_back" });
+    expect((await notes(page)).at(-1)).toContain('has moved to the page "Treatment Plan"');
+  });
+
   test("a refused call explains itself and offers no retry when Talk is off", async ({ page }) => {
     await setUp(page);
     await page.route("**/api/wiki/talk", route => route.fulfill({ status: 503, json: { error: "Talk isn’t available right now" } }));

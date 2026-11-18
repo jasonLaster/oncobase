@@ -8,10 +8,12 @@ export const PAGE_TALK_GREETING = "Greet the reader in one short, warm sentence 
  * turn, so a call carries the start of the page and says it was cut. */
 export const PAGE_TALK_MAX_CHARS = 24_000;
 
+/** The page's own H1 names it better than its file name. */
+export const pageTitle = (page: { title: string; markdown: string | null }) => page.markdown?.match(/^#\s+(.+)$/m)?.[1]?.trim() || page.title;
+
 /** The system note that tells the model which page the reader is on. */
 export function pageNote(page: { title: string; slug: string; markdown: string | null }, first: boolean) {
-  // The page's own H1 names it better than its file name.
-  const title = page.markdown?.match(/^#\s+(.+)$/m)?.[1]?.trim() || page.title;
+  const title = pageTitle(page);
   const where = `The reader ${first ? "is on" : "has moved to"} the page "${title}" (${page.slug}).`;
   if (page.markdown === null) return `${where} Its text could not be loaded, so say you can't see this page right now if they ask about it.`;
   const text = page.markdown.trim();
