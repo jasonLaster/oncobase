@@ -13,6 +13,9 @@ export type CommandPalettePageEntry = {
   title?: string;
   slug: string;
   path: string;
+  /** Host prior, about -0.3 to 0.3 on the 0–1 relevance scale: curated
+   * pages up, archives and clippings down, newer records slightly up. */
+  boost?: number;
 };
 
 export type CommandPaletteCompactFileNode =
@@ -25,6 +28,13 @@ export type CommandPalettePreparedPage = {
   prepName: Fuzzysort.Prepared;
   prepTitle: Fuzzysort.Prepared;
   prepPath: Fuzzysort.Prepared;
+  /** Normalized once here so a keystroke never re-normalizes every page. */
+  normName: string;
+  normTitle: string;
+  normSlug: string;
+  titleWords: number;
+  /** Words of the title, name and path, for whole-word prefix matching. */
+  words: string[];
 };
 
 export type CommandPaletteRow =
@@ -68,12 +78,46 @@ export function addCommandPaletteRecentSlug(slug: string) {
 export function prepareCommandPalettePages(
   pages: CommandPalettePageEntry[],
 ): CommandPalettePreparedPage[] {
-  return pages.map((page) => ({
-    page,
-    prepName: fuzzysort.prepare(page.name.replace(/-/g, " ")),
-    prepTitle: fuzzysort.prepare(page.title ?? page.name),
-    prepPath: fuzzysort.prepare(page.path),
-  }));
+  return pages.map((page) => {
+    const normTitle = normalize(page.title ?? page.name);
+    return {
+      page,
+      prepName: fuzzysort.prepare(page.name.replace(/-/g, " ")),
+      prepTitle: fuzzysort.prepare(page.title ?? page.name),
+      prepPath: fuzzysort.prepare(page.path),
+      normName: normalize(page.name),
+      normTitle,
+      normSlug: page.slug.toLowerCase(),
+      titleWords: normTitle.split(" ").length,
+      words: [...new Set(wordsOf(`${page.title ?? ""} ${page.name} ${page.slug}`))],
+    };
+  });
+}
+
+function normalize(text: string) {
+  return text.replace(/-/g, " ").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function wordsOf(text: string) {
+  return text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+/** "taxes" → "tax", "meds" → "med": plural endings only, never short words. */
+function stem(word: string) {
+  if (word.length > 4 && word.endsWith("es")) return word.slice(0, -2);
+  if (word.length > 3 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
+  return word;
+}
+
+/** Share of query words that begin some word of the page, in any order. */
+function wordCoverage(terms: string[], words: string[]) {
+  let hits = 0;
+  for (const term of terms) {
+    for (const word of words) {
+      if (word.startsWith(term)) { hits++; break; }
+    }
+  }
+  return hits / terms.length;
 }
 
 function childSlug(parentSlug: string, name: string) {
@@ -199,45 +243,44 @@ export function buildCommandPaletteRows({
 
   const normalizedSearch = query.trim().toLowerCase().replace(/\s+/g, " ");
   if (normalizedSearch) {
-    const results = fuzzysort.go(normalizedSearch, prepared, {
+    const fuzzy = new Map<string, number>();
+    for (const result of fuzzysort.go(normalizedSearch, prepared, {
       keys: ["prepName", "prepTitle", "prepPath"],
       threshold: 0,
-    });
-    const candidates = new Map(
-      results.map((result) => [
-        result.obj.page.slug,
-        { page: result.obj.page, score: result.score, titleRank: 0 },
-      ]),
-    );
+    })) fuzzy.set(result.obj.page.slug, result.score);
 
-    // Fuzzy search requires every query character to match. Also admit a
-    // complete, substantial title followed by a short suffix (e.g. "should").
-    // Keep short titles and queries with substantial extra terms restrictive.
-    const queryWordCount = normalizedSearch.split(" ").length;
-    for (const page of pages) {
-      const name = (page.title ?? page.name).replace(/-/g, " ").trim().toLowerCase().replace(/\s+/g, " ");
-      const wordCount = name.split(" ").length;
-      const exact = name === normalizedSearch || page.slug.toLowerCase() === normalizedSearch ||
-        page.name.replace(/-/g, " ").trim().toLowerCase() === normalizedSearch;
-      const completeTitle = wordCount >= 3 &&
-        wordCount / queryWordCount >= 0.75 && normalizedSearch.startsWith(`${name} `);
-      const titleRank = exact ? 2 : completeTitle ? 1 : 0;
-      if (titleRank) {
-        candidates.set(page.slug, {
-          page,
-          score: exact ? 1 : wordCount / queryWordCount,
-          titleRank,
-        });
-      }
+    // One pass over the prepared pages. A page qualifies by fuzzy match, by
+    // its exact or complete title, or by whole words: every query word (most
+    // of them, from three words) begins one of its words, in any order.
+    const queryWords = normalizedSearch.split(" ");
+    // A single letter begins nearly every page's words: leave it to fuzzy matching.
+    const terms = [...new Set(wordsOf(normalizedSearch).map(stem))].filter((term) => term.length > 1);
+    const stemmedSearch = queryWords.map(stem).join(" ");
+    const minimum = terms.length >= 3 ? (terms.length - 1) / terms.length : 1;
+    const candidates: Array<{ page: CommandPalettePageEntry; score: number; titleRank: number }> = [];
+    for (const entry of prepared) {
+      const { page } = entry;
+      const exact = entry.normTitle === normalizedSearch || entry.normSlug === normalizedSearch ||
+        entry.normName === normalizedSearch || entry.normName === stemmedSearch || entry.normTitle === stemmedSearch;
+      // A complete, substantial title followed by a short suffix (e.g. "should").
+      const completeTitle = entry.titleWords >= 3 &&
+        entry.titleWords / queryWords.length >= 0.75 && normalizedSearch.startsWith(`${entry.normTitle} `);
+      const coverage = terms.length ? wordCoverage(terms, entry.words) : 0;
+      const fuzzyScore = fuzzy.get(page.slug);
+      if (fuzzyScore === undefined && !exact && !completeTitle && coverage < minimum) continue;
+      // Exact and complete titles rank first. Within a tier, whole words and
+      // fuzzy closeness weigh the same and the host's prior (curated over
+      // archived, newer over older) settles near-ties. Bounded additive
+      // bonuses keep the comparator transitive.
+      const score = 0.5 * (fuzzyScore ?? 0) + 0.5 * coverage +
+        (page.boost ?? 0) + (recentSet.has(page.slug) ? 0.05 : 0);
+      candidates.push({ page, score, titleRank: exact ? 2 : completeTitle ? 1 : 0 });
     }
 
-    // Rank before limiting so title matches and close recent hits cannot be
-    // discarded by fuzzysort's own top-50 cutoff. A bounded additive bonus
-    // also keeps the comparator transitive, unlike pairwise score bands.
-    const scoreWithRecency = (result: { page: CommandPalettePageEntry; score: number }) =>
-      result.score + (recentSet.has(result.page.slug) ? 0.02 : 0);
-    const ranked = [...candidates.values()]
-      .sort((a, b) => b.titleRank - a.titleRank || scoreWithRecency(b) - scoreWithRecency(a))
+    // Rank before limiting so title, whole-word and recent hits cannot be
+    // discarded by fuzzysort's own cutoff.
+    const ranked = candidates
+      .sort((a, b) => b.titleRank - a.titleRank || b.score - a.score)
       .slice(0, COMMAND_PALETTE_MAX_SEARCH_RESULTS)
       .map((result) => result.page);
 

@@ -4,6 +4,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useLayoutEffect,
@@ -249,9 +250,12 @@ export function WikiFilePalette({
   // From the first keystroke until the answer for this query arrives.
   const recommending = asking && recommendation?.query !== query;
 
+  // Typing never waits on ranking: on a slow device the list catches up
+  // with the input instead of each keystroke blocking on a full re-rank.
+  const rankedQuery = useDeferredValue(query);
   const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(
-    () => buildWikiFilePaletteState(pages, query, recentSlugs, recommendedSlugs),
-    [pages, query, recentSlugs, recommendedSlugs],
+    () => buildWikiFilePaletteState(pages, rankedQuery, recentSlugs, recommendedSlugs),
+    [pages, rankedQuery, recentSlugs, recommendedSlugs],
   );
 
   // Recommendations arrive after the matches: keep the page the reader has

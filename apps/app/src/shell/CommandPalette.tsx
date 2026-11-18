@@ -79,6 +79,7 @@ import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline
 import { webMcpAvailable } from "../webmcp/webmcp-flag";
 import { paletteJevEnabled, setPaletteJevEnabled } from "./palette-jev-flag";
 import { fetchRecommendedSlugs, recommendCandidates } from "./palette-recommend";
+import { paletteBoost } from "./palette-boost";
 import { agentsMayReadPrivatePages, setAgentsMayReadPrivatePages } from "../webmcp/agent-access";
 
 export type PaletteMode = "pages" | "outline" | "assets" | "tags" | "actions" | "debug";
@@ -183,6 +184,7 @@ export function CommandPalette({
           title: titles.get(page.slug),
           path: segments.join(" / "),
           slug: page.slug,
+          boost: paletteBoost(page.slug),
         };
       });
     },

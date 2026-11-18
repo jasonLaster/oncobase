@@ -246,3 +246,41 @@ describe("recommended pages", () => {
     expect(build([]).visibleRows.some(row => row.type === "heading")).toBe(false);
   });
 });
+
+describe("smarter matching", () => {
+  const rank = (entries: CommandPalettePageEntry[], query: string, recentSlugs: string[] = []) =>
+    buildCommandPaletteRows({ pages: entries, prepared: prepareCommandPalettePages(entries), query, recentSlugs }).visibleEntries.map(page => page.slug);
+
+  test("whole words in any order beat scattered letters, and a page may miss one of three words", () => {
+    const entries: CommandPalettePageEntry[] = [
+      { name: "single-port-robotic-nipple-sparing-mastectomy-landscape", slug: "sources/research/syntheses/landscape", path: "sources / research" },
+      { name: "11-03-surgical-pathology", title: "November 3 surgical pathology — completion mastectomy and margins", slug: "sources/diagnostics/11-03-surgical-pathology", path: "sources / diagnostics" },
+    ];
+    expect(rank(entries, "mastectom path report")[0]).toBe("sources/diagnostics/11-03-surgical-pathology");
+    expect(rank(entries, "pathology mastectomy")).toEqual(["sources/diagnostics/11-03-surgical-pathology"]);
+  });
+
+  test("plurals match their singular page, and an exact stemmed name is an exact match", () => {
+    const entries: CommandPalettePageEntry[] = [
+      { name: "services-agreement", slug: "wiki/logistics/tax/echo-redlines/services-agreement", path: "wiki / logistics / tax" },
+      { name: "tax", slug: "wiki/logistics/tax", path: "wiki / logistics" },
+    ];
+    expect(rank(entries, "taxes")[0]).toBe("wiki/logistics/tax");
+  });
+
+  test("the host prior settles near-ties but not exact titles", () => {
+    const entries: CommandPalettePageEntry[] = [
+      { name: "clinical-trials", slug: "sources/research/zotero/clinical-trials", path: "sources / research", boost: -0.12 },
+      { name: "clinical-trials", slug: "wiki/treatment/clinical-trials", path: "wiki / treatment", boost: 0.12 },
+      { name: "ctdna-monitoring", slug: "wiki/care/ctdna-monitoring", path: "wiki / care", boost: 0.12 },
+      { name: "ctdna", slug: "sources/research/ctdna", path: "sources / research", boost: -0.12 },
+    ];
+    expect(rank(entries, "clinical trials")[0]).toBe("wiki/treatment/clinical-trials");
+    expect(rank(entries, "ctdna")[0]).toBe("sources/research/ctdna");
+  });
+
+  test("a single letter stays a fuzzy search", () => {
+    const entries: CommandPalettePageEntry[] = [{ name: "alpha", slug: "a", path: "" }, { name: "beta", slug: "b", path: "" }];
+    expect(rank(entries, "z")).toEqual([]);
+  });
+});
