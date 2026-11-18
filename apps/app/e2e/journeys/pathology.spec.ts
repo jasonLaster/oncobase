@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { keepAllResourceTimings } from "./helpers";
 import type { PathologyRegion, PathologySlide } from "@oncobase/diagnostics/pathology/model";
 
 const slides: PathologySlide[] = ["a", "b"].map((letter, index) => ({
@@ -67,6 +68,7 @@ async function draw(page: Page, label = "Draw region") {
 // (no wiki database, no real slides), so this needs only the app, not the local stack.
 
 test("opens independently of the wiki database, supports calibrated magnification and rotation, and keeps measurements calibrated through rotate and pan", async ({ page }) => {
+  await keepAllResourceTimings(page);
   const state = await fixture(page); await open(page);
   const failures: string[] = []; page.on("pageerror", e => failures.push(e.message));
   await expect(page.getByRole("heading", { name: "Pathology slides" })).toBeVisible();

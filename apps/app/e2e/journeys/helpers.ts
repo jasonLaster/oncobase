@@ -8,6 +8,15 @@ export const GATE_PASSWORD = "diana";
 export const CARE = { email: "care@local.test", password: "local-care-password" };
 export const READER = { email: "reader@local.test", password: "local-reader-password" };
 
+/**
+ * Chrome stops recording resource timings after 250 entries and drops later
+ * ones without an error. Under `bun dev` the reader's own module requests
+ * reach that limit on the first load. Call this before navigating whenever a
+ * test reads resource timings, so a missing entry can't fake a pass or a fail.
+ */
+export const keepAllResourceTimings = (page: Page) =>
+  page.addInitScript(() => performance.setResourceTimingBufferSize(100_000));
+
 export const article = (page: Page) => page.locator("article").filter({ visible: true }).first();
 
 export async function passGate(page: Page) {

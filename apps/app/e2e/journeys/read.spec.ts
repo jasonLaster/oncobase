@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { article, openPage, passGate, requireLocalStack } from "./helpers";
+import { article, keepAllResourceTimings, openPage, passGate, requireLocalStack } from "./helpers";
 
 requireLocalStack();
 
@@ -74,6 +74,7 @@ test.describe("reading the wiki (real backend)", () => {
   });
 
   test("revisiting a page makes no body request (P11)", async ({ page }) => {
+    await keepAllResourceTimings(page);
     const manifest = page.waitForResponse(response => response.url().includes("/api/wiki/manifest") && response.status() === 200);
     await openPage(page, "/", "Local Fixture Wiki");
     await manifest;
@@ -94,6 +95,7 @@ test.describe("reading the wiki (real backend)", () => {
 
   test("a versioned image is reopened from the HTTP cache in a new document (P11)", async ({ page }) => {
     const path = "/api/file?path=wiki%2Fimages%2Ftreatment-timeline.png";
+    await keepAllResourceTimings(page);
     await openPage(page, "/");
     // The server's ETag is the stored content hash: the same value the
     // manifest names an asset by.
