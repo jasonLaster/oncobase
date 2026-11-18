@@ -96,6 +96,8 @@ jobs:
       - name: Start local Convex stack
         working-directory: apps/app
         run: bun run local:stack
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Verify standalone server
         working-directory: apps/app

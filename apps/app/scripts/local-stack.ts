@@ -120,7 +120,17 @@ async function ensureBackendBinary(): Promise<string> {
   if (candidates[0]) return candidates[0];
   const { convex: triple } = platformTriple();
   log("Downloading convex-local-backend from github.com/get-convex/convex-backend releases");
-  const releases = await (await fetch("https://api.github.com/repos/get-convex/convex-backend/releases?per_page=20")).json() as Array<{ tag_name: string; assets: Array<{ name: string; browser_download_url: string }> }>;
+  // Unauthenticated calls share the runner IP's 60/hour limit; CI passes GITHUB_TOKEN.
+  const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
+  const response = await fetch("https://api.github.com/repos/get-convex/convex-backend/releases?per_page=20", {
+    headers: { accept: "application/vnd.github+json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+  });
+  const body = await response.json() as unknown;
+  if (!response.ok || !Array.isArray(body)) {
+    const message = (body as { message?: string } | null)?.message ?? "unexpected response";
+    throw new Error(`GitHub releases lookup failed (${response.status}): ${message}${token ? "" : ". Set GITHUB_TOKEN to raise the API rate limit."}`);
+  }
+  const releases = body as Array<{ tag_name: string; assets: Array<{ name: string; browser_download_url: string }> }>;
   const release = releases.find((entry) => entry.tag_name.startsWith("precompiled-") && entry.assets.some((asset) => asset.name === `convex-local-backend-${triple}.zip`));
   if (!release) throw new Error("No precompiled convex-local-backend release found");
   const asset = release.assets.find((entry) => entry.name === `convex-local-backend-${triple}.zip`)!;

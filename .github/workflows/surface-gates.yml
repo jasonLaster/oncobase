@@ -58,6 +58,8 @@ jobs:
       - name: Start local Convex stack
         working-directory: apps/app
         run: bun run local:stack
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       # Blocking: the ratchets fail only on new or worse violations, or on fixes that were not
       # recorded (shrink known-*.json with `bun run surfaces:ratchet`).

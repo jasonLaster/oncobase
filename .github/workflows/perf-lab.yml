@@ -50,6 +50,8 @@ jobs:
       - name: Run perf lab
         working-directory: apps/app
         run: bun run perf:lab --report-only --out "$RUNNER_TEMP/perf-lab/results.json" --summary "$RUNNER_TEMP/perf-lab/summary.md"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Write job summary
         if: always()
