@@ -9,6 +9,7 @@ import {
 } from "@oncobase/education/webmcp";
 import {
   findPassageElement,
+  headingText,
   highlightElement,
   slugifyHeading,
   useWebMcpTools,
@@ -181,7 +182,7 @@ export function useEducationWebMcpTools(pages: WikiManifestPage[], helpers: Educ
                 href: educationHref(slug),
                 headings: Array.from(root?.querySelectorAll<HTMLElement>("h2[id], h3[id]") ?? []).map((heading) => ({
                   id: heading.id,
-                  text: (heading.textContent ?? "").trim(),
+                  text: headingText(heading),
                 })),
               }
             : null,

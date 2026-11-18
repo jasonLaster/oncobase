@@ -246,13 +246,20 @@ export function waitForElement<T>(
   });
 }
 
+/** A heading's readable text: permalink anchors and `#` glyphs removed, and a
+ * `<br>` read as a space ("Cancer science,<br>made approachable."). */
+export function headingText(heading: Element) {
+  const clone = heading.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('a[href^="#"], a[aria-hidden="true"], .anchor, .header-anchor, .heading-anchor').forEach((node) => node.remove());
+  clone.querySelectorAll("br").forEach((node) => node.replaceWith(" "));
+  return (clone.textContent ?? "").replace(/^#{1,6}\s*/, "").replace(/(?:\s*#\s*)+$/, "").replace(/\s+/g, " ").trim();
+}
+
 /** Rendered headings (h1-h4 with ids) under `root`, without anchor glyphs. */
 export function collectHeadings(root: ParentNode, selector = "h1[id], h2[id], h3[id], h4[id]") {
   return Array.from(root.querySelectorAll<HTMLElement>(selector))
     .map((heading) => {
-      const clone = heading.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll('a[href^="#"], a[aria-hidden="true"], .anchor, .header-anchor, .heading-anchor').forEach((node) => node.remove());
-      const text = (clone.textContent ?? "").replace(/^#{1,6}\s*/, "").replace(/(?:\s*#\s*)+$/, "").trim();
+      const text = headingText(heading);
       return { id: heading.id, text: text || heading.id, level: Number(heading.tagName.slice(1)) };
     })
     .filter((item) => item.id && item.text && Number.isFinite(item.level));

@@ -116,6 +116,10 @@ test.describe("WebMCP education tools", () => {
     const shown = await callTool(page, "show_passage", { quote: "teaches the immune system" });
     expect(shown.error).toBeUndefined();
     await expect(page.locator("[data-webmcp-highlight]")).toContainText("cancer vaccine teaches");
-    expect((await callTool(page, "get_current_view")).title ?? "").toBeTruthy();
+    const view = await callTool(page, "get_current_view");
+    expect(view.title ?? "").toBeTruthy();
+    // Heading text is what a reader sees: no permalink glyphs from the anchor link.
+    expect(view.lesson.headings).toContainEqual({ id: "vaccines", text: "Vaccines" });
+    expect(view.visibleHeading.text).not.toMatch(/#/);
   });
 });

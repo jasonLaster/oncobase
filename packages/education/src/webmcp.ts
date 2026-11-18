@@ -1,4 +1,4 @@
-import { extractMarkdownSection, markdownOutline, webMcpError } from "@oncobase/wiki-shell/webmcp";
+import { extractMarkdownSection, headingText, markdownOutline, webMcpError } from "@oncobase/wiki-shell/webmcp";
 import { searchEducation, type EducationCorpus, type EducationSection } from "./chat";
 import { lessonAtPath, normalizeEducationPath } from "./talk";
 
@@ -150,5 +150,5 @@ export function visibleHeading(root: ParentNode | null) {
     else break;
   }
   current ??= headings[0] ?? null;
-  return current ? { id: current.id || null, text: (current.textContent ?? "").trim() } : null;
+  return current ? { id: current.id || null, text: headingText(current) } : null;
 }

@@ -53,6 +53,7 @@ test("an in-browser agent can search, read, open and highlight lessons", async (
 
   const view = await call(page, "get_current_view");
   expect(view.lesson?.slug ?? view.slug).toBeTruthy();
+  expect(view.visibleHeading?.text ?? "").not.toMatch(/#/);
 
   const quote = section.text.split(/(?<=\.)\s/).find((sentence: string) => sentence.length > 40)!.slice(0, 80);
   const shown = await call(page, "show_passage", { quote, section_id: hit.id });
