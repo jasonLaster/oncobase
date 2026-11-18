@@ -15,16 +15,23 @@ const WINDOW_MS = 10 * 60_000;
  * cover one function instance. Both credentials stay on the server. */
 export function createEducationTalkHandler({
   apiKey = () => process.env.ONCOGUIDE_TALK_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-  fetchImpl = fetch,
+  // Looked up per call, so a stubbed global fetch reaches handlers created earlier.
+  fetchImpl = ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init)) as typeof fetch,
   allowedOrigins,
   perClientLimit = 6,
   overallLimit = 60,
+  session = talkSessionConfig,
+  label = "education talk",
 }: {
   apiKey?: () => string | undefined;
   fetchImpl?: typeof fetch;
   allowedOrigins?: string[];
   perClientLimit?: number;
   overallLimit?: number;
+  /** The Realtime session the call opens with. Always chosen by the server. */
+  session?: () => unknown;
+  /** Prefix for server logs. */
+  label?: string;
 } = {}) {
   const calls = new Map<string, { count: number; until: number }>();
   const spend = (key: string, limit: number, now: number) => {
@@ -72,7 +79,7 @@ export function createEducationTalkHandler({
 
     const form = new FormData();
     form.set("sdp", offer);
-    form.set("session", JSON.stringify(talkSessionConfig()));
+    form.set("session", JSON.stringify(session()));
     let upstream: Response;
     try {
       upstream = await fetchImpl(REALTIME_CALLS_URL, {
@@ -80,13 +87,13 @@ export function createEducationTalkHandler({
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
       });
     } catch (error) {
-      console.error("[education talk] call setup failed:", error instanceof Error ? error.name : "unknown");
+      console.error(`[${label}] call setup failed:`, error instanceof Error ? error.name : "unknown");
       return fail("Talk couldn’t connect. Please try again", 502);
     }
     if (!upstream.ok) {
       // Log only the status and provider error code. Never the offer or key.
       const detail = await upstream.json().then((body: { error?: { code?: string; type?: string } }) => body.error?.code ?? body.error?.type).catch(() => undefined);
-      console.error("[education talk] OpenAI refused the call:", upstream.status, detail ?? "");
+      console.error(`[${label}] OpenAI refused the call:`, upstream.status, detail ?? "");
       return upstream.status === 429 ? fail("Talk is busy. Please try again in a few minutes", 429) : fail("Talk couldn’t connect. Please try again", 502);
     }
     headers.set("Content-Type", "application/sdp");

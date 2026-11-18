@@ -104,6 +104,7 @@ export const API_ROUTES: readonly ApiRoute[] = [
     load: () => import("./api/reader").then(m => m.handleWikiPages),
   },
   { path: "/api/wiki/prefetch", gate: "required", educationRead: always, load: () => import("./api/reader").then(m => m.handleWikiPrefetch) },
+  { path: "/api/wiki/talk", gate: "required", load: () => import("./api/page-talk").then(m => ({ request }: ApiRouteRequest) => m.handlePageTalk(request)) },
   { path: "/api/wiki/palette-recommend", gate: "required", load: () => import("./api/palette-recommend").then(m => m.handlePaletteRecommend) },
   // Any other /api/wiki/* path still resolves the site and gate, then falls through.
   { prefix: "/api/wiki/", gate: "required" },

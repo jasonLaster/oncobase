@@ -1255,8 +1255,64 @@ a {
 }
 
 .wiki-vite-mobile-page-header,
-.wiki-vite-mobile-ask {
+.wiki-vite-mobile-fab-group {
   display: none;
+}
+
+/* "Talk with the page" launcher (desktop): a blue call button. The call UI,
+ * including the avatar, loads with the call code (talk/talk.css). */
+.wiki-vite-talk-launcher {
+  --talk-blue: #2563eb;
+  align-items: center;
+  animation: wiki-vite-talk-launcher-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: var(--talk-blue);
+  border: 0;
+  border-radius: 50%;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  box-shadow: 0 10px 24px rgb(37 99 235 / 0.35);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  height: 56px;
+  justify-content: center;
+  padding: 0;
+  position: fixed;
+  right: 1.5rem;
+  transition: box-shadow 200ms ease, transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 200ms ease;
+  width: 56px;
+  z-index: 35;
+}
+
+.wiki-vite-talk-launcher:hover,
+.wiki-vite-talk-launcher:focus-visible {
+  background: #1d4ed8;
+  box-shadow: 0 14px 30px rgb(37 99 235 / 0.45);
+  transform: scale(1.06);
+}
+
+.wiki-vite-talk-launcher:active {
+  transform: scale(0.96);
+}
+
+.wiki-vite-talk-launcher svg {
+  transition: transform 240ms ease;
+}
+
+.wiki-vite-talk-launcher:hover svg {
+  transform: rotate(-12deg);
+}
+
+@keyframes wiki-vite-talk-launcher-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-vite-talk-launcher,
+  .wiki-vite-talk-launcher svg {
+    animation: none;
+    transition: none;
+  }
 }
 
 .comments-page-shell {
@@ -1661,30 +1717,49 @@ a {
     padding: 1rem;
   }
 
-  .wiki-vite-mobile-ask {
-    align-items: center;
+  /* Floating Talk and Ask wiki buttons, joined into one pill. */
+  .wiki-vite-mobile-fab-group {
+    align-items: stretch;
     background: var(--brand);
     border: 1px solid color-mix(in srgb, var(--brand) 75%, white);
     border-radius: 999px;
     bottom: calc(2rem + env(safe-area-inset-bottom));
     box-shadow: 0 10px 24px rgb(15 23 42 / 0.18);
-    color: #fff;
     display: inline-flex;
     height: 48px;
-    justify-content: center;
+    overflow: hidden;
     position: fixed;
     right: 16px;
     transition: opacity 160ms ease, transform 160ms ease;
-    width: 48px;
     /* Below the open navigation sheet (z-index 50) and its backdrop. */
     z-index: 35;
   }
 
+  .wiki-vite-mobile-fab-group > :is(a, button) {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    justify-content: center;
+    padding: 0;
+    width: 48px;
+  }
+
+  .wiki-vite-mobile-fab-group > * + * {
+    border-left: 1px solid color-mix(in srgb, white 35%, transparent);
+  }
+
   /* Auto-hide while scrolling down so it never permanently covers content. */
-  .wiki-vite-mobile-ask[data-hidden="true"] {
+  .wiki-vite-mobile-fab-group[data-hidden="true"] {
     opacity: 0;
     pointer-events: none;
     transform: translateY(1rem);
+  }
+
+  .wiki-vite-talk-launcher {
+    display: none;
   }
 
   .page-outline {
@@ -1768,7 +1843,7 @@ a {
 
   .prototype-shell[data-immersive-route="dicom-viewer"] .wiki-shell-header,
   .prototype-shell[data-immersive-route="dicom-viewer"] .wiki-vite-mobile-page-header,
-  .prototype-shell[data-immersive-route="dicom-viewer"] .wiki-vite-mobile-ask {
+  .prototype-shell[data-immersive-route="dicom-viewer"] .wiki-vite-mobile-fab-group {
     display: none;
   }
 

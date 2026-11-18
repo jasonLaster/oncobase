@@ -81,7 +81,10 @@ const budgets: Budget[] = [
   // WikiSync, formerly its own 5.4 KiB chunk). Budgets: measured plus ~2.5%.
   // Main's WebMCP agent-tools loader moved here with the rest of LiveStoreRoot's
   // React half; it carries the +256 B main approved for it on 2026-11-14.
-  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 23_712 },
+  // "Talk with the page" adds its launcher host, open-state store and the
+  // mobile Talk/Ask button group: 23,314 -> 23,798 B gzip. Allow 24,000; the
+  // call itself (transport, avatar states, styles) loads lazily.
+  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 24_000 },
   // A1 step 1 moved WikiSync's effects into a plain, unit-tested
   // SyncController: 10,959 -> 11,312 B gzip (raw is smaller; the denser code
   // compresses worse). +256 B; the store pool total is unchanged.
@@ -204,7 +207,10 @@ const storeGzipBudget = 855_000;
 // The file palette's Jev recommendations and word/folder-aware ranking add about
 // 1.5 KiB to the lazy CommandPalette chunk (Vercel builds measure ~0.8 KiB above
 // local ones): 4_226_500 -> 4_229_000.
-const lazyGzipBudget = 4_229_000;
+// "Talk with the page" adds a 6.7 KiB lazy call chunk (WebRTC transport, page
+// conversation, call UI with its own styles), loaded only when a reader opens
+// Talk: 4_229_000 -> 4_235_000.
+const lazyGzipBudget = 4_235_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

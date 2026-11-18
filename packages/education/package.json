@@ -12,6 +12,7 @@
     "./chat": "./src/chat.ts",
     "./chat-index": "./src/chat-index.ts",
     "./talk": "./src/talk.ts",
+    "./talk-transport": "./src/talk-transport.ts",
     "./webmcp": "./src/webmcp.ts",
     "./visuals": "./src/visuals.ts",
     "./visual-index": "./src/visual-index.ts",

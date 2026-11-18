@@ -36,26 +36,14 @@ import {
 import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
 import { toggleDirectory, useExpandedDirectories } from "./tree-expansion";
 import { NavigationStatus } from "./ReaderStatus";
+import { isDocumentRoute, pathnameMatchesRoutePrefix } from "./document-routes";
+import { PhoneIcon } from "../talk/PhoneIcon";
+import { loadTalkPanel, openTalk, useTalkState } from "../talk/talk-store";
 import type { NavigationFreshness } from "../types";
 
 const ChatNavigation = lazy(() => import("../chat/ChatNavigation"));
 const ICON_SIZE = 16;
 const MOBILE_OUTLINE_SELECTOR = "h2[id], h3[id], h4[id]";
-const NON_DOCUMENT_ROUTE_PREFIXES = [
-  "/access",
-  "/admin",
-  "/chat",
-  "/comments",
-  "/diagnostics",
-  "/login",
-  "/pii-view",
-  "/search",
-  "/sign-in",
-  "/table-examples",
-  "/tags",
-  "/timeline",
-  "/tools",
-] as const;
 
 type MobileNavTab = "pages" | "outline";
 
@@ -72,10 +60,6 @@ function useWikiTree() {
 function collectMobileOutlineItems() {
   const root = document.querySelector<HTMLElement>('[data-test-id="document-article"]');
   return collectOutline(root ?? document, MOBILE_OUTLINE_SELECTOR);
-}
-
-function pathnameMatchesRoutePrefix(pathname: string, prefix: string) {
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
 function isAdminRoute(pathname: string) {
@@ -102,12 +86,6 @@ function AdminNavigation({ onNavigate }: { onNavigate?: () => void }) {
         );
       })}
     </nav>
-  );
-}
-
-function isDocumentRoute(pathname: string) {
-  return !NON_DOCUMENT_ROUTE_PREFIXES.some((prefix) =>
-    pathnameMatchesRoutePrefix(pathname, prefix),
   );
 }
 
@@ -439,6 +417,7 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
   const { accountPending, sessionLoading, sessionUser, setSessionUser, submitAuth } = useWikiViteAuth();
   const pageTitle = usePageTitle(pathname);
   const askHidden = useHideOnScrollDown();
+  const { open: talkOpen } = useTalkState();
   const open = navState.pathname === pathname ? navState.open : false;
   const setOpen = useCallback(
     (nextOpen: boolean) => setNavState({ open: nextOpen, pathname }),
@@ -621,17 +600,38 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
           )}
         </nav>
       </WikiMobileNavigationSheet>
-      {!open ? (
-        <Link
-          to="/chat"
-          aria-label="Ask wiki"
-          title="Ask wiki"
-          className="wiki-vite-mobile-ask"
+      {!open && !talkOpen ? (
+        <div
+          className="wiki-vite-mobile-fab-group"
           data-hidden={askHidden ? "true" : undefined}
-          data-test-id="mobile-ask-wiki"
+          data-test-id="mobile-fab-group"
+          role="group"
+          aria-label="Ask or talk"
         >
-          <MobileChatIcon />
-        </Link>
+          {isDocumentRoute(pathname) ? (
+            <button
+              type="button"
+              aria-label="Talk with the page"
+              title="Talk with the page"
+              className="wiki-vite-mobile-talk"
+              data-test-id="mobile-talk"
+              onClick={openTalk}
+              onFocus={() => void loadTalkPanel()}
+              onPointerDown={() => void loadTalkPanel()}
+            >
+              <PhoneIcon size={20} />
+            </button>
+          ) : null}
+          <Link
+            to="/chat"
+            aria-label="Ask wiki"
+            title="Ask wiki"
+            className="wiki-vite-mobile-ask"
+            data-test-id="mobile-ask-wiki"
+          >
+            <MobileChatIcon />
+          </Link>
+        </div>
       ) : null}
     </>
   );

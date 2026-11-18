@@ -8,6 +8,7 @@ import {
   HeaderCommandPaletteHost,
 } from "./shell/Header";
 import { MobileNav, Sidebar } from "./shell/Navigation";
+import { TalkHost } from "./talk/TalkHost";
 // The whole reader is already lazy at the login boundary. A second lazy
 // boundary here delays cached documents behind another Suspense retry.
 import { WikiPage } from "./pages/WikiPage";
@@ -204,6 +205,7 @@ export function App({
           </Suspense></StoreScoped>
         ) : null}
         <MobileNav freshness={navigationFreshness} />
+        <TalkHost />
       </div>
     </>
   );
