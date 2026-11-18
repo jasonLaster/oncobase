@@ -1,5 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { buildCommandPaletteRows, prepareCommandPalettePages } from "./command-palette-pages.ts";
+export { PALETTE_SHORTHAND } from "./command-palette-pages.ts";
 import {
   type KeyboardEvent,
   type ReactNode,

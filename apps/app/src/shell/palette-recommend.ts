@@ -1,16 +1,17 @@
 /** Client half of the Jev-recommended pages in the file palette
  * (flag: palette-jev-flag.ts; server: server/api/palette-recommend.ts). */
+import { PALETTE_SHORTHAND } from "@oncobase/wiki-shell/file-palette";
 import type { PageIndexRow } from "../types";
 import { parseJsonArray } from "../wiki-utils";
 
 export const MAX_CANDIDATES = 40;
 const STOPWORDS = new Set(["the", "and", "for", "with", "from", "about", "page", "pages", "notes"]);
 
-export type RecommendCandidate = { slug: string; title?: string; tags?: string[]; description?: string | null };
+export type RecommendCandidate = { slug: string; title?: string; tags?: string[]; description?: string | null; rank?: number };
 
 const words = (text: string) => text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-/** Query words of three or more letters; a partial last word still counts as a prefix. */
-const queryTerms = (query: string) => [...new Set(words(query).filter(word => word.length >= 3 && !STOPWORDS.has(word)))];
+/** Query words of three or more letters (or known shorthand); a partial last word still counts as a prefix. */
+const queryTerms = (query: string) => [...new Set(words(query).filter(word => (word.length >= 3 || word in PALETTE_SHORTHAND) && !STOPWORDS.has(word)))];
 
 type Indexed = { row: PageIndexRow; tags: string[]; title: Set<string>; path: Set<string>; tagWords: Set<string>; about: Set<string> };
 const indexes = new WeakMap<PageIndexRow[], Indexed[]>();
@@ -31,7 +32,11 @@ function indexed(pages: PageIndexRow[]) {
 }
 const hits = (set: Set<string>, term: string) => {
   if (set.has(term)) return true;
-  for (const word of set) if (word.startsWith(term) || (term.length >= 5 && term.startsWith(word) && word.length >= 4)) return true;
+  const long = PALETTE_SHORTHAND[term];
+  for (const word of set) {
+    if (word.startsWith(term) || (term.length >= 5 && term.startsWith(word) && word.length >= 4)) return true;
+    if (long !== undefined && word.startsWith(long)) return true;
+  }
   return false;
 };
 
@@ -68,8 +73,10 @@ export function recommendCandidates(pages: PageIndexRow[], query: string, fuzzyS
   }
   // Clipped to what the route accepts: one page without a frontmatter title
   // (a poster's long first heading) would otherwise fail the whole request.
+  const fuzzyRank = new Map(fuzzySlugs.slice(0, 10).map((slug, position) => [slug, position + 1]));
   return [...chosen.values()].slice(0, limit).map(({ row, tags }) => ({
     slug: row.slug, title: row.title.slice(0, 300), ...(tags.length ? { tags: tags.slice(0, 8).map(tag => tag.slice(0, 80)) } : {}),
+    ...(fuzzyRank.has(row.slug) ? { rank: fuzzyRank.get(row.slug) } : {}),
     ...(row.description ? { description: row.description.slice(0, 300) } : {}),
   }));
 }

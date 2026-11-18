@@ -33,6 +33,8 @@ const CandidateSchema = z.object({
   title: z.string().max(300).optional(),
   tags: z.array(z.string().max(80)).max(12).optional(),
   description: z.string().max(400).nullable().optional(),
+  /** Its place among the reader's own matches (1 = top), when it is one. */
+  rank: z.number().int().min(1).max(100).optional(),
 });
 const RequestSchema = z.object({
   query: z.string().trim().min(2).max(200),
@@ -63,6 +65,24 @@ export const recommendQuestions = (candidates: PaletteCandidate[]): DecisionQues
 }));
 
 /** `PALETTE_JEV_MODELS` replaces the model list; empty turns recommendations off on this deployment. */
+/** The reader's own top matches lead near-ties: the first gets this much on
+ * the 0–3 scale, falling to nothing by the tenth. It orders the group but never
+ * lets a page in that the model rated below the cut. */
+export const MATCH_PRIOR = 0.4;
+const MATCH_PRIOR_DEPTH = 10;
+
+/** Which candidates to show, best first: close to the best, then topped up. */
+export function selectRecommended<Row extends { score: number; rank?: number }>(rows: Row[], { recommendAt = RECOMMEND_AT, withinBest = WITHIN_BEST, maxRecommended = MAX_RECOMMENDED, fillTo = FILL_TO, matchPrior = MATCH_PRIOR } = {}) {
+  const order = (row: Row) => row.score + (row.rank && row.rank <= MATCH_PRIOR_DEPTH ? matchPrior * (1 - (row.rank - 1) / MATCH_PRIOR_DEPTH) : 0);
+  // Stable: equal places keep the reader's own ranking, then semantic order.
+  const ordered = [...rows].sort((a, b) => order(b) - order(a));
+  const best = Math.max(0, ...rows.map(row => row.score));
+  const close = ordered.filter(row => row.score >= recommendAt && row.score >= best - withinBest).slice(0, maxRecommended);
+  if (!close.length || close.length >= fillTo) return close;
+  const shown = new Set(close);
+  return [...close, ...ordered.filter(row => !shown.has(row) && row.score >= FILL_AT).slice(0, fillTo - close.length)];
+}
+
 export const paletteModels = () => (process.env.PALETTE_JEV_MODELS ?? DECISION_MODELS.join(",")).split(",").map(model => model.trim()).filter(Boolean);
 
 const gatewayDecide: Decide = (input, questions, signal) => createDecider({
@@ -114,15 +134,8 @@ export function createPaletteRecommendHandler({ decide = gatewayDecide, semantic
 
     try {
       const decision = await decide({ reader_typed: body.query, wiki_layout: WIKI_LAYOUT }, recommendQuestions(candidates), request.signal);
-      const scored = candidates
-        .map((page, position) => ({ slug: page.slug, score: decision.answers.get(`p${position}`)?.score ?? 0 }))
-        // Stable: equal scores keep the reader's own ranking, then semantic order.
-        .sort((a, b) => b.score - a.score);
-      const best = scored[0]?.score ?? 0;
-      const close = scored.filter(row => row.score >= recommendAt && row.score >= best - withinBest).slice(0, maxRecommended);
-      const results = close.length && close.length < fillTo
-        ? [...close, ...scored.slice(close.length).filter(row => row.score >= FILL_AT).slice(0, fillTo - close.length)]
-        : close;
+      const scored = candidates.map((page, position) => ({ slug: page.slug, rank: page.rank, score: decision.answers.get(`p${position}`)?.score ?? 0 }));
+      const results = selectRecommended(scored, { recommendAt, withinBest, maxRecommended, fillTo }).map(({ slug, score }) => ({ slug, score }));
       traceBackendAttributes({ "palette.recommend.model": decision.model, "palette.recommend.results": results.length });
       return Response.json({ model: decision.model, results }, { headers });
     } catch (error) {

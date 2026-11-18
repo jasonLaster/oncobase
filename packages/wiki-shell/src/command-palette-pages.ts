@@ -5,6 +5,8 @@ import { getNoteBundlePages } from "./note-bundles.ts";
 export const COMMAND_PALETTE_RECENT_KEY = "cmd-palette-recent";
 export const COMMAND_PALETTE_MAX_RECENT = 8;
 export const COMMAND_PALETTE_MAX_SEARCH_RESULTS = 50;
+/** A page missing some query words still matches when the words it has carry this share of their rarity. */
+const RARE_WORDS_COVERAGE = 0.4;
 export const COMMAND_PALETTE_ROW_HEIGHT = 56;
 export const COMMAND_PALETTE_HEADING_HEIGHT = 28;
 
@@ -109,16 +111,28 @@ function stem(word: string) {
   return word;
 }
 
-/** Share of query words that begin some word of the page, in any order. */
-function wordCoverage(terms: string[], words: string[]) {
+/** Shorthand people type for words the pages spell out ("bx" for biopsy),
+ * and month names, which dated pages abbreviate ("apr-09-2026"). */
+export const PALETTE_SHORTHAND: Record<string, string> = {
+  appt: "appointment", bx: "biopsy", dx: "diagnos", fdbk: "feedback", fu: "follow",
+  hx: "history", mtg: "meeting", tx: "treatment", vax: "vaccin", wk: "week",
+  january: "jan", february: "feb", march: "mar", april: "apr", june: "jun", july: "jul",
+  august: "aug", september: "sep", october: "oct", november: "nov", december: "dec",
+};
+
+/** Bit i is set when query word i (or its spelled-out form) begins some word of the page. */
+function wordHits(terms: string[], words: string[]) {
   let hits = 0;
-  for (const term of terms) {
+  terms.forEach((term, index) => {
+    const long = PALETTE_SHORTHAND[term];
     for (const word of words) {
-      if (word.startsWith(term)) { hits++; break; }
+      if (word.startsWith(term) || (long !== undefined && word.startsWith(long))) { hits |= 1 << index; break; }
     }
-  }
-  return hits / terms.length;
+  });
+  return hits;
 }
+
+const countBits = (bits: number) => { let count = 0; for (; bits; bits &= bits - 1) count++; return count; };
 
 function childSlug(parentSlug: string, name: string) {
   return parentSlug ? `${parentSlug}/${name}` : name;
@@ -256,26 +270,41 @@ export function buildCommandPaletteRows({
     // A single letter begins nearly every page's words: leave it to fuzzy matching.
     const terms = [...new Set(wordsOf(normalizedSearch).map(stem))].filter((term) => term.length > 1);
     const stemmedSearch = queryWords.map(stem).join(" ");
-    const minimum = terms.length >= 3 ? (terms.length - 1) / terms.length : 1;
+    const minimum = terms.length >= 3 ? terms.length - 1 : terms.length;
+    // Which query words each page has, then how rare each word is, so a name
+    // the reader typed counts for more than "results" or "report".
+    const hitsByPage = terms.length ? prepared.map((entry) => wordHits(terms.slice(0, 30), entry.words)) : [];
+    const weights = terms.slice(0, 30).map((_, index) => {
+      let pagesWith = 0;
+      for (const hits of hitsByPage) if (hits & (1 << index)) pagesWith++;
+      return Math.log((prepared.length + 1) / (pagesWith + 1)) + 0.5;
+    });
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
     const candidates: Array<{ page: CommandPalettePageEntry; score: number; titleRank: number }> = [];
-    for (const entry of prepared) {
+    prepared.forEach((entry, position) => {
       const { page } = entry;
       const exact = entry.normTitle === normalizedSearch || entry.normSlug === normalizedSearch ||
         entry.normName === normalizedSearch || entry.normName === stemmedSearch || entry.normTitle === stemmedSearch;
       // A complete, substantial title followed by a short suffix (e.g. "should").
       const completeTitle = entry.titleWords >= 3 &&
         entry.titleWords / queryWords.length >= 0.75 && normalizedSearch.startsWith(`${entry.normTitle} `);
-      const coverage = terms.length ? wordCoverage(terms, entry.words) : 0;
+      const hits = hitsByPage[position] ?? 0;
+      let coverage = 0;
+      weights.forEach((weight, index) => { if (hits & (1 << index)) coverage += weight / totalWeight; });
       const fuzzyScore = fuzzy.get(page.slug);
-      if (fuzzyScore === undefined && !exact && !completeTitle && coverage < minimum) continue;
-      // Exact and complete titles rank first. Within a tier, whole words and
-      // fuzzy closeness weigh the same and the host's prior (curated over
-      // archived, newer over older) settles near-ties. Bounded additive
-      // bonuses keep the comparator transitive.
-      const score = 0.5 * (fuzzyScore ?? 0) + 0.5 * coverage +
+      const wholeWords = terms.length > 0 && (countBits(hits) >= minimum || coverage >= RARE_WORDS_COVERAGE);
+      if (fuzzyScore === undefined && !exact && !completeTitle && !wholeWords) return;
+      // Exact and complete titles rank first. Within a tier, whole words
+      // (weighted by rarity) and fuzzy closeness weigh the same and the
+      // host's prior (curated over archived, newer over older) settles
+      // near-ties. Bounded additive bonuses keep the comparator transitive.
+      // Across several words, a fuzzy hit that strings letters from all over
+      // a long path is noise unless the page also has the words themselves.
+      const fuzzyWeight = terms.length >= 2 ? 0.2 + 0.3 * coverage : 0.5;
+      const score = fuzzyWeight * (fuzzyScore ?? 0) + 0.5 * coverage +
         (page.boost ?? 0) + (recentSet.has(page.slug) ? 0.05 : 0);
       candidates.push({ page, score, titleRank: exact ? 2 : completeTitle ? 1 : 0 });
-    }
+    });
 
     // Rank before limiting so title, whole-word and recent hits cannot be
     // discarded by fuzzysort's own cutoff.

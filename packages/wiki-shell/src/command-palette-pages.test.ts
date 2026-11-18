@@ -284,3 +284,25 @@ describe("smarter matching", () => {
     expect(rank(entries, "z")).toEqual([]);
   });
 });
+
+describe("whole-word ranking", () => {
+  const rank = (entries: CommandPalettePageEntry[], query: string) =>
+    buildCommandPaletteRows({ pages: entries, prepared: prepareCommandPalettePages(entries), query, recentSlugs: [] })
+      .visibleEntries.map((page) => page.slug);
+  const filler = Array.from({ length: 40 }, (_, i): CommandPalettePageEntry => ({
+    name: `breast-surgeon-notes-${i}`, slug: `sources/research/breast-surgeon-notes-${i}`, path: "sources / research",
+  }));
+
+  test("a rare name the reader typed outweighs common words it lacks", () => {
+    const person = { name: "lee-char", title: "Lee Char", slug: "wiki/people/providers/lee-char", path: "wiki / people / providers" };
+    const scattered = { name: "kernis-path-report", slug: "sources/diagnostics/kernis-path-report", path: "sources / diagnostics" };
+    expect(rank([...filler, scattered, person], "Lee Char breast surgeon")[0]).toBe(person.slug);
+  });
+
+  test("shorthand and month names match the spelled-out words", () => {
+    const biopsy = { name: "03-23-us-axilla-core-biopsy", slug: "sources/diagnostics/03-23-us-axilla-core-biopsy", path: "sources / diagnostics" };
+    const lab = { name: "29-apr-01-2026-mr-breast", slug: "sources/test-results/29-apr-01-2026-mr-breast", path: "sources / test-results" };
+    expect(rank([...filler, biopsy, lab], "axilla bx")[0]).toBe(biopsy.slug);
+    expect(rank([...filler, biopsy, lab], "april mr breast")[0]).toBe(lab.slug);
+  });
+});

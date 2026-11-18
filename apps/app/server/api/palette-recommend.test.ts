@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Decide } from "@oncobase/education/decisions";
 import type { ApiRouteRequest } from "../api-routes";
-import { createPaletteRecommendHandler, WIKI_LAYOUT } from "./palette-recommend";
+import { createPaletteRecommendHandler, selectRecommended, WIKI_LAYOUT } from "./palette-recommend";
 
 const post = (body: unknown, scope = "session") => ({
   request: new Request(`http://local/api/wiki/palette-recommend?scope=${scope}`, { method: "POST", body: JSON.stringify(body) }),
@@ -65,4 +65,19 @@ test("off, malformed, oversized and failed requests", async () => {
   const failed = await createPaletteRecommendHandler({ decide: async () => { throw Error("down"); }, semantic: async () => [] })(post({ query: "tissue", candidates }));
   expect(failed.status).toBe(503);
   expect(failed.headers.get("Cache-Control")).toBe("private, no-store");
+});
+
+test("the reader's own top matches lead near-ties but never pass the cut", async () => {
+  const rows = [
+    { slug: "wiki/topic", score: 2.0 },
+    { slug: "sources/named-record", score: 1.8, rank: 1 },
+    { slug: "sources/weak-match", score: 0.9, rank: 2 },
+  ];
+  expect(selectRecommended(rows).map(row => row.slug)).toEqual(["sources/named-record", "wiki/topic"]);
+  expect(selectRecommended(rows, { matchPrior: 0 }).map(row => row.slug)).toEqual(["wiki/topic", "sources/named-record"]);
+  // A clear winner stays first; ranks travel through the handler.
+  const handler = createPaletteRecommendHandler({ decide: scores({ p0: 1.0, p1: 2.6, p2: 1.3 }), semantic: async () => [] });
+  const ranked = candidates.map((page, position) => ({ ...page, rank: position + 1 }));
+  expect((await (await handler(post({ query: "tissue overview", candidates: ranked }))).json()).results.map((row: { slug: string }) => row.slug))
+    .toEqual(["wiki/care/tissue-and-data", "wiki/omics/specimen-to-sample-map", candidates[0]!.slug]);
 });
