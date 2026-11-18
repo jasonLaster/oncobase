@@ -169,11 +169,14 @@ export function buildCommandPaletteRows({
   prepared,
   query,
   recentSlugs,
+  recommendedSlugs = [],
 }: {
   pages: CommandPalettePageEntry[];
   prepared: CommandPalettePreparedPage[];
   query: string;
   recentSlugs: string[];
+  /** Pages a host recommends for this query (best first), listed above the matches. */
+  recommendedSlugs?: string[];
 }): CommandPaletteRowSet {
   const empty: CommandPaletteRowSet = {
     recentEntries: [],
@@ -237,6 +240,24 @@ export function buildCommandPaletteRows({
       .sort((a, b) => b.titleRank - a.titleRank || scoreWithRecency(b) - scoreWithRecency(a))
       .slice(0, COMMAND_PALETTE_MAX_SEARCH_RESULTS)
       .map((result) => result.page);
+
+    // A recommended note-bundle sibling stands for its overview, as in browsing.
+    const bySlug = new Map(pages.map((page) => [page.slug, page]));
+    const recommended = [...new Set(recommendedSlugs.map((slug) => overviewBySlug.get(slug) ?? slug))]
+      .map((slug) => bySlug.get(slug))
+      .filter((page): page is CommandPalettePageEntry => Boolean(page));
+    if (recommended.length > 0) {
+      const shown = new Set(recommended.map((page) => page.slug));
+      const matches = ranked.filter((page) => !shown.has(page.slug));
+      const visibleEntries = [...recommended, ...matches];
+      const visibleRows: CommandPaletteRow[] = [
+        { type: "heading", label: "Recommended" },
+        ...recommended.map((page, pageIndex) => ({ type: "page" as const, page, pageIndex })),
+        ...(matches.length > 0 ? [{ type: "heading" as const, label: "Matches" }] : []),
+        ...matches.map((page, index) => ({ type: "page" as const, page, pageIndex: recommended.length + index })),
+      ];
+      return { recentEntries: [], searchResults: visibleEntries, visibleEntries, visibleRows };
+    }
 
     return {
       recentEntries: [],

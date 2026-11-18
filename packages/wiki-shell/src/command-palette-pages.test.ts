@@ -214,3 +214,35 @@ describe("page slug helpers", () => {
     expect(formatCommandPalettePagePath("index")).toBe("/");
   });
 });
+
+describe("recommended pages", () => {
+  const entries: CommandPalettePageEntry[] = [
+    { name: "tissue-sync-overview", slug: "notes/tissue-sync-overview", path: "notes" },
+    { name: "tissue-sync-raw", slug: "notes/tissue-sync-raw", path: "notes" },
+    { name: "tissue-sync-formatted", slug: "notes/tissue-sync-formatted", path: "notes" },
+    { name: "tissue-and-data", title: "Tissue allocation plan", slug: "wiki/care/tissue-and-data", path: "wiki/care" },
+    { name: "insurance", slug: "wiki/insurance", path: "wiki" },
+  ];
+  const build = (recommendedSlugs: string[]) => buildCommandPaletteRows({
+    pages: entries, prepared: prepareCommandPalettePages(entries), query: "tissue", recentSlugs: [], recommendedSlugs,
+  });
+
+  test("lists recommendations above the remaining matches", () => {
+    const rows = build(["wiki/care/tissue-and-data", "notes/tissue-sync-raw", "missing"]);
+    // The raw sibling stands for its overview; an unknown slug is dropped; all matches are recommended, so no empty "Matches".
+    expect(rows.visibleRows.map(row => row.type === "heading" ? `# ${row.label}` : row.page.slug)).toEqual([
+      "# Recommended", "wiki/care/tissue-and-data", "notes/tissue-sync-overview",
+    ]);
+    const partial = build(["wiki/care/tissue-and-data"]);
+    expect(partial.visibleRows.map(row => row.type === "heading" ? `# ${row.label}` : row.page.slug)).toEqual([
+      "# Recommended", "wiki/care/tissue-and-data", "# Matches", "notes/tissue-sync-overview",
+    ]);
+    expect(rows.visibleEntries.slice(0, 2).map(page => page.slug)).toEqual(["wiki/care/tissue-and-data", "notes/tissue-sync-overview"]);
+    expect(new Set(rows.visibleEntries.map(page => page.slug)).size).toBe(rows.visibleEntries.length);
+    expect(rows.visibleRows.filter(row => row.type === "page").map(row => row.type === "page" && row.pageIndex)).toEqual(rows.visibleEntries.map((_, index) => index));
+  });
+
+  test("without recommendations the list is the plain ranked matches", () => {
+    expect(build([]).visibleRows.some(row => row.type === "heading")).toBe(false);
+  });
+});

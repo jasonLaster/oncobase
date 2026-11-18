@@ -53,6 +53,7 @@ import {
   subscribeWikiThemePreference,
 } from "@oncobase/wiki-shell/theme";
 import {
+  buildWikiFilePaletteState,
   WikiFilePalette,
   type WikiFilePalettePage,
 } from "@oncobase/wiki-shell/file-palette";
@@ -76,6 +77,8 @@ import { assetFileName, assetHref, relatedAssetsForSlug } from "../wiki-assets";
 import { setNavigationIntentForSlug } from "./navigation-intent";
 import { collectOutline, scrollToOutlineItem, type OutlineItem } from "./outline";
 import { webMcpAvailable } from "../webmcp/webmcp-flag";
+import { paletteJevEnabled, setPaletteJevEnabled } from "./palette-jev-flag";
+import { fetchRecommendedSlugs, recommendCandidates } from "./palette-recommend";
 import { agentsMayReadPrivatePages, setAgentsMayReadPrivatePages } from "../webmcp/agent-access";
 
 export type PaletteMode = "pages" | "outline" | "assets" | "tags" | "actions" | "debug";
@@ -185,6 +188,13 @@ export function CommandPalette({
     },
     [pages, initialTree],
   );
+
+  const [jevEnabled, setJevEnabled] = useState(paletteJevEnabled);
+  const recommendPages = useCallback(async (search: string, signal: AbortSignal) => {
+    const fuzzy = buildWikiFilePaletteState(filePalettePages, search).searchResults ?? [];
+    const candidates = recommendCandidates(pages, search, fuzzy.map(page => page.slug));
+    return candidates.length ? fetchRecommendedSlugs(search, candidates, scope, signal) : [];
+  }, [filePalettePages, pages, scope]);
 
   const outlineResults = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -338,6 +348,21 @@ export function CommandPalette({
         },
       } satisfies ActionItem] : []),
       {
+        group: "Search",
+        label: jevEnabled ? "Stop recommending pages with Jev" : "Recommend pages with Jev",
+        description: jevEnabled
+          ? "Find files shows fuzzy matches only"
+          : "Find files asks Jev which pages fit the query and lists them first",
+        icon: jevEnabled ? <PowerOffIcon size={15} aria-hidden="true" /> : <ZapIcon size={15} aria-hidden="true" />,
+        run: () => {
+          setPaletteJevEnabled(!jevEnabled);
+          setJevEnabled(!jevEnabled);
+          setPageInitialQuery("");
+          setQuery("");
+          setMode("pages");
+        },
+      },
+      {
         group: "Tools",
         label: "Local cache tools",
         description: "Warm, reset, or toggle the optional LiveStore inspector",
@@ -348,7 +373,7 @@ export function CommandPalette({
         },
       },
     ],
-    [agentPrivateAccess, agentToolsAvailable, currentPageTitle, currentSlug, isDark, onOpenChange, relatedAssets, returnTo, scope, setMode, setQuery],
+    [agentPrivateAccess, agentToolsAvailable, jevEnabled, currentPageTitle, currentSlug, isDark, onOpenChange, relatedAssets, returnTo, scope, setMode, setQuery],
   );
 
   const actionResults = useMemo(() => {
@@ -522,6 +547,7 @@ export function CommandPalette({
         pageIcon={<FileTextIcon size={16} aria-hidden="true" />}
         pages={filePalettePages}
         recentSlugs={recentSlugs}
+        recommend={jevEnabled ? recommendPages : undefined}
         searchIcon={<SearchIcon size={16} aria-hidden="true" />}
       />
     );

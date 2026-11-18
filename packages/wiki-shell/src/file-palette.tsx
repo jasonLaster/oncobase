@@ -74,12 +74,14 @@ export function buildWikiFilePaletteState(
   pages: WikiFilePalettePage[],
   query: string,
   recentSlugs: string[] = [],
+  recommendedSlugs: string[] = [],
 ): WikiFilePaletteState {
   return buildCommandPaletteRows({
     pages,
     prepared: query.trim() ? preparedPages(pages) : [],
     query,
     recentSlugs: recentSlugs.slice(0, WIKI_FILE_PALETTE_MAX_RECENT),
+    recommendedSlugs,
   });
 }
 
@@ -182,9 +184,16 @@ export type WikiFilePaletteProps = {
   pageIcon?: ReactNode;
   pages: WikiFilePalettePage[];
   recentSlugs?: string[];
+  /** Recommends pages for a query (slugs, best first), shown above the fuzzy
+   * matches once it resolves. Called after typing pauses; aborted when the
+   * query changes or the palette closes. */
+  recommend?: (query: string, signal: AbortSignal) => Promise<string[]>;
   searchIcon?: ReactNode;
   testId?: string;
 };
+
+const EMPTY_RECOMMENDED: string[] = [];
+const RECOMMEND_DEBOUNCE_MS = 250;
 
 export function WikiFilePalette({
   footer,
@@ -197,6 +206,7 @@ export function WikiFilePalette({
   pageIcon,
   pages,
   recentSlugs = EMPTY_RECENT_SLUGS,
+  recommend,
   searchIcon,
   testId = "command-palette",
 }: WikiFilePaletteProps) {
@@ -218,10 +228,43 @@ export function WikiFilePalette({
     setActiveIndex(0);
   }, []);
 
+  // Recommendations belong to the query they were asked for, so a stale
+  // answer never shows under a newer query.
+  const [recommendation, setRecommendation] = useState<{ query: string; slugs: string[]; pending: boolean } | null>(null);
+  useEffect(() => {
+    if (!open || !recommend || query.length < 2) return;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      setRecommendation({ query, slugs: EMPTY_RECOMMENDED, pending: true });
+      recommend(query, controller.signal).then(
+        (slugs) => { if (!controller.signal.aborted) setRecommendation({ query, slugs, pending: false }); },
+        () => { if (!controller.signal.aborted) setRecommendation({ query, slugs: EMPTY_RECOMMENDED, pending: false }); },
+      );
+    }, RECOMMEND_DEBOUNCE_MS);
+    return () => { window.clearTimeout(timeout); controller.abort(); };
+  }, [open, query, recommend]);
+  const recommendedSlugs = recommendation?.query === query ? recommendation.slugs : EMPTY_RECOMMENDED;
+  const recommending = recommendation?.query === query && recommendation.pending;
+
   const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(
-    () => buildWikiFilePaletteState(pages, query, recentSlugs),
-    [pages, query, recentSlugs],
+    () => buildWikiFilePaletteState(pages, query, recentSlugs, recommendedSlugs),
+    [pages, query, recentSlugs, recommendedSlugs],
   );
+
+  // Recommendations arrive after the matches: keep the page the reader has
+  // moved to selected, or select the top recommendation if they have not.
+  const activeSlugRef = useRef<string | null>(null);
+  const appliedRecommendationRef = useRef(recommendedSlugs);
+  useLayoutEffect(() => {
+    if (appliedRecommendationRef.current === recommendedSlugs) {
+      activeSlugRef.current = visibleEntries[activeIndex]?.slug ?? null;
+      return;
+    }
+    appliedRecommendationRef.current = recommendedSlugs;
+    const previous = activeSlugRef.current;
+    const kept = activeIndex > 0 && previous ? visibleEntries.findIndex((page) => page.slug === previous) : -1;
+    setActiveIndex(kept === -1 ? 0 : kept);
+  }, [activeIndex, recommendedSlugs, visibleEntries]);
 
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
@@ -400,6 +443,7 @@ export function WikiFilePalette({
         aria-label="Go to page"
         aria-modal="true"
         className="wiki-shell-file-palette"
+        data-recommend={recommend && query.length >= 2 ? (recommending ? "pending" : recommendation?.query === query ? "done" : "waiting") : undefined}
         data-test-id={testId}
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
@@ -460,7 +504,7 @@ export function WikiFilePalette({
               <>
                 <span>Enter opens the first result</span>
                 {recentEntries.length > 0 || searchResults ? (
-                  <span>{query ? "Fuzzy search" : "Recent pages first"}</span>
+                  <span>{query ? (recommending ? "Asking Jev…" : recommendedSlugs.length ? "Recommended by Jev" : "Fuzzy search") : "Recent pages first"}</span>
                 ) : null}
               </>
             )}

@@ -276,7 +276,9 @@ export type BackendPhase = "manifest.snapshot-read"
   | "external.blob" | "external.liveblocks" | "external.openai" | "external.ai-gateway"
   // Education chat: load the library, search it, decide what to show (one
   // `education.decide.attempt` per decision model tried), then the tutor's answer.
-  | "education.library" | "education.search" | "education.decide" | "education.decide.attempt" | "education.answer";
+  | "education.library" | "education.search" | "education.decide" | "education.decide.attempt" | "education.answer"
+  // File palette recommendations: semantic candidates, then one attempt per decision model.
+  | "palette.semantic" | "palette.recommend.attempt";
 
 /** Fixed names only; record phase timing without recording user data. */
 export async function traceBackendPhase<T>(name: BackendPhase, run: () => T | Promise<T>): Promise<T> {

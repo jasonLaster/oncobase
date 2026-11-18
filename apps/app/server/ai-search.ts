@@ -47,7 +47,7 @@ function getOpenAIClient() {
   return openaiClient;
 }
 
-async function embedQuery(query: string) {
+export async function embedQuery(query: string) {
   const client = getOpenAIClient();
   if (!client) return null;
   const response = await traceBackendPhase("external.openai", () => client.embeddings.create({

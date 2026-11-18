@@ -175,4 +175,46 @@ test.describe("command palette (mocked backend)", () => {
     await expect(page).toHaveURL(new RegExp(`/${notes}-overview$`));
     await waitForPageTitle(page, "Care planning overview");
   });
+
+  test("with the Jev flag on, recommended pages list first and Enter opens the top one", async ({ page }) => {
+    const asked: Array<{ query: string; candidates: Array<{ slug: string; tags?: string[] }> }> = [];
+    await page.route("**/api/wiki/palette-recommend*", async (route) => {
+      asked.push(route.request().postDataJSON());
+      await route.fulfill({ json: { model: "typesafe-ai/jev", results: [{ slug: "wiki/updates/week-5-april-12-to-18", score: 2.6 }, { slug: "wiki/logistics/insurance", score: 2.2 }] } });
+    });
+    await gotoWiki(page, "/");
+    await page.keyboard.press(`${mod}+K`);
+    const palette = page.getByTestId("command-palette");
+    const input = page.getByTestId("command-palette-input");
+
+    // Off by default: typing asks nothing.
+    await input.fill("insurance");
+    await expect(palette.getByRole("option").first()).toContainText(/insurance/i);
+    await page.waitForTimeout(400);
+    expect(asked).toHaveLength(0);
+
+    // The action toggles the flag and returns to Find files.
+    await input.press("Escape");
+    await page.keyboard.press(`${mod}+K`);
+    await page.keyboard.press("A");
+    await page.getByRole("button", { name: /Recommend pages with Jev/ }).click();
+    // Fuzzy search finds nothing for this query; the recommendations still do.
+    await page.getByTestId("command-palette-input").fill("logistics plan");
+    await expect(palette).toHaveAttribute("data-recommend", "done");
+    expect(asked.at(-1)?.query).toBe("logistics plan");
+    expect(asked.at(-1)?.candidates.find(candidate => candidate.slug === "wiki/logistics/insurance")?.tags).toEqual(["logistics", "insurance"]);
+    await expect(palette.getByText("Recommended", { exact: true })).toBeVisible();
+    const options = palette.getByRole("option");
+    await expect(options.nth(0)).toContainText(/week 5/i);
+    await expect(options.nth(0)).toHaveAttribute("aria-selected", "true");
+    await expect(options.nth(1)).toContainText(/insurance/i);
+    await page.getByTestId("command-palette-input").press("Enter");
+    await expect(page).toHaveURL(/\/wiki\/updates\/week-5-april-12-to-18$/);
+
+    // The choice persists on this device.
+    await page.reload();
+    await page.keyboard.press(`${mod}+K`);
+    await page.getByTestId("command-palette-input").fill("logistics");
+    await expect(palette).toHaveAttribute("data-recommend", "done");
+  });
 });
