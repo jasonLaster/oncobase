@@ -1,9 +1,9 @@
 import { makeWikiStoreId, type WikiScope, type WikiSessionIdentity } from "@oncobase/wiki-content";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { sameStartupIdentity, startupInitialData, type StartupSnapshot } from "./bootstrap/reader-startup-cache";
 import { keepsPresentationMounted } from "./bootstrap/session-handoff";
 import type { ReaderHandoffOutcome } from "../shared/reader-telemetry";
-import { readInitialReaderData } from "./bootstrap/initial-reader-data";
+import { readInitialReaderData, type InitialReaderData } from "./bootstrap/initial-reader-data";
 import { InitialReaderContext, ReaderStoreContext, type ReaderStoreKit } from "./bootstrap/reader-queries";
 import { readerBootRequest } from "./bootstrap/seed-state";
 import { App } from "./App";
@@ -142,21 +142,36 @@ function ReaderSession({ identity, displayIdentity, scope, storeId, cachedSnapsh
 
   if (!presenting) return host ?? <ReaderPending />;
   return (
+    <PresentingReader host={host} cachedStartup={Boolean(cachedSnapshot)} kit={runningKit ?? null}
+      initial={runningKit || handedOff || initialExpired ? null : initial}>
+      {runningKit || (!handedOff && !initialExpired) ? app : <Suspense fallback={null}><StoreStartupRecovery /></Suspense>}
+    </PresentingReader>
+  );
+}
+
+/**
+ * The reader while it presents a page from the document (or a saved
+ * snapshot) before, and while, a store attaches. A server render of the
+ * first frame produces exactly this subtree (src/server-entry.tsx).
+ */
+export function PresentingReader({ host, cachedStartup, kit, initial, children }: {
+  host: ReactNode; cachedStartup: boolean; kit: ReaderStoreKit | null;
+  initial: InitialReaderData | null; children: ReactNode;
+}) {
+  return (
     <>
       {/* The host owns lifecycle only. A retry must not insert a second
           launching screen ahead of the already mounted reader. Errors still
           propagate, and shutdown switches the visible reader to recovery. */}
-      <div hidden data-reader-cache-startup={Boolean(cachedSnapshot)}>{host}</div>
-      <ReaderStoreContext.Provider value={runningKit ?? null}>
-        <InitialReaderContext.Provider value={runningKit || handedOff || initialExpired ? null : initial}>
-          {runningKit || (!handedOff && !initialExpired) ? app : <Suspense fallback={null}><StoreStartupRecovery /></Suspense>}
-        </InitialReaderContext.Provider>
+      <div hidden data-reader-cache-startup={cachedStartup}>{host}</div>
+      <ReaderStoreContext.Provider value={kit}>
+        <InitialReaderContext.Provider value={initial}>{children}</InitialReaderContext.Provider>
       </ReaderStoreContext.Provider>
     </>
   );
 }
 
-function ReaderApp({ identity, scope, storeId, devtoolsFooterVisible, liveStoreDevtoolsEnabled }: {
+export function ReaderApp({ identity, scope, storeId, devtoolsFooterVisible, liveStoreDevtoolsEnabled }: {
   identity: WikiSessionIdentity; scope: WikiScope; storeId: string;
   devtoolsFooterVisible: boolean; liveStoreDevtoolsEnabled: boolean;
 }) {
