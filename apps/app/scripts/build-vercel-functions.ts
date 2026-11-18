@@ -1,6 +1,7 @@
 import { rm, unlink } from "node:fs/promises";
 import { assertBuildAssets, assertPublicAssets } from "./public-assets";
-import { assertReaderServerBudget } from "./reader-server-budget";
+import { assertReaderServerBudget, READER_SSR_DIR } from "./reader-server-budget";
+import { buildReaderSsr } from "./build-reader-ssr";
 
 const appDir = new URL("..", import.meta.url).pathname;
 
@@ -43,6 +44,9 @@ for (const name of ["index", "root-app-shell"]) {
   const target = `${outdir}/${name}.mjs`;
   await Bun.write(target, Bun.file(source));
 }
+
+// The reader's SSR renderer: a lazy module of its own, not yet used by any response.
+await buildReaderSsr(`${outdir}/${READER_SSR_DIR}`);
 
 assertReaderServerBudget(outdir);
 

@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 /** Built modules a root evaluates before running: its transitive static imports. */
@@ -28,6 +28,15 @@ export function apiServerModules(directory: string) {
   return staticModuleClosure(directory, ["index.mjs"]);
 }
 
+/** The reader's SSR renderer (scripts/build-reader-ssr.ts), under the functions output. */
+export const READER_SSR_DIR = "reader-ssr";
+export const READER_SSR_ENTRY = "server-entry.js";
+
+/** Modules the SSR renderer evaluates when a response first imports it. */
+export function readerSsrModules(directory: string) {
+  return staticModuleClosure(path.join(directory, READER_SSR_DIR), [READER_SSR_ENTRY]);
+}
+
 const KiB = 1024;
 // Keep generous space for access/metadata logic, while catching accidental
 // eager imports of the multi-megabyte API router and optional features.
@@ -36,6 +45,11 @@ export const READER_SERVER_BUDGET_BYTES = 200 * KiB;
 // 182 KiB once features moved behind the route table (2135 KiB before). An
 // eager import of archiver, the AI SDK, Liveblocks or Blob exceeds this.
 export const API_SERVER_BUDGET_BYTES = 256 * KiB;
+// The SSR renderer (React's server renderer, the reader shell and the markdown
+// pipeline, fully bundled) measured 1,021.0 KiB in 31 modules on 2026-11-17.
+// It is never a static import of the HTML handler, which keeps its own 200 KiB
+// budget; a response loads it lazily, so this is cold-start cost only.
+export const READER_SSR_BUDGET_BYTES = 1_080 * KiB;
 
 export function serverBudgetFailures(directory: string) {
   const reader = readerServerModules(directory);
@@ -43,6 +57,18 @@ export function serverBudgetFailures(directory: string) {
   console.log(`Reader HTML startup: ${(reader.bytes / KiB).toFixed(1)} KiB in ${reader.files.length} modules`);
   console.log(`API startup: ${(apiModules.bytes / KiB).toFixed(1)} KiB in ${apiModules.files.length} modules`);
   const failures: string[] = [];
+  if (existsSync(path.join(directory, READER_SSR_DIR, READER_SSR_ENTRY))) {
+    const ssr = readerSsrModules(directory);
+    console.log(`Reader SSR renderer: ${(ssr.bytes / KiB).toFixed(1)} KiB in ${ssr.files.length} modules`);
+    if (ssr.bytes > READER_SSR_BUDGET_BYTES) failures.push(`Reader SSR renderer modules exceed ${READER_SSR_BUDGET_BYTES / KiB} KiB`);
+    const importsRenderer = (source: string) => [...source.matchAll(/(?:\bfrom|\bimport)\s*["']\.\/([^"']+)["']/g)]
+      .some(match => match[1]!.startsWith(`${READER_SSR_DIR}/`));
+    if (reader.files.some(name => importsRenderer(readFileSync(path.join(directory, name), "utf8")))) {
+      failures.push("The HTML handler statically imports the SSR renderer; load it with import()");
+    }
+  } else {
+    failures.push(`Reader SSR renderer not built (${READER_SSR_DIR}/${READER_SSR_ENTRY})`);
+  }
   if (reader.bytes > READER_SERVER_BUDGET_BYTES) failures.push(`Reader HTML startup modules exceed ${READER_SERVER_BUDGET_BYTES / KiB} KiB`);
   if (apiModules.bytes > API_SERVER_BUDGET_BYTES) failures.push(`API startup modules exceed ${API_SERVER_BUDGET_BYTES / KiB} KiB`);
   return failures;
