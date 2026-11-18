@@ -201,7 +201,10 @@ const storeGzipBudget = 855_000;
 // on that host: 3_460_000 -> 3_468_000.
 // PDF.js adds ~495 KiB gzip, exclusively on the PDF route (viewer + worker).
 // The reader's eager budget is unchanged; fonts/codecs load only when needed.
-const lazyGzipBudget = 4_226_500;
+// The file palette's Jev recommendations and word/folder-aware ranking add about
+// 1.5 KiB to the lazy CommandPalette chunk (Vercel builds measure ~0.8 KiB above
+// local ones): 4_226_500 -> 4_229_000.
+const lazyGzipBudget = 4_229_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
