@@ -209,8 +209,9 @@ const storeGzipBudget = 855_000;
 // local ones): 4_226_500 -> 4_229_000.
 // "Talk with the page" adds a 6.7 KiB lazy call chunk (WebRTC transport, page
 // conversation, call UI with its own styles), loaded only when a reader opens
-// Talk: 4_229_000 -> 4_235_000.
-const lazyGzipBudget = 4_235_000;
+// Talk: 4_229_000 -> 4_235_000. The call chunk then took on the avatar's
+// styles (7.8 KiB), and Vercel measured 4136.2 KiB: 4_235_000 -> 4_238_000.
+const lazyGzipBudget = 4_238_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
