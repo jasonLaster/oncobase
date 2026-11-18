@@ -226,6 +226,14 @@ test("reader build requests defer to an active scoped writer; finish still queue
       await handler(requestBuild)(ctx, { siteSlug: "alpha", serverSecret: secret });
       expect(jobs).toHaveLength(1);
     }
+    // A late request after install (the reader saw `current` null) is a no-op;
+    // a stale or old-format snapshot still queues.
+    for (const [snapshot, queued] of [[{ revision: 4 }, 0], [{ revision: 3 }, 1], [{ revision: 4, formatVersion: 0 }, 1]] as const) {
+      const { ctx, rows, jobs } = fixture();
+      Object.assign(rows.sites[0], { manifestRevision: 4, manifestSnapshot: { hash: "h", storageId: "s", formatVersion: MANIFEST_SNAPSHOT_VERSION, ...snapshot } });
+      await handler(requestBuild)(ctx, { siteSlug: "alpha", serverSecret: secret });
+      expect(jobs).toHaveLength(queued);
+    }
   } finally {
     if (saved === undefined) delete process.env.WIKI_PREFETCH_SECRET;
     else process.env.WIKI_PREFETCH_SECRET = saved;

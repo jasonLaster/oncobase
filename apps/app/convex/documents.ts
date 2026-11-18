@@ -327,16 +327,23 @@ export const getSensitivityBySlugs = query({
   },
 });
 
-async function paginatedDocs(ctx: AnyCtx, site: SiteCtx, cursor: string | null, numItems: number) {
+async function paginatedDocs(ctx: AnyCtx, site: SiteCtx, cursor: string | null, numItems: number, maximumBytesRead?: number) {
   const siteId = site.siteId;
+  const options = { cursor, numItems, ...(maximumBytesRead ? { maximumBytesRead } : {}) };
   if (siteId) {
     return await ctx.db
       .query("documents")
       .withIndex("by_site_slug", (q) => q.eq("siteId", siteId))
-      .paginate({ cursor, numItems });
+      .paginate(options);
   }
-  return await ctx.db.query("documents").paginate({ cursor, numItems });
+  return await ctx.db.query("documents").paginate(options);
 }
+
+// Full-body pages (content plus each row's embedding) hit 16.5 MB of the
+// 16 MiB per-function read limit in production at numItems 500. Cap the bytes
+// a page reads instead of trusting row counts; every caller follows
+// continueCursor until isDone, so a short page only costs a round trip.
+const CONTENT_PAGE_BYTES = 8 * 1024 * 1024;
 
 async function paginatedMetadata(ctx: QueryCtx, site: SiteCtx, cursor: string | null, numItems: number): Promise<MetadataPage> {
   const siteId = site.siteId;
@@ -432,14 +439,14 @@ export const listPageWithContent = query({
     if (!parsed || !site.siteId) {
       // Cursor issued before the visibility-index read (raw by_site_slug
       // cursor), or an unregistered site: finish on the original path.
-      const result = await paginatedDocs(ctx, site, cursor, numItems);
+      const result = await paginatedDocs(ctx, site, cursor, numItems, CONTENT_PAGE_BYTES);
       return { page: toPage(result.page), isDone: result.isDone, continueCursor: result.continueCursor };
     }
     // Same partitioned visibility index as listManifestPage: tombstones and,
     // in public scope, restricted bodies never enter the page read.
     const result = await ctx.db.query("documents")
       .withIndex("by_site_deleted_sensitive_slug", visibleRange(site.siteId, parsed.partition, includeSensitive))
-      .paginate({ cursor: parsed.cursor, numItems });
+      .paginate({ cursor: parsed.cursor, numItems, maximumBytesRead: CONTENT_PAGE_BYTES });
     return {
       page: toPage(result.page),
       isDone: result.isDone && parsed.partition === 1,

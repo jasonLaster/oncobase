@@ -71,6 +71,10 @@ export const requestBuild = serviceOrSecretMutation({
     // Readers request builds while `current` is null, which includes the whole
     // scoped publish window. A build started now would only be discarded as
     // `active-writer`, so defer: the writer's finish/fail/expiry queues one.
+    // A reader that saw `current` null just before a build installed must not
+    // queue a full rebuild of the revision that is now current.
+    const snapshot = site?.manifestSnapshot;
+    if (snapshot && snapshot.revision === (site?.manifestRevision ?? 0) && snapshot.formatVersion === MANIFEST_SNAPSHOT_VERSION) return null;
     if (site && siteId && !hasActiveScopedWriter(site)) await queueManifestBuild(ctx, siteId);
     return null;
   },
