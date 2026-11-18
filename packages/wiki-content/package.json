@@ -81,6 +81,7 @@
     "test:unit": "bun test ./src"
   },
   "dependencies": {
+    "github-slugger": "2.0.0",
     "js-tiktoken": "^1.0.21",
     "zod": "^4.2.1"
   },

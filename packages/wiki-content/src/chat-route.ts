@@ -18,6 +18,71 @@ export function chatTextModel(
 }
 
 /**
+ * Wiki chat has two audiences. People using the production site get the
+ * strong model. Everything else (previews, local stacks, CI, and automated
+ * browsers on production) gets a cheap open-weight model. OncoGuide's tutor
+ * keeps `chatTextModel`: its replay fixtures are pinned to that model.
+ */
+export type WikiChatAudience = "person" | "automation";
+export const WIKI_CHAT_MODELS: Record<WikiChatAudience, string> = {
+  person: "anthropic/claude-sonnet-5.5",
+  automation: "deepseek/deepseek-v4.1-flash",
+};
+/** Tried in order when every provider for the primary model fails. */
+export const WIKI_CHAT_FALLBACK_MODELS: Record<WikiChatAudience, string[]> = {
+  person: ["openai/gpt-6.2-astra", "openai/gpt-5.6-luna"],
+  automation: ["openai/gpt-5.6-luna"],
+};
+/**
+ * Sent by the chat client when the browser is automated (navigator.webdriver)
+ * and by scripted callers. It can only choose the cheaper model, so it needs
+ * no authentication.
+ */
+export const WIKI_CHAT_AUTOMATION_HEADER = "x-oncobase-chat-automation";
+
+export function wikiChatAudience(
+  env: ChatModelEnvironment = process.env,
+  headers?: { get(name: string): string | null },
+): WikiChatAudience {
+  if (env.VERCEL_ENV !== "production") return "automation";
+  return headers?.get(WIKI_CHAT_AUTOMATION_HEADER) === "1" ? "automation" : "person";
+}
+
+/** `WIKI_CHAT_MODEL` / `WIKI_CHAT_AUTOMATION_MODEL` override a tier without a code change. */
+export function wikiChatModel(env: ChatModelEnvironment = process.env, audience = wikiChatAudience(env)): string {
+  const override = audience === "person" ? env.WIKI_CHAT_MODEL : env.WIKI_CHAT_AUTOMATION_MODEL;
+  return override?.trim() || WIKI_CHAT_MODELS[audience];
+}
+
+export function wikiChatFallbackModels(
+  env: ChatModelEnvironment = process.env,
+  audience = wikiChatAudience(env),
+  primary = wikiChatModel(env, audience),
+): string[] {
+  const configured = audience === "person" ? env.WIKI_CHAT_FALLBACK_MODELS : env.WIKI_CHAT_AUTOMATION_FALLBACK_MODELS;
+  const models = configured === undefined
+    ? WIKI_CHAT_FALLBACK_MODELS[audience]
+    : configured.split(",").map((model) => model.trim()).filter(Boolean);
+  return models.filter((model) => model !== primary);
+}
+
+/**
+ * AI Gateway routing for wiki chat. Pages carry patient records, so every
+ * attempt (fallbacks included) may only reach providers with zero data
+ * retention that do not train on prompts.
+ */
+export function wikiChatGatewayOptions(fallbacks: string[]) {
+  return {
+    models: fallbacks,
+    zeroDataRetention: true,
+    disallowPromptTraining: true,
+  };
+}
+
+/** Pages the prompt embeds as PATIENT DIAGNOSIS, newest location first. */
+export const WIKI_CHAT_DIAGNOSIS_SLUGS = ["wiki/care/diagnosis", "wiki/diagnostics/diagnosis"];
+
+/**
  * Canonical wiki chat system prompt used by both the Next chat route and
  * the Vite standalone chat route. Hosts that need a different prompt should
  * pass their own via `loadSystemPrompt` rather than diverge a copy of this
@@ -37,14 +102,28 @@ IMPORTANT CITATION RULES:
 - Do NOT list sources at the end — weave them inline throughout your response.
 
 Search strategy:
-- FIRST check the PAGE INDEX below — if the question maps directly to a known page (e.g. "treatment plan" → wiki/treatment/plan/index, "diagnosis" → wiki/diagnostics/diagnosis), use read_page immediately without searching
-- Use search_wiki for broad discovery when you're not sure which page has the answer
-- After searching, read the 2-3 most relevant pages before answering
-- When you read a page, check its linked_pages list — these are pages referenced in the text. Follow links that are directly relevant to the question (e.g. a treatment page linking to a specific trial or meeting notes). Skip generic links like "diagnosis" or "prognosis" unless they're what the user asked about.
+- FIRST check the PAGE INDEX below. If the question maps directly to a known page, use read_page immediately without searching.
+- Use search_wiki for broad discovery when you're not sure which page has the answer. Search with a few specific words (names, drugs, tests, dates), not a whole sentence. If a search finds nothing useful, try different words before giving up.
+- After searching, read the 2-3 most relevant pages before answering.
+- Long pages come back in parts. When read_page returns truncated: true, you have NOT seen the whole page: use its sections list to read_page("slug#anchor") for the part you need, or find_in_page to locate a specific term, rather than assuming the page lacks it.
+- When you read a page, check its linked_pages list. Follow links that are directly relevant to the question. Skip generic links unless they're what the user asked about.
 - If read_page returns content exactly "unavailable", the page exists but its contents are not available to chat. Say that the source is unavailable instead of treating it as a missing page.
-- Do NOT use list_pages — use the PAGE INDEX instead
+- Do NOT use list_pages — use the PAGE INDEX instead.
+- If the wiki does not contain the answer, say so plainly. Never invent results, dates or doses.
 
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
+
+/** The full system prompt: base rules, then the diagnosis and the page index
+ * (both already redacted for the viewer). The route and the eval share it. */
+export function composeWikiChatSystemPrompt(
+  { diagnosis, index }: { diagnosis?: string | null; index?: string | null },
+  base = WIKI_CHAT_SYSTEM_PROMPT_BASE,
+) {
+  let prompt = base;
+  if (diagnosis) prompt += `\n\n## PATIENT DIAGNOSIS\n\n${diagnosis}`;
+  if (index) prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${index}`;
+  return prompt;
+}
 
 export const ChatRequestSchema = z.object({
   messages: z

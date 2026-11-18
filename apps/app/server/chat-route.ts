@@ -3,7 +3,6 @@ import {
   convertToModelMessages,
   createIdGenerator,
   smoothStream,
-  stepCountIs,
   streamText,
   type UIMessage,
 } from "ai";
@@ -14,25 +13,30 @@ import { createConvexFlusher } from "../../../packages/chat/src/flusher.js";
 import { orderedMutations } from "./convex-mutations";
 import { runAfterResponse } from "./background";
 import { getCachedSystemPrompt } from "../../../packages/chat/src/system-prompt-cache.js";
-import { readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import {
   ChatRequestSchema,
-  WIKI_CHAT_SYSTEM_PROMPT_BASE,
-  chatTextModel,
+  WIKI_CHAT_DIAGNOSIS_SLUGS,
   compactChatToolResult,
-  generateChatSearchPatterns,
+  composeWikiChatSystemPrompt,
+  wikiChatAudience,
 } from "@oncobase/wiki-content/chat-route";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { api } from "../convex/_generated/api.js";
 import { getDocumentsByTag, listDocuments } from "./document-listing";
 import type { Id } from "../convex/_generated/dataModel.js";
 import { createFakeChatModel, isFakeChatModelEnabled } from "./fake-chat-model";
+import { WIKI_CHAT_EMPTY_ANSWER, createWikiChatTools, wikiChatRunSettings } from "./chat-agent";
+import { getSearchCorpus } from "./api/search";
+import type { SessionUser } from "./reader-access";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const CANCEL_POLL_INTERVAL_MS = 1000;
 const PII_PATTERN_CACHE_TTL_MS = 15_000;
+// grep_wiki waits this long for a cold text-search corpus, then the model is
+// told to use search_wiki; the load continues and serves the next call.
+const GREP_CORPUS_WAIT_MS = 20_000;
 
 let closedControllerGuardInstalled = false;
 
@@ -204,18 +208,16 @@ async function loadSystemPrompt(
   const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
   const piiPatterns = await getPiiPatterns(client, siteSlug);
   const redact = (value: string) => applyPiiRedactions(value, { patterns: piiPatterns });
-  const [indexDoc, diagnosisDoc] = await Promise.all([
+  const [indexDoc, ...diagnosisCandidates] = await Promise.all([
     documents.getBySlug({ slug: "index" }),
-    documents.getBySlug({ slug: "wiki/diagnostics/diagnosis" }),
+    ...WIKI_CHAT_DIAGNOSIS_SLUGS.map((slug) => documents.getBySlug({ slug })),
   ]);
+  const diagnosisDoc = diagnosisCandidates.find(Boolean) ?? null;
 
-  let prompt = WIKI_CHAT_SYSTEM_PROMPT_BASE;
-  if (diagnosisDoc) {
-    prompt += `\n\n## PATIENT DIAGNOSIS\n\n${redact(diagnosisDoc.content)}`;
-  }
-  if (indexDoc) {
-    prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${redact(indexDoc.content)}`;
-  }
+  const prompt = composeWikiChatSystemPrompt({
+    diagnosis: diagnosisDoc ? redact(diagnosisDoc.content) : null,
+    index: indexDoc ? redact(indexDoc.content) : null,
+  });
   const sensitiveSlugs = [indexDoc, diagnosisDoc]
     .filter((doc): doc is NonNullable<typeof doc> => doc?.sensitive === true)
     .map((doc) => doc.slug);
@@ -252,6 +254,7 @@ export async function handleChatRequest({
   includeSensitive,
   canAccessSlug,
   accessCacheKey,
+  sessionUser = null,
 }: {
   request: Request;
   client: ConvexHttpClient;
@@ -262,6 +265,8 @@ export async function handleChatRequest({
   includeSensitive: boolean;
   canAccessSlug?: (slug: string) => Promise<boolean>;
   accessCacheKey?: string;
+  /** Signed-in viewer: grep_wiki searches the pages they may read. */
+  sessionUser?: SessionUser | null;
 }) {
   installClosedControllerGuard();
 
@@ -381,108 +386,31 @@ export async function handleChatRequest({
     accessCacheKey,
   );
   const piiPatterns = await getPiiPatterns(client, siteSlug);
-  const redact = (value: string) => applyPiiRedactions(value, { patterns: piiPatterns });
-  // search_wiki and read_page already redact titles; the listing tools match.
-  const redactListing = <T extends { title?: string; description?: string | null }>(row: T): T => ({
-    ...row,
-    ...(typeof row.title === "string" ? { title: redact(row.title) } : {}),
-    ...(typeof row.description === "string" ? { description: redact(row.description) } : {}),
+  const searchablePages = async () => {
+    const corpus = getSearchCorpus(client, siteSlug, includeSensitive ? sessionUser : null, piiPatterns);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), GREP_CORPUS_WAIT_MS); });
+    try {
+      return await Promise.race([corpus.pages, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+  const tools = createWikiChatTools({
+    documents: { ...documents, searchablePages },
+    piiPatterns,
+    embedQuery,
   });
+  const { audience, ...settings } = wikiChatRunSettings({ audience: wikiChatAudience(process.env, request.headers) });
 
   const result = streamText({
-    model: isFakeChatModelEnabled() ? (createFakeChatModel() as never) : chatTextModel(),
-    // OpenAI summaries are opt-in; the provider's raw reasoning stays private.
-    providerOptions: { openai: { reasoningSummary: "auto" } },
-    maxOutputTokens: 50000,
+    ...settings,
+    model: isFakeChatModelEnabled() ? (createFakeChatModel() as never) : settings.model,
     system: systemPrompt,
     messages: modelMessages,
-    stopWhen: stepCountIs(10),
     abortSignal: composedAbortSignal,
     experimental_transform: smoothStream({ delayInMs: 25, chunking: "word" }),
-    tools: {
-      search_wiki: {
-        description:
-          "Search across all wiki pages and source documents. Describe what you're looking for naturally.",
-        inputSchema: z.object({
-          query: z.string().describe("What you're looking for"),
-        }),
-        execute: async ({ query }: { query: string }) => {
-          const patterns = generateChatSearchPatterns(query);
-          const textSearchPromise = Promise.all(
-            patterns.map((pattern) => documents.search({ query: pattern, limit: 6 })),
-          );
-          const vectorSearchPromise = (async () => {
-            const embedding = await embedQuery(query);
-            if (!embedding) return [];
-            return documents.vectorSearch({ embedding, limit: 6 });
-          })().catch(() => []);
-
-          const [textResults, vectorResults] = await Promise.all([
-            textSearchPromise,
-            vectorSearchPromise,
-          ]);
-          const seen = new Set<string>();
-          const merged: Array<{ slug: string; title: string; tags: string[]; excerpt?: string }> = [];
-
-          for (const results of textResults) {
-            for (const result of results) {
-              if (!result?.slug || !result.title || !Array.isArray(result.tags)) continue;
-              if (seen.has(result.slug)) continue;
-              seen.add(result.slug);
-              merged.push({
-                slug: result.slug,
-                title: redact(result.title),
-                tags: result.tags,
-                excerpt: result.excerpt ? redact(result.excerpt) : undefined,
-              });
-            }
-          }
-
-          for (const result of vectorResults) {
-            if (!result?.slug || !result.title || !Array.isArray(result.tags)) continue;
-            if (seen.has(result.slug)) continue;
-            seen.add(result.slug);
-            merged.push({
-              slug: result.slug,
-              title: redact(result.title),
-              tags: result.tags,
-            });
-          }
-
-          return merged.slice(0, 12);
-        },
-      },
-      read_page: {
-        description:
-          "Read the full content of a specific wiki page by its slug. Returns page content and linked pages.",
-        inputSchema: z.object({
-          slug: z.string().describe('Page slug, e.g. "wiki/treatment/treatment-plan"'),
-        }),
-        execute: async ({ slug }: { slug: string }) =>
-          readChatPageFromDocuments(
-            {
-              getBySlug: (args) => documents.getBySlug(args),
-            },
-            slug,
-            { patterns: piiPatterns },
-          ),
-      },
-      list_pages: {
-        description: "List all available wiki pages.",
-        inputSchema: z.object({}),
-        execute: async () => (await documents.list()).map(redactListing),
-      },
-      get_pages_by_tag: {
-        description: "Find all pages that have a specific tag.",
-        inputSchema: z.object({ tag: z.string().describe("The tag to search for") }),
-        execute: async ({ tag }: { tag: string }) => (await documents.getByTag({ tag })).map(redactListing),
-      },
-      list_tags: {
-        description: "List all tags used across the wiki.",
-        inputSchema: z.object({}),
-        execute: () => documents.listTags(),
-      },
-    },
+    tools,
     onAbort: async () => {
       await flusher.finalizeAbort();
     },
@@ -520,6 +448,12 @@ export async function handleChatRequest({
     },
     onFinish: async ({ text, steps }) => {
       if (!convId) return;
+      // The last step cannot call tools, so this is rare: a model that stopped
+      // without writing. Save a visible reply rather than nothing.
+      if (!text.trim()) {
+        await flusher.finalizeError(WIKI_CHAT_EMPTY_ANSWER, generateMessageId());
+        return;
+      }
       const uiParts: Array<Record<string, unknown>> = [];
       for (const step of steps) {
         for (const reasoning of step.reasoning) {
@@ -567,7 +501,7 @@ export async function handleChatRequest({
       // Drain the stream after a client disconnect so onFinish persists the
       // reply; keep the function alive for it rather than racing a freeze.
       consumeSseStream: ({ stream }) => runAfterResponse(consumeStream({ stream }), "chat stream drain"),
-      headers: { "x-request-id": requestId },
+      headers: { "x-request-id": requestId, "x-oncobase-chat-audience": audience },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "An unexpected error occurred";

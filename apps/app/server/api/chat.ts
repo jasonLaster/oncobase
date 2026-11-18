@@ -13,5 +13,6 @@ export async function handleChatRoute({ request, client, siteSlug }: ApiRouteReq
     includeSensitive: Boolean(sessionUser),
     canAccessSlug: (slug) => canUserAccessSlug(client, siteSlug, sessionUser, slug),
     accessCacheKey: sessionUser ? String(sessionUser._id) : "public",
+    sessionUser,
   });
 }

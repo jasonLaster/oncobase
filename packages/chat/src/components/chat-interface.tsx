@@ -108,6 +108,10 @@ interface ChatInterfaceProps {
   initialPrompt?: string;
 }
 
+function isAutomatedBrowser() {
+  return typeof navigator !== "undefined" && navigator.webdriver === true;
+}
+
 export function ChatInterface({
   conversationId: initialConversationId,
   initialMessages,
@@ -180,7 +184,10 @@ export function ChatInterface({
     () =>
       new DefaultChatTransport<ChatUIMessage>({
         api: apiPath,
-        prepareSendMessagesRequest: ({ messages, body }) => ({
+        prepareSendMessagesRequest: ({ messages, body, headers }) => ({
+          // Automated browsers (Playwright, CI, agents) ask for the cheaper
+          // model; see WIKI_CHAT_AUTOMATION_HEADER in @oncobase/wiki-content.
+          headers: isAutomatedBrowser() ? { ...headers, "x-oncobase-chat-automation": "1" } : headers,
           body: {
             ...(body ?? {}),
             messages,

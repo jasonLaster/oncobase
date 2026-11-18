@@ -1,468 +1,345 @@
-import { createBackendClient } from "../server/backend-client";
 /**
- * Evaluate chat agent quality across multiple models in parallel.
- * Uses Sonnet 4.6 as an LLM judge for readability, plus heuristic scoring.
+ * Wiki chat eval: runs the production agent (tools, prompt, step policy and
+ * gateway routing from server/chat-agent.ts) against a local copy of the
+ * vault, then scores each answer on gold facts, citations and cost.
  *
- * Usage:
- *   npx tsx scripts/eval-chat.ts                    # all default models
- *   npx tsx scripts/eval-chat.ts gpt-5.4-mini       # single model (prefix match)
- *   npx tsx scripts/eval-chat.ts --question "X?"    # custom question for all models
+ *   bun --env-file=<repo>/.env.local apps/app/scripts/eval-chat.ts [vault] \
+ *     [--tasks=core,november-log] [--models=a/b,c/d] [--cases=id,id] [--limit=N] [--runs=N]
+ *     [--judge=model] [--out=file.json] [--verbose]
  *
- * --- Leaderboard (2026-04-07, with index+diagnosis in prompt) ---
+ * Gold tasks hold patient facts, so they never live in this (public) repo.
+ * `--tasks` names JSON files in WIKI_CHAT_EVAL_DIR (default: the vault's
+ * sibling `evals/chat/`), or gives paths. A task:
+ *   { id, question, facts: string[] | {fact, page, quote}[], pages?: (regex | {pattern, flags})[],
+ *     required_pages?: slug[], absent?: boolean, note?: string }
+ * `required_pages` are pages the answer needs; the eval reports how many the
+ * agent read, searched in or cited (page recall). Tasks may set
+ * `exclude_pages` (regexes) to hide pages, e.g. the log that summarizes them.
  *
- * | Model                        | Overall | Retrieval | Tools | Citations | Readability | Speed  | $/query |
- * |------------------------------|---------|-----------|-------|-----------|-------------|--------|---------|
- * | openai/gpt-5.4-mini          |   9.6   |    9.6    |   9   |    10     |     TBD     |  6.4s  |  TBD    |
- * | google/gemini-2.5-flash      |   9.2   |    10     |  8.4  |    8.8    |     TBD     | 12.6s  |  TBD    |
- * | anthropic/claude-sonnet-4    |   8.6   |    9.5    |   9   |    7.5    |     TBD     | 32.8s  |  TBD    |
+ * The vault stands in for production content (the whole vault is published).
+ * It is read as a signed-out viewer: sensitive pages are excluded and PII is
+ * redacted by the same tool code production uses. Requests go through AI
+ * Gateway with zero data retention and no prompt training, like production.
+ * Fallback models are disabled so each row measures one model.
  */
-import {
-  streamText,
-  generateText,
-  stepCountIs,
-  type ModelMessage,
-} from "ai";
+import { homedir } from "node:os";
+import path from "node:path";
+import { generateText } from "ai";
 import { z } from "zod";
-import { api } from "../convex/_generated/api";
-import { getDocumentsByTag, listDocumentTags, listDocuments } from "../server/document-listing";
-import dotenv from "dotenv";
-import path from "path";
+import { readVaultDocuments } from "../../../packages/oncobase/src/walk-vault";
+import { chatPageSections } from "@oncobase/wiki-content/chat-tools";
+import { WIKI_CHAT_DIAGNOSIS_SLUGS, composeWikiChatSystemPrompt } from "@oncobase/wiki-content/chat-route";
+import { applyPiiRedactions } from "@oncobase/wiki-content/pii";
+import { createWikiChatTools, wikiChatRunSettings, type WikiChatDocuments } from "../server/chat-agent";
+import { prepareSearchPage } from "../server/search-corpus";
 
-dotenv.config({ path: path.join(__dirname, "..", ".env.local") });
-dotenv.config({ path: path.join(__dirname, "..", ".env") });
+type GoldFact = string | { fact: string; page?: string; quote?: string };
+type TaskFile = { name?: string; exclude_pages?: Array<string | { pattern: string; flags?: string }>; tasks: RawTask[] };
+type RawTask = {
+  id: string; question: string; facts: GoldFact[]; pages?: Array<string | { pattern: string; flags?: string }>;
+  required_pages?: string[]; absent?: boolean; note?: string;
+};
+type Case = {
+  id: string; question: string; facts: string[]; pages: RegExp[]; required: string[]; absent?: boolean; note?: string;
+};
+const toRegExp = (value: string | { pattern: string; flags?: string }) =>
+  typeof value === "string" ? new RegExp(value) : new RegExp(value.pattern, value.flags);
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
-if (!CONVEX_URL) { console.error("NEXT_PUBLIC_CONVEX_URL not set"); process.exit(1); }
-const convex = createBackendClient(CONVEX_URL);
+// ---------- vault-backed documents ----------
 
-// --- Cost per 1M tokens (input/output) ---
-const COST_PER_1M: Record<string, { input: number; output: number }> = {
-  "openai/gpt-5.4-mini":          { input: 1.00, output: 4.00 },
-  "openai/gpt-4.1-mini":          { input: 0.40, output: 1.60 },
-  "anthropic/claude-sonnet-4":    { input: 3.00, output: 15.00 },
-  "anthropic/claude-sonnet-4.6":  { input: 3.00, output: 15.00 },
-  "anthropic/claude-opus-4.6":    { input: 15.00, output: 75.00 },
-  "google/gemini-2.5-flash":      { input: 0.15, output: 0.60 },
-  "google/gemini-3.1-flash-lite-preview": { input: 0.10, output: 0.40 },
-  "moonshotai/kimi-k2":           { input: 0.60, output: 2.40 },
-  "qwen/qwen3.5-flash-02-23":    { input: 0.10, output: 0.40 },
+const args = process.argv.slice(2);
+const flag = (name: string) => args.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
+const vault = args.find((arg) => !arg.startsWith("--")) ?? path.join(homedir(), "src/projects/diana-tnbc/obsidian");
+const verbose = args.includes("--verbose");
+const evalDir = process.env.WIKI_CHAT_EVAL_DIR ?? path.join(path.dirname(path.resolve(vault)), "evals/chat");
+
+const taskFiles: TaskFile[] = await Promise.all((flag("tasks") ?? "core").split(",").map(async (name) => {
+  const file = name.includes("/") || name.endsWith(".json") ? name : path.join(evalDir, `${name}.json`);
+  return JSON.parse(await Bun.file(file).text()) as TaskFile;
+}));
+const CASES: Case[] = taskFiles.flatMap((file) => file.tasks.map((task) => {
+  const facts = task.facts.map((fact) => (typeof fact === "string" ? fact : fact.fact));
+  const required = task.required_pages ?? [...new Set(task.facts.flatMap((fact) => (typeof fact === "object" && fact.page ? [fact.page] : [])))];
+  const pages = task.pages?.map(toRegExp) ?? required.map((slug) => new RegExp(`^${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+  return { id: task.id, question: task.question, facts, pages, required, absent: task.absent, note: task.note };
+}));
+const excluded = taskFiles.flatMap((file) => file.exclude_pages ?? []).map(toRegExp);
+
+const allDocs = readVaultDocuments(vault);
+const docs = allDocs.filter((doc) => !doc.sensitive && !excluded.some((pattern) => pattern.test(doc.slug)));
+const bySlug = new Map(allDocs.map((doc) => [doc.slug, doc]));
+const publicBySlug = new Map(docs.map((doc) => [doc.slug, doc]));
+const tokenize = (value: string) => value.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}'-]*/gu) ?? [];
+const docTokens = docs.map((doc) => {
+  const counts = new Map<string, number>();
+  for (const token of tokenize(doc.content)) counts.set(token, (counts.get(token) ?? 0) + 1);
+  return { doc, counts, title: new Set(tokenize(`${doc.title} ${doc.slug.replace(/[/-]/g, " ")}`)) };
+});
+const documentFrequency = new Map<string, number>();
+for (const { counts } of docTokens) for (const token of counts.keys()) documentFrequency.set(token, (documentFrequency.get(token) ?? 0) + 1);
+
+/** Stand-in for Convex's full-text index: BM25-like over content, title boost. */
+function searchDocs(query: string, limit = 6) {
+  const terms = [...new Set(tokenize(query))].filter((term) => documentFrequency.has(term));
+  if (!terms.length) return [];
+  const scored = docTokens.map(({ doc, counts, title }) => {
+    let score = 0;
+    for (const term of terms) {
+      const tf = counts.get(term) ?? 0;
+      const idf = Math.log(1 + docs.length / (documentFrequency.get(term) ?? 1));
+      score += idf * ((tf * 2.2) / (tf + 1.2)) + (title.has(term) ? idf * 2 : 0);
+    }
+    return { doc, score };
+  }).filter((row) => row.score > 0).sort((a, b) => b.score - a.score).slice(0, limit);
+  return scored.map(({ doc }) => {
+    const line = doc.content.split("\n").find((candidate) => terms.some((term) => candidate.toLowerCase().includes(term))) ?? "";
+    return { slug: doc.slug, title: doc.title, tags: doc.tags, excerpt: line.slice(0, 240) };
+  });
+}
+
+const searchable = docs.map((doc) => prepareSearchPage(doc, undefined));
+const documents: WikiChatDocuments = {
+  search: async ({ query, limit }) => searchDocs(query, limit),
+  // Like Convex: a signed-out read sees public pages; includeSensitive only
+  // reveals that a sensitive page exists so read_page can say "unavailable".
+  getBySlug: async ({ slug, includeSensitive }) => (includeSensitive ? bySlug : publicBySlug).get(slug) ?? null,
+  list: async () => docs.map(({ slug, title, tags }) => ({ slug, title, tags })),
+  getByTag: async ({ tag }) => docs.filter((doc) => doc.tags.includes(tag)).map(({ slug, title, tags }) => ({ slug, title, tags })),
+  listTags: async () => [...new Set(docs.flatMap((doc) => doc.tags))].sort(),
+  vectorSearch: async () => [],
+  searchablePages: async () => searchable,
 };
 
-// --- System prompt ---
-const SYSTEM_PROMPT_BASE = `You are a research assistant for a triple-negative breast cancer (TNBC) knowledge base. You help answer questions about the patient's diagnosis, treatment plan, research, and related medical topics.
+const redact = (value: string) => applyPiiRedactions(value, { patterns: undefined });
+const diagnosis = WIKI_CHAT_DIAGNOSIS_SLUGS.map((slug) => publicBySlug.get(slug)).find(Boolean);
+const systemPrompt = composeWikiChatSystemPrompt({
+  diagnosis: diagnosis ? redact(diagnosis.content) : null,
+  index: publicBySlug.get("index") ? redact(publicBySlug.get("index")!.content) : null,
+});
 
-You have access to tools that let you search and read wiki pages. Use them to find relevant information before answering. Always ground your answers in the wiki content when possible.
+// ---------- pricing ----------
 
-IMPORTANT CITATION RULES:
-- ALWAYS cite sources using inline markdown links: [Page Title](/slug)
-- Every factual claim should have a citation. Aim for 5+ citations per response.
-- Example: "The treatment plan uses [KEYNOTE-522](/wiki/treatment/treatment-plan), which includes..."
-- Do NOT list sources at the end — weave them inline throughout your response.
-
-Search strategy:
-- Use the PAGE INDEX below to find the right slug, then use read_page to get details
-- Use search_wiki for broad discovery when you're not sure which page has the answer
-- After searching, read the 2-3 most relevant pages before answering
-- Do NOT use list_pages — use the PAGE INDEX instead
-
-Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
-
-let cachedSystemPrompt: string | null = null;
-async function getSystemPrompt(): Promise<string> {
-  if (cachedSystemPrompt) return cachedSystemPrompt;
-  const [indexDoc, diagnosisDoc] = await Promise.all([
-    convex.query(api.documents.getBySlug, { slug: "index" }),
-    convex.query(api.documents.getBySlug, { slug: "wiki/diagnostics/diagnosis" }),
-  ]);
-  let prompt = SYSTEM_PROMPT_BASE;
-  if (diagnosisDoc) prompt += `\n\n## DIANA'S DIAGNOSIS\n\n${diagnosisDoc.content}`;
-  if (indexDoc) prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${indexDoc.content}`;
-  cachedSystemPrompt = prompt;
-  return prompt;
-}
-
-// --- Search fan-out ---
-function generateSearchPatterns(query: string): string[] {
-  const patterns = new Set<string>();
-  const clean = query.trim();
-  if (clean) patterns.add(clean);
-  const words = clean.split(/\s+/).filter((w) => w.length >= 2);
-  if (words.length >= 2) {
-    for (let i = 0; i < words.length - 1 && patterns.size < 5; i++) {
-      patterns.add(`${words[i]} ${words[i + 1]}`);
-    }
-  }
-  const expansions: Record<string, string> = {
-    tnbc: "triple-negative breast cancer", pcr: "pathologic complete response",
-    ctdna: "circulating tumor DNA", mrd: "minimal residual disease",
-    rcb: "residual cancer burden", "keynote-522": "pembrolizumab chemotherapy",
-    ac: "doxorubicin cyclophosphamide", pembro: "pembrolizumab",
-  };
-  for (const [abbrev, expansion] of Object.entries(expansions)) {
-    if (clean.toLowerCase().includes(abbrev)) patterns.add(expansion);
-  }
-  return Array.from(patterns).slice(0, 4);
-}
-
-// --- Tool definitions ---
-interface ToolEvent { tool: string; input: Record<string, unknown>; output: unknown; durationMs: number; resultCount?: number; }
-
-function createTools(events: ToolEvent[]) {
-  return {
-    search_wiki: {
-      description: "Search wiki pages. Fans out into multiple parallel searches automatically.",
-      inputSchema: z.object({ query: z.string().describe("What you're looking for") }),
-      execute: async ({ query }: { query: string }) => {
-        const start = Date.now();
-        const patterns = generateSearchPatterns(query);
-        const allResults = await Promise.all(patterns.map((p) => convex.query(api.documents.search, { query: p, limit: 6 })));
-        const seen = new Set<string>();
-        const merged: Array<{ slug: string; title: string; tags: string[]; excerpt: string }> = [];
-        for (const results of allResults) for (const r of results) if (!seen.has(r.slug)) { seen.add(r.slug); merged.push(r); }
-        const final = merged.slice(0, 12);
-        events.push({ tool: "search_wiki", input: { query, patterns }, output: final.map((r) => ({ slug: r.slug, title: r.title })), durationMs: Date.now() - start, resultCount: final.length });
-        return final;
-      },
-    },
-    read_page: {
-      description: "Read the full content of a specific wiki page by its slug.",
-      inputSchema: z.object({ slug: z.string() }),
-      execute: async ({ slug }: { slug: string }) => {
-        const start = Date.now();
-        const doc = await convex.query(api.documents.getBySlug, { slug });
-        const result = doc ? { slug: doc.slug, title: doc.title, tags: doc.tags, content: doc.content.slice(0, 8000) } : { error: `Page not found: ${slug}` };
-        events.push({ tool: "read_page", input: { slug }, output: doc ? { slug: doc.slug, title: doc.title } : { error: "not found" }, durationMs: Date.now() - start });
-        return result;
-      },
-    },
-    list_pages: {
-      description: "List all available wiki pages.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        const start = Date.now();
-        const results = await listDocuments(convex, {});
-        events.push({ tool: "list_pages", input: {}, output: `${results.length} pages`, durationMs: Date.now() - start, resultCount: results.length });
-        return results;
-      },
-    },
-    get_pages_by_tag: {
-      description: "Find all pages that have a specific tag.",
-      inputSchema: z.object({ tag: z.string() }),
-      execute: async ({ tag }: { tag: string }) => {
-        const start = Date.now();
-        const results = await getDocumentsByTag(convex, { tag });
-        events.push({ tool: "get_pages_by_tag", input: { tag }, output: results, durationMs: Date.now() - start, resultCount: results.length });
-        return results;
-      },
-    },
-    list_tags: {
-      description: "List all tags used across the wiki.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        const start = Date.now();
-        const results = await listDocumentTags(convex, {});
-        events.push({ tool: "list_tags", input: {}, output: `${results.length} tags`, durationMs: Date.now() - start, resultCount: results.length });
-        return results;
-      },
-    },
-  };
-}
-
-// --- Eval result ---
-interface EvalResult {
-  model: string;
-  question: string;
-  toolEvents: ToolEvent[];
-  responseText: string;
-  stepCount: number;
-  totalDurationMs: number;
-  scores: {
-    retrieval: number;
-    toolUsage: number;
-    citations: number;
-    length: number;
-    readability: number;
-    cost: number;
-    overall: number;
-  };
-  costUsd: number;
-  issues: string[];
-}
-
-// --- Heuristic scoring ---
-function heuristicScore(events: ToolEvent[], text: string): { retrieval: number; toolUsage: number; citations: number; length: number; issues: string[] } {
-  const issues: string[] = [];
-  const searches = events.filter((e) => e.tool === "search_wiki");
-  const reads = events.filter((e) => e.tool === "read_page");
-  const listPages = events.filter((e) => e.tool === "list_pages");
-
-  let retrieval = 10;
-  if (searches.length === 0 && reads.length === 0) { retrieval = 2; issues.push("No retrieval"); }
-  const emptySearches = searches.filter((e) => e.resultCount === 0);
-  if (emptySearches.length > 0) { retrieval -= emptySearches.length * 2; issues.push(`${emptySearches.length} empty searches`); }
-  for (const s of searches) { const q = s.input.query as string; if (q && q.split(/\s+/).length > 5) { retrieval -= 1; issues.push("Long search query"); } }
-  retrieval = Math.max(0, Math.min(10, retrieval));
-
-  let toolUsage = 7;
-  if (reads.length === 0 && searches.length > 0) { toolUsage -= 3; issues.push("Searched but never read pages"); }
-  if (reads.length > 0) toolUsage += 2;
-  if (listPages.length > 0) { toolUsage -= 1; issues.push("Used list_pages"); }
-  if (events.length > 15) { toolUsage -= 2; issues.push(`${events.length} tool calls (excessive)`); }
-  toolUsage = Math.max(0, Math.min(10, toolUsage));
-
-  const linkCount = (text.match(/\[.+?\]\(\/.+?\)/g) || []).length;
-  let citations = Math.min(10, linkCount * 2);
-  if (linkCount === 0) { issues.push("No citations"); citations = 0; }
-
-  const wordCount = text.split(/\s+/).length;
-  let length = 7;
-  if (wordCount < 50) { length = 3; issues.push(`${wordCount} words (too short)`); }
-  else if (wordCount < 100) length = 5;
-  else if (wordCount > 800) { length = 5; issues.push(`${wordCount} words (too long)`); }
-  else if (wordCount >= 150 && wordCount <= 500) length = 10;
-
-  return { retrieval, toolUsage, citations, length, issues };
-}
-
-// --- LLM judge (Sonnet 4.6) ---
-async function judgeReadability(question: string, response: string): Promise<number> {
-  try {
-    const result = await generateText({
-      model: "google/gemini-2.5-flash", // cheap judge; swap to sonnet-4.6 when credits allow
-      system: `You are an evaluator scoring a medical research assistant's response for readability and helpfulness.
-Score from 1-10 where:
-1-3: Confusing, poorly organized, hard to follow
-4-6: Adequate but could be clearer or better structured
-7-8: Clear, well-organized, good use of formatting
-9-10: Excellent — easy to scan, well-structured, compassionate, actionable
-
-Consider: structure, clarity, use of headers/bullets, medical jargon explained, empathy, actionability.
-Respond with ONLY a JSON object: {"score": N, "reason": "one sentence"}`,
-      prompt: `Question: ${question}\n\nResponse:\n${response.slice(0, 3000)}`,
+type Pricing = { input: number; output: number; cacheRead?: number; cacheWrite?: number };
+const pricing = new Map<string, Pricing>();
+async function loadPricing() {
+  const response = await fetch("https://ai-gateway.vercel.sh/v1/models");
+  if (!response.ok) throw new Error(`Model catalog request failed: ${response.status}`);
+  const body = (await response.json()) as { data: Array<{ id: string; pricing?: Record<string, string> }> };
+  for (const model of body.data) {
+    const p = model.pricing;
+    if (!p?.input || !p.output) continue;
+    pricing.set(model.id, {
+      input: Number(p.input), output: Number(p.output),
+      cacheRead: p.input_cache_read ? Number(p.input_cache_read) : undefined,
+      cacheWrite: p.input_cache_write ? Number(p.input_cache_write) : undefined,
     });
-    const parsed = JSON.parse(result.text.replace(/```json\n?|\n?```/g, "").trim());
-    return Math.max(1, Math.min(10, parsed.score));
-  } catch (err) {
-    console.error(`  [judge] Error: ${(err as Error).message?.slice(0, 80)}`);
-    return 5; // default if judge fails
   }
 }
 
-// --- Cost estimation ---
-function estimateCost(model: string, text: string, systemPromptLen: number, toolEvents: ToolEvent[]): number {
-  const costs = COST_PER_1M[model];
-  if (!costs) return 0;
-  // Rough token estimation: 1 token ≈ 4 chars
-  const inputChars = systemPromptLen + 200 + toolEvents.reduce((sum, e) => sum + JSON.stringify(e.output).length, 0);
-  const outputChars = text.length;
-  const inputTokens = inputChars / 4;
-  const outputTokens = outputChars / 4;
-  return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
+type Usage = { inputTokens?: number; outputTokens?: number; inputTokenDetails?: { cacheReadTokens?: number; cacheWriteTokens?: number }; cachedInputTokens?: number };
+function costOf(model: string, usage: Usage) {
+  const price = pricing.get(model);
+  if (!price) return NaN;
+  const cacheRead = usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens ?? 0;
+  const cacheWrite = usage.inputTokenDetails?.cacheWriteTokens ?? 0;
+  const fresh = Math.max(0, (usage.inputTokens ?? 0) - cacheRead - cacheWrite);
+  return fresh * price.input + cacheRead * (price.cacheRead ?? price.input) + cacheWrite * (price.cacheWrite ?? price.input)
+    + (usage.outputTokens ?? 0) * price.output;
 }
 
-function costScore(costUsd: number): number {
-  if (costUsd <= 0.001) return 10;
-  if (costUsd <= 0.005) return 9;
-  if (costUsd <= 0.01) return 8;
-  if (costUsd <= 0.02) return 7;
-  if (costUsd <= 0.05) return 5;
-  if (costUsd <= 0.10) return 3;
-  return 1;
-}
+// ---------- scoring ----------
 
-// --- Run one question for one model ---
-async function runOne(question: string, model: string): Promise<EvalResult> {
-  const events: ToolEvent[] = [];
-  const tools = createTools(events);
-  const systemPrompt = await getSystemPrompt();
-  const start = Date.now();
-  const messages: ModelMessage[] = [{ role: "user", content: question }];
-
-  const result = await streamText({
-    model: model,
-    system: systemPrompt,
-    messages,
-    stopWhen: stepCountIs(10),
-    tools,
-  });
-
-  const response = await result;
-  const text = await response.text;
-  const steps = (await response.steps).length;
-  const durationMs = Date.now() - start;
-
-  const h = heuristicScore(events, text);
-  const readability = await judgeReadability(question, text);
-  const costUsd = estimateCost(model, text, systemPrompt.length, events);
-  const cost = costScore(costUsd);
-
-  const overall = Math.round(
-    (h.retrieval * 0.2 + h.toolUsage * 0.15 + h.citations * 0.2 + h.length * 0.1 + readability * 0.2 + cost * 0.15) * 10
-  ) / 10;
-
-  return {
-    model, question, toolEvents: events, responseText: text,
-    stepCount: steps, totalDurationMs: durationMs, costUsd,
-    scores: { retrieval: h.retrieval, toolUsage: h.toolUsage, citations: h.citations, length: h.length, readability, cost, overall },
-    issues: h.issues,
-  };
-}
-
-// --- Run all questions for one model ---
-async function runModel(model: string, questions: string[]): Promise<EvalResult[]> {
-  const results: EvalResult[] = [];
-  for (const q of questions) {
-    try {
-      results.push(await runOne(q, model));
-    } catch (err) {
-      console.error(`  [${model}] ❌ "${q.slice(0, 40)}": ${(err as Error).message}`);
+const LINK = /\]\((\/[^)\s]+)\)/g;
+function checkCitations(text: string) {
+  const links = [...text.matchAll(LINK)].map((match) => match[1]!);
+  let pageOk = 0, anchorOk = 0, anchors = 0;
+  const broken: string[] = [];
+  for (const link of links) {
+    const [rawSlug, anchor] = decodeURI(link).slice(1).split("#");
+    const slug = rawSlug!.replace(/\/$/, "");
+    const doc = bySlug.get(slug) ?? bySlug.get(`${slug}/index`);
+    if (!doc) { broken.push(link); continue; }
+    pageOk++;
+    if (anchor) {
+      anchors++;
+      if (chatPageSections(doc.content).some((section) => section.anchor === anchor)) anchorOk++;
+      else broken.push(link);
     }
   }
+  return { links: links.length, pageOk, anchors, anchorOk, broken, cited: links.map((link) => link.slice(1).split("#")[0]!) };
+}
+
+const JudgeSchema = z.object({
+  facts: z.array(z.object({ fact: z.string(), verdict: z.enum(["correct", "missing", "wrong"]) })),
+  fabricated: z.boolean().describe("The answer states specific results, values or events the expected facts contradict, or (for an absent case) invents any"),
+  absent_handled: z.boolean().describe("For an absent case: the answer clearly says the wiki has no such information. True otherwise."),
+  quality: z.number().min(1).max(10).describe("Clarity and usefulness for a patient's family member"),
+  reason: z.string(),
+});
+
+async function judge(c: Case, answer: string, judgeModel: string) {
+  const { output } = await generateText({
+    model: judgeModel,
+    providerOptions: { gateway: { zeroDataRetention: true, disallowPromptTraining: true } },
+    output: (await import("ai")).Output.object({ schema: JudgeSchema }),
+    system: "You grade a medical knowledge-base assistant against facts taken from its own wiki. Judge only against the expected facts; do not use outside knowledge. A fact is correct when the answer states it (paraphrase is fine), missing when absent, wrong when the answer contradicts it.",
+    prompt: `Question: ${c.question}\n${c.absent ? "This is an ABSENT case: the wiki has no answer.\n" : ""}Expected facts:\n${c.facts.map((fact) => `- ${fact}`).join("\n")}\n\nAnswer:\n${answer.slice(0, 12_000)}`,
+  });
+  return output;
+}
+
+type Run = {
+  model: string; case: string; run: number; ok: boolean; error?: string;
+  seconds: number; steps: number; tools: Record<string, number>; truncatedReads: number; continuedReads: number;
+  finish: string; costUsd: number; words: number;
+  retrieval: boolean; required: number; requiredFound: number; facts: number; factsCorrect: number; factsWrong: number; fabricated: boolean; absentHandled: boolean; quality: number;
+  links: number; brokenLinks: string[]; judgeReason?: string; answer?: string;
+};
+
+async function runCase(model: string, c: Case, run: number, judgeModel: string): Promise<Run> {
+  const started = performance.now();
+  const base = { model, case: c.id, run };
+  const { audience: _audience, ...settings } = wikiChatRunSettings({ audience: "person", model });
+  try {
+    const tools = createWikiChatTools({ documents, piiPatterns: undefined, embedQuery: async () => null });
+    const result = await generateText({
+      ...settings,
+      system: systemPrompt,
+      messages: [{ role: "user", content: c.question }],
+      tools,
+      abortSignal: AbortSignal.timeout(240_000),
+    });
+    const seconds = (performance.now() - started) / 1000;
+    const toolCounts: Record<string, number> = {};
+    const touched = new Set<string>();
+    let truncatedReads = 0, continuedReads = 0;
+    for (const step of result.steps) {
+      for (const call of step.toolCalls) {
+        toolCounts[call.toolName] = (toolCounts[call.toolName] ?? 0) + 1;
+        const input = call.input as { slug?: string; offset?: number };
+        if (input.slug) touched.add(input.slug.split("#")[0]!.replace(/^\//, ""));
+        if (call.toolName === "read_page" && (input.offset !== undefined || input.slug?.includes("#"))) continuedReads++;
+      }
+      for (const toolResult of step.toolResults) {
+        const output = toolResult.output as { truncated?: boolean } | undefined;
+        if (toolResult.toolName === "read_page" && output?.truncated) truncatedReads++;
+      }
+    }
+    const text = result.text;
+    const citations = checkCitations(text);
+    for (const slug of citations.cited) touched.add(slug);
+    const retrieval = c.pages.length === 0 || [...touched].some((slug) => c.pages.some((pattern) => pattern.test(slug)));
+    const requiredFound = c.required.filter((slug) => touched.has(slug)).length;
+    const graded = text.trim() ? await judge(c, text, judgeModel) : null;
+    const facts = graded?.facts ?? [];
+    return {
+      ...base, ok: true, seconds, steps: result.steps.length, tools: toolCounts, truncatedReads, continuedReads,
+      finish: result.finishReason, costUsd: costOf(model, result.totalUsage as Usage), words: text.split(/\s+/).filter(Boolean).length,
+      retrieval, required: c.required.length, requiredFound, facts: c.facts.length, factsCorrect: facts.filter((fact) => fact.verdict === "correct").length,
+      factsWrong: facts.filter((fact) => fact.verdict === "wrong").length, fabricated: graded?.fabricated ?? false,
+      absentHandled: graded?.absent_handled ?? false, quality: graded?.quality ?? 0,
+      links: citations.links, brokenLinks: citations.broken, judgeReason: graded?.reason, answer: text,
+    };
+  } catch (error) {
+    return {
+      ...base, ok: false, error: (error as Error).message.slice(0, 300), seconds: (performance.now() - started) / 1000,
+      steps: 0, tools: {}, truncatedReads: 0, continuedReads: 0, finish: "error", costUsd: 0, words: 0, retrieval: false, required: c.required.length, requiredFound: 0,
+      facts: c.facts.length, factsCorrect: 0, factsWrong: 0, fabricated: false, absentHandled: false, quality: 0, links: 0, brokenLinks: [],
+    };
+  }
+}
+
+async function pool<T, R>(items: T[], limit: number, work: (item: T) => Promise<R>) {
+  const results: R[] = [];
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await work(items[index]!);
+    }
+  }));
   return results;
 }
 
-// --- Test questions ---
-const TEST_QUESTIONS = [
-  "What is the treatment plan?",
-  "What clinical trials should the patient consider?",
-  "Explain the prognosis for stage III TNBC",
-  "What is ctDNA monitoring and why does it matter?",
-  "What mRNA vaccines are being studied for TNBC?",
-  "Who is on the medical team?",
-  "What side effects should be expected from KEYNOTE-522?",
-  "What happens if the patient doesn't achieve pCR?",
-];
-
 const DEFAULT_MODELS = [
-  "openai/gpt-5.4-mini",
-  "google/gemini-2.5-flash",
-  "openai/gpt-4.1-mini",
-  // "anthropic/claude-sonnet-4",     // add back when credits available
-  // "anthropic/claude-sonnet-4.6",
+  "anthropic/claude-sonnet-5.5",
+  "openai/gpt-6.2-astra",
+  "openai/gpt-5.6-luna",
+  "deepseek/deepseek-v4.1-flash-1017",
+  "deepseek/deepseek-v4-pro-0813",
+  "alibaba/qwen3.7-plus",
+  "zai/glm-5.3-flash",
+  "minimax/minimax-m3.1-flash",
 ];
 
-// --- Main ---
 async function main() {
-  // Parse args
-  let models = DEFAULT_MODELS;
-  let questions = TEST_QUESTIONS;
-
-  const args = process.argv.slice(2);
-  const qIdx = args.indexOf("--question");
-  if (qIdx >= 0 && args[qIdx + 1]) {
-    questions = [args[qIdx + 1]];
-    args.splice(qIdx, 2);
+  if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) throw new Error("Set AI_GATEWAY_API_KEY (or run with --env-file .env.local)");
+  const models = flag("models")?.split(",").map((model) => model.trim()).filter(Boolean) ?? DEFAULT_MODELS;
+  const selected = flag("cases")?.split(",");
+  const limit = Number(flag("limit") ?? Infinity);
+  const cases = (selected ? CASES.filter((c) => selected.includes(c.id)) : CASES).slice(0, limit);
+  const runs = Number(flag("runs") ?? 1);
+  const judgeModel = flag("judge") ?? "anthropic/claude-opus-5.5";
+  for (const c of cases) for (const pattern of c.pages) {
+    if (!docs.some((doc) => pattern.test(doc.slug))) console.warn(`  ! ${c.id}: no public page matches ${pattern}`);
   }
-  if (args.length > 0) {
-    // Filter models by prefix match
-    const filter = args[0].toLowerCase();
-    const matched = DEFAULT_MODELS.filter((m) => m.toLowerCase().includes(filter));
-    if (matched.length > 0) models = matched;
-    else models = [args[0]]; // treat as exact model ID
-  }
+  await loadPricing();
+  console.log(`${CASES.length} tasks from ${taskFiles.map((file) => file.name ?? "?").join(", ")}; ${docs.length} pages (${allDocs.length - docs.length} sensitive or excluded); prompt ${Math.round(systemPrompt.length / 1000)}k chars; diagnosis ${diagnosis ? diagnosis.slug : "MISSING"}`);
+  console.log(`${models.length} models x ${cases.length} cases x ${runs} run(s); judge ${judgeModel}\n`);
 
-  // Pre-cache system prompt
-  await getSystemPrompt();
+  const all = await Promise.all(models.map(async (model) => {
+    const jobs = cases.flatMap((c) => Array.from({ length: runs }, (_, run) => ({ c, run })));
+    const results = await pool(jobs, 3, ({ c, run }) => runCase(model, c, run, judgeModel).then((result) => {
+      const mark = !result.ok ? "ERR " : result.factsCorrect === result.facts && !result.fabricated ? "PASS" : "    ";
+      console.log(`  ${mark} ${model.padEnd(36)} ${c.id.padEnd(15)} ${result.ok ? `${result.factsCorrect}/${result.facts} facts${result.fabricated ? " FABRICATED" : ""}, ${result.steps} steps, ${result.seconds.toFixed(0)}s, $${result.costUsd.toFixed(4)}` : result.error}`);
+      return result;
+    }));
+    return results;
+  }));
+  const rows = all.flat();
 
-  console.log(`\n📊 Chat Agent Eval — ${models.length} models × ${questions.length} questions\n${"=".repeat(70)}\n`);
-
-  // Run all models in parallel
-  const allResults = await Promise.all(
-    models.map(async (model) => {
-      const startTime = Date.now();
-      process.stdout.write(`  ⏳ ${model}...\n`);
-      const results = await runModel(model, questions);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-      process.stdout.write(`  ✓  ${model} done (${elapsed}s)\n`);
-      return { model, results };
-    })
-  );
-
-  // --- Print leaderboard ---
-  console.log(`\n${"=".repeat(70)}\n📊 LEADERBOARD\n`);
-
-  const avg = (arr: number[]) => arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : 0;
-
-  type ModelSummary = {
-    model: string;
-    overall: number;
-    retrieval: number;
-    toolUsage: number;
-    citations: number;
-    readability: number;
-    length: number;
-    cost: number;
-    avgDuration: number;
-    avgCostUsd: number;
-    issues: string[];
-    questionCount: number;
-  };
-
-  const summaries: ModelSummary[] = allResults.map(({ model, results }) => {
-    const allIssues: Record<string, number> = {};
-    for (const r of results) for (const issue of r.issues) {
-      const key = issue.replace(/"[^"]*"/g, '"..."');
-      allIssues[key] = (allIssues[key] || 0) + 1;
-    }
-    return {
+  const mean = (values: number[]) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+  const pct = (value: number) => `${Math.round(value * 100)}%`;
+  console.log(`\n${"Model".padEnd(36)} ${"Facts".padStart(6)} ${"Pass".padStart(5)} ${"Fab".padStart(4)} ${"Retr".padStart(5)} ${"Pages".padStart(6)} ${"Qual".padStart(5)} ${"Links".padStart(6)} ${"Bad".padStart(4)} ${"Steps".padStart(6)} ${"Secs".padStart(5)} ${"$/q".padStart(8)} ${"Err".padStart(4)}`);
+  const summaries = models.map((model) => {
+    const mine = rows.filter((row) => row.model === model);
+    const done = mine.filter((row) => row.ok);
+    const factTotal = done.reduce((sum, row) => sum + row.facts, 0);
+    const summary = {
       model,
-      overall:     avg(results.map((r) => r.scores.overall)),
-      retrieval:   avg(results.map((r) => r.scores.retrieval)),
-      toolUsage:   avg(results.map((r) => r.scores.toolUsage)),
-      citations:   avg(results.map((r) => r.scores.citations)),
-      readability: avg(results.map((r) => r.scores.readability)),
-      length:      avg(results.map((r) => r.scores.length)),
-      cost:        avg(results.map((r) => r.scores.cost)),
-      avgDuration: avg(results.map((r) => r.totalDurationMs / 1000)),
-      avgCostUsd:  avg(results.map((r) => r.costUsd)),
-      issues: Object.entries(allIssues).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v}x ${k}`),
-      questionCount: results.length,
+      facts: factTotal ? done.reduce((sum, row) => sum + row.factsCorrect, 0) / factTotal : 0,
+      pass: mine.length ? done.filter((row) => row.factsCorrect === row.facts && !row.fabricated && (!CASES.find((c) => c.id === row.case)?.absent || row.absentHandled)).length / mine.length : 0,
+      fabricated: done.filter((row) => row.fabricated).length,
+      retrieval: done.length ? done.filter((row) => row.retrieval).length / done.length : 0,
+      recall: (() => { const need = done.reduce((sum, row) => sum + row.required, 0); return need ? done.reduce((sum, row) => sum + row.requiredFound, 0) / need : NaN; })(),
+      quality: mean(done.map((row) => row.quality)),
+      links: mean(done.map((row) => row.links)),
+      broken: done.reduce((sum, row) => sum + row.brokenLinks.length, 0),
+      steps: mean(done.map((row) => row.steps)),
+      seconds: mean(done.map((row) => row.seconds)),
+      cost: mean(done.map((row) => row.costUsd)),
+      errors: mine.length - done.length,
     };
-  }).sort((a, b) => b.overall - a.overall);
-
-  // Table header
-  const pad = (s: string, n: number) => s.padEnd(n);
-  const rpad = (s: string, n: number) => s.padStart(n);
-  console.log(
-    `  ${pad("Model", 32)} ${rpad("Score", 5)} ${rpad("Retr", 5)} ${rpad("Tools", 5)} ${rpad("Cite", 5)} ${rpad("Read", 5)} ${rpad("Cost$", 5)} ${rpad("Speed", 7)} ${rpad("$/qry", 8)}`
-  );
-  console.log(`  ${"─".repeat(82)}`);
-
+    return summary;
+  }).sort((a, b) => b.facts - a.facts || a.cost - b.cost);
   for (const s of summaries) {
-    const costStr = s.questionCount > 0 ? `$${s.avgCostUsd.toFixed(4)}` : "—";
-    console.log(
-      `  ${pad(s.model, 32)} ${rpad(String(s.overall), 5)} ${rpad(String(s.retrieval), 5)} ${rpad(String(s.toolUsage), 5)} ${rpad(String(s.citations), 5)} ${rpad(String(s.readability), 5)} ${rpad(String(s.cost), 5)} ${rpad(s.avgDuration.toFixed(1) + "s", 7)} ${rpad(costStr, 8)}`
-    );
+    console.log(`${s.model.padEnd(36)} ${pct(s.facts).padStart(6)} ${pct(s.pass).padStart(5)} ${String(s.fabricated).padStart(4)} ${pct(s.retrieval).padStart(5)} ${(Number.isNaN(s.recall) ? "-" : pct(s.recall)).padStart(6)} ${s.quality.toFixed(1).padStart(5)} ${s.links.toFixed(1).padStart(6)} ${String(s.broken).padStart(4)} ${s.steps.toFixed(1).padStart(6)} ${s.seconds.toFixed(0).padStart(5)} ${("$" + s.cost.toFixed(4)).padStart(8)} ${String(s.errors).padStart(4)}`);
   }
+  console.log("\nFacts = gold facts stated correctly; Pass = every fact, nothing fabricated; Fab = answers with fabricated specifics;");
+  console.log("Retr = read or cited an expected page; Pages = share of required pages read, searched in or cited;");
+  console.log("Bad = citation links to a missing page or anchor.");
 
-  // Issues per model
-  console.log();
-  for (const s of summaries) {
-    if (s.issues.length > 0) {
-      console.log(`  ${s.model}: ${s.issues.join(", ")}`);
-    }
+  if (verbose) for (const row of rows.filter((row) => row.ok && (row.factsCorrect < row.facts || row.fabricated || row.brokenLinks.length))) {
+    console.log(`\n--- ${row.model} / ${row.case}: ${row.judgeReason}\n    tools ${JSON.stringify(row.tools)} truncated=${row.truncatedReads} continued=${row.continuedReads}${row.brokenLinks.length ? `\n    broken ${row.brokenLinks.join(" ")}` : ""}`);
   }
-
-  // Per-question breakdown for top model
-  if (summaries.length > 0 && questions.length > 1) {
-    const top = summaries[0];
-    const topResults = allResults.find((r) => r.model === top.model)!.results;
-    console.log(`\n${"=".repeat(70)}\n📋 Per-question detail: ${top.model}\n`);
-    for (const r of topResults) {
-      const searches = r.toolEvents.filter((e) => e.tool === "search_wiki");
-      const reads = r.toolEvents.filter((e) => e.tool === "read_page");
-      const links = (r.responseText.match(/\[.+?\]\(\/.+?\)/g) || []).length;
-      const words = r.responseText.split(/\s+/).length;
-      console.log(`  ❓ ${r.question}`);
-      console.log(`     ${(r.totalDurationMs / 1000).toFixed(1)}s | ${searches.length} searches | ${reads.length} reads | ${links} links | ${words} words | readability=${r.scores.readability} | $${r.costUsd.toFixed(4)}`);
-      if (r.issues.length) console.log(`     ⚠️  ${r.issues.join("; ")}`);
-    }
+  const out = flag("out");
+  if (out) {
+    await Bun.write(out, JSON.stringify({ at: new Date().toISOString(), judge: judgeModel, summaries, rows }, null, 2));
+    console.log(`\nWrote ${out}`);
   }
-
-  console.log();
 }
 
-main().catch((err) => {
-  console.error("Eval failed:", err);
+main().catch((error) => {
+  console.error(error);
   process.exit(1);
 });
