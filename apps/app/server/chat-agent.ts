@@ -1,7 +1,7 @@
 // The wiki chat agent: tools, model, routing and step policy. The HTTP route
 // (chat-route.ts) and the eval (scripts/eval-chat.ts) both build from here, so
 // the eval measures exactly what production runs.
-import { stepCountIs, type ToolSet } from "ai";
+import { stepCountIs, type ModelMessage, type SystemModelMessage, type ToolSet } from "ai";
 import { z } from "zod";
 import { chatHeadingAnchor, findInChatPage, readChatPageFromDocuments } from "@oncobase/wiki-content/chat-tools";
 import {
@@ -199,8 +199,31 @@ export function createWikiChatTools({
  * On the last allowed step the model may not call tools, so a long search
  * always ends in an answer instead of an empty reply.
  */
-export function wikiChatPrepareStep({ stepNumber }: { stepNumber: number }) {
-  return stepNumber >= WIKI_CHAT_MAX_STEPS - 1 ? { toolChoice: "none" as const, activeTools: [] as never[] } : undefined;
+export function wikiChatPrepareStep({ stepNumber, messages }: { stepNumber: number; messages: ModelMessage[] }) {
+  return {
+    // Mark the newest message so the next step reads everything before it
+    // (pages already fetched) from Anthropic's prompt cache. Other providers
+    // ignore the marker and cache prefixes on their own.
+    messages: withCacheMarker(messages),
+    ...(stepNumber >= WIKI_CHAT_MAX_STEPS - 1 ? { toolChoice: "none" as const, activeTools: [] as never[] } : {}),
+  };
+}
+
+const CACHE_MARKER = { anthropic: { cacheControl: { type: "ephemeral" } } } as const;
+
+function withCacheMarker(messages: ModelMessage[]): ModelMessage[] {
+  const last = messages.at(-1);
+  if (!last) return messages;
+  const marked = {
+    ...last,
+    providerOptions: { ...last.providerOptions, anthropic: { ...last.providerOptions?.anthropic, ...CACHE_MARKER.anthropic } },
+  } as ModelMessage;
+  return [...messages.slice(0, -1), marked];
+}
+
+/** The system prompt (rules, diagnosis, page index) as one cached prefix. */
+export function wikiChatSystem(prompt: string): SystemModelMessage {
+  return { role: "system", content: prompt, providerOptions: CACHE_MARKER };
 }
 
 /**

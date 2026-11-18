@@ -30,7 +30,7 @@ import { readVaultDocuments } from "../../../packages/oncobase/src/walk-vault";
 import { chatPageSections } from "@oncobase/wiki-content/chat-tools";
 import { WIKI_CHAT_DIAGNOSIS_SLUGS, composeWikiChatSystemPrompt } from "@oncobase/wiki-content/chat-route";
 import { applyPiiRedactions } from "@oncobase/wiki-content/pii";
-import { createWikiChatTools, wikiChatRunSettings, type WikiChatDocuments } from "../server/chat-agent";
+import { createWikiChatTools, wikiChatRunSettings, wikiChatSystem, type WikiChatDocuments } from "../server/chat-agent";
 import { prepareSearchPage } from "../server/search-corpus";
 
 type GoldFact = string | { fact: string; page?: string; quote?: string };
@@ -162,7 +162,8 @@ function checkCitations(text: string) {
     pageOk++;
     if (anchor) {
       anchors++;
-      if (chatPageSections(doc.content).some((section) => section.anchor === anchor)) anchorOk++;
+      // Headings (the reader's rehype-slug ids) or explicit <span id="..."> targets.
+      if (chatPageSections(doc.content).some((section) => section.anchor === anchor) || doc.content.includes(`id="${anchor}"`)) anchorOk++;
       else broken.push(link);
     }
   }
@@ -204,7 +205,7 @@ async function runCase(model: string, c: Case, run: number, judgeModel: string):
     const tools = createWikiChatTools({ documents, piiPatterns: undefined, embedQuery: async () => null });
     const result = await generateText({
       ...settings,
-      system: systemPrompt,
+      system: wikiChatSystem(systemPrompt),
       messages: [{ role: "user", content: c.question }],
       tools,
       abortSignal: AbortSignal.timeout(240_000),

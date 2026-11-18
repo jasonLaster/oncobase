@@ -25,7 +25,7 @@ import { api } from "../convex/_generated/api.js";
 import { getDocumentsByTag, listDocuments } from "./document-listing";
 import type { Id } from "../convex/_generated/dataModel.js";
 import { createFakeChatModel, isFakeChatModelEnabled } from "./fake-chat-model";
-import { WIKI_CHAT_EMPTY_ANSWER, createWikiChatTools, wikiChatRunSettings } from "./chat-agent";
+import { WIKI_CHAT_EMPTY_ANSWER, createWikiChatTools, wikiChatRunSettings, wikiChatSystem } from "./chat-agent";
 import { getSearchCorpus } from "./api/search";
 import type { SessionUser } from "./reader-access";
 
@@ -406,7 +406,7 @@ export async function handleChatRequest({
   const result = streamText({
     ...settings,
     model: isFakeChatModelEnabled() ? (createFakeChatModel() as never) : settings.model,
-    system: systemPrompt,
+    system: wikiChatSystem(systemPrompt),
     messages: modelMessages,
     abortSignal: composedAbortSignal,
     experimental_transform: smoothStream({ delayInMs: 25, chunking: "word" }),

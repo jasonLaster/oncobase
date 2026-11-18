@@ -67,8 +67,20 @@ describe("wiki chat tools", () => {
 
 describe("wiki chat run settings", () => {
   test("the last step must answer instead of calling tools", () => {
-    expect(wikiChatPrepareStep({ stepNumber: 0 })).toBeUndefined();
-    expect(wikiChatPrepareStep({ stepNumber: WIKI_CHAT_MAX_STEPS - 1 })).toEqual({ toolChoice: "none", activeTools: [] });
+    const messages = [{ role: "user" as const, content: "q" }];
+    expect(wikiChatPrepareStep({ stepNumber: 0, messages })).not.toHaveProperty("toolChoice");
+    expect(wikiChatPrepareStep({ stepNumber: WIKI_CHAT_MAX_STEPS - 1, messages })).toMatchObject({ toolChoice: "none", activeTools: [] });
+  });
+
+  test("each step marks the newest message for Anthropic prompt caching", () => {
+    const messages = [
+      { role: "user" as const, content: "q" },
+      { role: "assistant" as const, content: "a", providerOptions: { openai: { x: 1 } } },
+    ];
+    const prepared = wikiChatPrepareStep({ stepNumber: 1, messages }).messages;
+    expect(prepared[0]).toEqual(messages[0]);
+    expect(prepared[1]!.providerOptions).toEqual({ openai: { x: 1 }, anthropic: { cacheControl: { type: "ephemeral" } } });
+    expect(messages[1]!.providerOptions).toEqual({ openai: { x: 1 } });
   });
 
   test("every attempt is restricted to zero-retention, no-training providers", () => {
