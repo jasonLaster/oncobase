@@ -29,6 +29,7 @@ export type WikiFilePalettePage = {
 
 export type WikiFilePaletteRow =
   | { type: "heading"; label: string }
+  | { type: "status"; label: string }
   | { type: "page"; page: WikiFilePalettePage; pageIndex: number };
 
 export type WikiFilePaletteState = {
@@ -75,6 +76,7 @@ export function buildWikiFilePaletteState(
   query: string,
   recentSlugs: string[] = [],
   recommendedSlugs: string[] = [],
+  recommendPending = false,
 ): WikiFilePaletteState {
   return buildCommandPaletteRows({
     pages,
@@ -82,6 +84,7 @@ export function buildWikiFilePaletteState(
     query,
     recentSlugs: recentSlugs.slice(0, WIKI_FILE_PALETTE_MAX_RECENT),
     recommendedSlugs,
+    recommendPending,
   });
 }
 
@@ -117,6 +120,19 @@ function WikiFilePaletteEntries({
         {virtualItems.map((virtualItem) => {
           const row = rows[virtualItem.index];
           if (!row) return null;
+
+          if (row.type === "status") {
+            return (
+              <div
+                aria-live="polite"
+                className="wiki-shell-file-palette-status"
+                key={`status-${virtualItem.index}`}
+                style={{ transform: `translateY(${virtualItem.start}px)` }}
+              >
+                {row.label}
+              </div>
+            );
+          }
 
           if (row.type === "heading") {
             return (
@@ -193,7 +209,8 @@ export type WikiFilePaletteProps = {
 };
 
 const EMPTY_RECOMMENDED: string[] = [];
-const RECOMMEND_DEBOUNCE_MS = 250;
+const RECOMMEND_DEBOUNCE_MS = 150;
+const PALETTE_STATUS_HEIGHT = 40;
 
 export function WikiFilePalette({
   footer,
@@ -230,25 +247,26 @@ export function WikiFilePalette({
 
   // Recommendations belong to the query they were asked for, so a stale
   // answer never shows under a newer query.
-  const [recommendation, setRecommendation] = useState<{ query: string; slugs: string[]; pending: boolean } | null>(null);
+  const [recommendation, setRecommendation] = useState<{ query: string; slugs: string[] } | null>(null);
   useEffect(() => {
     if (!open || !recommend || query.length < 2) return;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
-      setRecommendation({ query, slugs: EMPTY_RECOMMENDED, pending: true });
       recommend(query, controller.signal).then(
-        (slugs) => { if (!controller.signal.aborted) setRecommendation({ query, slugs, pending: false }); },
-        () => { if (!controller.signal.aborted) setRecommendation({ query, slugs: EMPTY_RECOMMENDED, pending: false }); },
+        (slugs) => { if (!controller.signal.aborted) setRecommendation({ query, slugs }); },
+        () => { if (!controller.signal.aborted) setRecommendation({ query, slugs: EMPTY_RECOMMENDED }); },
       );
     }, RECOMMEND_DEBOUNCE_MS);
     return () => { window.clearTimeout(timeout); controller.abort(); };
   }, [open, query, recommend]);
-  const recommendedSlugs = recommendation?.query === query ? recommendation.slugs : EMPTY_RECOMMENDED;
-  const recommending = recommendation?.query === query && recommendation.pending;
+  const answered = recommendation?.query === query;
+  const recommendedSlugs = answered ? recommendation.slugs : EMPTY_RECOMMENDED;
+  // From the first keystroke until the answer for this query arrives.
+  const recommending = Boolean(recommend) && query.length >= 2 && !answered;
 
   const { recentEntries, searchResults, visibleEntries, visibleRows } = useMemo(
-    () => buildWikiFilePaletteState(pages, query, recentSlugs, recommendedSlugs),
-    [pages, query, recentSlugs, recommendedSlugs],
+    () => buildWikiFilePaletteState(pages, query, recentSlugs, recommendedSlugs, recommending),
+    [pages, query, recentSlugs, recommendedSlugs, recommending],
   );
 
   // Recommendations arrive after the matches: keep the page the reader has
@@ -268,10 +286,10 @@ export function WikiFilePalette({
 
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
-    estimateSize: (index) =>
-      visibleRows[index]?.type === "heading"
-        ? PALETTE_HEADING_HEIGHT
-        : PALETTE_ROW_HEIGHT,
+    estimateSize: (index) => {
+      const type = visibleRows[index]?.type;
+      return type === "heading" ? PALETTE_HEADING_HEIGHT : type === "status" ? PALETTE_STATUS_HEIGHT : PALETTE_ROW_HEIGHT;
+    },
     getScrollElement: () => listElement,
     overscan: 8,
   });
@@ -443,7 +461,7 @@ export function WikiFilePalette({
         aria-label="Go to page"
         aria-modal="true"
         className="wiki-shell-file-palette"
-        data-recommend={recommend && query.length >= 2 ? (recommending ? "pending" : recommendation?.query === query ? "done" : "waiting") : undefined}
+        data-recommend={recommend && query.length >= 2 ? (recommending ? "pending" : "done") : undefined}
         data-test-id={testId}
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}

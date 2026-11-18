@@ -21,15 +21,20 @@ test("recommends the best page and its close neighbours, best first", async () =
   const decide: Decide = async (input, questions, signal) => { seen = input; return scores({ p0: 1.0, p1: 1.4, p2: 1.3 })(input, questions, signal); };
   const response = await createPaletteRecommendHandler({ decide, semantic: async () => [] })(post({ query: "tissue overview", candidates }));
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ model: "typesafe-ai/jev", results: [{ slug: "wiki/care/tissue-and-data", score: 1.4 }, { slug: "wiki/omics/specimen-to-sample-map", score: 1.3 }] });
+  expect(await response.json()).toEqual({ model: "typesafe-ai/jev", results: [{ slug: "wiki/care/tissue-and-data", score: 1.4 }, { slug: "wiki/omics/specimen-to-sample-map", score: 1.3 }, { slug: candidates[0]!.slug, score: 1 }] });
   expect(seen).toEqual({ reader_typed: "tissue overview", wiki_layout: WIKI_LAYOUT });
 });
 
-test("a clear winner leaves weaker matches out, and nothing related shows nothing", async () => {
-  const winner = await createPaletteRecommendHandler({ decide: scores({ p0: 2.9, p1: 2.0 }), semantic: async () => [] })(post({ query: "mastectom path report", candidates }));
-  expect((await winner.json()).results).toEqual([{ slug: candidates[0]!.slug, score: 2.9 }]);
-  const none = await createPaletteRecommendHandler({ decide: scores({ p0: 1.1 }), semantic: async () => [] })(post({ query: "parking", candidates }));
-  expect((await none.json()).results).toEqual([]);
+test("a short list is topped up to five with related pages, and nothing related shows nothing", async () => {
+  const many = Array.from({ length: 12 }, (_, i) => ({ slug: `wiki/p${i}`, title: `Page ${i}` }));
+  const handler = (byName: Record<string, number>) => createPaletteRecommendHandler({ decide: scores(byName), semantic: async () => [] });
+  const slugs = async (byName: Record<string, number>) => (await (await handler(byName)(post({ query: "tissue overview", candidates: many }))).json()).results.map((row: { slug: string }) => row.slug);
+  // One clear winner, then the best "related" pages; below related never fills.
+  expect(await slugs({ p0: 2.9, p1: 1.0, p2: 1.1, p3: 0.4, p4: 0.9 })).toEqual(["wiki/p0", "wiki/p2", "wiki/p1"]);
+  expect(await slugs({ p0: 1.4, p1: 1.0, p2: 1.0, p3: 1.0, p4: 1.0, p5: 1.0 })).toEqual(["wiki/p0", "wiki/p1", "wiki/p2", "wiki/p3", "wiki/p4"]);
+  // Many close pages: up to ten, no fill.
+  expect(await slugs(Object.fromEntries(many.map((_, i) => [`p${i}`, 2.5])))).toHaveLength(10);
+  expect(await slugs({ p0: 1.1, p1: 1.0 })).toEqual([]);
 });
 
 test("semantic neighbours join the reader's candidates once each", async () => {

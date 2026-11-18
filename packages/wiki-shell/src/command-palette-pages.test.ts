@@ -230,16 +230,28 @@ describe("recommended pages", () => {
   test("lists recommendations above the remaining matches", () => {
     const rows = build(["wiki/care/tissue-and-data", "notes/tissue-sync-raw", "missing"]);
     // The raw sibling stands for its overview; an unknown slug is dropped; all matches are recommended, so no empty "Matches".
-    expect(rows.visibleRows.map(row => row.type === "heading" ? `# ${row.label}` : row.page.slug)).toEqual([
+    expect(rows.visibleRows.map(row => row.type === "page" ? row.page.slug : `# ${row.label}`)).toEqual([
       "# Recommended", "wiki/care/tissue-and-data", "notes/tissue-sync-overview",
     ]);
     const partial = build(["wiki/care/tissue-and-data"]);
-    expect(partial.visibleRows.map(row => row.type === "heading" ? `# ${row.label}` : row.page.slug)).toEqual([
+    expect(partial.visibleRows.map(row => row.type === "page" ? row.page.slug : `# ${row.label}`)).toEqual([
       "# Recommended", "wiki/care/tissue-and-data", "# Matches", "notes/tissue-sync-overview",
     ]);
     expect(rows.visibleEntries.slice(0, 2).map(page => page.slug)).toEqual(["wiki/care/tissue-and-data", "notes/tissue-sync-overview"]);
     expect(new Set(rows.visibleEntries.map(page => page.slug)).size).toBe(rows.visibleEntries.length);
     expect(rows.visibleRows.filter(row => row.type === "page").map(row => row.type === "page" && row.pageIndex)).toEqual(rows.visibleEntries.map((_, index) => index));
+  });
+
+  test("while recommendations load, the group holds its place above the matches", () => {
+    const rows = buildCommandPaletteRows({
+      pages: entries, prepared: prepareCommandPalettePages(entries), query: "tissue", recentSlugs: [], recommendPending: true,
+    });
+    expect(rows.visibleRows.slice(0, 3).map(row => row.type === "page" ? row.page.slug : `${row.type}: ${row.label}`)).toEqual([
+      "heading: Recommended", "status: Finding the best pages…", "heading: Matches",
+    ]);
+    // Enter opens the first match until the recommendations arrive.
+    const firstRow = rows.visibleRows.find(row => row.type === "page");
+    expect(firstRow?.type === "page" && firstRow.pageIndex).toBe(0);
   });
 
   test("without recommendations the list is the plain ranked matches", () => {

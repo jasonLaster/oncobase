@@ -20,7 +20,11 @@ export const MAX_CANDIDATES = 45;
  * the best page, which keeps one clear winner from bringing its neighbours. */
 export const RECOMMEND_AT = 1.25;
 export const WITHIN_BEST = 0.75;
-export const MAX_RECOMMENDED = 5;
+/** Up to ten close to the best; fewer than five are topped up with the next
+ * pages rated at least "related", so the group usually holds about five. */
+export const MAX_RECOMMENDED = 10;
+export const FILL_TO = 5;
+export const FILL_AT = 1;
 const SEMANTIC_TIMEOUT_MS = 1_200;
 const DECIDE_TIMEOUT_MS = 2_500;
 
@@ -85,10 +89,10 @@ const convexSemantic: Semantic = async (query, scope, { request, client, siteSlu
 const headers = { "Cache-Control": "private, no-store", Vary: "Accept, Cookie, Host" };
 const fail = (error: string, status: number) => Response.json({ error }, { status, headers });
 
-export function createPaletteRecommendHandler({ decide = gatewayDecide, semantic = convexSemantic, enabled = () => paletteModels().length > 0, recommendAt = RECOMMEND_AT, withinBest = WITHIN_BEST, maxRecommended = MAX_RECOMMENDED }: {
+export function createPaletteRecommendHandler({ decide = gatewayDecide, semantic = convexSemantic, enabled = () => paletteModels().length > 0, recommendAt = RECOMMEND_AT, withinBest = WITHIN_BEST, maxRecommended = MAX_RECOMMENDED, fillTo = FILL_TO }: {
   decide?: Decide; semantic?: Semantic; enabled?: () => boolean;
   /** Evaluation overrides: the lowest score shown and how many. */
-  recommendAt?: number; withinBest?: number; maxRecommended?: number;
+  recommendAt?: number; withinBest?: number; maxRecommended?: number; fillTo?: number;
 } = {}) {
   return async (route: ApiRouteRequest) => {
     const { request } = route;
@@ -115,9 +119,10 @@ export function createPaletteRecommendHandler({ decide = gatewayDecide, semantic
         // Stable: equal scores keep the reader's own ranking, then semantic order.
         .sort((a, b) => b.score - a.score);
       const best = scored[0]?.score ?? 0;
-      const results = scored
-        .filter(row => row.score >= recommendAt && row.score >= best - withinBest)
-        .slice(0, maxRecommended);
+      const close = scored.filter(row => row.score >= recommendAt && row.score >= best - withinBest).slice(0, maxRecommended);
+      const results = close.length && close.length < fillTo
+        ? [...close, ...scored.slice(close.length).filter(row => row.score >= FILL_AT).slice(0, fillTo - close.length)]
+        : close;
       traceBackendAttributes({ "palette.recommend.model": decision.model, "palette.recommend.results": results.length });
       return Response.json({ model: decision.model, results }, { headers });
     } catch (error) {

@@ -178,8 +178,13 @@ test.describe("command palette (mocked backend)", () => {
 
   test("with the Jev flag on, recommended pages list first and Enter opens the top one", async ({ page }) => {
     const asked: Array<{ query: string; candidates: Array<{ slug: string; tags?: string[] }> }> = [];
+    // Requests wait until the test answers every one held so far, while `hold` is on.
+    let hold = true;
+    const held: Array<() => void> = [];
+    const answer = () => held.splice(0).forEach(release => release());
     await page.route("**/api/wiki/palette-recommend*", async (route) => {
       asked.push(route.request().postDataJSON());
+      if (hold) await new Promise<void>(resolve => held.push(resolve));
       await route.fulfill({ json: { model: "typesafe-ai/jev", results: [{ slug: "wiki/updates/week-5-april-12-to-18", score: 2.6 }, { slug: "wiki/logistics/insurance", score: 2.2 }] } });
     });
     await gotoWiki(page, "/");
@@ -198,8 +203,19 @@ test.describe("command palette (mocked backend)", () => {
     await page.keyboard.press(`${mod}+K`);
     await page.keyboard.press("A");
     await page.getByRole("button", { name: /Recommend pages with Jev/ }).click();
+    // The matches show at once, under a Recommended group that holds its place while Jev answers.
+    await page.getByTestId("command-palette-input").fill("logistics");
+    await expect(palette.getByText("Finding the best pages…")).toBeVisible();
+    await expect(palette.getByRole("option").first()).toContainText(/insurance/i);
+    await expect.poll(() => asked.length).toBe(1);
+    answer();
+    await expect(palette).toHaveAttribute("data-recommend", "done");
+    await expect(palette.getByText("Finding the best pages…")).toHaveCount(0);
+
     // Fuzzy search finds nothing for this query; the recommendations still do.
     await page.getByTestId("command-palette-input").fill("logistics plan");
+    await expect.poll(() => asked.length).toBe(2);
+    answer();
     await expect(palette).toHaveAttribute("data-recommend", "done");
     expect(asked.at(-1)?.query).toBe("logistics plan");
     expect(asked.at(-1)?.candidates.find(candidate => candidate.slug === "wiki/logistics/insurance")?.tags).toEqual(["logistics", "insurance"]);
@@ -212,9 +228,11 @@ test.describe("command palette (mocked backend)", () => {
     await expect(page).toHaveURL(/\/wiki\/updates\/week-5-april-12-to-18$/);
 
     // The choice persists on this device.
+    hold = false;
     await page.reload();
     await page.keyboard.press(`${mod}+K`);
     await page.getByTestId("command-palette-input").fill("logistics");
     await expect(palette).toHaveAttribute("data-recommend", "done");
+    expect(asked.at(-1)?.query).toBe("logistics");
   });
 });
