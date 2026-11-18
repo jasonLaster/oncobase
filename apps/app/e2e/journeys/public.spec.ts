@@ -423,14 +423,11 @@ test.describe("education guests (deployed gate)", () => {
     await expect(page.getByRole("heading", { name: /Results for/ })).toBeVisible();
     expect(readerRequests).toEqual([]);
 
-    // One article image loads, and care content still demands a password.
+    // A lesson opens directly, and care content still demands a password. (The
+    // Oncology 101 shelf no longer carries an image; "every public education
+    // image decodes" covers images across the whole library.)
     await page.goto(route);
     await expect(page.getByRole("heading", { name: /Oncology 101/, level: 1 })).toBeVisible();
-    const cartoon = page.getByRole("img", { name: "immune recognition cartoon", exact: true });
-    await cartoon.scrollIntoViewIfNeeded();
-    await expect
-      .poll(() => cartoon.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0))
-      .toBe(true);
     await page.getByRole("link", { name: "Diagnostics", exact: true }).click();
     await expect(page).toHaveURL(/\/sign-in\?redirect=/);
     for (const endpoint of [

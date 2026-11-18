@@ -60,6 +60,11 @@ function displayName(page: WikiFilePalettePage) {
   return page.name.replace(/-/g, " ");
 }
 
+/** Counts palette opens across mounts: hosts unmount the palette when it
+ * closes, so a per-instance ref would restart and a stale focus restore from
+ * the previous instance could not tell it was superseded. */
+let paletteOpenGeneration = 0;
+
 export function formatWikiFilePalettePath(slug: string) {
   const parts = slug.split("/");
   return parts.length > 1 ? parts.slice(0, -1).join("/") : "/";
@@ -238,6 +243,7 @@ export function WikiFilePalette({
 
   useEffect(() => {
     if (!open) return;
+    const generation = ++paletteOpenGeneration;
     previouslyFocusedRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
@@ -281,9 +287,13 @@ export function WikiFilePalette({
       document.removeEventListener("keydown", onDocumentKeyDown, { capture: true });
       document.body.style.overflow = previousOverflow;
       // Let the closing mouse event finish before restoring focus, otherwise
-      // its default action can blur the trigger again after cleanup.
+      // its default action can blur the trigger again after cleanup. Skip the
+      // restore if the palette opened again meanwhile (Escape then Cmd+K):
+      // a late restore would pull focus out of the reopened input.
       const previouslyFocused = previouslyFocusedRef.current;
-      window.setTimeout(() => previouslyFocused?.focus(), 0);
+      window.setTimeout(() => {
+        if (paletteOpenGeneration === generation) previouslyFocused?.focus();
+      }, 0);
       previouslyFocusedRef.current = null;
     };
   }, [closePalette, initialSearch, open]);
