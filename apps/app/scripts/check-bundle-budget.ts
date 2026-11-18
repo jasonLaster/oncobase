@@ -2,9 +2,15 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { gzipSync as fflateGzip } from "fflate";
 import { serverBudgetFailures } from "./reader-server-budget";
+import { entryChunkName, exactName } from "./bundle-entry";
 
 const distDir = path.resolve(import.meta.dir, "../dist");
 const assetsDir = path.join(distDir, "assets");
+
+const entryName = existsSync(assetsDir) ? entryChunkName(
+  existsSync(path.join(distDir, "index.html")) ? readFileSync(path.join(distDir, "index.html"), "utf8") : null,
+  readdirSync(assetsDir).filter(name => name.endsWith(".js")).map(name => ({ name, source: () => readFileSync(path.join(assetsDir, name), "utf8") })),
+) : "index-missing.js";
 
 type AssetSize = {
   name: string;
@@ -24,7 +30,7 @@ type Budget = {
 const budgets: Budget[] = [
   // The identity boundary and its shared client helpers now belong to the
   // entry. This moves existing eager bytes; the aggregate limit is unchanged.
-  { label: "entry", pattern: /^index-[\w-]+\.js$/, maxGzipBytes: 24_904 },
+  { label: "entry", pattern: exactName(entryName), maxGzipBytes: 24_904 },
   { label: "react vendor", pattern: /^vendor-react-[\w-]+\.js$/, maxGzipBytes: 78_048 },
   { label: "livestore vendor", pattern: /^vendor-livestore-[\w-]+\.js$/, maxGzipBytes: 108_104 },
   { label: "effect vendor", pattern: /^vendor-effect-[\w-]+\.js$/, maxGzipBytes: 145_000 },
@@ -107,7 +113,7 @@ const budgets: Budget[] = [
  * regression instead of being silently misfiled by its name.
  */
 const paintRootPatterns = [
-  /^index-[\w-]+\.js$/,
+  exactName(entryName),
   /^WikiViteRoot-[\w-]+\.js$/,
 ];
 const storeRootPatterns = [
@@ -164,8 +170,15 @@ const storeLoaderPatterns = [
 // 330,000 -> 322,000 B. The same 8,000 B move to the lazy pool, which also took
 // main's lazy WebMCP tools on rebase: eager 1,155,000 -> 1,147,000 B, lazy
 // 4,085,000 -> 4,093,000 B. The eager + lazy limit stays 5,240,000 B.
-const eagerGzipBudget = 1_184_000;
-const paintGzipBudget = 332_000;
+// The entry is now identified from index.html (bundle-entry.ts): swr's own
+// `index-<hash>.js` (5,022 B gzip, loaded only by the DICOM and pathology
+// routes) had matched the entry pattern and counted as paint-critical.
+// Same build, before -> after: paint 320.2 -> 314.9 KiB, lazy 4,115.7 ->
+// 4,121.1 KiB; no download changed. Move 5,000 B of allowance with it:
+// paint 332,000 -> 327,000, eager 1,184,000 -> 1,179,000, lazy 4,217,000 ->
+// 4,222,000 (below). The eager + lazy limit is unchanged.
+const eagerGzipBudget = 1_179_000;
+const paintGzipBudget = 327_000;
 const storeGzipBudget = 855_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
@@ -180,7 +193,7 @@ const storeGzipBudget = 855_000;
 // on that host: 3_460_000 -> 3_468_000.
 // PDF.js adds ~495 KiB gzip, exclusively on the PDF route (viewer + worker).
 // The reader's eager budget is unchanged; fonts/codecs load only when needed.
-const lazyGzipBudget = 4_217_000;
+const lazyGzipBudget = 4_222_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
