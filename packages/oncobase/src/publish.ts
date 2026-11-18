@@ -25,6 +25,7 @@ import {
 import { ensureCleanVault } from "./working-tree";
 import { publisherPost } from "./publish-post";
 import { installPublishProfile, publishProfile } from "./publish-profile";
+import { WorkQueue } from "./work-queue";
 
 const post = <T = unknown>(url: string, token: string, body: unknown, timeoutMs = requestTimeoutMs) => publisherPost<T>(url, token, body, {
   signal: AbortSignal.timeout(timeoutMs),
@@ -164,6 +165,7 @@ async function backfillAssetHashes(
 
 async function embedInChunks(
   docs: PublishDocument[],
+  onEmbedded?: (doc: PublishDocument, embedding: number[] | undefined) => void,
 ): Promise<(number[] | undefined)[]> {
   const out: (number[] | undefined)[] = new Array(docs.length).fill(undefined);
   const tokenWindow = new TokenWindow(EMBED_TOKENS_PER_MINUTE);
@@ -188,6 +190,7 @@ async function embedInChunks(
         },
       );
       out[i] = vec;
+      onEmbedded?.(doc, vec);
     } catch (error) {
       throw new Error(
         `embedding failed for ${doc.slug}: ${(error as Error).message}`,
@@ -553,28 +556,35 @@ const docsToEmbed = changedDocs.filter(
 );
 const doEmbed = values.embeddings !== "skip" && Boolean(process.env.OPENAI_API_KEY) && docsToEmbed.length > 0;
 if (docsToEmbed.length && !doEmbed) console.log(`  embeddings skipped (${values.embeddings === "skip" ? "explicit policy" : "OPENAI_API_KEY unavailable"}); existing search vectors may be stale.`);
-const embeddingsBySlug = new Map<string, number[] | undefined>();
-if (doEmbed) {
-  const embeddings = await publishProfile.span("embeddings", () => embedInChunks(docsToEmbed));
-  docsToEmbed.forEach((doc, index) => {
-    embeddingsBySlug.set(doc.slug, embeddings[index]);
-  });
-}
-
+// Upload each document as soon as its embedding lands instead of waiting for
+// the slowest embedding: wall time becomes max(embed + upload) per document,
+// not max(embed) + max(upload). Documents that need no embedding go first.
+const uploadQueue = new WorkQueue<{ doc: PublishDocument; embedding?: number[] }>();
+const embedSlugs = new Set(doEmbed ? docsToEmbed.map(doc => doc.slug) : []);
+for (const doc of changedDocs) if (!embedSlugs.has(doc.slug)) uploadQueue.push({ doc });
+const embedding = doEmbed
+  ? publishProfile.span("embeddings", () => embedInChunks(docsToEmbed, (doc, vector) => uploadQueue.push({ doc, embedding: vector })))
+    .then(() => uploadQueue.close(), (error: unknown) => { uploadQueue.fail(error); throw error; })
+  : Promise.resolve(uploadQueue.close());
 let docsDone = 0;
-await publishProfile.span("upload.documents", () => runWithConcurrency(changedDocs, DOC_CONCURRENCY, async (doc) => {
+const uploads = publishProfile.span("upload.documents", () => uploadQueue.drain(DOC_CONCURRENCY, async ({ doc, embedding: vector }) => {
   await post(`${config.publishUrl}/document`, token, {
     runId: begin.runId,
     siteSlug: config.site,
     ...doc,
     hashFunctionVersion: HASH_FUNCTION_VERSION,
-    embedding: embeddingsBySlug.get(doc.slug),
+    embedding: vector,
   });
   docsDone++;
   if (docsDone % 100 === 0) {
     console.log(`  ${docsDone}/${changedDocs.length} documents`);
   }
 }));
+// Report the root cause: an embedding failure also fails the upload drain.
+const [embedded, uploadResult] = await Promise.allSettled([embedding, uploads]);
+if (embedded.status === "rejected") throw embedded.reason;
+if (uploadResult.status === "rejected") throw uploadResult.reason;
+if (docsDone !== changedDocs.length) throw new Error(`Uploaded ${docsDone}/${changedDocs.length} documents`);
 
 const skipped: PublishAsset[] = [];
 let uploaded = 0;
