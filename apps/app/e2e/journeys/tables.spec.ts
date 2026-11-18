@@ -45,19 +45,32 @@ async function firstTableState(page: Page) {
 async function dragFirstResizeHandle(page: Page, deltaX: number) {
   const shell = firstSmartTableShell(page);
   const handle = shell.getByLabel("Resize column 1").first();
-  await handle.hover();
-  const box = await handle.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
-  });
-  if (!box.width || !box.height) throw new Error("Resize handle has no layout box");
-  const startX = box.x + box.width / 2;
-  const startY = box.y + box.height / 2;
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
+  const table = shell.locator("table").first();
+  let startX = 0;
+  let startY = 0;
+  // Measure and press together, retrying: on a deployment, late layout (fonts,
+  // images, the sidebar tree) can move the handle between measuring it and the
+  // press, which then misses and never engages resizing.
+  await expect(async () => {
+    await handle.hover();
+    const box = await handle.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+    });
+    if (!box.width || !box.height) throw new Error("Resize handle has no layout box");
+    startX = box.x + box.width / 2;
+    startY = box.y + box.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    try {
+      // Prove the real pointer event engaged resizing before moving the cursor.
+      await expect(table).toHaveAttribute("data-smart-table-locked", "manual", { timeout: 2_000 });
+    } catch (error) {
+      await page.mouse.up();
+      throw error;
+    }
+  }).toPass({ timeout: 20_000 });
   try {
-    // Prove the real pointer event engaged resizing before moving the cursor.
-    await expect(shell.locator("table").first()).toHaveAttribute("data-smart-table-locked", "manual");
     await page.mouse.move(startX + deltaX, startY, { steps: 12 });
   } finally {
     await page.mouse.up();
