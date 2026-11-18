@@ -1,13 +1,15 @@
 /** Judges the file palette with Jev instead of hand-labelled answers.
  *
- *   bun --env-file=<.env.local> scripts/eval-palette-judge.ts generate <vault> <cases.json> [--pages=60]
+ *   bun --env-file=<.env.local> scripts/eval-palette-judge.ts generate <vault> <cases.json> [--pages=60 | --pages-from=visited.json]
  *   bun --env-file=<.env.local> scripts/eval-palette-judge.ts run <vault> <cases.json> [--cache=scores.json] [--out=report.json] [--only=substr] [--misses]
  *
  * `generate` samples pages across the vault's folders and asks a writing model
  * for the short queries a reader would type to reach each one. `run` takes each
  * query, ranks it the way the palette does (fuzzy, then the Recommended
  * candidates), and asks Jev to score every page either step surfaced plus the
- * page the query was written for. Jev's scores stand in for labels: the eval
+ * page the query was written for. `--pages-from` takes the pages readers
+ * actually open instead of a sample ([{ slug, visits }], e.g. from browser
+ * history), and the summary then weighs each query by its page's visits. Jev's scores stand in for labels: the eval
  * reports how far each step's first page falls below the best page Jev found.
  * Cases describe real pages, so keep the cases file out of this public repo. */
 import { readdir, readFile, writeFile } from "node:fs/promises";
@@ -20,7 +22,7 @@ import { paletteBoost } from "../src/shell/palette-boost";
 import { recommendCandidates } from "../src/shell/palette-recommend";
 import type { PageIndexRow } from "../src/types";
 
-type Case = { query: string; slug: string; style: string };
+type Case = { query: string; slug: string; style: string; visits?: number };
 const [mode, vault, casesPath] = process.argv.slice(2);
 if (!mode || !vault || !casesPath) throw Error("Usage: eval-palette-judge.ts generate|run <vault> <cases.json>");
 const flag = (name: string) => process.argv.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -67,7 +69,9 @@ if (mode === "generate") {
   let seed = 7;
   const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const total = Number(flag("pages") ?? 60);
-  const chosen = STRATA.flatMap(([pattern, share]) => {
+  const visited = flag("pages-from") ? JSON.parse(await readFile(flag("pages-from")!, "utf8")) as Array<{ slug: string; visits: number }> : null;
+  const visits = new Map(visited?.map(row => [row.slug, row.visits]));
+  const chosen = visited ? visited.flatMap(row => bySlug.get(row.slug) ?? []) : STRATA.flatMap(([pattern, share]) => {
     const pool = pages.filter(page => pattern.test(page.slug) && !/\/attachments\/|-(raw|formatted)$/.test(page.slug));
     return Array.from({ length: Math.round(total * share) }, () => pool.splice(Math.floor(random() * pool.length), 1)[0]).filter(Boolean) as PageIndexRow[];
   });
@@ -82,7 +86,11 @@ if (mode === "generate") {
     if (!response.ok) throw Error(`writer answered ${response.status}: ${await response.text()}`);
     const text = (await response.json() as { choices: Array<{ message: { content: string } }> }).choices[0]!.message.content;
     const rows = JSON.parse(text.slice(text.indexOf("["), text.lastIndexOf("]") + 1)) as Array<{ slug: string; topic: string; terse: string }>;
-    for (const row of rows) if (bySlug.has(row.slug)) cases.push({ query: row.topic, slug: row.slug, style: "topic" }, { query: row.terse, slug: row.slug, style: "terse" });
+    for (const row of rows) {
+      if (!bySlug.has(row.slug)) continue;
+      const weight = visits.has(row.slug) ? { visits: visits.get(row.slug) } : {};
+      cases.push({ query: row.topic, slug: row.slug, style: "topic", ...weight }, { query: row.terse, slug: row.slug, style: "terse", ...weight });
+    }
     console.log(`${cases.length} queries`);
   }
   await writeFile(casesPath, JSON.stringify(cases, null, 2));
@@ -99,12 +107,18 @@ const promptKey = Bun.hash(WIKI_LAYOUT + recommendQuestions([{ slug: "x" }])[0]!
 buildWikiFilePaletteState(entries, "x");
 
 type Row = {
-  query: string; style: string; target: string; best: number; bestSlugs: string[];
+  query: string; style: string; visits: number; target: string; best: number; bestSlugs: string[];
   sync: Array<{ slug: string; score: number }>; candidates: Array<{ slug: string; score: number }>; recommended: Array<{ slug: string; score: number }>;
   targetScore: number; syncTargetRank: number; recommendedTargetRank: number; candidateHasTarget: boolean; candidateHasBest: boolean;
 };
 const report: Row[] = [];
-const run = async (item: Case): Promise<Row> => {
+// The palette lists a note bundle's raw and formatted files under its overview, so the overview stands for them.
+const standIn = (slug: string) => {
+  const overview = slug.replace(/-(raw|formatted)$/, "-overview");
+  return overview !== slug && bySlug.has(overview) ? overview : slug;
+};
+const run = async (raw: Case): Promise<Row> => {
+  const item = { ...raw, slug: standIn(raw.slug) };
   const sync = (buildWikiFilePaletteState(entries, item.query).visibleEntries).map(page => page.slug);
   const candidates = recommendCandidates(pages, item.query, sync);
   const pool = [...new Set([...sync.slice(0, 10), ...candidates.map(page => page.slug), item.slug])].slice(0, POOL);
@@ -120,10 +134,10 @@ const run = async (item: Case): Promise<Row> => {
   const best = Math.max(...score.values());
   const recommended = selectRecommended(candidates.map(page => ({ slug: page.slug, rank: page.rank, score: score.get(page.slug) ?? 0 })), { matchPrior: Number(flag("prior") ?? MATCH_PRIOR) }).map(({ slug, score }) => ({ slug, score }));
   return {
-    query: item.query, style: item.style, target: item.slug, best,
+    query: item.query, style: item.style, visits: item.visits ?? 1, target: item.slug, best,
     bestSlugs: pool.filter(slug => score.get(slug)! >= best - 0.25),
     sync: sync.slice(0, 5).map(slug => ({ slug, score: score.get(slug) ?? 0 })),
-    recommended, candidates: candidates.map(page => ({ slug: page.slug, score: score.get(page.slug) ?? 0 })), targetScore: score.get(item.slug) ?? 0,
+    recommended, candidates: candidates.map(page => ({ slug: page.slug, rank: page.rank, score: score.get(page.slug) ?? 0 })), targetScore: score.get(item.slug) ?? 0,
     syncTargetRank: sync.indexOf(item.slug) + 1,
     recommendedTargetRank: recommended.findIndex(row => row.slug === item.slug) + 1,
     candidateHasTarget: candidates.some(page => page.slug === item.slug),
@@ -147,6 +161,12 @@ const summary = (rows: Row[], label: string) => {
     `recall target ${rows.filter(row => row.candidateHasTarget).length} best ${rows.filter(row => row.candidateHasBest).length}  empty rec ${rows.filter(row => !row.recommended.length).length}`);
 };
 summary(report, "all");
+if (report.some(row => row.visits > 1)) {
+  // Each query counts as often as its page was opened.
+  const weighted = (ranks: (row: Row) => number) => report.reduce((sum, row) => sum + row.visits * (ranks(row) ? 1 / ranks(row) : 0), 0) / report.reduce((sum, row) => sum + row.visits, 0);
+  const firstOf = (row: Row) => { const rec = row.recommended.map(r => r.slug); const full = [...rec, ...row.sync.map(r => r.slug).filter(slug => !rec.includes(slug))]; return full.indexOf(row.target) + 1; };
+  console.log(`visit-weighted target MRR  sync ${weighted(row => row.syncTargetRank).toFixed(2)}  rec ${weighted(row => row.recommendedTargetRank).toFixed(2)}  shown (rec then matches) ${weighted(firstOf).toFixed(2)}`);
+}
 for (const style of new Set(report.map(row => row.style))) summary(report.filter(row => row.style === style), style);
 if (cachePath) await writeFile(cachePath, JSON.stringify(cache));
 const out = flag("out");
