@@ -13,7 +13,7 @@ import { clearStartupSnapshot, readStartupSnapshot, sameStartupIdentity, STARTUP
 import { contentSlugFromRouteSlug, slugFromPath } from "./wiki-utils";
 import { ReaderPending } from "./AppStarting";
 import { ReaderRoot } from "./ReaderRoot";
-import { publicIdentityFromPageBootstrap } from "./bootstrap/public-identity";
+import { documentPublicIdentity, readBootInputs } from "./bootstrap/boot-inputs";
 import { PAGE_BOOTSTRAP_ID, NAVIGATION_BOOTSTRAP_ID, MAX_BOOTSTRAP_BYTES, parseBootstrapJson } from "./bootstrap/page-payload";
 import { mayContainMath, preloadMarkdownMath } from "@oncobase/wiki-markdown/math-loader";
 import { documentMayNeedRawHtml, preloadRawHtml } from "@oncobase/wiki-markdown/raw-html-loader";
@@ -55,15 +55,7 @@ function publicIdentityPartition() {
 }
 
 function publicIdentityFromResponse(presentationOnly = false) {
-  const payload = document.getElementById(PAGE_BOOTSTRAP_ID);
-  return payload && publicIdentityFromPageBootstrap(
-    payload.textContent ?? "", Number(payload.dataset.receivedAt), {
-      origin: location.origin, pathname: location.pathname,
-      apiOrigin: new URL(apiBaseUrl() || location.origin, location.origin).origin,
-      scope: presentationOnly ? "public" : explicitReaderScope(location.search),
-      configuredSiteSlug: import.meta.env.VITE_WIKI_SITE_SLUG,
-    },
-  );
+  return documentPublicIdentity(readBootInputs(), presentationOnly ? "public" : explicitReaderScope(location.search));
 }
 
 function bootstrapMarkdown(source: string, isMarkdown: boolean) {

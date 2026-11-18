@@ -1,7 +1,8 @@
 import { expandCompactFileTree, parseWikiManifest, transformFileTreeForSidebar, WIKI_MANIFEST_SCHEMA_VERSION, WIKI_READER_CACHE_VERSION, type FileNode, type WikiSessionIdentity } from "@oncobase/wiki-content";
 import type { PageContentRow, PageIndexRow } from "../types";
 import { contentSlugFromRouteSlug, slugFromPath } from "../wiki-utils";
-import { BOOTSTRAP_MAX_AGE_MS, NAVIGATION_BOOTSTRAP_ID, PAGE_BOOTSTRAP_ID, pageBootstrapFor, parseBootstrapJson } from "./page-payload";
+import { BOOTSTRAP_MAX_AGE_MS, pageBootstrapFor, parseBootstrapJson } from "./page-payload";
+import { fresh, readBootInputs, type ReaderBootInputs } from "./boot-inputs";
 
 type RequestPartition = { origin: string; pathname: string; apiOrigin: string; siteSlug: string };
 
@@ -61,20 +62,19 @@ export function initialReaderData(raw: string, receivedAt: number, request: Requ
   };
 }
 
+/** The page and navigation slice the first frame presents for `identity`,
+ * from boot inputs (boot-inputs.ts): a pure function, so a server renderer
+ * computes the same first frame from the payload it writes. */
+export function documentInitialReaderData(inputs: ReaderBootInputs, identity: WikiSessionIdentity): InitialReaderData | null {
+  // Retain the previous provider-gated path for controlled comparisons.
+  if (new URLSearchParams(inputs.search).get("readerBootstrap") === "0" || !inputs.page) return null;
+  return initialReaderData(inputs.page.raw, inputs.page.receivedAt, {
+    origin: inputs.origin, pathname: inputs.pathname, siteSlug: identity.siteSlug, apiOrigin: inputs.apiOrigin,
+  }, inputs.navigation && fresh(inputs.navigation, inputs.now) ? inputs.navigation.raw : null, inputs.now, identity);
+}
+
 /** Read once from this response without consuming the data
  * needed by the real LiveStore boot. No persisted body or identity is read. */
 export function readInitialReaderData(identity: WikiSessionIdentity): InitialReaderData | null {
-  const url = new URL(location.href);
-  // Retain the previous provider-gated path for controlled comparisons.
-  if (url.searchParams.get("readerBootstrap") === "0") return null;
-  const node = document.getElementById(PAGE_BOOTSTRAP_ID);
-  if (!node) return null;
-  const navigation = document.getElementById(NAVIGATION_BOOTSTRAP_ID);
-  const now = Date.now();
-  const navigationAge = now - Number(navigation?.dataset.receivedAt);
-  return initialReaderData(node.textContent ?? "", Number(node.dataset.receivedAt), {
-    origin: location.origin, pathname: location.pathname, siteSlug: identity.siteSlug,
-    apiOrigin: new URL(import.meta.env.VITE_WIKI_API_ORIGIN || location.origin, location.origin).origin,
-  }, navigation && Number.isFinite(navigationAge) && navigationAge >= 0 && navigationAge <= BOOTSTRAP_MAX_AGE_MS
-    ? navigation.textContent : null, now, identity);
+  return documentInitialReaderData(readBootInputs(), identity);
 }

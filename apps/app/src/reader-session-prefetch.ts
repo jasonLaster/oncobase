@@ -1,7 +1,7 @@
 import { createWikiSessionClient, type WikiSessionIdentity } from "@oncobase/wiki-content";
 import { readerFetch } from "./reader-telemetry";
 import { explicitReaderScope, resolveReaderSession } from "./reader-session";
-import { BOOTSTRAP_MAX_AGE_MS, PAGE_BOOTSTRAP_ID, parseSessionPageBootstrap } from "./bootstrap/page-payload";
+import { documentSessionIdentity, readBootInputs } from "./bootstrap/boot-inputs";
 
 /**
  * The session API's answer for this document's own request, when the shell
@@ -11,17 +11,7 @@ import { BOOTSTRAP_MAX_AGE_MS, PAGE_BOOTSTRAP_ID, parseSessionPageBootstrap } fr
  * public scope, a disabled bootstrap, or any mismatch asks the network.
  */
 export function sessionIdentityFromDocument(now = Date.now()): WikiSessionIdentity | null {
-  try {
-    const search = new URLSearchParams(location.search);
-    if (explicitReaderScope(location.search) === "public" || search.get("readerBootstrap") === "0") return null;
-    const node = document.getElementById(PAGE_BOOTSTRAP_ID);
-    const age = now - Number(node?.dataset.receivedAt);
-    if (!node || !Number.isFinite(age) || age < 0 || age > BOOTSTRAP_MAX_AGE_MS) return null;
-    const apiOrigin = new URL(import.meta.env.VITE_WIKI_API_ORIGIN || location.origin, location.origin).origin;
-    const payload = parseSessionPageBootstrap(node.textContent ?? "", { origin: location.origin, pathname: location.pathname, apiOrigin });
-    const configured = import.meta.env.VITE_WIKI_SITE_SLUG?.trim();
-    return payload && (!configured || configured === payload.siteSlug) ? payload.identity : null;
-  } catch { return null; }
+  try { return documentSessionIdentity(readBootInputs(now)); } catch { return null; }
 }
 
 /** Verify the wiki session for the current URL (cookie-checked by the server). */
