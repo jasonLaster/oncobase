@@ -3,14 +3,22 @@ import {
   type PointerEvent,
   type ReactNode,
   useCallback,
+  useLayoutEffect,
   useRef,
   useSyncExternalStore,
 } from "react";
+import {
+  SIDEBAR_DEFAULT_WIDTH as DEFAULT_WIDTH,
+  SIDEBAR_MAX_WIDTH as MAX_WIDTH,
+  SIDEBAR_WIDTH_STORAGE_KEY as STORAGE_KEY,
+  SIDEBAR_WIDTH_VARIABLE,
+} from "./sidebar-startup.ts";
 
 const MIN_WIDTH = 160;
-const MAX_WIDTH = 480;
-const DEFAULT_WIDTH = 256;
-const STORAGE_KEY = "sidebar-width";
+// The rail's width comes from a custom property on <html> (set before the
+// first paint by installSidebarStartupState, then kept in sync below), never
+// from a per-user inline width, so server and client markup are the same.
+const RAIL_WIDTH = `var(${SIDEBAR_WIDTH_VARIABLE}, ${DEFAULT_WIDTH}px)`;
 
 let listeners: Array<() => void> = [];
 let widthCache: number | null = null;
@@ -30,8 +38,10 @@ function readStoredWidth() {
 
 function syncSidebarState(width: number) {
   if (typeof window === "undefined") return;
-  window.document.documentElement.dataset.initialSidebarState =
-    width === 0 ? "collapsed" : "expanded";
+  const root = window.document.documentElement;
+  root.dataset.initialSidebarState = width === 0 ? "collapsed" : "expanded";
+  // Collapsed keeps the last width, so expanding restores it.
+  if (width > 0) root.style.setProperty(SIDEBAR_WIDTH_VARIABLE, `${width}px`);
 }
 
 function subscribe(onStoreChange: () => void) {
@@ -89,6 +99,8 @@ export type ResizableLayoutProps = {
 export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
   const width = useResizableSidebarWidth();
   const collapsed = width === 0;
+  // A document without the startup script still gets the saved width before paint.
+  useLayoutEffect(() => { syncSidebarState(getWidthSnapshot()); }, []);
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -162,7 +174,7 @@ export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
       <div
         className="sidebar-expanded-rail"
         data-sidebar-expanded-rail
-        style={{ width }}
+        style={{ width: RAIL_WIDTH }}
       >
         <button
           type="button"
