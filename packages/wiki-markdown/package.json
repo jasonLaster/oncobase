@@ -71,6 +71,11 @@
       "import": "./src/math-loader.ts",
       "default": "./src/math-loader.ts"
     },
+    "./optional-stages": {
+      "types": "./src/optional-stages.ts",
+      "import": "./src/optional-stages.ts",
+      "default": "./src/optional-stages.ts"
+    },
     "./raw-html-loader": {
       "types": "./src/raw-html-loader.ts",
       "import": "./src/raw-html-loader.ts",
