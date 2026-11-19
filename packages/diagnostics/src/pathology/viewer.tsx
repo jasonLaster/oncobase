@@ -4,7 +4,6 @@ import useSWR from "swr";
 import { formatLength, readCamera, regionLengthMicrons, type PathologyRegion, type PathologySlide, type SlideCamera } from "./model";
 import { SlideCanvas, type SlideControls, type SlideTool } from "./slide-canvas";
 import { normalizePathologyCollectionId, pathologyCollectionId, pathologyCollections, slideScanDate } from "./collection";
-import "./styles.css";
 
 async function json<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: "no-store" });

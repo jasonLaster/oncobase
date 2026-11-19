@@ -7,7 +7,7 @@ import { DianaBrand, VillageTexture } from "./LandingBrands";
 import { images } from "../assets/images";
 import { ResponsiveImage } from "./LandingShowcase";
 import { asksForSignIn, signInRedirectTarget } from "./sign-in";
-import "./landing.css";
+import "./marketing-styles";
 
 function PasswordForm() {
   const [password, setPassword] = useState("");

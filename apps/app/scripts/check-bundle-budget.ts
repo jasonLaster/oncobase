@@ -91,6 +91,9 @@ const budgets: Budget[] = [
   // glue by <256 B. Their runtime budgets are tracked in the lazy pool below.
   // The legacy redirect table now loads after paint (configured-redirects
   // chunk): 24,5xx -> 19,715 B gzip. Cap 24,256 -> 20,736.
+  // Only first-paint styles belong here; route stylesheets adopt themselves
+  // from their chunks (src/lazy-styles.ts). 38,716 B gzip after that split.
+  { label: "eager stylesheet", pattern: /^style-[\w-]+\.css$/, maxGzipBytes: 40_960 },
   { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 20_736 },
   // A1 step 1 moved WikiSync's effects into a plain, unit-tested
   // SyncController: 10,959 -> 11,312 B gzip (raw is smaller; the denser code
@@ -206,8 +209,12 @@ const storeLoaderPatterns = [
 // paint path (-1.8 KiB). Measured paint 303,951 B, store 825,625 B.
 // Allowances move with them: paint 316,500 -> 306,000, store 855,000 ->
 // 828,500, eager 1,168,500 -> 1,134,500.
-const eagerGzipBudget = 1_134_500;
-const paintGzipBudget = 306_000;
+// Route and late-UI stylesheets (marketing, education, pathology, PDF viewer,
+// sharing, Liveblocks comments) load inside their own chunks (src/lazy-styles.ts):
+// the eager stylesheet 63.7 -> 37.8 KiB, paint 303,951 -> 277,541 B.
+// Paint 306,000 -> 280,000, eager 1,134,500 -> 1,108,500.
+const eagerGzipBudget = 1_108_500;
+const paintGzipBudget = 280_000;
 const storeGzipBudget = 828_500;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
@@ -242,7 +249,9 @@ const storeGzipBudget = 828_500;
 // 4,242,048 -> 4,253,048.
 // The redirect table (4.5 KiB) and hastscript (1.8 KiB) join the lazy pool,
 // measured 4,257,366 B: 4,253,048 -> 4,259,500.
-const lazyGzipBudget = 4_259_500;
+// The moved stylesheets add 30.4 KiB to the lazy pool (26 KiB of CSS, gzipped
+// per chunk instead of in one file), measured 4,287,852 B: -> 4,292,500.
+const lazyGzipBudget = 4_292_500;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

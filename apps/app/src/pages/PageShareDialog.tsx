@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { copyTextToClipboard } from "@oncobase/wiki-shell";
 import { X } from "lucide-react";
 import { backendHref } from "../wiki-utils";
-import "./page-sharing.css";
+import "./page-sharing-styles";
 
 export function PageShareDialog({ slug, title, onClose }: { slug: string; title: string; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);

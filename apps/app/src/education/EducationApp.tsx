@@ -41,7 +41,7 @@ import { updateClientRouteMetadata } from "../document-title";
 import { TopicLogo } from "@oncobase/education/topic-logo";
 import { PublicThemeControl } from "../PublicThemeControl";
 import { webMcpAvailable } from "../webmcp/webmcp-flag";
-import "./education.css";
+import "./education-styles";
 
 const MermaidRenderer = lazy(() =>
   import("@oncobase/wiki-markdown/mermaid").then((module) => ({

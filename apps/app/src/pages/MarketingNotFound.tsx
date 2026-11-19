@@ -1,7 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { PublicHeader } from "./PublicChrome";
-import "./landing.css";
-import "./features.css";
+import "./marketing-styles";
 
 /** Shown when a visitor to oncobase.io follows a client-side link to a page that doesn't exist. */
 export function MarketingNotFound() {

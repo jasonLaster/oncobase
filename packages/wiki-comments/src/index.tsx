@@ -15,6 +15,7 @@ import {
 import type { ThreadData } from "@liveblocks/client";
 import { useRoom, useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
+import "./liveblocks-styles.ts";
 import { cn } from "./utils.ts";
 import { LiveblocksRoom } from "./room.tsx";
 import { commentsEnabled } from "./feature.ts";

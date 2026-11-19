@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type Ref } from "react";
 import { PublicThemeControl } from "../PublicThemeControl";
 import { DianaBrand, OncobaseBrand } from "./LandingBrands";
 import { REPO_URL } from "./site";
-import "./public-header.css";
+import "./marketing-styles";
 
 /** The id of the section nearest the top of the screen, for the header. */
 export function useActiveSection(ids: readonly string[]) {

@@ -20,7 +20,7 @@ import { DianaBrand, EducationTexture, OncobaseBrand, VillageTexture } from "./L
 import { PublicHeader } from "./PublicChrome";
 import { oncobaseUrl } from "../site-links";
 import { images } from "../assets/images";
-import "./landing.css";
+import "./marketing-styles";
 
 /** Tinted while the Oncobase band is under the header. */
 function usePlatformTone(

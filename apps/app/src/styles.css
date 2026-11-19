@@ -16,7 +16,6 @@
 @import "@oncobase/wiki-shell/styles.css";
 @import "@oncobase/wiki-shell/theme.css";
 @import "@oncobase/wiki-markdown/styles.css";
-@import "@liveblocks/react-ui/styles.css";
 @source "../../../packages/wiki-comments/src";
 @source "../../../packages/chat/src";
 @source "../../../packages/diagnostics/src";

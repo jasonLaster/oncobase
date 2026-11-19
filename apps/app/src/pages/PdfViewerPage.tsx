@@ -3,7 +3,7 @@ import { useLocation } from "react-router";
 import { getDocument, GlobalWorkerOptions, TextLayer, type PDFDocumentProxy, type RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { withContentVersion } from "@oncobase/wiki-content";
-import "./pdf-viewer.css";
+import "./pdf-viewer-styles";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 

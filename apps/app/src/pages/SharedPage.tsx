@@ -2,7 +2,7 @@ import { createContext, lazy, Suspense, useContext, useEffect, useState, type Co
 import { WikiMarkdown, MarkdownTitle, type WikiMarkdownLinkProps } from "@oncobase/wiki-markdown/browser";
 import { useLocation } from "react-router";
 import { LockKeyhole } from "lucide-react";
-import "./page-sharing.css";
+import "./page-sharing-styles";
 
 const ShareToken = createContext("");
 const MermaidRenderer = lazy(() => import("@oncobase/wiki-markdown/mermaid").then(m => ({ default: m.WikiMermaidRenderer })));

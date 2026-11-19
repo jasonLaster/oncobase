@@ -7,9 +7,7 @@ import { OncobaseBrand, VillageTexture } from "./LandingBrands";
 import { PinnedScreenshot } from "./FeaturesShowcase";
 import { PublicHeader } from "./PublicChrome";
 import { REPO_URL } from "./site";
-import "./landing.css";
-import "./features.css";
-import "./oncobase-home.css";
+import "./marketing-styles";
 
 const nav = [
   ["what", "What it does"],

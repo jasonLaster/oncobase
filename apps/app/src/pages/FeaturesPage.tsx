@@ -57,8 +57,7 @@ import {
   sectionCopy,
   type SectionId,
 } from "./features-data";
-import "./landing.css";
-import "./features.css";
+import "./marketing-styles";
 
 /** The first few names, then a count of the rest. */
 function previewOf(names: string[]) {
