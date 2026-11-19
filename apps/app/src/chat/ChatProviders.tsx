@@ -58,7 +58,7 @@ function ChatLink({
 // would drag react-markdown and its remark/vfile graph into the shell bundle.
 // Chat transcripts only need the renderer once a conversation is on screen.
 const LazyWikiMarkdown = lazy(() =>
-  import("@oncobase/wiki-markdown").then((module) => ({
+  import("@oncobase/wiki-markdown/browser").then((module) => ({
     default: module.WikiMarkdown,
   })),
 );
@@ -75,6 +75,7 @@ function ChatMarkdownRenderer({
     <Suspense fallback={<p className="whitespace-pre-wrap">{content}</p>}>
       <LazyWikiMarkdown
         content={content}
+        loadingFallback={<p className="whitespace-pre-wrap">{content}</p>}
         disableAnchors={disableAnchors}
         ImageComponent={ChatImage}
         LinkComponent={({ href = "", children, ...props }) => (

@@ -54,7 +54,7 @@ function decorateRenderedTables(html: string): string {
   const wrappedTables = decoratedTables
     .replace(
       /<table\b([^>]*)>/g,
-      '<div data-smart-table-shell class="smart-table-shell"><div data-smart-table-wrapper class="smart-table-wrapper table-scroll-wrapper"><table$1>',
+      '<div data-smart-table-shell class="smart-table-shell"><div data-smart-table-wrapper tabindex="0" class="smart-table-wrapper table-scroll-wrapper"><table$1>',
     )
     .replace(/<\/table>/g, "</table></div></div>");
 

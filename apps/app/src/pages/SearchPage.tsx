@@ -5,7 +5,7 @@ import {
   markdownRehypePlugins,
   markdownRemarkPlugins,
   protectCurrencyFromMath,
-} from "@oncobase/wiki-markdown";
+} from "@oncobase/wiki-markdown/math";
 import { recordSearchMetric } from "../observability";
 import { isWithinTextSearchLatencyBudget } from "../search-performance";
 import { useWikiScope } from "../wiki-context";

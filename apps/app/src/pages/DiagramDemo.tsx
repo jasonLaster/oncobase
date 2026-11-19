@@ -1,4 +1,4 @@
-import { WikiMarkdown } from "@oncobase/wiki-markdown";
+import { WikiMarkdown } from "@oncobase/wiki-markdown/browser";
 import { WikiMermaidRenderer } from "@oncobase/wiki-markdown/mermaid";
 import { useState } from "react";
 

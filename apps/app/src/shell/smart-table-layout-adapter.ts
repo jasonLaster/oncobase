@@ -1,7 +1,7 @@
 import {
   getDefaultVerticalScrollContainer,
   type SmartTableLayoutAdapter,
-} from "@oncobase/smart-table";
+} from "@oncobase/smart-table/layout-adapter";
 import { COMMENTS_PANE_EVENT } from "@oncobase/wiki-shell";
 
 const GUTTER = 20;

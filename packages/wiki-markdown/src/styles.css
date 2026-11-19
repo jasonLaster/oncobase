@@ -743,8 +743,10 @@
   color-scheme: light dark;
 }
 /* The fallback image is for copy/print; on screen the live component replaces it. */
-.wiki-markdown .wiki-component:has(.wiki-component-live > :not(.wiki-component-error)) .wiki-component-fallback {
-  display: none;
+@media screen {
+  .wiki-markdown .wiki-component:has(.wiki-component-live > :not(.wiki-component-error)) .wiki-component-fallback {
+    display: none;
+  }
 }
 @media print {
   .wiki-markdown .wiki-component:has(.wiki-component-fallback) .wiki-component-live { display: none; }

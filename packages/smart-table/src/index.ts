@@ -25,7 +25,7 @@ export {
 export {
   defaultSmartTableToggleLabels,
   type SmartTableToggleLabels,
-} from "./enhance-table";
+} from "./toggle-labels";
 export {
   createViewportSmartTableLayoutAdapter,
   defaultSmartTableLayoutAdapter,

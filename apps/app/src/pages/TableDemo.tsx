@@ -1,6 +1,6 @@
-import { defaultSmartTableLayoutAdapter } from "@oncobase/smart-table";
+import { defaultSmartTableLayoutAdapter } from "@oncobase/smart-table/layout-adapter";
 import { renderMarkdownTable, type ExampleTableDefinition } from "@oncobase/smart-table/examples";
-import { WikiMarkdown } from "@oncobase/wiki-markdown";
+import { WikiMarkdown } from "@oncobase/wiki-markdown/browser";
 import { useMemo, useState } from "react";
 
 type Sample = { id: string; label: string; note: string; headers: string[]; rows: string[][] };

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer.tsx";
-import { ImageTheaterModal } from "./image-theater-modal.tsx";
+import { ImageTheaterPreview } from "./image-theater-preview.tsx";
 import {
   imageStateFromElement,
   type TheaterImageState,
@@ -16,6 +16,7 @@ export function ImageTheater({
   scopeSelector?: string;
 }) {
   const [image, setImage] = useState<TheaterImageState | null>(null);
+  const [opener, setOpener] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     const prose = document.querySelector<HTMLElement>(scopeSelector);
@@ -27,8 +28,9 @@ export function ImageTheater({
           ? target.closest<HTMLImageElement>("img[data-theater-image]")
           : null;
       const nextImage = imageElement ? imageStateFromElement(imageElement) : null;
-      if (!nextImage) return false;
+      if (!imageElement || !nextImage) return false;
 
+      setOpener(imageElement);
       setImage(nextImage);
       return true;
     };
@@ -62,9 +64,10 @@ export function ImageTheater({
   }, [scopeSelector]);
 
   return image ? (
-    <ImageTheaterModal
+    <ImageTheaterPreview
       ImageComponent={ImageComponent}
       image={image}
+      opener={opener}
       onClose={() => setImage(null)}
       onImageChange={setImage}
     />

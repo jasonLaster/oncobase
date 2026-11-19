@@ -1,15 +1,20 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 import {
   WIKI_COMPONENT_HEIGHT_MESSAGE,
   WIKI_COMPONENT_SANDBOX,
   resolveWikiComponentSrc,
 } from "./mdx-components.ts";
-import { SlidesViewer } from "./slides-viewer.tsx";
 
 // biome-ignore lint/suspicious/noExplicitAny: registry components take arbitrary literal props.
 export type WikiMdxComponents = Record<string, ComponentType<any>>;
+
+const LazySlidesViewer = lazy(() => import("./slides-viewer.tsx").then(({ SlidesViewer }) => ({ default: SlidesViewer })));
+
+function SlidesViewer(props: ComponentProps<typeof LazySlidesViewer>) {
+  return <Suspense fallback={null}><LazySlidesViewer {...props} /></Suspense>;
+}
 
 const loadWaterfall = () => import("./scenario-waterfall.tsx");
 const LazyScenarioWaterfall = lazy(loadWaterfall);

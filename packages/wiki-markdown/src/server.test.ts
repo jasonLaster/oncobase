@@ -65,7 +65,7 @@ describe("server markdown rendering", () => {
     expect(
       countMatches(
         html,
-        /<div data-smart-table-shell class="smart-table-shell"><div data-smart-table-wrapper class="smart-table-wrapper table-scroll-wrapper"><table[^>]*class="smart-table"/g,
+        /<div data-smart-table-shell class="smart-table-shell"><div data-smart-table-wrapper tabindex="0" class="smart-table-wrapper table-scroll-wrapper"><table[^>]*class="smart-table"/g,
       ),
     ).toBe(exampleTables.length);
     expect(countMatches(html, /data-table-example="/g)).toBe(exampleTables.length);

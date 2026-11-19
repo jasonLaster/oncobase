@@ -84,7 +84,9 @@ const budgets: Budget[] = [
   // "Talk with the page" adds its launcher host, open-state store and the
   // mobile Talk/Ask button group: 23,314 -> 23,798 B gzip. Allow 24,000; the
   // call itself (transport, avatar states, styles) loads lazily.
-  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 24_000 },
+  // Conditional reader features change the route's preload map and import
+  // glue by <256 B. Their runtime budgets are tracked in the lazy pool below.
+  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 24_256 },
   // A1 step 1 moved WikiSync's effects into a plain, unit-tested
   // SyncController: 10,959 -> 11,312 B gzip (raw is smaller; the denser code
   // compresses worse). +256 B; the store pool total is unchanged.
@@ -188,8 +190,10 @@ const storeLoaderPatterns = [
 // 322,464 -> 317,967 B (-4,497 B), lazy +4.2 KiB, total unchanged. Allowance
 // moves with it: paint 327,000 -> 322,500, eager 1,179,000 -> 1,174,500, lazy
 // 4,222,000 -> 4,226,500.
-const eagerGzipBudget = 1_174_500;
-const paintGzipBudget = 322_500;
+// Slides, image theater and smart-table enhancement move about 6 KiB
+// off the paint path. Transfer that allowance to the lazy pool.
+const eagerGzipBudget = 1_168_500;
+const paintGzipBudget = 316_500;
 const storeGzipBudget = 855_000;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
@@ -219,7 +223,10 @@ const storeGzipBudget = 855_000;
 // changing the paint-critical or store limits.
 // The scenario walkthrough (toggle plus lane chart) grows that chunk to 3.1 KiB;
 // Vercel measured 4141.9 KiB against the 4141.6 KiB cap. Allow 1 KiB more.
-const lazyGzipBudget = 4_242_048;
+// Reader features add about 9.5 KiB to the lazy pool, including the 6 KiB
+// paint transfer and the overhead of separate chunks and their loaders:
+// 4,242,048 -> 4,253,048.
+const lazyGzipBudget = 4_253_048;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
@@ -335,6 +342,13 @@ for (const pattern of eagerRootPatterns) {
 
 const classes = eagerAssetClasses(assets);
 const eagerNames = new Set([...classes.paint, ...classes.store]);
+for (const feature of ["slides-viewer", "image-theater-modal", "enhance-table", "scenario-waterfall"]) {
+  const chunks = assets.filter(({ name }) => name.startsWith(feature + "-") && name.endsWith(".js"));
+  if (chunks.length === 0) failures.push(`optional reader feature: missing ${feature} chunk`);
+  for (const { name } of chunks) {
+    if (eagerNames.has(name)) failures.push(`optional reader feature: ${name} is in the eager import graph`);
+  }
+}
 const classBytes = (names: Set<string>) => assets.filter((asset) => names.has(asset.name)).reduce((sum, asset) => sum + asset.gzipBytes, 0);
 const paintGzipBytes = classBytes(classes.paint);
 const storeGzipBytes = classBytes(classes.store);

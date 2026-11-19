@@ -53,6 +53,24 @@ describe("public documents", () => {
     expect(raw).toContain("<summary>More</summary>");
   });
 
+  test("named MDX and legacy slides render their first slide in the initial HTML", async () => {
+    const content = `import { SlidesViewer } from "@oncobase/wiki-markdown"
+
+# Slide fixture
+
+<SlidesViewer images={[{"src":"images/first.png","alt":"First"},{"src":"images/second.png","alt":"Second"}]} />
+
+<!-- slides -->
+
+- ![First](images/first.png)
+- ![Second](images/second.png)
+`;
+    const html = await render(publicPayload(content));
+    const slideTags = html?.match(/<li\b[^>]*data-wiki-slide=""[^>]*>/g) ?? [];
+    expect(slideTags.map(tag => tag.includes(' hidden=""'))).toEqual([false, true, false, true]);
+    expect(html).not.toMatch(/<!--\$[!?]-->|\$RC\(/);
+  });
+
   test("an 18-table page renders every table", async () => {
     const html = await render(publicPayload(drugPanel(18), "wiki/treatment/note"));
     expect(html?.match(/<table/g)?.length).toBe(18);

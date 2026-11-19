@@ -7,6 +7,8 @@ import {
   memo,
   useContext,
   useMemo,
+  useEffect,
+  useRef,
   type AnchorHTMLAttributes,
   type ComponentProps,
   type ComponentType,
@@ -39,7 +41,6 @@ import { TheaterImage } from "./theater-image.tsx";
 import { markdownRemarkPlugins } from "./math-common.ts";
 import { prepareWikiMarkdown } from "./prepare.ts";
 import { PdfChipLink, isPdfChipHref } from "./pdf-chip.tsx";
-import { SlidesViewer, SlidesViewerControls } from "./slides-viewer.tsx";
 import { WikiMarkdownFrame } from "./frame.tsx";
 import { AnnotatedTerm } from "./annotated-term.tsx";
 import { EDUCATION_LAB_SANDBOX, resolveEducationLabSrc } from "./education-lab.ts";
@@ -363,6 +364,22 @@ export const WikiMarkdownRenderer = memo(function WikiMarkdownRenderer({
   preparedContent?: string;
 }) {
   const prepared = preparedContent ?? prepareWikiMarkdown(content, currentSlug, apiBasePath);
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!/data-wiki-slides/i.test(prepared) || !frame?.querySelector("[data-wiki-slides]")) return;
+
+    let active = true;
+    let cleanup: (() => void) | undefined;
+    void import("./slides-viewer.tsx").then(({ bindSlidesViewerControls }) => {
+      if (active) cleanup = bindSlidesViewerControls(frame);
+    }).catch(() => { /* The first slide remains readable. */ });
+    return () => {
+      active = false;
+      cleanup?.();
+    };
+  }, [prepared]);
 
   const markdownContext = useMemo<MarkdownRenderContextValue>(() => ({
     currentSlug,
@@ -376,7 +393,7 @@ export const WikiMarkdownRenderer = memo(function WikiMarkdownRenderer({
   }), [currentSlug, apiBasePath, resolveLinkHref, isInternalHref, LinkComponent, tableLayoutAdapter, ImageComponent, mdxComponents]);
 
   return (
-    <WikiMarkdownFrame className={className}>
+    <WikiMarkdownFrame className={className} ref={frameRef}>
       <MarkdownRenderContext.Provider value={markdownContext}>
         <ReactMarkdown
           remarkPlugins={markdownRemarkPlugins}
@@ -393,7 +410,6 @@ export const WikiMarkdownRenderer = memo(function WikiMarkdownRenderer({
         routeAdapter={routeAdapter}
         scopeKey={anchorScopeKey ?? currentSlug}
       />
-      <SlidesViewerControls />
     </WikiMarkdownFrame>
   );
 });
@@ -410,8 +426,6 @@ export {
   MarkdownPre,
   MermaidFallback,
   RoutedAnchorLinks,
-  SlidesViewer,
-  SlidesViewerControls,
   TheaterImage,
   WikiMarkdownFrame,
   isInternalWikiHref,

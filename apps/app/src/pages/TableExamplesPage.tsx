@@ -1,4 +1,4 @@
-import { WikiMarkdown, type WikiMarkdownLinkProps } from "@oncobase/wiki-markdown";
+import { WikiMarkdown, type WikiMarkdownLinkProps } from "@oncobase/wiki-markdown/browser";
 import { buildExampleTablesDocument } from "@oncobase/smart-table/examples";
 import { WikiPageFrame, WikiPageHeader } from "@oncobase/wiki-shell/page-chrome";
 import { useMemo } from "react";

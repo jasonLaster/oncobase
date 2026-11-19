@@ -1,21 +1,15 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
-import {
-  defaultSmartTableLayoutAdapter,
-  type SmartTableLayoutAdapter,
-} from "./layout-adapter";
-import {
-  enhanceSmartTableElement,
-  type SmartTableToggleLabels,
-} from "./enhance-table";
+import { useEffect, useRef } from "react";
+import type { SmartTableLayoutAdapter } from "./layout-adapter";
+import type { SmartTableToggleLabels } from "./toggle-labels";
 
 /**
  * Client island that progressively enhances already-rendered HTML tables by
  * wrapping them with the smart-table affordances.
  */
 export function SmartTableEnhancer({
-  layoutAdapter = defaultSmartTableLayoutAdapter,
+  layoutAdapter,
   getPersistenceKey,
   toggleLabels,
 }: {
@@ -28,26 +22,29 @@ export function SmartTableEnhancer({
 }) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const container = sentinelRef.current?.parentElement;
     if (!container) {
       return;
     }
 
-    const cleanups: Array<() => void> = [];
     const tables = container.querySelectorAll<HTMLTableElement>("table");
+    if (tables.length === 0) return;
 
-    tables.forEach((table, index) => {
-      const persistenceKey = getPersistenceKey?.({ table, index }) ?? undefined;
-      const { cleanup } = enhanceSmartTableElement(table, {
-        persistenceKey,
-        layoutAdapter,
-        toggleLabels,
+    let active = true;
+    const cleanups: Array<() => void> = [];
+    void import("./enhance-table").then(({ enhanceSmartTableElement }) => {
+      if (!active) return;
+      tables.forEach((table, index) => {
+        if (!container.contains(table)) return;
+        const persistenceKey = getPersistenceKey?.({ table, index });
+        const { cleanup } = enhanceSmartTableElement(table, { persistenceKey, layoutAdapter, toggleLabels });
+        cleanups.push(cleanup);
       });
-      cleanups.push(cleanup);
-    });
+    }).catch(() => { /* The rendered HTML tables remain available. */ });
 
     return () => {
+      active = false;
       cleanups.forEach((cleanup) => cleanup());
     };
   }, [getPersistenceKey, layoutAdapter, toggleLabels]);

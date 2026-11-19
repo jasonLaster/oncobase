@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer.tsx";
-import { ImageTheaterModal } from "./image-theater-modal.tsx";
-import {
-  type TheaterImageState,
-} from "./image-theater-state.ts";
+import { ImageTheaterPreview } from "./image-theater-preview.tsx";
+import type { TheaterImageState } from "./image-theater-state.ts";
 import { resolveImageSrc } from "./paths.ts";
 import { sortSlidesNewestFirst } from "./slides-sort.ts";
 
@@ -41,42 +39,35 @@ function setActiveSlide(viewer: HTMLElement, nextIndex: number) {
   }
 }
 
-export function SlidesViewerControls({
-  scopeSelector = ".prose",
-}: {
-  scopeSelector?: string;
-}) {
+export function bindSlidesViewerControls(scope: HTMLElement) {
+  scope.querySelectorAll<HTMLElement>("[data-wiki-slides]").forEach((viewer) => {
+    setActiveSlide(viewer, Number(viewer.dataset.index ?? "0"));
+  });
+
+  const onClick = (event: Event) => {
+    // A React viewer can already have handled this inside a delegated scope.
+    if (event.defaultPrevented) return;
+    const control = event.target instanceof Element
+      ? event.target.closest<HTMLElement>("[data-wiki-slides-prev], [data-wiki-slides-next]")
+      : null;
+    const viewer = control?.closest<HTMLElement>("[data-wiki-slides]");
+    if (!control || !viewer || !scope.contains(viewer)) return;
+
+    event.preventDefault();
+    const current = Number(viewer.dataset.index ?? "0");
+    const direction = control.hasAttribute("data-wiki-slides-prev") ? -1 : 1;
+    setActiveSlide(viewer, current + direction);
+  };
+
+  scope.addEventListener("click", onClick);
+  return () => scope.removeEventListener("click", onClick);
+}
+
+export function SlidesViewerControls({ scopeSelector = ".prose" }: { scopeSelector?: string }) {
   useEffect(() => {
-    const prose = document.querySelector<HTMLElement>(scopeSelector);
-    if (!prose) return;
-
-    const viewers = Array.from(
-      prose.querySelectorAll<HTMLElement>("[data-wiki-slides]"),
-    );
-    viewers.forEach((viewer) => setActiveSlide(viewer, Number(viewer.dataset.index ?? "0")));
-
-    const onClick = (event: Event) => {
-      const control =
-        event.target instanceof Element
-          ? event.target.closest<HTMLElement>("[data-wiki-slides-prev], [data-wiki-slides-next]")
-          : null;
-      if (!control) return;
-
-      const viewer = control.closest<HTMLElement>("[data-wiki-slides]");
-      if (!viewer) return;
-
-      const current = Number(viewer.dataset.index ?? "0");
-      const direction = control.hasAttribute("data-wiki-slides-prev") ? -1 : 1;
-      setActiveSlide(viewer, current + direction);
-    };
-
-    prose.addEventListener("click", onClick);
-
-    return () => {
-      prose.removeEventListener("click", onClick);
-    };
+    const scope = document.querySelector<HTMLElement>(scopeSelector);
+    if (scope) return bindSlidesViewerControls(scope);
   }, [scopeSelector]);
-
   return null;
 }
 
@@ -107,6 +98,14 @@ export function SlidesViewer({
   );
   const [theaterImage, setTheaterImage] = useState<TheaterImageState | null>(null);
 
+  const viewerRef = useRef<HTMLElement>(null);
+  const [opener, setOpener] = useState<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (viewer) return bindSlidesViewerControls(viewer);
+  }, [slides.length]);
+
   if (slides.length === 0) return null;
 
   const openSlide = (index: number) => {
@@ -126,6 +125,7 @@ export function SlidesViewer({
         className={classNames("wiki-slides-viewer", className)}
         data-index="0"
         data-wiki-slides=""
+        ref={viewerRef}
       >
         <div className="wiki-slides-viewer__stage">
           <ol className="wiki-slides-viewer__slides">
@@ -140,7 +140,10 @@ export function SlidesViewer({
                 <button
                   aria-label={image.alt ? `Open image: ${image.alt}` : "Open image"}
                   className="wiki-slides-viewer__image-button"
-                  onClick={() => openSlide(index)}
+                  onClick={(event) => {
+                    setOpener(event.currentTarget);
+                    openSlide(index);
+                  }}
                   type="button"
                 >
                   <ImageComponent
@@ -178,9 +181,10 @@ export function SlidesViewer({
         </div>
       </figure>
       {theaterImage ? (
-        <ImageTheaterModal
+        <ImageTheaterPreview
           ImageComponent={ImageComponent}
           image={theaterImage}
+          opener={opener}
           onClose={() => setTheaterImage(null)}
           onImageChange={setTheaterImage}
         />

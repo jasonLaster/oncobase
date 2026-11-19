@@ -8,11 +8,13 @@ import { getDownloadName, type TheaterImageState } from "./image-theater-state.t
 export function ImageTheaterModal({
   image,
   ImageComponent = DefaultWikiImage,
+  opener,
   onImageChange,
   onClose,
 }: {
   image: TheaterImageState;
   ImageComponent?: WikiImageComponent;
+  opener?: HTMLElement | null;
   onImageChange?: (image: TheaterImageState) => void;
   onClose: () => void;
 }) {
@@ -61,8 +63,9 @@ export function ImageTheaterModal({
       }
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onModalKeyDown);
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
     };
-  }, []);
+  }, [opener]);
 
   return createPortal(
     <dialog

@@ -1,6 +1,6 @@
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithRef } from "react";
 
-export type WikiMarkdownFrameProps = ComponentPropsWithoutRef<"div">;
+export type WikiMarkdownFrameProps = ComponentPropsWithRef<"div">;
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");

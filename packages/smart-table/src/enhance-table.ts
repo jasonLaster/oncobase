@@ -9,17 +9,9 @@ import {
   installSmartTableLayout,
 } from "./smart-table-layout";
 
+import { defaultSmartTableToggleLabels, type SmartTableToggleLabels } from "./toggle-labels";
+
 const expandedTableMemory = new Map<string, boolean>();
-
-export type SmartTableToggleLabels = {
-  expand: string;
-  collapse: string;
-};
-
-export const defaultSmartTableToggleLabels: SmartTableToggleLabels = {
-  expand: "Expand table",
-  collapse: "Collapse table",
-};
 
 const COLLAPSED_TOGGLE_TOP = "-0.25rem";
 const EXPANDED_TOGGLE_TOP = "-2rem";

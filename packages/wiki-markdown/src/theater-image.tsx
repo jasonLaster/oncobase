@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ComponentProps } from "react";
 import { DefaultWikiImage, type WikiImageComponent } from "./image-renderer.tsx";
-import { ImageTheaterModal } from "./image-theater-modal.tsx";
+import { ImageTheaterPreview } from "./image-theater-preview.tsx";
 import {
   classNames,
   imageStateFromElement,
@@ -33,6 +33,7 @@ export function TheaterImage({
   const resolvedSrc =
     typeof src === "string" ? resolveImageSrc(src, currentSlug, apiBasePath) : src;
   const [image, setImage] = useState<TheaterImageState | null>(null);
+  const [opener, setOpener] = useState<HTMLElement | null>(null);
 
   if (themePair !== undefined && typeof resolvedSrc === "string" && /-light\.[a-zA-Z0-9]+$/.test(resolvedSrc)) {
     const shared = { ...props, alt, width, height, className, ImageComponent };
@@ -57,6 +58,9 @@ export function TheaterImage({
     );
   }
 
+  // Static legacy slides give the image its own keyboard affordance. In React,
+  // the wrapping button owns activation and focus.
+  const legacyTrigger = "data-theater-image" in props && props.role === "button";
   return (
     <>
       <button
@@ -65,6 +69,7 @@ export function TheaterImage({
         data-theme-variant={themeVariant}
         style={{ aspectRatio: Number(width) > 0 && Number(height) > 0 ? `${Number(width)} / ${Number(height)}` : "16 / 9" }}
         onClick={(event) => {
+          setOpener(event.currentTarget);
           const imageElement = event.currentTarget.querySelector("img");
           setImage(
             imageElement
@@ -85,12 +90,14 @@ export function TheaterImage({
           width={width}
           height={height}
           {...props}
+          {...(legacyTrigger ? { role: undefined, tabIndex: undefined, "aria-label": undefined } : {})}
         />
       </button>
       {image ? (
-        <ImageTheaterModal
+        <ImageTheaterPreview
           ImageComponent={ImageComponent}
           image={image}
+          opener={opener}
           onClose={() => setImage(null)}
           onImageChange={setImage}
         />

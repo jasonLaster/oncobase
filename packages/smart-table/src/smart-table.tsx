@@ -9,14 +9,8 @@ import {
   TableRow,
 } from "./table";
 import { cn } from "./cn";
-import {
-  defaultSmartTableLayoutAdapter,
-  type SmartTableLayoutAdapter,
-} from "./layout-adapter";
-import {
-  enhanceSmartTableElement,
-  type SmartTableToggleLabels,
-} from "./enhance-table";
+import type { SmartTableLayoutAdapter } from "./layout-adapter";
+import type { SmartTableToggleLabels } from "./toggle-labels";
 
 function assignRef<T>(
   ref: React.ForwardedRef<T>,
@@ -46,7 +40,7 @@ export const SmartTable = React.forwardRef<
     {
       className,
       persistenceKey,
-      layoutAdapter = defaultSmartTableLayoutAdapter,
+      layoutAdapter,
       shellClassName,
       wrapperClassName,
       toggleLabels,
@@ -64,17 +58,24 @@ export const SmartTable = React.forwardRef<
       [forwardedRef]
     );
 
-    React.useLayoutEffect(() => {
+    React.useEffect(() => {
       const table = tableRef.current;
       if (!table) {
         return;
       }
 
-      return enhanceSmartTableElement(table, {
-        persistenceKey,
-        layoutAdapter,
-        toggleLabels,
-      }).cleanup;
+      let active = true;
+      let cleanup: (() => void) | undefined;
+      void import("./enhance-table").then(({ enhanceSmartTableElement }) => {
+        if (active) {
+          cleanup = enhanceSmartTableElement(table, { persistenceKey, layoutAdapter, toggleLabels }).cleanup;
+        }
+      }).catch(() => { /* Native table layout and scrolling remain available. */ });
+
+      return () => {
+        active = false;
+        cleanup?.();
+      };
     }, [persistenceKey, layoutAdapter, toggleLabels]);
 
     return (
@@ -84,6 +85,8 @@ export const SmartTable = React.forwardRef<
       >
         <div
           data-smart-table-wrapper
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Native horizontal scrolling must be keyboard reachable.
+          tabIndex={0}
           className={cn(
             "smart-table-wrapper table-scroll-wrapper",
             wrapperClassName
