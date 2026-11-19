@@ -1,16 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
   WIKI_COMPONENT_HEIGHT_MESSAGE,
   WIKI_COMPONENT_SANDBOX,
   resolveWikiComponentSrc,
 } from "./mdx-components.ts";
-import { ScenarioWaterfall } from "./scenario-waterfall.tsx";
 import { SlidesViewer } from "./slides-viewer.tsx";
 
 // biome-ignore lint/suspicious/noExplicitAny: registry components take arbitrary literal props.
 export type WikiMdxComponents = Record<string, ComponentType<any>>;
+
+const LazyScenarioWaterfall = lazy(() => import("./scenario-waterfall.tsx"));
+
+function ScenarioWaterfall(props: import("./scenario-waterfall.tsx").ScenarioWaterfallProps) {
+  return <Suspense fallback={null}><LazyScenarioWaterfall {...props} /></Suspense>;
+}
 
 /** React components every host can import from "@oncobase/wiki-markdown" in MDX. */
 export const BUILT_IN_WIKI_MDX_COMPONENTS: WikiMdxComponents = { ScenarioWaterfall, SlidesViewer };

@@ -10,4 +10,4 @@ export const WikiMarkdown = memo(function WikiMarkdown(props: WikiMarkdownProps)
   return <WikiMarkdownRenderer {...props} rehypePlugins={markdownRehypePlugins} />;
 });
 
-export { ScenarioWaterfall, type ScenarioWaterfallProps } from "./scenario-waterfall.tsx";
+export type { ScenarioWaterfallProps } from "./scenario-waterfall.tsx";

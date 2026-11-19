@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
 import { WikiMarkdown } from "./index.tsx";
 import { renderWikiMarkdownHtml } from "./server.ts";
 import {
@@ -109,7 +109,7 @@ test("invalid imports and tags render visible errors instead of failing the page
   expect(html).toContain("Only literal props");
 });
 
-test("a named waterfall import renders both endpoints and signed changes from literal estimates", () => {
+test("a named waterfall import renders both endpoints and signed changes from literal estimates", async () => {
   const md = `import { ScenarioWaterfall } from "@oncobase/wiki-markdown"
 
 <ScenarioWaterfall
@@ -124,7 +124,9 @@ test("a named waterfall import renders both endpoints and signed changes from li
     {"id":"b","label":"Second","steps":[{"label":"Other estimate","values":["65","62"]}]}
   ]}
 />`;
-  const html = renderToStaticMarkup(createElement(WikiMarkdown, { content: md, currentSlug: slug }));
+  const stream = await renderToReadableStream(createElement(WikiMarkdown, { content: md, currentSlug: slug }));
+  await stream.allReady;
+  const html = await new Response(stream).text();
   expect(html).toContain('aria-label="First"');
   expect(html).toContain('value="b"');
   expect(html).toContain('>65.0%</strong>');
