@@ -214,7 +214,10 @@ const storeGzipBudget = 855_000;
 // Voice navigation (open_page via the palette's Jev ranking) adds 0.9 KiB to the
 // call chunk and splits palette-recommend into a shared 1.0 KiB chunk; local
 // 4_235_996, and Vercel measures ~0.8 KiB higher: 4_238_000 -> 4_240_000.
-const lazyGzipBudget = 4_240_000;
+// The opt-in MDX waterfall loads its renderer and styles in a 2.5 KiB lazy chunk.
+// Vercel measured ~0.7 KiB over the existing lazy cap. Allow 1 KiB without
+// changing the paint-critical or store limits.
+const lazyGzipBudget = 4_241_024;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
