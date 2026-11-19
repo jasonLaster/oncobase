@@ -217,7 +217,9 @@ const storeGzipBudget = 855_000;
 // The opt-in MDX waterfall loads its renderer and styles in a 2.5 KiB lazy chunk.
 // Vercel measured ~0.7 KiB over the existing lazy cap. Allow 1 KiB without
 // changing the paint-critical or store limits.
-const lazyGzipBudget = 4_241_024;
+// The scenario walkthrough (toggle plus lane chart) grows that chunk to 3.1 KiB;
+// Vercel measured 4141.9 KiB against the 4141.6 KiB cap. Allow 1 KiB more.
+const lazyGzipBudget = 4_242_048;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
