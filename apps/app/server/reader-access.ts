@@ -252,6 +252,27 @@ export async function hasValidAuthCookie(
   });
 }
 
+/**
+ * An access token sent as `Authorization: Bearer <token>`, or as
+ * `?access_token=` for clients that can only configure a URL (MCP connectors).
+ * It is either an account session token from POST /api/auth/tokens or the
+ * site password, and stands in for the matching cookie on API routes.
+ */
+export function bearerTokenFromRequest(request: Request) {
+  const match = (request.headers.get("authorization") ?? "").match(/^Bearer\s+(\S+)\s*$/i);
+  if (match) return match[1];
+  try {
+    return new URL(request.url).searchParams.get("access_token") || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The account session token: the cookie, else a bearer access token. */
+export function sessionTokenFromRequest(request: Request) {
+  return sessionTokenFromCookie(request.headers.get("cookie") ?? "") ?? bearerTokenFromRequest(request);
+}
+
 export function sessionTokenFromCookie(cookieHeader: string) {
   const rawToken = cookieHeader
     .split(/;\s*/)
@@ -312,7 +333,7 @@ export async function getSessionUser(
   client: ConvexHttpClient,
   siteSlug: string,
 ) {
-  const token = sessionTokenFromCookie(request.headers.get("cookie") ?? "");
+  const token = sessionTokenFromRequest(request);
   if (!token) return null;
   // Metadata, headers and access checks can ask about the same incoming
   // session. Share only this request's lookup; later requests verify it again.

@@ -1,7 +1,11 @@
 import type { ConvexHttpClient } from "convex/browser";
 import { VERSIONED_PRIVATE_CACHE_CONTROL, WIKI_VERSION_HEADER } from "@oncobase/wiki-content";
+import { matchesWikiPasswordHash } from "@oncobase/wiki-content/gate-session";
 import {
   DEFAULT_SITE_SLUG,
+  bearerTokenFromRequest,
+  getSessionUser,
+  passwordHashForSite,
   type PasswordGateEntry,
   getRequestPasswordGateConfig,
   getSiteGate,
@@ -76,7 +80,23 @@ export async function enforceApiPasswordGate(
   ) {
     return { enabled: true, response: null };
   }
+  if (await hasValidBearerToken(request, client, siteSlug, config)) return { enabled: true, response: null };
   return { enabled: true, response: passwordGateRequiredResponse() };
+}
+
+/** A bearer site password or account access token passes the gate, so API
+ * clients need no cookie jar. */
+async function hasValidBearerToken(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+  config: PasswordGateEntry,
+) {
+  const token = bearerTokenFromRequest(request);
+  if (!token) return false;
+  if (config.passwordHash && await matchesWikiPasswordHash(token, config.passwordHash)) return true;
+  if (await matchesWikiPasswordHash(token, passwordHashForSite(siteSlug))) return true;
+  return Boolean(await getSessionUser(request, client, siteSlug).catch(() => null));
 }
 
 export function decorateViteHeaders(headers: HeadersInit) {

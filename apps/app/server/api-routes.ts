@@ -115,6 +115,8 @@ export const API_ROUTES: readonly ApiRoute[] = [
   { path: "/api/auth/signin", gate: "exempt", load: () => import("./api/auth").then(m => legacy(m.handleAuthSigninRequest)) },
   { path: "/api/auth/signup", gate: "exempt", load: () => import("./api/auth").then(m => legacy(m.handleAuthSignupRequest)) },
   { path: "/api/auth/signout", gate: "exempt", load: () => import("./api/auth").then(m => legacy(m.handleAuthSignoutRequest)) },
+  // Swaps an account email and password for a bearer access token (API and MCP clients).
+  { path: "/api/auth/tokens", gate: "exempt", load: () => import("./api/auth").then(m => legacy(m.handleAccessTokenRequest)) },
 
   {
     path: "/api/search", gate: "required", educationRead: always, privatize: true,
@@ -142,6 +144,7 @@ export const API_ROUTES: readonly ApiRoute[] = [
   { path: "/api/ai-search", gate: "required", load: () => import("./api/ai-search-route").then(m => m.handleAiSearchRoute) },
   { path: "/api/chat", gate: "required", load: () => import("./api/chat").then(m => m.handleChatRoute) },
   { path: "/api/tools", gate: "required", load: () => import("./api/tools").then(m => legacy(m.handleToolsRequest)) },
+  { path: "/api/mcp", gate: "required", load: () => import("./api/mcp").then(m => legacy(m.handleMcpRequest)) },
 
   { path: "/api/liveblocks-auth", gate: "required", load: () => import("./api/comments").then(m => legacy(m.handleLiveblocksAuthRequest)) },
   { path: "/api/liveblocks-threads", gate: "required", load: () => import("./api/comments").then(m => legacy(m.handleLiveblocksThreadsRequest)) },

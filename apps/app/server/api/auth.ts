@@ -13,7 +13,7 @@ import {
   getSessionUser,
   hasValidAuthCookie,
   passwordHashForSite,
-  sessionTokenFromCookie,
+  sessionTokenFromRequest,
   withSiteSlug,
 } from "../reader-access";
 import {
@@ -358,7 +358,8 @@ export async function handleAuthSignoutRequest(
     );
   }
 
-  const token = sessionTokenFromCookie(request.headers.get("cookie") ?? "");
+  // A cookie session, or a bearer access token (which this revokes).
+  const token = sessionTokenFromRequest(request);
   if (token) {
     await client.mutation(
       api.users.deleteSession,
@@ -382,4 +383,50 @@ export async function handleAuthSignoutRequest(
       },
     },
   );
+}
+
+/** Access tokens last a year; sign-out with the token revokes it early. */
+export const ACCESS_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 365;
+
+/**
+ * POST {email, password} -> a bearer access token for API and MCP clients.
+ * The token is an account session (same table, same access) that is returned
+ * in the body instead of a cookie. It also passes the site password gate.
+ */
+export async function handleAccessTokenRequest(
+  request: Request,
+  client: ConvexHttpClient,
+  siteSlug: string,
+) {
+  const headers = { "Cache-Control": "private, no-store" };
+  if (request.method !== "POST") {
+    return Response.json({ error: "Method not allowed" }, { status: 405, headers: { ...headers, Allow: "POST" } });
+  }
+  const body = (await request.json().catch(() => null)) as { email?: unknown; password?: unknown } | null;
+  const email = normalizeEmail(typeof body?.email === "string" ? body.email : "");
+  const password = typeof body?.password === "string" ? body.password : "";
+  if (!email || !password) {
+    return Response.json({ error: "Email and password are required" }, { status: 400, headers });
+  }
+  const user = await client.query(api.users.getByEmailForAuth, withSiteSlug(siteSlug, { email }));
+  if (!user || !verifyUserPassword(password, user.passwordSalt, user.passwordHash)) {
+    return Response.json({ error: "Invalid email or password" }, { status: 401, headers });
+  }
+  const token = createSessionToken();
+  const expiresAt = Date.now() + ACCESS_TOKEN_TTL_MS;
+  await client.mutation(
+    api.users.createSession,
+    withSiteSlug(siteSlug, { userId: user._id, tokenHash: hashSessionToken(token), expiresAt }),
+    { skipQueue: true },
+  );
+  const origin = new URL(request.url).origin;
+  return Response.json({
+    token,
+    tokenType: "Bearer",
+    expiresAt: new Date(expiresAt).toISOString(),
+    user: publicSessionUser(user),
+    mcpUrl: `${origin}/api/mcp`,
+    toolsUrl: `${origin}/api/tools`,
+    revoke: { method: "POST", url: `${origin}/api/auth/signout`, header: "Authorization: Bearer <token>" },
+  }, { headers });
 }

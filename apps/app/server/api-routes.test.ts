@@ -5,10 +5,10 @@ import { API_ROUTES, EDUCATION_API_ALIASES, PUBLISH_API_ROUTES, RAW_API_ROUTES, 
 // claimed paths, gate exemptions or traced names is a reviewed test change.
 const CLAIMED_EXACT = [
   "/api/page-shares",
-  "/api/login", "/api/auth/session", "/api/auth/signin", "/api/auth/signup", "/api/auth/signout",
+  "/api/login", "/api/auth/session", "/api/auth/signin", "/api/auth/signup", "/api/auth/signout", "/api/auth/tokens",
   "/api/ai-search", "/api/chat", "/api/search", "/api/timeline", "/api/diagnostic-studies", "/api/share-preview", "/api/share-image",
   "/api/dicom/file", "/api/dicom/studies", "/api/dicom/series", "/api/dicom/annotations", "/api/dicom/comparisons",
-  "/api/test/diagnostic-studies", "/api/test/dicom-comparisons", "/api/tools",
+  "/api/test/diagnostic-studies", "/api/test/dicom-comparisons", "/api/tools", "/api/mcp",
   "/api/liveblocks-auth", "/api/liveblocks-threads", "/api/liveblocks-add-comment", "/api/liveblocks-delete-thread",
   "/api/liveblocks-users", "/api/liveblocks-guest", "/api/liveblocks-webhook",
   "/api/download", "/api/file", "/api/page-copy",
