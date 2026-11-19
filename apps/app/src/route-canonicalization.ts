@@ -1,12 +1,4 @@
 import { canonicalSlugLookupEntriesFromSlugs } from "@oncobase/wiki-content/canonical-slugs";
-import redirects from "../redirects.json";
-
-export type RedirectEntry = {
-  source: string;
-  destination: string;
-  permanent?: boolean;
-  exclude?: string[];
-};
 
 const EXPLICIT_CANONICAL_PATHS = new Map([
   ["/admin/access", "/admin/pages"],
@@ -34,39 +26,6 @@ export function slugFromRoutePathname(pathname: string) {
     .replace(/^\/+/, "")
     .replace(/\.(?:md|mdx)$/i, "");
   return decoded || "index";
-}
-
-export function matchConfiguredRedirect(
-  pathname: string,
-  entry: RedirectEntry,
-) {
-  const normalizedPath = safeDecodePathname(pathname)
-    .replace(/\.(?:md|mdx)$/i, "")
-    .replace(/\/+$/, "");
-  if (entry.exclude?.some((prefix) =>
-    normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
-  )) return null;
-
-  if (!entry.source.includes(":path*")) {
-    return pathname === entry.source ? entry.destination : null;
-  }
-
-  const sourcePrefix = entry.source.slice(0, entry.source.indexOf(":path*"));
-  if (!pathname.startsWith(sourcePrefix)) return null;
-  const rest = pathname.slice(sourcePrefix.length);
-  return entry.destination.replace(":path*", rest);
-}
-
-export function configuredRedirect(pathname: string) {
-  for (const entry of redirects as RedirectEntry[]) {
-    const destination = matchConfiguredRedirect(pathname, entry);
-    if (destination) return { destination, permanent: entry.permanent === true };
-  }
-  return null;
-}
-
-export function configuredRedirectPathname(pathname: string) {
-  return configuredRedirect(pathname)?.destination ?? null;
 }
 
 export function trailingSlashCanonicalPathname(pathname: string) {
@@ -97,9 +56,15 @@ export function canonicalSlugMap(slugs: string[]) {
   return new Map(canonicalSlugLookupEntriesFromSlugs(slugs));
 }
 
+/**
+ * `configuredRedirectPathname` comes from `./configured-redirects`. It is a
+ * parameter so the reader can load that table after paint: the server answers
+ * cold loads of a legacy URL with its own redirect.
+ */
 export function canonicalRoutePathname(
   pathname: string,
   canonicalSlugs: ReadonlyMap<string, string>,
+  configuredRedirectPathname: (pathname: string) => string | null = () => null,
 ) {
   let current = pathname;
   for (let redirectsFollowed = 0; redirectsFollowed < 8; redirectsFollowed += 1) {

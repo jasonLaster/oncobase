@@ -1,4 +1,4 @@
-import { configuredRedirect } from "../src/route-canonicalization.ts";
+import { configuredRedirect } from "../src/configured-redirects.ts";
 
 export function legacyRedirectResponse(request: Request) {
   const url = new URL(request.url);

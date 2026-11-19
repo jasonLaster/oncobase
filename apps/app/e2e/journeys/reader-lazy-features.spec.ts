@@ -4,16 +4,18 @@ import { documentArticle, gotoWiki, installWikiApiMocks } from "../fixtures";
 const slideChunk = /\/(?:slides-viewer-[^/]+\.js|slides-viewer\.tsx)(?:\?.*)?$/;
 const theaterChunk = /\/(?:image-theater-modal-[^/]+\.js|image-theater-modal\.tsx)(?:\?.*)?$/;
 const tableChunk = /\/enhance-table-[^/]+\.js(?:\?.*)?$/;
+const redirectsChunk = /\/(?:configured-redirects-[^/]+\.js|configured-redirects\.ts)(?:\?.*)?$/;
 const waterfallChunk = /\/(?:scenario-waterfall-[^/]+\.js|scenario-waterfall\.tsx)(?:\?.*)?$/;
 const fixtureSlug = "wiki/fixture";
 
-async function setup(page: Page, source: string) {
+async function setup(page: Page, source: string, extraPages: Record<string, { title: string; tags: string[]; content: string }> = {}) {
   const requests: string[] = [];
   page.on("request", (request) => requests.push(request.url()));
   await installWikiApiMocks(page, {
     omitBasePages: true,
     pageOverrides: {
       [fixtureSlug]: { title: "Fixture", tags: [], content: "# Fixture\n\n" + source },
+      ...extraPages,
     },
   });
   return requests;
@@ -43,6 +45,24 @@ test("a cold text reader skips optional chunks even with a fenced slideshow exam
   await gotoWiki(page, "/" + fixtureSlug);
   await expect(documentArticle(page)).toContainText("Plain text.");
   expect(requests.filter(url => [slideChunk, theaterChunk, tableChunk, waterfallChunk].some(chunk => chunk.test(url)))).toEqual([]);
+});
+
+test("the redirect table loads after paint and still resolves an in-app legacy link", async ({ page }) => {
+  // A configured alias from redirects.json (also covered by the unit tests).
+  const legacy = "/wiki/education/reading-a-tumor";
+  await setup(page, `[Old link](${legacy})`, {
+    "wiki/education/reading-a-tumor/index": { title: "Destination", tags: [], content: "# Destination\n\nArrived." },
+  });
+  const release = await holdChunk(page, redirectsChunk);
+  await gotoWiki(page, "/" + fixtureSlug);
+  // The article paints while the table is still held.
+  await expect(documentArticle(page).getByRole("link", { name: "Old link" })).toBeVisible();
+  const loaded = page.waitForResponse(redirectsChunk);
+  release();
+  await loaded;
+  await documentArticle(page).getByRole("link", { name: "Old link" }).click();
+  await expect(page).toHaveURL(new RegExp(`${legacy}/index$`));
+  await expect(documentArticle(page)).toContainText("Arrived.");
 });
 
 test("a keyboard-opened image loads the theater and an early Escape cancels the opening", async ({ page }) => {

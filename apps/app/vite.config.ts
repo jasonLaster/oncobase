@@ -42,14 +42,19 @@ const packagePattern = (names: string[]) => new RegExp(`/node_modules/(?:${names
 // hold HTML (packages/wiki-markdown/src/raw-html.ts).
 const RAW_HTML_PACKAGES = packagePattern([
   "rehype-raw", "hast-util-raw", "parse5", "entities", "hast-util-from-parse5", "hast-util-to-parse5",
-  "hastscript", "hast-util-parse-selector", "web-namespaces", "html-void-elements",
+  "html-void-elements",
 ]);
 // Used only by the chat renderer (streamdown) and the math engine: left to
-// split with them instead of joining vendor-markdown.
+// split with them instead of joining vendor-markdown. rehype-katex's
+// hast-util-from-html-isomorphic would otherwise pull hastscript and
+// hast-util-from-dom into vendor-markdown (includeDependenciesRecursively).
 const OFF_PAINT_MARKDOWN_PACKAGES = packagePattern([
   "rehype-harden", "rehype-sanitize", "hast-util-sanitize", "hast-util-to-text", "hast-util-from-dom",
-  "hast-util-is-element",
+  "hast-util-is-element", "hast-util-from-html-isomorphic",
 ]);
+// hastscript and its helpers serve both the math and raw-HTML stages. Their own
+// group keeps a math page from loading vendor-rawhtml for them.
+const HAST_BUILDER_PACKAGES = packagePattern(["hastscript", "hast-util-parse-selector", "web-namespaces"]);
 
 function vendorChunk(id: string): string | null {
   const normalized = id.replace(/\\/g, "/");
@@ -69,6 +74,7 @@ function vendorChunk(id: string): string | null {
   }
   if (normalized.includes("/node_modules/katex/") || normalized.includes("/node_modules/rehype-katex/")) return "vendor-math";
   // Neither may sit in vendor-markdown, which the article needs before it paints.
+  if (HAST_BUILDER_PACKAGES.test(normalized)) return "vendor-hast";
   if (RAW_HTML_PACKAGES.test(normalized)) return "vendor-rawhtml";
   if (OFF_PAINT_MARKDOWN_PACKAGES.test(normalized)) return null;
   if (
@@ -125,10 +131,10 @@ export default defineConfig({
           // every priority positive: a negative one moved React core into vendor-icons.
           // Markdown owns shared helpers ahead of the optional raw-HTML stage
           // and math engine, so neither drags a shared helper off the paint path.
-          groups: ["react", "effect", "livestore", "markdown", "rawhtml", "math", "icons"].map((vendor, index) => ({
+          groups: ["react", "effect", "livestore", "markdown", "hast", "rawhtml", "math", "icons"].map((vendor, index) => ({
             name: `vendor-${vendor}`,
             test: (id: string) => vendorChunk(id) === `vendor-${vendor}`,
-            priority: 70 - index * 10,
+            priority: 80 - index * 10,
           })),
         },
       },
@@ -150,6 +156,16 @@ export default defineConfig({
   worker: { format: "es" },
   plugins: [
     pdfAssetsPlugin(),
+    {
+      // remark-gfm also registers its markdown serializer (mdast-util-to-markdown,
+      // markdown-table: ~10 KiB gzip). Every consumer here only parses: the
+      // reader, and streamdown in chat. Because the GFM table and task-list
+      // utilities keep both halves in one module, one serializer user keeps it
+      // on the paint path for all of them. Resolve remark-gfm to the parse-only
+      // plugin (output-equivalence tests: wiki-markdown remark-parse-only.test.ts).
+      name: "remark-gfm-parse-only",
+      config: () => ({ resolve: { alias: [{ find: /^remark-gfm$/, replacement: fileURLToPath(new URL("../../packages/wiki-markdown/src/remark-parse-only.ts", import.meta.url)) }] } }),
+    },
     {
       // react-router 7 ships dist/production but its package "exports" only
       // name dist/development, so every bundler picks the development build

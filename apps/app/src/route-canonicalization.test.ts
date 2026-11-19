@@ -1,13 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { legacyRedirectResponse } from "../server/redirects";
+import { configuredRedirectPathname, matchConfiguredRedirect } from "./configured-redirects";
 import {
-  canonicalRoutePathname,
+  canonicalRoutePathname as canonicalRoutePathnameWithoutRedirects,
   canonicalSlugMap,
-  configuredRedirectPathname,
   isSignInPathname,
-  matchConfiguredRedirect,
   slugFromRoutePathname,
 } from "./route-canonicalization";
+
+const canonicalRoutePathname = (pathname: string, slugs: ReadonlyMap<string, string>) =>
+  canonicalRoutePathnameWithoutRedirects(pathname, slugs, configuredRedirectPathname);
 
 const canonicalSlugs = canonicalSlugMap([
   "about/Index",
@@ -61,6 +63,11 @@ describe("route canonicalization", () => {
         destination: "/wiki/education/reading-a-tumor/index",
       }),
     ).toBe("/wiki/education/reading-a-tumor/index");
+  });
+
+  test("before the redirect table loads, only the built-in rules apply", () => {
+    expect(canonicalRoutePathnameWithoutRedirects("/wiki/education/reading-a-tumor", canonicalSlugs)).toBeNull();
+    expect(canonicalRoutePathnameWithoutRedirects("/about", canonicalSlugs)).toBe("/about/Index");
   });
 
   test("uses the same redirects.json aliases as the server", () => {

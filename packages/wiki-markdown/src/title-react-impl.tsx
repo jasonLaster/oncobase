@@ -1,11 +1,11 @@
 import { memo, useMemo, type AnchorHTMLAttributes, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   isInternalWikiHref,
   resolveHref,
   resolveWikilinks,
 } from "./paths.ts";
+import { remarkGfmParse } from "./remark-parse-only.ts";
 
 export type MarkdownTitleLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   href: string;
@@ -19,7 +19,7 @@ export type MarkdownTitleProps = {
 };
 
 const ALLOWED_ELEMENTS = ["p", "a", "strong", "em", "code", "del", "br"];
-const REMARK_PLUGINS = [remarkGfm];
+const REMARK_PLUGINS = [remarkGfmParse];
 const LINK_CLASS_NAME =
   "text-[var(--brand)] underline decoration-[var(--brand)]/30 underline-offset-4 transition-colors hover:decoration-[var(--brand)]";
 

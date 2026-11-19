@@ -128,6 +128,6 @@
     "typescript": "^5",
     "typescript-eslint": "^8.58.0",
     "unified": "^11.0.5",
-    "vite": "8.0.11"
+    "vite": "8.3.8"
   }
 }

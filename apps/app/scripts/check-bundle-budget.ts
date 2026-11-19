@@ -37,7 +37,10 @@ const budgets: Budget[] = [
   // The raw-HTML stage (rehype-raw, parse5) left vendor-markdown for its own
   // lazy chunk, loaded only for documents with HTML (wiki-markdown raw-html.ts):
   // vendor-markdown 107.2 -> 53.8 KiB, vendor-rawhtml 50.8 KiB.
-  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 59_216 },
+  // Parse-only remark-gfm/remark-math (no markdown serializer) and hastscript
+  // moving to vendor-hast, shared by the lazy math and raw-HTML stages:
+  // vendor-markdown 57,2xx -> 49,472 B. Cap 59,216 -> 51,712.
+  { label: "markdown vendor", pattern: /^vendor-markdown-[\w-]+\.js$/, maxGzipBytes: 51_712 },
   { label: "raw-HTML vendor", pattern: /^vendor-rawhtml-[\w-]+\.js$/, maxGzipBytes: 53_088 },
   { label: "optional math vendor", pattern: /^vendor-math-[\w-]+\.js$/, maxGzipBytes: 87_576 },
   { label: "chat chunk", pattern: /^ChatPage-[\w-]+\.js$/, maxGzipBytes: 114_408 },
@@ -86,11 +89,15 @@ const budgets: Budget[] = [
   // call itself (transport, avatar states, styles) loads lazily.
   // Conditional reader features change the route's preload map and import
   // glue by <256 B. Their runtime budgets are tracked in the lazy pool below.
-  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 24_256 },
+  // The legacy redirect table now loads after paint (configured-redirects
+  // chunk): 24,5xx -> 19,715 B gzip. Cap 24,256 -> 20,736.
+  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 20_736 },
   // A1 step 1 moved WikiSync's effects into a plain, unit-tested
   // SyncController: 10,959 -> 11,312 B gzip (raw is smaller; the denser code
   // compresses worse). +256 B; the store pool total is unchanged.
-  { label: "store host chunk", pattern: /^StoreHost-[\w-]+\.js$/, maxGzipBytes: 11_376 },
+  // vite 8.3.8 (rolldown 1.2) emits StoreHost 136 B larger (11,512 B gzip)
+  // while the store pool shrinks 24 KiB. Cap 11,376 -> 11,776.
+  { label: "store host chunk", pattern: /^StoreHost-[\w-]+\.js$/, maxGzipBytes: 11_776 },
   { label: "shared worker", pattern: /^make-shared-worker-[\w-]+\.js$/, maxBytes: 430_000 },
   { label: "livestore worker", pattern: /^livestore\.worker-[\w-]+\.js$/, maxBytes: 620_000 },
   { label: "sqlite wasm", pattern: /^wa-sqlite-[\w-]+\.wasm$/, maxBytes: 680_000 },
@@ -192,9 +199,16 @@ const storeLoaderPatterns = [
 // 4,222,000 -> 4,226,500.
 // Slides, image theater and smart-table enhancement move about 6 KiB
 // off the paint path. Transfer that allowance to the lazy pool.
-const eagerGzipBudget = 1_168_500;
-const paintGzipBudget = 316_500;
-const storeGzipBudget = 855_000;
+// vite 8.3.8 (rolldown 1.2): store 849,758 -> 825,627 B, paint +1.1 KiB from
+// chunk reshuffling. Parse-only remark-gfm/remark-math drop the markdown
+// serializer (vendor-markdown 55.9 -> 50.1 KiB), and the redirect table loads
+// after paint (-4.5 KiB), and hastscript & co. follow rehype-katex off the
+// paint path (-1.8 KiB). Measured paint 303,951 B, store 825,625 B.
+// Allowances move with them: paint 316,500 -> 306,000, store 855,000 ->
+// 828,500, eager 1,168,500 -> 1,134,500.
+const eagerGzipBudget = 1_134_500;
+const paintGzipBudget = 306_000;
+const storeGzipBudget = 828_500;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
 // Current production is 3330.4 KiB; the public landing and education reader
@@ -226,7 +240,9 @@ const storeGzipBudget = 855_000;
 // Reader features add about 9.5 KiB to the lazy pool, including the 6 KiB
 // paint transfer and the overhead of separate chunks and their loaders:
 // 4,242,048 -> 4,253,048.
-const lazyGzipBudget = 4_253_048;
+// The redirect table (4.5 KiB) and hastscript (1.8 KiB) join the lazy pool,
+// measured 4,257,366 B: 4,253,048 -> 4,259,500.
+const lazyGzipBudget = 4_259_500;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
@@ -342,7 +358,7 @@ for (const pattern of eagerRootPatterns) {
 
 const classes = eagerAssetClasses(assets);
 const eagerNames = new Set([...classes.paint, ...classes.store]);
-for (const feature of ["slides-viewer", "image-theater-modal", "enhance-table", "scenario-waterfall"]) {
+for (const feature of ["slides-viewer", "image-theater-modal", "enhance-table", "scenario-waterfall", "configured-redirects"]) {
   const chunks = assets.filter(({ name }) => name.startsWith(feature + "-") && name.endsWith(".js"));
   if (chunks.length === 0) failures.push(`optional reader feature: missing ${feature} chunk`);
   for (const { name } of chunks) {
