@@ -108,3 +108,27 @@ test("invalid imports and tags render visible errors instead of failing the page
   expect(html).not.toContain("<iframe");
   expect(html).toContain("Only literal props");
 });
+
+test("a named waterfall import renders both endpoints and signed changes from literal estimates", () => {
+  const md = `import { ScenarioWaterfall } from "@oncobase/wiki-markdown"
+
+<ScenarioWaterfall
+  domain={[50,90]}
+  metrics={[{"label":"Primary"},{"label":"Secondary"}]}
+  scenarios={[
+    {"id":"a","label":"First","steps":[
+      {"label":"Starting estimate","values":["65.0","60"]},
+      {"label":"Adjustment","values":["64.5","61"]},
+      {"label":"Result","values":["64.5","61"],"kind":"total"}
+    ]},
+    {"id":"b","label":"Second","steps":[{"label":"Other estimate","values":["65","62"]}]}
+  ]}
+/>`;
+  const html = renderToStaticMarkup(createElement(WikiMarkdown, { content: md, currentSlug: slug }));
+  expect(html).toContain('aria-label="First"');
+  expect(html).toContain('value="b"');
+  expect(html).toContain('>65.0%</strong>');
+  expect(html).toContain('aria-label="Primary: 64.5%, −0.5 pp"');
+  expect(html).toContain('aria-label="Secondary: 61%, +1 pp"');
+  expect(html).not.toContain("Component error");
+});
