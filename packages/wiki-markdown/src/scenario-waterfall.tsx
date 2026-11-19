@@ -96,12 +96,21 @@ function WaterfallSteps({ label, metrics, steps, domain }: {
       <div role="table" aria-label={label}>
         <div className="scenario-waterfall-row scenario-waterfall-head" role="row">
           <div role="columnheader">Step</div>
-          <div role="columnheader" className="scenario-waterfall-axis" aria-label={`Estimate, ${domain[0]}–${domain[1]}%`}>
-            <span className="scenario-waterfall-tag" />
-            <span className="scenario-waterfall-ticks" aria-hidden="true">
-              {marks.map(mark => <span key={mark} style={{ left: at(mark) }}>{mark}</span>)}
-            </span>
-            <span className="scenario-waterfall-number" aria-hidden="true">%</span>
+          {/* Desktop puts the two metrics side by side; narrow containers stack them under one axis. */}
+          <div className="scenario-waterfall-lanes">
+            {metrics.map(metric => (
+              <div role="columnheader" className="scenario-waterfall-axis" key={metric.label}
+                aria-label={`${metric.label}, ${domain[0]}–${domain[1]}%`}>
+                <span className="scenario-waterfall-tag" />
+                <span className="scenario-waterfall-axis-body" aria-hidden="true">
+                  <span className="scenario-waterfall-axis-title">{metric.short ?? metric.label}</span>
+                  <span className="scenario-waterfall-ticks">
+                    {marks.map(mark => <span key={mark} style={{ left: at(mark) }}>{mark}</span>)}
+                  </span>
+                </span>
+                <span className="scenario-waterfall-number" aria-hidden="true">%</span>
+              </div>
+            ))}
           </div>
         </div>
         {steps.map((step, index) => (
@@ -244,7 +253,7 @@ const styles = `
 }
 .scenario-waterfall-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
   gap: 0.25rem 1rem;
   align-items: center;
   padding: 0.5rem 0;
@@ -268,14 +277,24 @@ const styles = `
   color: var(--waterfall-muted);
 }
 
-.scenario-waterfall-lanes { display: grid; gap: 0.25rem; min-width: 0; }
+.scenario-waterfall-lanes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem 1rem;
+  min-width: 0;
+}
 .scenario-waterfall-lane, .scenario-waterfall-axis {
   display: grid;
-  grid-template-columns: 2.25rem minmax(0, 1fr) 6.5rem;
+  grid-template-columns: minmax(0, 1fr) 4rem;
   gap: 0.5rem;
   align-items: center;
   min-width: 0;
 }
+.scenario-waterfall-axis { align-items: end; }
+.scenario-waterfall-lane > .scenario-waterfall-tag,
+.scenario-waterfall-axis > .scenario-waterfall-tag { display: none; }
+.scenario-waterfall-axis-body { display: grid; gap: 0.125rem; min-width: 0; }
+.scenario-waterfall-axis-title { font-weight: 650; }
 .scenario-waterfall-tag {
   font-size: 0.6875rem;
   font-weight: 650;
@@ -311,9 +330,9 @@ const styles = `
 
 .scenario-waterfall-number {
   display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: 0.3rem;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -330,10 +349,15 @@ const styles = `
   color: var(--waterfall-muted);
 }
 
-@container (max-width: 34rem) {
-  .scenario-waterfall-row { grid-template-columns: minmax(0, 1fr); }
-  .scenario-waterfall-head > [role="columnheader"]:first-child { display: none; }
+@container (max-width: 40rem) {
+  .scenario-waterfall-row, .scenario-waterfall-lanes { grid-template-columns: minmax(0, 1fr); }
+  .scenario-waterfall-head > [role="columnheader"]:first-child,
+  .scenario-waterfall-axis + .scenario-waterfall-axis,
+  .scenario-waterfall-axis-title { display: none; }
   .scenario-waterfall-lane, .scenario-waterfall-axis { grid-template-columns: 2rem minmax(0, 1fr) 6.25rem; }
+  .scenario-waterfall-lane > .scenario-waterfall-tag,
+  .scenario-waterfall-axis > .scenario-waterfall-tag { display: block; }
+  .scenario-waterfall-number { flex-direction: row; align-items: baseline; justify-content: flex-end; gap: 0.3rem; }
 }
 
 @media print {
