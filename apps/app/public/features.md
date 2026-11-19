@@ -29,7 +29,7 @@ Three ways to find things: exact words, meaning, and a conversation. Each one on
 - **Chat with the knowledge base.** An agent searches, reads the best pages, follows links, and answers with inline citations. Conversations are saved, and you can stop, queue, and resume. Where: Ask wiki, /chat. Interface: `POST /api/chat`.
 - **AI search.** Semantic search that returns the most relevant pages, each scored out of 10 with a one-line reason. Where: /search (AI Mode). Interface: `POST /api/ai-search`.
 - **Text search.** Exact matches with line numbers and highlighted snippets, grouped by page, with an interim answer while the full scan finishes. Where: /search (Text Search). Interface: `GET /api/search`.
-- **Agent tools.** The same search and read tools the chat agent uses, as a JSON endpoint: search_wiki, read_page, get_pages_by_tag, list_tags, list_pages. Where: API only. Interface: `POST /api/tools`.
+- **Agent tools.** Every tool the chat agent uses, as a JSON endpoint built from the same code: search_wiki, grep_wiki, read_page, find_in_page, list_pages, get_pages_by_tag, list_tags. Where: API only. Interface: `GET /api/tools` lists them with JSON Schema inputs; `POST /api/tools` runs one.
 - **In-browser agent tools.** Every page registers WebMCP tools, so an AI agent in the browser can search, read, browse and follow links, and show the reader what it found: open a page at a section, highlight the quoted sentence, or start a chat. Agents see only what the reader can, and private pages stay withheld until the reader allows it on that device. Where: Every reader, education and Oncobase page. Interface: `document.modelContext (WebMCP)`.
 
 ## Share the science without sharing the patient.
@@ -150,7 +150,8 @@ Auth: Gate = the site's shared-password cookie; Session = an account cookie; Pub
 | `GET /api/search?q=` | API | Exact-text search with line hits | Gate |
 | `POST /api/ai-search` | API | Semantic search with relevance scores and summaries | Gate |
 | `POST /api/chat` | API | Streaming agent chat with citations | Gate |
-| `POST /api/tools` | API | Run search_wiki, read_page, get_pages_by_tag, list_tags, list_pages | Gate |
+| `GET /api/tools` | API | List the chat agent's tools with JSON Schema inputs | Gate |
+| `POST /api/tools` | API | Run a chat tool: search_wiki, grep_wiki, read_page, find_in_page, list_pages, get_pages_by_tag, list_tags | Gate |
 
 ### Clinical data
 

@@ -193,6 +193,43 @@ async function getPiiPatterns(client: ConvexHttpClient, siteSlug: string) {
   return patterns;
 }
 
+/**
+ * The chat agent's tools, scoped to one viewer. /api/chat hands them to the
+ * model and /api/tools runs them for outside agents, so both see exactly the
+ * same tools, access checks and redaction.
+ */
+export async function createViewerChatTools({
+  client,
+  siteSlug,
+  includeSensitive,
+  canAccessSlug,
+  sessionUser = null,
+}: {
+  client: ConvexHttpClient;
+  siteSlug: string;
+  includeSensitive: boolean;
+  canAccessSlug?: (slug: string) => Promise<boolean>;
+  sessionUser?: SessionUser | null;
+}) {
+  const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
+  const piiPatterns = await getPiiPatterns(client, siteSlug);
+  const searchablePages = async () => {
+    const corpus = getSearchCorpus(client, siteSlug, includeSensitive ? sessionUser : null, piiPatterns);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), GREP_CORPUS_WAIT_MS); });
+    try {
+      return await Promise.race([corpus.pages, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+  return createWikiChatTools({
+    documents: { ...documents, searchablePages },
+    piiPatterns,
+    embedQuery,
+  });
+}
+
 type SystemPromptEntry = {
   prompt: string;
   /** Sensitive pages whose content is in `prompt`; each hit re-checks access. */
@@ -303,7 +340,6 @@ export async function handleChatRequest({
   const modelMessages = await convertToModelMessages(messages);
   const convId = parsedBody.conversationId as Id<"conversations"> | undefined;
   const runId = generateRunId();
-  const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
 
   if (convId) {
     // Current clients reset before the request becomes stoppable. Never clear
@@ -385,22 +421,7 @@ export async function handleChatRequest({
     canAccessSlug,
     accessCacheKey,
   );
-  const piiPatterns = await getPiiPatterns(client, siteSlug);
-  const searchablePages = async () => {
-    const corpus = getSearchCorpus(client, siteSlug, includeSensitive ? sessionUser : null, piiPatterns);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), GREP_CORPUS_WAIT_MS); });
-    try {
-      return await Promise.race([corpus.pages, timeout]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  };
-  const tools = createWikiChatTools({
-    documents: { ...documents, searchablePages },
-    piiPatterns,
-    embedQuery,
-  });
+  const tools = await createViewerChatTools({ client, siteSlug, includeSensitive, canAccessSlug, sessionUser });
   const { audience, ...settings } = wikiChatRunSettings({ audience: wikiChatAudience(process.env, request.headers) });
 
   const result = streamText({

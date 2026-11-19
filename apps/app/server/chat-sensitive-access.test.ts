@@ -5,6 +5,7 @@
 import { afterEach, beforeAll, expect, test } from "bun:test";
 import { handleChatRoute } from "./api/chat";
 import { handleToolsRequest } from "./api/tools";
+import { createWikiChatTools } from "./chat-agent";
 import { createWikiApiHandler } from "./wiki-api";
 import {
   PUBLIC_NEEDLE, SECRET_BODY, SECRET_SLUGS, SECRET_TAG, SECRET_TITLE, SITE,
@@ -170,14 +171,51 @@ test("/api/tools returns the same: no sensitive search hits, pages, titles, slug
     expect(privateSlugs(bodies.map((body) => JSON.parse(body)))).toEqual([]);
     expect(bodies.join("\n")).toContain("wiki/public-note");
   }
-  // An authorized viewer sees the page in listings and search; /api/tools never
-  // returns a sensitive BODY (read_page answers metadata + "unavailable").
+  // An authorized viewer gets what chat gives them: the granted page in search
+  // and its body from read_page, but never the page no role grants.
   const search = await handleToolsRequest(
     jsonRequest("/api/tools", { tool: "search_wiki", args: { query: SECRET_BODY } }, cookieFor(fixture, "care")), fixture.client, SITE);
-  expect(privateSlugs(await search.json()).sort()).toEqual([...SECRET_SLUGS, "private/unprotected"].filter((slug) => slug !== "private/unprotected").sort());
+  expect(privateSlugs(await search.json()).sort()).toEqual([...SECRET_SLUGS].sort());
   const read = await handleToolsRequest(
     jsonRequest("/api/tools", { tool: "read_page", args: { slug: "private/care-team-notes" } }, cookieFor(fixture, "care")), fixture.client, SITE);
-  expect(await read.json()).toMatchObject({ content: "unavailable", unavailable: true });
+  expect(JSON.stringify(await read.json())).toContain(SECRET_BODY);
+  const ungranted = await handleToolsRequest(
+    jsonRequest("/api/tools", { tool: "read_page", args: { slug: "private/unprotected" } }, cookieFor(fixture, "care")), fixture.client, SITE);
+  expect(JSON.stringify(await ungranted.json())).toContain("Page not found");
+});
+
+test("/api/tools lists and runs every chat tool, and rejects unknown tools and bad args", async () => {
+  const fixture = await createFixture();
+  const listing = await handleToolsRequest(
+    new Request("http://127.0.0.1/api/tools", { headers: { host: "127.0.0.1" } }), fixture.client, SITE);
+  expect(listing.status).toBe(200);
+  const { tools } = (await listing.json()) as { tools: Array<{ name: string; description: string; inputSchema: { type: string } }> };
+  const chatTools = Object.keys(createWikiChatTools({ documents: {} as never, piiPatterns: [], embedQuery: async () => null }));
+  expect(tools.map((tool) => tool.name)).toEqual(chatTools);
+  for (const tool of tools) {
+    expect(tool.description.length).toBeGreaterThan(0);
+    expect(tool.inputSchema.type).toBe("object");
+  }
+
+  const run = (tool: unknown, args: unknown, viewer: Viewer = "reader") =>
+    handleToolsRequest(jsonRequest("/api/tools", { tool, args }, cookieFor(fixture, viewer)), fixture.client, SITE);
+  const grep = await run("grep_wiki", { text: PUBLIC_NEEDLE });
+  expect(grep.status).toBe(200);
+  const grepBody = await grep.json();
+  expect(JSON.stringify(grepBody)).toContain("wiki/public-note");
+  expect(leaks(JSON.stringify(grepBody))).toEqual([]);
+  const grepSecret = await run("grep_wiki", { text: SECRET_BODY });
+  // The result echoes the query itself, so check what matched.
+  expect(await grepSecret.json()).toMatchObject({ total_pages: 0, results: [] });
+  const find = await run("find_in_page", { slug: "wiki/public-note", query: PUBLIC_NEEDLE });
+  expect(find.status).toBe(200);
+  const findHidden = await run("find_in_page", { slug: "private/care-team-notes", query: SECRET_BODY });
+  expect(leaks(JSON.stringify(await findHidden.json()))).toEqual([]);
+
+  expect((await run("toString", {})).status).toBe(400);
+  const badArgs = await run("grep_wiki", { text: "x" });
+  expect(badArgs.status).toBe(400);
+  expect(await badArgs.text()).toContain("Invalid args for grep_wiki");
 });
 
 test("tool outputs apply PII redaction to titles, excerpts and page bodies", async () => {
