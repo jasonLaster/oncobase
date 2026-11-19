@@ -1,9 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, type CSSProperties, type ReactNode } from "react";
 
 type Pair<T> = readonly [T, T];
-type Metric = { label: string; timing?: string };
+type Metric = { label: string; short?: string; timing?: string };
 type Step = {
   label: string;
   detail?: string;
@@ -19,55 +19,134 @@ export type ScenarioWaterfallProps = {
   domain?: Pair<number>;
 };
 
-function Impact({
-  step, previous, metric, index, domain, last,
-}: {
+export type ScenarioWalkthroughProps = {
+  metrics: Pair<Metric>;
+  steps: readonly Step[];
+  domain?: Pair<number>;
+  /** Names the chart for screen readers. */
+  label?: string;
+  /** The step-by-step markdown the reader can switch to. */
+  children?: ReactNode;
+};
+
+const ESTIMATE = /^\d+(?:\.\d{1,2})?$/;
+
+function validData(metrics: unknown, steps: unknown, domain: unknown): boolean {
+  if (!Array.isArray(metrics) || metrics.length !== 2 || metrics.some(m => !m?.label)) return false;
+  if (!Array.isArray(domain) || !Number.isFinite(domain[0]) || !Number.isFinite(domain[1]) || domain[0] >= domain[1]) return false;
+  if (!Array.isArray(steps) || !steps.length) return false;
+  return steps.every(step => Array.isArray(step?.values) && step.values.length === 2 && step.values.every((value: unknown) =>
+    typeof value === "string" && ESTIMATE.test(value) && Number(value) >= domain[0] && Number(value) <= domain[1]));
+}
+
+/** Gridlines every 10 points when the domain divides evenly, otherwise quarters. */
+function ticks([low, high]: Pair<number>) {
+  const span = high - low;
+  const step = span % 10 === 0 && span / 10 <= 8 ? 10 : span / 4;
+  return Array.from({ length: Math.round(span / step) + 1 }, (_, i) => low + i * step);
+}
+
+function Lane({ step, previous, metric, index, domain }: {
   step: Step;
   previous?: Step;
   metric: Metric;
   index: 0 | 1;
   domain: Pair<number>;
-  last: boolean;
 }) {
   const value = Number(step.values[index]);
   const from = previous ? Number(previous.values[index]) : domain[0];
   const total = !previous || step.kind === "total";
   const difference = Number((value - from).toFixed(2));
-  const negative = difference < 0;
-  const change = `${negative ? "−" : difference > 0 ? "+" : ""}${Math.abs(difference)} pp`;
-  const position = (number: number) => (number - domain[0]) * 100 / (domain[1] - domain[0]);
-  const end = position(value);
-  const start = total ? 0 : position(from);
+  const tone = total ? "is-total" : difference < 0 ? "is-loss" : "is-gain";
+  const change = `${difference < 0 ? "−" : difference > 0 ? "+" : "±"}${Math.abs(difference)}`;
+  const position = (n: number) => (n - domain[0]) * 100 / (domain[1] - domain[0]);
+  const a = total ? 0 : position(Math.min(from, value));
+  const b = position(total ? value : Math.max(from, value));
   const estimate = `${step.approximate?.[index] ? "≈" : ""}${step.values[index]}%`;
+  const name = metric.short ?? metric.label;
 
   return (
     <div
-      className="scenario-waterfall-impact"
+      className="scenario-waterfall-lane"
       role="cell"
-      aria-label={`${metric.label}${metric.timing ? `, ${metric.timing}` : ""}: ${estimate}${total ? "" : `, ${change}`}`}
+      aria-label={`${metric.label}: ${estimate}${total ? "" : `, ${change} pp`}`}
     >
-      <span className="scenario-waterfall-mobile-label" aria-hidden="true">
-        {metric.label}
-        {metric.timing && <small>{metric.timing}</small>}
+      <span className="scenario-waterfall-tag" aria-hidden="true">{name}</span>
+      <span className="scenario-waterfall-track" aria-hidden="true">
+        <span className={`scenario-waterfall-bar ${tone}`} style={{ left: `${a}%`, width: `max(3px, ${b - a}%)` }} />
       </span>
-      <div className="scenario-waterfall-value">
-        <svg viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
-          {[0, 25, 50, 75, 100].map(tick => (
-            <line className="scenario-waterfall-gridline" key={tick} x1={tick} x2={tick} y2="32" />
-          ))}
-          {previous && <line className="scenario-waterfall-connector" x1={position(from)} x2={position(from)} y2="16" />}
-          {!last && <line className="scenario-waterfall-connector" x1={end} x2={end} y1="16" y2="32" />}
-          <line
-            className={`scenario-waterfall-bar ${total ? "is-total" : negative ? "is-loss" : "is-gain"}`}
-            x1={start} x2={end} y1="16" y2="16"
-          />
-          <circle className="scenario-waterfall-point" cx={end} cy="16" r="1" />
-        </svg>
-        <span className="scenario-waterfall-number" aria-hidden="true">
-          <strong>{estimate}</strong>
-          {!total && <small className={negative ? "is-loss" : "is-gain"}>{change}</small>}
-        </span>
+      <span className="scenario-waterfall-number" aria-hidden="true">
+        <strong>{estimate}</strong>
+        {!total && <small className={tone}>{change}</small>}
+      </span>
+    </div>
+  );
+}
+
+function WaterfallSteps({ label, metrics, steps, domain }: {
+  label: string;
+  metrics: Pair<Metric>;
+  steps: readonly Step[];
+  domain: Pair<number>;
+}) {
+  const marks = ticks(domain);
+  const at = (n: number) => `${(n - domain[0]) * 100 / (domain[1] - domain[0])}%`;
+  return (
+    <div className="scenario-waterfall-chart not-prose" style={{ "--waterfall-ticks": marks.length - 1 } as CSSProperties}>
+      <div role="table" aria-label={label}>
+        <div className="scenario-waterfall-row scenario-waterfall-head" role="row">
+          <div role="columnheader">Step</div>
+          <div role="columnheader" className="scenario-waterfall-axis" aria-label={`Estimate, ${domain[0]}–${domain[1]}%`}>
+            <span className="scenario-waterfall-tag" />
+            <span className="scenario-waterfall-ticks" aria-hidden="true">
+              {marks.map(mark => <span key={mark} style={{ left: at(mark) }}>{mark}</span>)}
+            </span>
+            <span className="scenario-waterfall-number" aria-hidden="true">%</span>
+          </div>
+        </div>
+        {steps.map((step, index) => (
+          <div className={`scenario-waterfall-row${step.kind === "total" ? " is-result" : ""}`} role="row" key={`${index}:${step.label}`}>
+            <div className="scenario-waterfall-step" role="rowheader">
+              <strong>{step.label}</strong>
+              {step.detail && <span>{step.detail}</span>}
+            </div>
+            <div className="scenario-waterfall-lanes">
+              <Lane step={step} previous={steps[index - 1]} metric={metrics[0]} index={0} domain={domain} />
+              <Lane step={step} previous={steps[index - 1]} metric={metrics[1]} index={1} domain={domain} />
+            </div>
+          </div>
+        ))}
       </div>
+      <p className="scenario-waterfall-key">
+        {metrics.map(m => `${m.short ? `${m.short}: ` : ""}${m.label.toLowerCase()}${m.timing ? `, ${m.timing}` : ""}`).join(" · ")}.
+        {" "}Each bar is the change from the step above, in percentage points; the scale runs {domain[0]}–{domain[1]}%.
+        Changes are calculated from the displayed estimates.
+      </p>
+    </div>
+  );
+}
+
+const ERROR = <p role="note">This waterfall has no valid scenario data.</p>;
+
+/** One scenario's steps, switchable between a waterfall and the page's step-by-step text. */
+export function ScenarioWalkthrough({ metrics, steps, domain = [0, 100], label = "Modeled steps", children }: ScenarioWalkthroughProps) {
+  const [view, setView] = useState<"chart" | "text">("chart");
+  const valid = validData(metrics, steps, domain);
+  return (
+    <div className="scenario-walkthrough" data-view={valid ? view : "text"}>
+      <style href="scenario-waterfall" precedence="default">{styles}</style>
+      {valid && (
+        <div className="scenario-walkthrough-toggle not-prose" role="group" aria-label="Show the steps as">
+          <button type="button" aria-pressed={view === "chart"} onClick={() => setView("chart")}>Waterfall</button>
+          <button type="button" aria-pressed={view === "text"} onClick={() => setView("text")}>Step by step</button>
+        </div>
+      )}
+      {valid ? (
+        <div className="scenario-walkthrough-chart" hidden={view !== "chart"}>
+          <WaterfallSteps label={label} metrics={metrics} steps={steps} domain={domain} />
+        </div>
+      ) : !children && ERROR}
+      {children && <div className="scenario-walkthrough-text" hidden={valid && view !== "text"}>{children}</div>}
     </div>
   );
 }
@@ -78,21 +157,13 @@ export default function ScenarioWaterfall({ metrics, scenarios, domain = [0, 100
   const scenario: Scenario | undefined = Array.isArray(scenarios)
     ? scenarios.find(item => item?.id === selected) ?? scenarios[0]
     : undefined;
-
-  if (!scenario || !Array.isArray(scenario.steps as unknown) || !scenario.steps.length ||
-      !Array.isArray(metrics) || metrics.length !== 2 || metrics.some(metric => !metric?.label) ||
-      !Array.isArray(domain) || !Number.isFinite(domain[0]) || !Number.isFinite(domain[1]) || domain[0] >= domain[1] ||
-      scenario.steps.some(step => !Array.isArray(step?.values as unknown) || step.values.length !== 2 || step.values.some(value =>
-        !/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) < domain[0] || Number(value) > domain[1]
-      ))) {
-    return <p role="note">This waterfall has no valid scenario data.</p>;
-  }
+  if (!scenario || !validData(metrics, scenario.steps, domain)) return ERROR;
 
   return (
     <div className="scenario-waterfall">
       <style href="scenario-waterfall" precedence="default">{styles}</style>
       {scenarios.length > 1 && (
-        <div className="scenario-waterfall-control">
+        <div className="scenario-waterfall-control not-prose">
           <label htmlFor={selectId}>Scenario</label>
           <select id={selectId} value={scenario.id} onChange={event => setSelected(event.currentTarget.value)}>
             {scenarios.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
@@ -100,45 +171,52 @@ export default function ScenarioWaterfall({ metrics, scenarios, domain = [0, 100
         </div>
       )}
       {scenario.note && <p className="scenario-waterfall-note">{scenario.note}</p>}
-      <div role="table" aria-label={scenario.label}>
-        <div className="scenario-waterfall-row scenario-waterfall-head" role="row">
-          <div role="columnheader">Model step</div>
-          {metrics.map(metric => (
-            <div role="columnheader" key={metric.label}>
-              <strong>{metric.label}</strong>
-              {metric.timing && <small>{metric.timing}</small>}
-              <div className="scenario-waterfall-axis" aria-hidden="true"><span>{domain[0]}%</span><span>{domain[1]}%</span></div>
-            </div>
-          ))}
-        </div>
-        {scenario.steps.map((step, index) => (
-          <div className={`scenario-waterfall-row${step.kind === "total" ? " is-result" : ""}`} role="row" key={step.label}>
-            <div className="scenario-waterfall-step" role="rowheader">
-              <strong>{step.label}</strong>
-              {step.detail && <p>{step.detail}</p>}
-            </div>
-            <Impact step={step} previous={scenario.steps[index - 1]} metric={metrics[0]} index={0} domain={domain} last={index === scenario.steps.length - 1} />
-            <Impact step={step} previous={scenario.steps[index - 1]} metric={metrics[1]} index={1} domain={domain} last={index === scenario.steps.length - 1} />
-          </div>
-        ))}
-      </div>
-      <p className="scenario-waterfall-key">
-        Read from top to bottom. Floating bars show changes from the previous estimate in percentage points (pp).
-        The scale spans {domain[0]}–{domain[1]}%. Changes are calculated from the displayed estimates.
-      </p>
+      <WaterfallSteps label={scenario.label} metrics={metrics} steps={scenario.steps} domain={domain} />
     </div>
   );
 }
 
 // Keep these styles with the lazy MDX component so other pages do not download them.
 const styles = `
-.scenario-waterfall {
-  --waterfall-line: color-mix(in srgb, currentColor 17%, transparent);
+.scenario-walkthrough, .scenario-waterfall {
+  --waterfall-line: color-mix(in srgb, currentColor 14%, transparent);
+  --waterfall-muted: color-mix(in srgb, currentColor 66%, transparent);
   --waterfall-up: light-dark(#1a6858, #6ed4b0);
   --waterfall-down: light-dark(#a2402e, #ffad96);
   --waterfall-total: light-dark(#455d98, #a4b9fb);
   container-type: inline-size;
 }
+
+.scenario-walkthrough-toggle {
+  display: inline-flex;
+  margin: 0 0 0.75rem;
+  padding: 2px;
+  border: 1px solid var(--waterfall-line);
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+}
+.scenario-walkthrough-toggle button {
+  min-height: 2rem;
+  padding: 0.25rem 0.75rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.scenario-walkthrough-toggle button[aria-pressed="true"] {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  opacity: 1;
+}
+.scenario-walkthrough-toggle button:focus-visible,
+.scenario-waterfall-control select:focus-visible {
+  outline: 2px solid var(--waterfall-total);
+  outline-offset: 2px;
+}
+.scenario-walkthrough [hidden] { display: none; }
 
 .scenario-waterfall-control {
   display: grid;
@@ -147,7 +225,6 @@ const styles = `
   font-size: 0.875rem;
   font-weight: 650;
 }
-
 .scenario-waterfall-control select {
   width: 100%;
   min-width: 0;
@@ -159,104 +236,110 @@ const styles = `
   border-radius: 0.375rem;
   padding: 0.375rem 0.5rem;
 }
+.scenario-waterfall-note { font-size: 0.875rem; }
 
-.scenario-waterfall-control select:focus-visible {
-  outline: 2px solid var(--waterfall-total);
-  outline-offset: 2px;
+.scenario-waterfall-chart {
+  font-size: 0.875rem;
+  line-height: 1.35;
 }
-
 .scenario-waterfall-row {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 0.25rem 1rem;
+  align-items: center;
+  padding: 0.5rem 0;
   border-bottom: 1px solid var(--waterfall-line);
 }
-
-.scenario-waterfall-row > div { padding: 0.55rem 0.625rem; }
-.scenario-waterfall-head, .scenario-waterfall-row.is-result {
-  background: color-mix(in srgb, currentColor 5%, transparent);
-}
-
 .scenario-waterfall-head {
-  font-size: 0.8rem;
-  font-weight: 650;
-  border-top: 1px solid var(--waterfall-line);
+  padding-block: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--waterfall-muted);
+}
+.scenario-waterfall-row.is-result { border-bottom: 0; }
+.scenario-waterfall-row.is-result .scenario-waterfall-step strong { font-weight: 700; }
+
+.scenario-waterfall-step { min-width: 0; overflow-wrap: anywhere; }
+.scenario-waterfall-step strong { display: block; font-weight: 600; }
+.scenario-waterfall-step span {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--waterfall-muted);
 }
 
-.scenario-waterfall-head small,
-.scenario-waterfall-axis,
-.scenario-waterfall-number small { font-size: 0.75rem; }
-
-.scenario-waterfall-head small,
-.scenario-waterfall-number small { display: block; font-weight: 500; }
-
-.scenario-waterfall-axis {
-  display: flex;
-  justify-content: space-between;
-  width: calc(100% - 3.5rem);
-  margin-top: 0.25rem;
+.scenario-waterfall-lanes { display: grid; gap: 0.25rem; min-width: 0; }
+.scenario-waterfall-lane, .scenario-waterfall-axis {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) 6.5rem;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+}
+.scenario-waterfall-tag {
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--waterfall-muted);
+}
+.scenario-waterfall-track {
+  position: relative;
+  height: 0.875rem;
+  background-image: linear-gradient(to right, var(--waterfall-line) 1px, transparent 1px);
+  background-size: calc(100% / var(--waterfall-ticks, 4)) 100%;
+  box-shadow: inset -1px 0 0 var(--waterfall-line);
+}
+.scenario-waterfall-bar {
+  position: absolute;
+  top: 0.125rem;
+  bottom: 0.125rem;
+  border-radius: 2px;
+  background: currentColor;
+}
+.scenario-waterfall-ticks {
+  position: relative;
+  height: 1rem;
   font-variant-numeric: tabular-nums;
 }
-
-.scenario-waterfall-step { overflow-wrap: anywhere; }
-.wiki-markdown .scenario-waterfall-step p,
-.scenario-waterfall-step p {
-  margin: 0.18rem 0 0;
-  font-size: 0.85rem;
-  line-height: 1.45;
+.scenario-waterfall-ticks span {
+  position: absolute;
+  white-space: nowrap;
+  transform: translateX(-50%);
 }
-
-.scenario-waterfall-row .scenario-waterfall-impact {
-  min-width: 0;
-  padding-block: 0;
-  display: grid;
-}
-
-.scenario-waterfall-value {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 3.5rem;
-  align-items: center;
-}
+.scenario-waterfall-ticks span:first-child { transform: none; }
+.scenario-waterfall-ticks span:last-child { transform: translateX(-100%); }
 
 .scenario-waterfall-number {
-  text-align: right;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.3rem;
   white-space: nowrap;
-  font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
 }
-
-.scenario-waterfall-value svg {
-  width: 100%;
-  height: 100%;
-  min-height: 1.5rem;
-  overflow: visible;
-}
-
-.scenario-waterfall-gridline, .scenario-waterfall-connector, .scenario-waterfall-bar {
-  vector-effect: non-scaling-stroke;
-}
-
-.scenario-waterfall-gridline { stroke: var(--waterfall-line); }
-.scenario-waterfall-connector {
-  stroke: currentColor;
-  stroke-opacity: 0.5;
-  stroke-dasharray: 2 2;
-}
-.scenario-waterfall-bar { stroke: currentColor; stroke-width: 6; }
-.scenario-waterfall-point { fill: currentColor; }
+.scenario-waterfall-number strong { font-weight: 650; }
+.scenario-waterfall-number small { min-width: 2.6em; font-size: 0.75rem; font-weight: 600; text-align: right; }
 .scenario-waterfall-bar.is-total { color: var(--waterfall-total); }
-.scenario-waterfall-bar.is-gain, .scenario-waterfall-number .is-gain { color: var(--waterfall-up); }
-.scenario-waterfall-bar.is-loss, .scenario-waterfall-number .is-loss { color: var(--waterfall-down); }
-.scenario-waterfall-mobile-label { display: none; }
-.scenario-waterfall-note, .scenario-waterfall-key { font-size: 0.85rem; }
+.scenario-waterfall-chart .is-gain { color: var(--waterfall-up); }
+.scenario-waterfall-chart .is-loss { color: var(--waterfall-down); }
+.scenario-waterfall-lane .scenario-waterfall-number { min-width: 0; }
 
-@container (max-width: 35rem) {
-  .scenario-waterfall-head { display: none; }
-  .scenario-waterfall-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .scenario-waterfall-step { grid-column: 1 / -1; }
-  .scenario-waterfall-row .scenario-waterfall-impact { padding-block: 0 0.55rem; }
-  .scenario-waterfall-mobile-label { display: block; font-size: 0.75rem; }
-  .scenario-waterfall-mobile-label small { display: block; font-size: 0.6875rem; }
-  .scenario-waterfall-connector { display: none; }
-  .scenario-waterfall-value svg { height: 1.5rem; align-self: center; }
+.scenario-waterfall-key {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--waterfall-muted);
+}
+
+@container (max-width: 34rem) {
+  .scenario-waterfall-row { grid-template-columns: minmax(0, 1fr); }
+  .scenario-waterfall-head > [role="columnheader"]:first-child { display: none; }
+  .scenario-waterfall-lane, .scenario-waterfall-axis { grid-template-columns: 2rem minmax(0, 1fr) 6.25rem; }
+}
+
+@media print {
+  .scenario-walkthrough-toggle { display: none; }
+  .scenario-walkthrough [hidden] { display: block; }
+  .scenario-waterfall-row { break-inside: avoid; }
+  .scenario-waterfall-bar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
 `;

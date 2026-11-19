@@ -134,3 +134,49 @@ test("a named waterfall import renders both endpoints and signed changes from li
   expect(html).toContain('aria-label="Secondary: 61%, +1 pp"');
   expect(html).not.toContain("Component error");
 });
+
+const walkthrough = `import { ScenarioWalkthrough } from "@oncobase/wiki-markdown"
+
+## Plan
+
+<ScenarioWalkthrough
+  label="Plan steps"
+  domain={[50,90]}
+  metrics={[{"label":"Primary","short":"P"},{"label":"Secondary","short":"S"}]}
+  steps={[{"label":"Start","values":["60","55"]},{"label":"Drug","detail":"HR 0.76","values":["66","62.5"]}]}
+>
+
+- **Step 1.** Text with a [link](/wiki/other).
+
+</ScenarioWalkthrough>
+
+After.
+`;
+
+test("a wrapping component keeps its markdown as children, in copy and in static HTML", async () => {
+  expect(toPortableMarkdown(walkthrough)).toBe("\n## Plan\n\n- **Step 1.** Text with a [link](/wiki/other).\n\nAfter.\n");
+  const expanded = expandWikiMdx(walkthrough);
+  expect(expanded).toContain("data-wiki-component-children>\n\n- **Step 1.**");
+  expect(expanded).toMatch(/\n\n<\/figure>\n+After\./);
+
+  const stream = await renderToReadableStream(createElement(WikiMarkdown, { content: walkthrough, currentSlug: slug }));
+  await stream.allReady;
+  const html = await new Response(stream).text();
+  expect(html).not.toContain("Component error");
+  expect(html).toContain('aria-label="Primary: 66%, +6 pp"');
+  expect(html).toContain('aria-label="Secondary: 62.5%, +7.5 pp"');
+  expect(html).toMatch(/aria-pressed="true"[^>]*>Waterfall</);
+  expect(html).toMatch(/class="scenario-walkthrough-text" hidden="">\s*<ul>\s*<li><strong>Step 1\.<\/strong>/);
+  expect(html).not.toContain("wiki-component-fallback");
+
+  const staticHtml = renderWikiMarkdownHtml(walkthrough, slug);
+  expect(staticHtml).toMatch(/<div class="wiki-component-content">\s*<ul>\s*<li><strong>Step 1\.<\/strong>/);
+  expect(staticHtml).not.toContain("data-wiki-component-props");
+});
+
+test("only React components wrap markdown; an unclosed wrapper is a visible error", () => {
+  const html = renderWikiMarkdownHtml('import Y from "./components/y.html"\n\n<Y>\n\ntext\n\n</Y>\n', slug);
+  expect(html).toContain("takes no children");
+  const unclosed = renderWikiMarkdownHtml('import { ScenarioWalkthrough } from "@oncobase/wiki-markdown"\n\n<ScenarioWalkthrough steps={[]}>\n\ntext\n', slug);
+  expect(unclosed).toContain("takes no children");
+});

@@ -186,7 +186,8 @@ function fixEducationLabs(html: string, currentSlug?: string, adapters: WikiHtml
 }
 
 /** HTML components become sandboxed frames; the fallback image stays for print.
- * React components cannot run in static HTML, so they keep only the fallback. */
+ * React components cannot run in static HTML, so they keep only the fallback,
+ * or the markdown they wrap. */
 function fixWikiComponents(html: string, currentSlug?: string, adapters: WikiHtmlAdapters = {}) {
   return html.replace(/<figure\b([^>]*\sdata-wiki-component="[^"]*"[^>]*)>([\s\S]*?)<\/figure>/g, (_tag, rawAttributes: string, inner: string) => {
     const attr = (name: string) => {
@@ -194,6 +195,10 @@ function fixWikiComponents(html: string, currentSlug?: string, adapters: WikiHtm
       return value === undefined ? undefined : decodeHTMLAttribute(value);
     };
     const name = attr("data-wiki-component") ?? "";
+    // Wrapped markdown is content, not a fallback: static HTML shows it as written.
+    if (/\sdata-wiki-component-children(?:="[^"]*")?(?=[\s>]|$)/.test(rawAttributes)) {
+      return `<figure class="wiki-component" data-wiki-component="${escapeAttribute(name)}"><div class="wiki-component-content">${inner}</div></figure>`;
+    }
     const fallback = inner.trim() ? `<div class="wiki-component-fallback">${inner}</div>` : "";
     let live = "";
     if (attr("data-wiki-component-kind") === "html") {

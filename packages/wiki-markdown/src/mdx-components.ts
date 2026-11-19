@@ -17,6 +17,9 @@
  *   in the page is executed.
  * - `fallback` names a static image. Copy-as-markdown and print use it in
  *   place of the live component.
+ * - A React component may wrap markdown: an opening tag on its own line, the
+ *   markdown, then a closing tag on its own line. The markdown renders as the
+ *   component's children, and copy, print and static HTML keep it as text.
  *
  * This module is dependency-free so hosts can use the portable export without
  * loading the renderer.
@@ -40,6 +43,8 @@ export type WikiComponentUse = {
   error?: string;
   start: number;
   end: number;
+  /** Markdown between the opening and closing tags, for React components that wrap content. */
+  children?: string;
 };
 
 type Range = [number, number];
@@ -64,6 +69,16 @@ function fencedRanges(md: string): Range[] {
 }
 
 const inRanges = (index: number, ranges: Range[]) => ranges.some(([a, b]) => index >= a && index < b);
+
+/** The first `</Name>` on a line of its own after `from`, outside code fences. */
+function closingTag(md: string, from: number, name: string, fences: Range[]): { start: number; end: number } | null {
+  const re = new RegExp(`^[ \\t]*</${name}>[ \\t]*$`, "gm");
+  re.lastIndex = from;
+  for (let m = re.exec(md); m; m = re.exec(md)) {
+    if (!inRanges(m.index, fences)) return { start: m.index, end: m.index + m[0].length };
+  }
+  return null;
+}
 
 function parseImportClause(clause: string, source: string): WikiComponentImport[] | string {
   const local = /^(?:\.\.?\/)/.test(source);
@@ -188,17 +203,25 @@ export function parseWikiMdx(md: string): ParsedWikiMdx | null {
       if (!tag) { uses.push({ name, props: {}, start, end: start + match[0].length, error: `Unclosed <${name}> tag` }); continue; }
       let end = tag.end;
       let error: string | undefined;
+      let children: string | undefined;
       if (!tag.selfClosing) {
         const close = md.slice(end).match(new RegExp(`^\\s*</${name}>`));
+        const wrap = imports.get(name)?.kind === "react" && /^[ \t]*\n/.test(md.slice(end))
+          ? closingTag(md, end, name, fences) : null;
         if (close) end += close[0].length;
-        else error = `<${name}> takes no children; close it with />`;
+        else if (wrap) {
+          children = md.slice(end, wrap.start).replace(/^[ \t]*\n/, "");
+          end = wrap.end;
+        } else error = `<${name}> takes no children; close it with />`;
       }
       let props: WikiComponentProps = {};
       try { props = parseComponentAttributes(tag.attrs); } catch (e) { error ??= (e as Error).message; }
-      uses.push({ name, props, import: imports.get(name), error, start, end });
+      uses.push({ name, props, import: imports.get(name), error, start, end, children });
     }
   }
-  return { imports, importRanges, importErrors, uses };
+  // A component inside another's children is left as text: the outer one owns that range.
+  const outer = uses.filter(u => u.children !== undefined);
+  return { imports, importRanges, importErrors, uses: uses.filter(u => !outer.some(o => o !== u && u.start > o.start && u.start < o.end)) };
 }
 
 type Replacement = { start: number; end: number; text: string };
@@ -253,6 +276,8 @@ export function expandWikiMdx(md: string): string {
       `data-wiki-component-title="${escapeHtml(title)}"`,
     ].join(" ");
     const image = fallback ? `<img src="${escapeHtml(fallback)}" alt="${escapeHtml(alt)}" data-wiki-component-fallback>` : "";
+    // Blank lines end the HTML blocks, so the children parse as ordinary markdown inside the figure.
+    if (u.children !== undefined) return `\n<figure class="wiki-component" ${attrs} data-wiki-component-children>\n\n${u.children.trim()}\n\n</figure>\n`;
     return `\n<figure class="wiki-component" ${attrs}>${image}</figure>\n`;
   }, errorBlock);
 }
@@ -268,6 +293,7 @@ export function toPortableMarkdown(md: string): string {
   return rewrite(md, parsed, (u) => {
     const fallback = str(u.props.fallback);
     const alt = (str(u.props.alt) ?? str(u.props.title) ?? u.name).replace(/[[\]]/g, "");
+    if (u.children !== undefined) return [fallback && `![${alt}](${fallback})`, u.children.trim()].filter(Boolean).join("\n\n");
     if (fallback) return `![${alt}](${fallback})`;
     if (u.import?.kind === "html") return `[${alt}](${u.import.source})`;
     return "";

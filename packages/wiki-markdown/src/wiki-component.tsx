@@ -11,14 +11,21 @@ import { SlidesViewer } from "./slides-viewer.tsx";
 // biome-ignore lint/suspicious/noExplicitAny: registry components take arbitrary literal props.
 export type WikiMdxComponents = Record<string, ComponentType<any>>;
 
-const LazyScenarioWaterfall = lazy(() => import("./scenario-waterfall.tsx"));
+const loadWaterfall = () => import("./scenario-waterfall.tsx");
+const LazyScenarioWaterfall = lazy(loadWaterfall);
+const LazyScenarioWalkthrough = lazy(() => loadWaterfall().then(module => ({ default: module.ScenarioWalkthrough })));
 
 function ScenarioWaterfall(props: import("./scenario-waterfall.tsx").ScenarioWaterfallProps) {
   return <Suspense fallback={null}><LazyScenarioWaterfall {...props} /></Suspense>;
 }
 
+/** The step-by-step text shows while the waterfall loads, and without JavaScript. */
+function ScenarioWalkthrough(props: import("./scenario-waterfall.tsx").ScenarioWalkthroughProps) {
+  return <Suspense fallback={<div className="scenario-walkthrough-text">{props.children}</div>}><LazyScenarioWalkthrough {...props} /></Suspense>;
+}
+
 /** React components every host can import from "@oncobase/wiki-markdown" in MDX. */
-export const BUILT_IN_WIKI_MDX_COMPONENTS: WikiMdxComponents = { ScenarioWaterfall, SlidesViewer };
+export const BUILT_IN_WIKI_MDX_COMPONENTS: WikiMdxComponents = { ScenarioWalkthrough, ScenarioWaterfall, SlidesViewer };
 
 type HastProperties = Record<string, unknown>;
 
@@ -69,8 +76,10 @@ export function WikiComponentFigure({
   const name = String(properties.dataWikiComponent ?? "");
   const kind = properties.dataWikiComponentKind;
   const title = String(properties.dataWikiComponentTitle ?? name);
-  // The fallback image (children) stays in the DOM for print; CSS hides it on screen.
-  const fallback = children ? <div className="wiki-component-fallback">{children}</div> : null;
+  // Wrapped markdown belongs to the component. Otherwise the children are the
+  // fallback image, which stays in the DOM for print; CSS hides it on screen.
+  const wraps = kind === "react" && "dataWikiComponentChildren" in properties;
+  const fallback = children && !wraps ? <div className="wiki-component-fallback">{children}</div> : null;
   let live: ReactNode;
   if (kind === "html") {
     let src: string | null = null;
@@ -85,7 +94,7 @@ export function WikiComponentFigure({
     try { props = JSON.parse(String(properties.dataWikiComponentProps ?? "{}")); } catch { /* invalid props render without them */ }
     const { fallback: _fallback, alt: _alt, ...componentProps } = props;
     live = Component
-      ? <Component currentSlug={currentSlug} {...componentProps} />
+      ? <Component currentSlug={currentSlug} {...componentProps}>{wraps ? children : undefined}</Component>
       : <div className="wiki-component-error" role="note">Component error: {exportName} is not available on this site</div>;
   }
   return (
