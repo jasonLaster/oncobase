@@ -8,7 +8,7 @@ import { drainScheduled } from "./drain-scheduled.testutil";
 
 const modules = { "../cleanup.ts": () => import("../cleanup"), "../_generated/server.js": () => import("../_generated/server") };
 
-test("expired sessions and OAuth states are purged in bounded batches; live rows stay", async () => {
+test("expired sessions are purged in bounded batches; live rows stay", async () => {
   const t = convexTest(schema, modules);
   const now = Date.now();
   await t.run(async ctx => {
@@ -17,9 +17,6 @@ test("expired sessions and OAuth states are purged in bounded batches; live rows
     const userId = await ctx.db.insert("users", { siteId, email: "a@test.invalid", passwordHash: "h", passwordSalt: "s", createdAt: 1, updatedAt: 1 });
     for (let i = 0; i < PURGE_BATCH_SIZE + 5; i++) await ctx.db.insert("userSessions", { siteId, userId, tokenHash: `old-${i}`, createdAt: 1, expiresAt: now - 1_000 - i });
     await ctx.db.insert("userSessions", { siteId, userId, tokenHash: "live", createdAt: 1, expiresAt: now + 60_000 });
-    const state = { siteId, providerKey: "epic", redirectUri: "https://x.invalid", codeVerifierCiphertext: "c", fhirBaseUrl: "https://x.invalid", authorizationEndpoint: "https://x.invalid", tokenEndpoint: "https://x.invalid", scopes: [], createdAt: 1 };
-    await ctx.db.insert("epicFhirOAuthStates", { ...state, stateHash: "expired", expiresAt: now - 1 });
-    await ctx.db.insert("epicFhirOAuthStates", { ...state, stateHash: "pending", expiresAt: now + 600_000 });
   });
 
   expect(await t.mutation(internal.cleanup.purgeExpiredSessions, {})).toEqual({ deleted: PURGE_BATCH_SIZE });
@@ -28,8 +25,5 @@ test("expired sessions and OAuth states are purged in bounded batches; live rows
   expect(await t.mutation(internal.cleanup.purgeExpiredSessions, { batches: 1 })).toEqual({ deleted: 5 });
   expect((await t.run(ctx => ctx.db.query("userSessions").collect())).map(row => row.tokenHash)).toEqual(["live"]);
 
-  expect(await t.mutation(internal.cleanup.purgeExpiredOAuthStates, {})).toEqual({ deleted: 1 });
-  expect((await t.run(ctx => ctx.db.query("epicFhirOAuthStates").collect())).map(row => row.stateHash)).toEqual(["pending"]);
-  expect((await t.run(ctx => ctx.db.system.query("_scheduled_functions").collect())).filter(job => job.name.includes("OAuthStates"))).toHaveLength(0);
   await drainScheduled(t);
 });

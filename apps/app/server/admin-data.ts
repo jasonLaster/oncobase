@@ -4,7 +4,7 @@ import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
 import { listDocuments } from "./document-listing";
 import type { Id } from "../convex/_generated/dataModel.js";
-import { isAdminSessionUser } from "./epic-fhir.js";
+import { isAdminSessionUser } from "./admin-auth.js";
 import { withSiteSlug } from "./reader-access.js";
 
 export type AdminSessionUser = {

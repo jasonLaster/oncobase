@@ -12,7 +12,6 @@ const CLAIMED_EXACT = [
   "/api/liveblocks-auth", "/api/liveblocks-threads", "/api/liveblocks-add-comment", "/api/liveblocks-delete-thread",
   "/api/liveblocks-users", "/api/liveblocks-guest", "/api/liveblocks-webhook",
   "/api/download", "/api/file", "/api/page-copy",
-  "/api/integrations/epic/authorize", "/api/integrations/epic/callback", "/api/integrations/epic/sync",
 ];
 const CLAIMED_PREFIXES = ["/api/wiki/", "/api/admin/", "/api/publish/", "/api/pathology/", "/api/dicom/comparisons/", "/api/page-shares/"];
 
@@ -24,14 +23,13 @@ function wasGateExempt(pathname: string) {
     pathname.startsWith("/api/publish/") ||
     pathname === "/api/wiki/session" ||
     pathname === "/api/share-preview" || pathname === "/api/share-image" ||
-    pathname === "/api/liveblocks-webhook" ||
-    pathname.startsWith("/api/integrations/epic/");
+    pathname === "/api/liveblocks-webhook";
 }
 
 test("the table claims exactly the previously handled paths", () => {
   for (const path of CLAIMED_EXACT) expect(matchApiRoute(path)?.path ?? null).toBe(path);
   for (const prefix of CLAIMED_PREFIXES) expect(matchApiRoute(`${prefix}anything/else`)).not.toBeNull();
-  for (const path of ["/api", "/api/", "/api/auth/other", "/api/integrations/epic/other", "/api/dicom/other", "/api/filex", "/api/education/manifest", "/api/telemetry/other"]) {
+  for (const path of ["/api", "/api/", "/api/auth/other", "/api/integrations/epic/authorize", "/api/dicom/other", "/api/filex", "/api/education/manifest", "/api/telemetry/other"]) {
     expect(matchApiRoute(path)).toBeNull();
   }
   expect(matchApiRoute("/api/wiki/unknown")?.load).toBeUndefined();

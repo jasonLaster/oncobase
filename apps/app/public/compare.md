@@ -24,7 +24,7 @@ Page: https://oncobase.io/compare. Source: https://github.com/jasonLaster/oncoba
 | Where your data lives | Your accounts or server | Hosted | Your device | Hosted | Hosted | Your server | Managed or self-hosted |
 | Open source | Yes (MIT) | No | No (open file format) | No | Not stated | Yes (MIT) | Yes (Apache 2.0) |
 | Cost | Free; you pay for hosting | Free and paid tiers | Free app; paid Sync and Publish | $20–$100 a month, plus custom | Free in early access | Self-host | Free core; paid hosting |
-| Bring in medical records | Bring your files; optional Epic labs | Paste or attach | Paste or attach | Upload documents and genomics | Retrieves from providers | Syncs from patient portals | You build it (FHIR) |
+| Bring in medical records | Bring your own files | Paste or attach | Paste or attach | Upload documents and genomics | Retrieves from providers | Syncs from patient portals | You build it (FHIR) |
 | AI over your content | Chat agent and semantic search | Notion AI | Through plugins | Agents research your case | AI companion | Not stated | Not stated |
 | Trial and literature search | CLI helpers for literature and trials | Not built in | Not built in | 13 registries and open literature | Not stated | Not stated | You build it |
 | Share with family and the care team | Roles by folder and tag, plus comments | Sharing and permissions | Shared vaults | Shared workspace | Not stated | Not stated | You build it |
@@ -84,7 +84,7 @@ Developer platform. An open-source (Apache 2.0) platform for building clinical s
 Open-source knowledge base. An open-source knowledge base for taking control of your care. https://github.com/jasonLaster/oncobase
 
 - **Great at:** Publishes a vault of notes, papers, and results to a searchable reader with chat, semantic search, roles, inline redaction, comments, and scan and slide viewers. MIT licensed, with a CLI and files built for agents.
-- **Consider:** You set it up and host it, or have your agent do it. It organizes what you bring and can import labs from Epic MyChart, but it doesn’t gather your records or match trials for you. It carries no compliance certification, so you own how it’s hosted.
+- **Consider:** You set it up and host it, or have your agent do it. It organizes what you bring, but it doesn’t gather your records or match trials for you. It carries no compliance certification, so you own how it’s hosted.
 
 ## If you're building your own
 

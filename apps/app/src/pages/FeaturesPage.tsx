@@ -709,10 +709,6 @@ function Data() {
           One finger draws, two fingers pinch and pan. Deep links open a
           specific image or annotation.
         </FeatureCard>
-        <FeatureCard icon={<Activity size={18} />} title="Lab results flow in">
-          An hourly import of lab results from Epic MyChart, stored with
-          encrypted tokens.
-        </FeatureCard>
         <FeatureCard icon={<Layers size={18} />} title="Annotate right on the image">
           Draw arrows, boxes, and a calibrated ruler on a scan, or save a note
           on a region of a slide. Annotations are saved with the study.

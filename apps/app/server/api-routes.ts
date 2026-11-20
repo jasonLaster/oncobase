@@ -170,9 +170,6 @@ export const API_ROUTES: readonly ApiRoute[] = [
       m.handlePageCopyRequest(request, client, siteSlug, educationOnly)),
   },
 
-  { path: "/api/integrations/epic/authorize", gate: "exempt", load: () => import("./api/epic").then(m => m.handleEpicAuthorizeRoute) },
-  { path: "/api/integrations/epic/callback", gate: "exempt", load: () => import("./api/epic").then(m => m.handleEpicCallbackRoute) },
-  { path: "/api/integrations/epic/sync", gate: "exempt", load: () => import("./api/epic").then(m => m.handleEpicSyncRoute) },
 ];
 
 /**

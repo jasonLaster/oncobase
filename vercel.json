@@ -52,11 +52,5 @@
         }
       ]
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/integrations/epic/sync",
-      "schedule": "0 * * * *"
-    }
   ]
 }

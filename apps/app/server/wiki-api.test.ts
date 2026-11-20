@@ -851,7 +851,6 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       request("/api/share-preview?path=%2Fwiki%2Fpublic"),
       request("/api/liveblocks-webhook"),
       request("/api/publish/unknown"),
-      request("/api/integrations/epic/callback"),
     ];
 
     for (const exemptRequest of requests) {

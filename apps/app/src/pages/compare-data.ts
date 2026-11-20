@@ -105,7 +105,7 @@ export const products: Product[] = [
     great:
       "Publishes a vault of notes, papers, and results to a searchable reader with chat, semantic search, roles, inline redaction, comments, and scan and slide viewers. MIT licensed, with a CLI and files built for agents.",
     consider:
-      "You set it up and host it, or have your agent do it. It organizes what you bring and can import labs from Epic MyChart, but it doesn’t gather your records or match trials for you. It carries no compliance certification, so you own how it’s hosted.",
+      "You set it up and host it, or have your agent do it. It organizes what you bring, but it doesn’t gather your records or match trials for you. It carries no compliance certification, so you own how it’s hosted.",
   },
 ];
 
@@ -148,7 +148,7 @@ export const matrix: { label: string; cells: Cell[] }[] = [
       y("Retrieves from providers"),
       y("Syncs from patient portals"),
       c("You build it (FHIR)"),
-      c("Bring your files; optional Epic labs"),
+      c("Bring your own files"),
     ],
   },
   {

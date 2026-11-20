@@ -26,16 +26,3 @@ export const purgeExpiredSessions = internalMutation({
     return { deleted: expired.length };
   },
 });
-
-export const purgeExpiredOAuthStates = internalMutation({
-  args: purgeArgs,
-  handler: async (ctx, { batches = 0 }): Promise<{ deleted: number }> => {
-    // eslint-disable-next-line no-restricted-syntax -- Cross-tenant maintenance by design: expiry, not tenant, selects rows.
-    const expired = await ctx.db.query("epicFhirOAuthStates").withIndex("by_expires", q => q.lt("expiresAt", Date.now())).take(PURGE_BATCH_SIZE);
-    await Promise.all(expired.map(row => ctx.db.delete(row._id)));
-    if (expired.length === PURGE_BATCH_SIZE && batches + 1 < MAX_CHAINED_BATCHES) {
-      await ctx.scheduler.runAfter(0, internal.cleanup.purgeExpiredOAuthStates, { batches: batches + 1 });
-    }
-    return { deleted: expired.length };
-  },
-});

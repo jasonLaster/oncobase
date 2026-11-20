@@ -10,7 +10,6 @@ import * as sites from "../sites";
 import * as users from "../users";
 import * as access from "../access";
 import * as dicom from "../dicom";
-import * as epicFhir from "../epicFhir";
 import * as imageAnnotations from "../imageAnnotations";
 import * as commentRooms from "../commentRooms";
 import * as guestNames from "../guestNames";
@@ -26,7 +25,7 @@ const modules = { "../conversations.ts": () => import("../conversations"), "../d
 
 test("every server-only public handler denies before reading or mutating data", async () => {
   let checked = 0;
-  for (const module of [documents, sites, users, access, dicom, epicFhir, imageAnnotations, commentRooms, guestNames, migrations, conversations, manifestCache, prefetch, pageShares, adminStats]) {
+  for (const module of [documents, sites, users, access, dicom, imageAnnotations, commentRooms, guestNames, migrations, conversations, manifestCache, prefetch, pageShares, adminStats]) {
     for (const exported of Object.values(module)) {
       const fn = exported as { isPublic?: boolean; _handler?: (ctx: unknown, args: unknown) => unknown };
       if (!fn.isPublic || !fn._handler) continue;
@@ -39,8 +38,8 @@ test("every server-only public handler denies before reading or mutating data", 
       checked++;
     }
   }
-  // +3: sites.gate, manifestCache.knownState, access.sessionManifestOverlay.
-  expect(checked).toBe(115);
+  // +3: sites.gate, manifestCache.knownState, access.sessionManifestOverlay; -8: retired epicFhir.
+  expect(checked).toBe(107);
 });
 
 test("document reads, legacy bulk reads, sensitive flag and hash lookups require a verified service identity", async () => {

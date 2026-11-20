@@ -17,7 +17,6 @@ import type * as crons from "../crons.js";
 import type * as dicom from "../dicom.js";
 import type * as documentMeta from "../documentMeta.js";
 import type * as documents from "../documents.js";
-import type * as epicFhir from "../epicFhir.js";
 import type * as guestNames from "../guestNames.js";
 import type * as imageAnnotations from "../imageAnnotations.js";
 import type * as lib_accessPolicy from "../lib/accessPolicy.js";
@@ -61,7 +60,6 @@ declare const fullApi: ApiFromModules<{
   dicom: typeof dicom;
   documentMeta: typeof documentMeta;
   documents: typeof documents;
-  epicFhir: typeof epicFhir;
   guestNames: typeof guestNames;
   imageAnnotations: typeof imageAnnotations;
   "lib/accessPolicy": typeof lib_accessPolicy;

@@ -66,7 +66,6 @@ export const features: Feature[] = [
   { group: "data", name: "DICOM viewer", summary: "Stack and series browsing, window/level, pan, zoom, cine, touch gestures, deep links, and saved annotations with a calibrated ruler.", where: "/tools/dicom-viewer", surface: "/api/dicom/*" },
   { group: "data", name: "DICOM compare", summary: "Two synced viewports with presets such as subtraction, z-matched, and projection, and a clear match state.", where: "/tools/dicom-compare" },
   { group: "data", name: "Pathology slides", summary: "Whole-slide viewing with a navigator, magnification, scale bar, rulers, side-by-side compare, and saved region notes.", where: "/tools/pathology-viewer", surface: "/api/pathology/*" },
-  { group: "data", name: "Lab ingestion", summary: "An hourly import of lab results from Epic MyChart over SMART on FHIR, with encrypted tokens.", where: "Admin", surface: "/api/integrations/epic/*" },
   // Share
   { group: "share", name: "Comments", summary: "Page-level and selection-anchored threads with replies, reactions, resolve, and shareable links; guests get a stable name.", where: "Right rail, /comments", surface: "/api/liveblocks-*" },
   { group: "share", name: "Link previews", summary: "Pages get their own preview card in chats and social apps. Sensitive pages fall back to a generic card.", where: "Automatic", surface: "GET /api/share-preview" },

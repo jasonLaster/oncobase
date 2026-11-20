@@ -3,7 +3,7 @@ import { createWikiGateSession, matchesWikiPasswordHash } from "@oncobase/wiki-c
 import { api } from "../../convex/_generated/api.js";
 import type { Id } from "../../convex/_generated/dataModel.js";
 import { safeLocalRedirect } from "../../src/safe-redirect.js";
-import { isAdminSessionUser } from "../epic-fhir.js";
+import { isAdminSessionUser } from "../admin-auth.js";
 import {
   type PasswordGateEntry,
   authedCookieName,

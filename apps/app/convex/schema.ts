@@ -433,6 +433,8 @@ export default defineSchema({
     .index("by_site_token", ["siteId", "tokenHash"])
     .index("by_expires", ["expiresAt"]),
 
+  // Retired Epic SMART on FHIR lab ingestion. Its code is gone (see git
+  // history); the tables stay declared so stored rows keep their shape.
   epicFhirOAuthStates: defineTable({
     siteId: v.optional(v.id("sites")),
     userId: v.optional(v.id("users")),
