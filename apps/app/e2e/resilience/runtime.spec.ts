@@ -86,7 +86,7 @@ test("an orphaned leader lock falls back without stealing the lock or deleting d
   await ready(page);
 });
 
-test("healthy follower tabs and leader handoff do not need fallback", async ({ page, context, browserName }) => {
+for (let repeat = 0; repeat < 10; repeat++) test(`healthy follower tabs and leader handoff do not need fallback #${repeat}`, async ({ page, context, browserName }) => {
   test.setTimeout(60_000);
   const warnings: string[] = [];
   await installWikiApiMocks(page);
