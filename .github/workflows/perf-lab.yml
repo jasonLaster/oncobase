@@ -21,7 +21,8 @@ permissions:
 jobs:
   perf-lab:
     name: Reader Perf Lab
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which Playwright's Chromium does not support yet.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
