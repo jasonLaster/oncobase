@@ -1,6 +1,10 @@
 export const READER_STORAGE_PROBE_TIMEOUT_MS = 3_000;
-export const READER_LEADER_BOOT_TIMEOUT_MS = 3_000;
-export const READER_FOLLOWER_BOOT_TIMEOUT_MS = 750;
+// How long a store may take to boot before the tab gives up on persistent
+// storage and reads from a temporary in-memory store. A busy or slow CPU
+// stretches a healthy boot (worker start, leader handoff, seeding): at 3s and
+// 750ms, healthy follower tabs fell back on CI and under local load.
+export const READER_LEADER_BOOT_TIMEOUT_MS = 5_000;
+export const READER_FOLLOWER_BOOT_TIMEOUT_MS = 2_000;
 
 /** Startup includes downloading SQLite and workers. A short lock deadline
  * must not cancel a cold runtime download and then start it again in memory.
