@@ -147,7 +147,7 @@ test("the theme persists across reload", async ({ page, baseURL }) => {
   await ready(page);
   await page.keyboard.press("ControlOrMeta+Shift+K");
   await paletteInput(page).fill("Switch to Dark theme");
-  await page.getByRole("button", { name: /Switch to Dark theme/ }).click();
+  await page.getByRole("option", { name: /Switch to Dark theme/ }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -157,7 +157,7 @@ test("the theme persists across reload", async ({ page, baseURL }) => {
   // Leave the browser profile as found.
   await page.keyboard.press("ControlOrMeta+Shift+K");
   await paletteInput(page).fill("Switch to Light theme");
-  await page.getByRole("button", { name: /Switch to Light theme/ }).click();
+  await page.getByRole("option", { name: /Switch to Light theme/ }).click();
   await expect(page.locator("html")).not.toHaveClass(/dark/);
 });
 
