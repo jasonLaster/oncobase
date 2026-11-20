@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useCallback,
   type ReactNode,
@@ -113,13 +114,17 @@ function ReplyComposer({
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  // State lags a render behind: a fast double Enter would see sending=false
+  // twice and post the reply twice. The ref flips synchronously.
+  const inFlight = useRef(false);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       const trimmed = text.trim();
-      if (!trimmed || sending) return;
+      if (!trimmed || inFlight.current) return;
 
+      inFlight.current = true;
       setSending(true);
       try {
         const res = await fetch("/api/liveblocks-add-comment", {
@@ -143,10 +148,11 @@ function ReplyComposer({
       } catch (err) {
         console.error("Reply failed:", err);
       } finally {
+        inFlight.current = false;
         setSending(false);
       }
     },
-    [text, sending, roomId, threadId, onCommentAdded]
+    [text, roomId, threadId, onCommentAdded]
   );
 
   return (
@@ -155,6 +161,7 @@ function ReplyComposer({
         type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
+        aria-label="Reply"
         placeholder="Write a reply..."
         className="flex-1 rounded-lg border border-[var(--sidebar-border)] bg-[var(--background)] px-3 py-1.5 text-sm outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)]"
         disabled={sending}
@@ -181,13 +188,20 @@ function ThreadCard({
   onToggle: () => void;
   renderDocumentLink: (href: string, label: string) => ReactNode;
 }) {
-  const [comments, setComments] = useState(item.comments);
+  // Keep only the replies posted from this card; the thread itself comes from
+  // props, so a refetch shows everyone's new comments. Once the server copy
+  // arrives it replaces the local one (same id).
+  const [added, setAdded] = useState<ThreadItem["comments"]>([]);
+  const comments = useMemo(() => {
+    const known = new Set(item.comments.map((comment) => comment.id));
+    return [...item.comments, ...added.filter((comment) => !known.has(comment.id))];
+  }, [added, item.comments]);
   const firstComment = comments[0];
   const replies = comments.slice(1);
 
   const handleCommentAdded = useCallback(
     (comment: { id: string; author: string; createdAt: Date; text: string }) => {
-      setComments((prev) => [...prev, comment]);
+      setAdded((prev) => [...prev, comment]);
     },
     []
   );

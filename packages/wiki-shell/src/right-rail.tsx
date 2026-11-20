@@ -312,6 +312,7 @@ export function DocumentOutlineShell({
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
+  const lastWidth = useRef(0);
   const paneWidth = sidebarOpen ? sidebarWidth : COMMENTS_COLLAPSED_WIDTH;
 
   const toggleSidebar = () => setSidebarOpen((current) => !current);
@@ -335,6 +336,7 @@ export function DocumentOutlineShell({
       dragging.current = true;
       startX.current = event.clientX;
       startWidth.current = sidebarWidth;
+      lastWidth.current = sidebarWidth;
       (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     },
     [sidebarWidth],
@@ -348,10 +350,19 @@ export function DocumentOutlineShell({
         COMMENTS_MAX_WIDTH,
         Math.max(COMMENTS_MIN_WIDTH, startWidth.current + delta),
       );
+      lastWidth.current = next;
       setSidebarWidth(next);
     },
     [setSidebarWidth],
   );
+
+  // A cancelled drag (touch scroll, alt-tab) never sends pointer-up: keep the
+  // width reached so far and stop tracking.
+  const onPointerCancel = useCallback(() => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    setSidebarWidth(lastWidth.current, { persist: true });
+  }, [setSidebarWidth]);
 
   const onPointerUp = useCallback(
     (event: React.PointerEvent) => {
@@ -489,6 +500,8 @@ export function DocumentOutlineShell({
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
+              onPointerCancel={onPointerCancel}
+              onLostPointerCapture={onPointerCancel}
             />
             <div className="wiki-shell-right-rail-header">
               {onActivateComments ? (

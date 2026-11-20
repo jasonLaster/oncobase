@@ -267,16 +267,16 @@ export const PromptInputProvider = ({
       return;
     }
 
-    setAttachmentFiles((prev) => [
-      ...prev,
-      ...incoming.map((file) => ({
-        filename: file.name,
-        id: nanoid(),
-        mediaType: file.type,
-        type: "file" as const,
-        url: URL.createObjectURL(file),
-      })),
-    ]);
+    // Create the blob URLs once, outside the updater: React may run an
+    // updater twice, and the second run's URLs would never be revoked.
+    const added = incoming.map((file) => ({
+      filename: file.name,
+      id: nanoid(),
+      mediaType: file.type,
+      type: "file" as const,
+      url: URL.createObjectURL(file),
+    }));
+    setAttachmentFiles((prev) => [...prev, ...added]);
   }, []);
 
   const remove = useCallback((id: string) => {
@@ -600,33 +600,30 @@ export const PromptInput = ({
         return;
       }
 
-      setItems((prev) => {
-        const capacity =
-          typeof maxFiles === "number"
-            ? Math.max(0, maxFiles - prev.length)
-            : undefined;
-        const capped =
-          typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-        if (typeof capacity === "number" && sized.length > capacity) {
-          onError?.({
-            code: "max_files",
-            message: "Too many files. Some were not added.",
-          });
-        }
-        const next: (FileUIPart & { id: string })[] = [];
-        for (const file of capped) {
-          next.push({
-            filename: file.name,
-            id: nanoid(),
-            mediaType: file.type,
-            type: "file",
-            url: URL.createObjectURL(file),
-          });
-        }
-        return [...prev, ...next];
-      });
+      // Side effects (onError, blob URLs) stay outside the state updater,
+      // which React may invoke twice.
+      const capacity =
+        typeof maxFiles === "number"
+          ? Math.max(0, maxFiles - items.length)
+          : undefined;
+      const capped =
+        typeof capacity === "number" ? sized.slice(0, capacity) : sized;
+      if (typeof capacity === "number" && sized.length > capacity) {
+        onError?.({
+          code: "max_files",
+          message: "Too many files. Some were not added.",
+        });
+      }
+      const next: (FileUIPart & { id: string })[] = capped.map((file) => ({
+        filename: file.name,
+        id: nanoid(),
+        mediaType: file.type,
+        type: "file",
+        url: URL.createObjectURL(file),
+      }));
+      if (next.length > 0) setItems((prev) => [...prev, ...next]);
     },
-    [matchesAccept, maxFiles, maxFileSize, onError]
+    [items.length, matchesAccept, maxFiles, maxFileSize, onError]
   );
 
   const removeLocal = useCallback(

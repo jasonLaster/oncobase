@@ -102,6 +102,7 @@ export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
   // A document without the startup script still gets the saved width before paint.
   useLayoutEffect(() => { syncSidebarState(getWidthSnapshot()); }, []);
   const dragging = useRef(false);
+  const lastWidth = useRef(0);
   const startX = useRef(0);
   const startWidth = useRef(0);
 
@@ -115,6 +116,7 @@ export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
       dragging.current = true;
       startX.current = event.clientX;
       startWidth.current = width || DEFAULT_WIDTH;
+      lastWidth.current = startWidth.current;
       event.currentTarget.setPointerCapture(event.pointerId);
     },
     [width],
@@ -127,7 +129,17 @@ export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
       MAX_WIDTH,
       Math.max(MIN_WIDTH, startWidth.current + delta),
     );
+    lastWidth.current = nextWidth;
     setResizableSidebarWidth(nextWidth, { persist: false });
+  }, []);
+
+  // A touch scroll, alt-tab or OS gesture can cancel the drag without a
+  // pointer-up. Keep the width reached so far and stop tracking, or hovering
+  // the handle later would keep resizing.
+  const onPointerCancel = useCallback(() => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    setResizableSidebarWidth(lastWidth.current);
   }, []);
 
   const onPointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
@@ -207,6 +219,8 @@ export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onLostPointerCapture={onPointerCancel}
       />
       <div className="app-content">{children}</div>
     </div>

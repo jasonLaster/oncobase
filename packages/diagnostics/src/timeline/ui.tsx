@@ -1,13 +1,15 @@
 "use client";
 
 import {
+  createContext,
+  useContext,
   useEffect,
+  useRef,
   type ButtonHTMLAttributes,
   type ComponentProps,
   type HTMLAttributes,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
 import { XIcon } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 
@@ -78,6 +80,13 @@ export function Button({
   );
 }
 
+const DialogCloseContext = createContext<(() => void) | null>(null);
+
+/**
+ * A native modal <dialog>: showModal() traps focus, makes the page behind it
+ * inert, and handles Escape. The element itself is a transparent full-screen
+ * layer, so a click outside DialogContent lands on it and closes.
+ */
 export function Dialog({
   children,
   onOpenChange,
@@ -87,28 +96,37 @@ export function Dialog({
   onOpenChange?: (open: boolean) => void;
   open: boolean;
 }) {
-  useEffect(() => {
-    if (!open) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onOpenChange?.(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onOpenChange, open]);
-
   if (!open || typeof document === "undefined") return null;
-  return createPortal(
-    <div data-slot="dialog" role="presentation">
-      <button
-        aria-label="Close dialog"
-        className="fixed inset-0 z-50 cursor-default bg-black/10"
-        onClick={() => onOpenChange?.(false)}
-        type="button"
-      />
-      {children}
-    </div>,
-    document.body,
+  return <OpenDialog onClose={() => onOpenChange?.(false)}>{children}</OpenDialog>;
+}
+
+function OpenDialog({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current!;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    element.showModal();
+    return () => {
+      element.close();
+      previousFocus?.focus();
+    };
+  }, []);
+  return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Backdrop click on a native modal; Escape and the Close button cover keyboards.
+    <dialog
+      className="m-0 h-full max-h-none w-full max-w-none border-0 bg-transparent p-0 backdrop:bg-black/10"
+      data-slot="dialog"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      ref={dialog}
+    >
+      <DialogCloseContext.Provider value={onClose}>{children}</DialogCloseContext.Provider>
+    </dialog>
   );
 }
 
@@ -117,23 +135,20 @@ export function DialogContent({
   className,
   ...props
 }: ComponentProps<"div">) {
+  const close = useContext(DialogCloseContext);
   return (
     <div
-      aria-modal="true"
       className={cn(
         "fixed left-1/2 top-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none sm:max-w-sm",
         className,
       )}
-      role="dialog"
       {...props}
     >
       {children}
       <Button
         aria-label="Close"
         className="absolute right-2 top-2"
-        onClick={() => {
-          document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-        }}
+        onClick={() => close?.()}
         size="icon-sm"
         variant="ghost"
       >

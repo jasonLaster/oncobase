@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import {
@@ -252,16 +251,14 @@ function AdminUsersPage() {
         </div>
       </section>
       {deleteOpen ? (
-        <div className="admin-modal-backdrop">
-          <div role="dialog" aria-modal="true" aria-label="Delete selected users" className="admin-modal">
-            <h2>Delete selected users</h2>
-            <p>This deletes {selected.length} users and revokes their sessions.</p>
-            <div className="admin-dialog-actions">
-              <button type="button" onClick={() => setDeleteOpen(false)}>Cancel</button>
-              <button type="button" onClick={() => void deleteSelected()}>Delete</button>
-            </div>
+        <AdminModal label="Delete selected users" onClose={() => setDeleteOpen(false)}>
+          <h2>Delete selected users</h2>
+          <p>This deletes {selected.length} users and revokes their sessions.</p>
+          <div className="admin-dialog-actions">
+            <button type="button" onClick={() => setDeleteOpen(false)}>Cancel</button>
+            <button type="button" onClick={() => void deleteSelected()}>Delete</button>
           </div>
-        </div>
+        </AdminModal>
       ) : null}
     </AdminLayout>
   );
@@ -459,57 +456,90 @@ function RoleDialog({
   const update = (key: keyof ReturnType<typeof emptyRole>, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
 
-  return createPortal(
-    <div className="admin-modal-backdrop">
-      <div role="dialog" aria-modal="true" aria-label={title} className="admin-modal admin-role-modal">
-        <h2>{title}</h2>
-        <div role="tablist" aria-label="Role editor" className="admin-tabs">
-          <button role="tab" aria-selected={tab === "rules"} type="button" onClick={() => setTab("rules")}>Rules</button>
-          <button role="tab" aria-selected={tab === "preview"} type="button" onClick={() => setTab("preview")}>Preview</button>
-        </div>
-        {tab === "rules" ? (
-          <div className="admin-form-grid">
-            <label>Role name<input value={form.name} onChange={(event) => update("name", event.currentTarget.value)} /></label>
-            <label>Description<input value={form.description} onChange={(event) => update("description", event.currentTarget.value)} /></label>
-            <label>Auto-assign emails<input value={form.emailPatterns} onChange={(event) => update("emailPatterns", event.currentTarget.value)} /></label>
-            <label>Include paths<textarea value={form.includePathPatterns} onChange={(event) => update("includePathPatterns", event.currentTarget.value)} /></label>
-            <label>Exclude paths<textarea value={form.excludePathPatterns} onChange={(event) => update("excludePathPatterns", event.currentTarget.value)} /></label>
-            <label>Include tags<input value={form.includeTags} onChange={(event) => update("includeTags", event.currentTarget.value)} /></label>
-            <label>Exclude tags<input value={form.excludeTags} onChange={(event) => update("excludeTags", event.currentTarget.value)} /></label>
-          </div>
-        ) : (
-          <div className="admin-preview">
-            <label><span className="sr-only">Filter pages</span><input value={query} placeholder="Filter pages or tags" onChange={(event) => setQuery(event.currentTarget.value)} /></label>
-            <div className="admin-filter-row">
-              {(["all", "included", "excluded", "unmatched"] as const).map((item) => (
-                <button key={item} type="button" aria-pressed={filter === item} onClick={() => setFilter(item)}>
-                  {item[0].toUpperCase() + item.slice(1)} {counts[item]}
-                </button>
-              ))}
-            </div>
-            <div className="admin-table-wrap admin-preview-table">
-              <table>
-                <tbody>
-                  {visibleRows.map((row) => (
-                    <tr key={row.slug}>
-                      <td><strong>{row.title || row.slug}</strong><small>{row.slug}</small></td>
-                      <td>{row.tags.join(", ") || "None"}</td>
-                      <td>{row.preview.status}</td>
-                    </tr>
-                  ))}
-                  {visibleRows.length === 0 ? <tr><td colSpan={3}>No pages match</td></tr> : null}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        <div className="admin-dialog-actions">
-          <button type="button" onClick={onClose}>Cancel</button>
-          <button type="button" disabled={!form.name.trim()} onClick={() => void onSave(form)}>Save</button>
-        </div>
+  return (
+    <AdminModal label={title} className="admin-role-modal" onClose={onClose}>
+      <h2>{title}</h2>
+      <div role="tablist" aria-label="Role editor" className="admin-tabs">
+        <button role="tab" aria-selected={tab === "rules"} type="button" onClick={() => setTab("rules")}>Rules</button>
+        <button role="tab" aria-selected={tab === "preview"} type="button" onClick={() => setTab("preview")}>Preview</button>
       </div>
-    </div>,
-    document.body,
+      {tab === "rules" ? (
+        <div className="admin-form-grid">
+          <label>Role name<input value={form.name} onChange={(event) => update("name", event.currentTarget.value)} /></label>
+          <label>Description<input value={form.description} onChange={(event) => update("description", event.currentTarget.value)} /></label>
+          <label>Auto-assign emails<input value={form.emailPatterns} onChange={(event) => update("emailPatterns", event.currentTarget.value)} /></label>
+          <label>Include paths<textarea value={form.includePathPatterns} onChange={(event) => update("includePathPatterns", event.currentTarget.value)} /></label>
+          <label>Exclude paths<textarea value={form.excludePathPatterns} onChange={(event) => update("excludePathPatterns", event.currentTarget.value)} /></label>
+          <label>Include tags<input value={form.includeTags} onChange={(event) => update("includeTags", event.currentTarget.value)} /></label>
+          <label>Exclude tags<input value={form.excludeTags} onChange={(event) => update("excludeTags", event.currentTarget.value)} /></label>
+        </div>
+      ) : (
+        <div className="admin-preview">
+          <label><span className="sr-only">Filter pages</span><input value={query} placeholder="Filter pages or tags" onChange={(event) => setQuery(event.currentTarget.value)} /></label>
+          <div className="admin-filter-row">
+            {(["all", "included", "excluded", "unmatched"] as const).map((item) => (
+              <button key={item} type="button" aria-pressed={filter === item} onClick={() => setFilter(item)}>
+                {item[0].toUpperCase() + item.slice(1)} {counts[item]}
+              </button>
+            ))}
+          </div>
+          <div className="admin-table-wrap admin-preview-table">
+            <table>
+              <tbody>
+                {visibleRows.map((row) => (
+                  <tr key={row.slug}>
+                    <td><strong>{row.title || row.slug}</strong><small>{row.slug}</small></td>
+                    <td>{row.tags.join(", ") || "None"}</td>
+                    <td>{row.preview.status}</td>
+                  </tr>
+                ))}
+                {visibleRows.length === 0 ? <tr><td colSpan={3}>No pages match</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      <div className="admin-dialog-actions">
+        <button type="button" onClick={onClose}>Cancel</button>
+        <button type="button" disabled={!form.name.trim()} onClick={() => void onSave(form)}>Save</button>
+      </div>
+    </AdminModal>
+  );
+}
+
+/**
+ * A native modal dialog: showModal() traps focus, makes the page behind it
+ * inert, and closes on Escape. Focus returns to whatever opened it.
+ */
+function AdminModal({ label, className, onClose, children }: {
+  label: string;
+  className?: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current!;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    element.showModal();
+    return () => {
+      element.close();
+      previousFocus?.focus();
+    };
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      aria-label={label}
+      className={className ? `admin-modal ${className}` : "admin-modal"}
+      onCancel={(event) => {
+        // Escape: let React state own the open flag.
+        event.preventDefault();
+        onClose();
+      }}
+    >
+      {children}
+    </dialog>
   );
 }
 

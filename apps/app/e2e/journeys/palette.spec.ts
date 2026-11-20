@@ -39,16 +39,16 @@ test.describe("command palette (mocked backend)", () => {
     await expect(page.getByTestId("command-palette-input")).toHaveAttribute("placeholder", "Find a heading");
     await page
       .getByTestId("command-palette")
-      .getByRole("button", { name: /Claims follow-up/ })
+      .getByRole("option", { name: /Claims follow-up/ })
       .click();
     await expect(page).toHaveURL(/#claims-follow-up$/);
 
     await page.keyboard.press(`${mod}+K`);
     await page.keyboard.press("A");
     await expect(page.getByTestId("command-palette-input")).toHaveAttribute("placeholder", "Search commands...");
-    await page.getByRole("button", { name: /Browse tags/ }).click();
+    await page.getByTestId("command-palette").getByRole("option", { name: /Browse tags/ }).click();
     await page.getByTestId("command-palette-input").fill("logistics");
-    await page.getByTestId("command-palette").getByRole("button", { name: /logistics/ }).click();
+    await page.getByTestId("command-palette").getByRole("option", { name: /logistics/ }).click();
     await expect(page.getByTestId("command-palette-input")).toHaveValue("logistics");
     await expect(page.getByTestId("command-palette").getByRole("option", { name: /insurance/i })).toBeVisible();
   });
@@ -59,23 +59,23 @@ test.describe("command palette (mocked backend)", () => {
     await page.keyboard.press(`${mod}+Shift+K`);
     const palette = page.getByTestId("command-palette");
     await expect(palette).toBeVisible();
-    await expect(palette.getByRole("link", { name: /Search wiki/ })).toHaveAttribute(
+    await expect(palette.getByRole("option", { name: /Search wiki/ })).toHaveAttribute(
       "href",
       /\/search\?returnTo=%2Fsources%2Fpeople%2Fproviders%2Fstanford%2Ftelli$/,
     );
-    await expect(palette.getByRole("link", { name: /New chat/ })).toHaveAttribute("href", /\/chat\?returnTo=/);
-    await expect(palette.getByRole("link", { name: /Download markdown archive/ })).toHaveAttribute(
+    await expect(palette.getByRole("option", { name: /New chat/ })).toHaveAttribute("href", /\/chat\?returnTo=/);
+    await expect(palette.getByRole("option", { name: /Download markdown archive/ })).toHaveAttribute(
       "href",
       /\/api\/download\?type=markdown&scope=public$/,
     );
-    await expect(palette.getByRole("link", { name: /Open telli-2016-hrd-platinum-tnbc\.pdf/ })).toHaveAttribute(
+    await expect(palette.getByRole("option", { name: /Open telli-2016-hrd-platinum-tnbc\.pdf/ })).toHaveAttribute(
       "href",
       /\/api\/file\?path=sources%2Fpeople%2Fproviders%2Fstanford%2Ftelli%2Ftelli-2016-hrd-platinum-tnbc\.pdf/,
     );
 
-    await palette.getByRole("button", { name: /Browse source PDFs/ }).click();
+    await palette.getByRole("option", { name: /Browse source PDFs/ }).click();
     await page.getByTestId("command-palette-input").fill("telli");
-    await expect(palette.getByRole("link", { name: /telli-2016-hrd/ })).toHaveAttribute(
+    await expect(palette.getByRole("option", { name: /telli-2016-hrd/ })).toHaveAttribute(
       "href",
       /\/api\/file\?path=sources%2Fpeople%2Fproviders%2Fstanford/,
     );
@@ -238,7 +238,7 @@ test.describe("command palette (mocked backend)", () => {
     hold = false;
     await page.keyboard.press(`${mod}+K`);
     await page.keyboard.press("A");
-    await page.getByRole("button", { name: /Stop recommending pages with Jev/ }).click();
+    await page.getByRole("option", { name: /Stop recommending pages with Jev/ }).click();
     await page.reload();
     await page.keyboard.press(`${mod}+K`);
     const count = asked.length;

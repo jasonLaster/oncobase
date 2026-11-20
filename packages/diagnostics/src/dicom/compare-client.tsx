@@ -700,6 +700,7 @@ export function DicomCompareClient({
           waitForElementSize(currentLeftElement),
           waitForElementSize(currentRightElement),
         ]);
+        if (cancelled) return;
         setLoadingIndexes({ left: leftInitial, right: rightInitial });
         await Promise.all([
           leftViewport.setStack(leftImageIds, leftInitial),
@@ -1055,6 +1056,8 @@ export function DicomCompareClient({
                   type="range"
                   min={0}
                   max={Math.max(0, (leftStack?.images.length ?? 1) - 1)}
+                  aria-label="Matched slice"
+                  aria-valuetext={`Slice ${(loadingIndexes.left ?? sliceIndexes.left) + 1} of ${leftStack?.images.length ?? 0}`}
                   value={loadingIndexes.left ?? sliceIndexes.left}
                   disabled={!hasStacks}
                   onChange={(event) => void showSyncedImage("left", Number(event.currentTarget.value))}

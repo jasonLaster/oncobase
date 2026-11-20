@@ -19,20 +19,27 @@ export function PiiViewPage() {
 
   useEffect(() => {
     if (!slug) return;
+    // A slug change aborts the previous read so its answer cannot land on
+    // the next page.
+    const controller = new AbortController();
     void fetch(`/api/admin/pii/${encodeURIComponent(slug)}`, {
       credentials: "same-origin",
+      signal: controller.signal,
     }).then(async (response) => {
       // The legacy reader renders a not-found page for non-admins rather than
       // bouncing them home, so the route never confirms the slug exists.
       if (response.status === 401 || response.status === 404) {
-        setUnavailable(true);
+        if (!controller.signal.aborted) setUnavailable(true);
         return;
       }
       if (!response.ok) throw new Error(await response.text());
-      setPage((await response.json()) as PiiPage);
+      const data = (await response.json()) as PiiPage;
+      if (!controller.signal.aborted) setPage(data);
     }).catch((err) => {
+      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : String(err));
     });
+    return () => controller.abort();
   }, [slug, location.key]);
 
   if (unavailable) {

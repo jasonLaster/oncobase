@@ -480,32 +480,27 @@
   z-index: 40;
 }
 
-.admin-modal-backdrop {
-  align-items: center;
-  background: rgb(0 0 0 / 0.35);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  padding: 16px;
-  position: fixed;
-  z-index: 80;
-}
-
 .admin-modal {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 24px 72px rgb(17 24 39 / 0.22);
+  color: var(--foreground);
+  margin: auto;
   max-height: calc(100dvh - 32px);
   max-width: 560px;
   overflow: auto;
   padding: 20px;
-  width: min(100%, 560px);
+  width: min(calc(100% - 32px), 560px);
+}
+
+.admin-modal::backdrop {
+  background: rgb(0 0 0 / 0.35);
 }
 
 .admin-role-modal {
   max-width: 760px;
-  width: min(100%, 760px);
+  width: min(calc(100% - 32px), 760px);
 }
 
 .admin-tabs {

@@ -869,7 +869,9 @@ function MobileBloodCountsChart({
         aria-label="Mobile blood counts trend"
         className="block h-auto w-full rounded-lg bg-muted/20 text-muted-foreground"
         data-test-id="mobile-blood-counts-chart"
-        role="img"
+        // "group", not "img": an img's children are presentational, which
+        // would hide the focusable data points from screen readers.
+        role="group"
         viewBox={`0 0 360 ${height}`}
       >
         <rect width="360" height={height} rx="8" fill="var(--background)" />
@@ -1648,7 +1650,8 @@ function DrilldownChart({
           className="absolute left-0 top-0 block h-full"
           data-test-id="timeline-drilldown-svg"
           height={DRILLDOWN_HEIGHT}
-          role="img"
+          // "group", not "img", so the focusable event markers stay exposed.
+          role="group"
           aria-label="Expanded timeline chart"
           style={{
             aspectRatio: `${contentWidth} / ${DRILLDOWN_HEIGHT}`,

@@ -119,7 +119,11 @@ export function WikiCommandItemButton({
   ...props
 }: WikiCommandItemButtonProps) {
   return (
+    // Rows live in a role="listbox" driven by the search input's
+    // aria-activedescendant, so they are options; aria-selected is ignored
+    // on a plain button or link.
     <button
+      role="option"
       {...props}
       aria-selected={active}
       className={cn("wiki-shell-command-item", active && "active", className)}
@@ -150,6 +154,7 @@ export function WikiCommandItemLink({
 }: WikiCommandItemLinkProps) {
   return (
     <a
+      role="option"
       {...props}
       aria-selected={active}
       className={cn("wiki-shell-command-item", active && "active", className)}

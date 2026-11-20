@@ -620,6 +620,7 @@ export function DicomViewerClient({
               ? Math.floor(imageIds.length / 2)
               : 0;
         await waitForElementSize(viewportElement);
+        if (cancelled) return;
         setLoadingImageIndex(initialIndex);
         await viewport.setStack(imageIds, initialIndex);
         if (cancelled) return;
@@ -1302,6 +1303,8 @@ export function DicomViewerClient({
                   type="range"
                   min={0}
                   max={Math.max(0, (activeStack?.images.length ?? 1) - 1)}
+                  aria-label="Image"
+                  aria-valuetext={`Image ${(loadingImageIndex ?? sliceIndex) + 1} of ${activeStack?.images.length ?? 0}`}
                   value={loadingImageIndex ?? sliceIndex}
                   disabled={!hasStack}
                   onChange={(event) => void showImage(Number(event.currentTarget.value))}
@@ -1482,8 +1485,16 @@ export function DicomViewerClient({
         )}
         data-state={mobileStudySheetOpen ? "open" : "closed"}
         data-test-id="dicom-mobile-study-sheet"
+        // Closed, the sheet is only faded out: keep its controls out of the
+        // tab order and the accessibility tree.
+        inert={!mobileStudySheetOpen}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setMobileStudySheetOpen(false);
+        }}
       >
+        {/* Pointer-only scrim; keyboard users have Escape and the close button. */}
         <div
+          aria-hidden="true"
           className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
           onClick={() => setMobileStudySheetOpen(false)}
         />
