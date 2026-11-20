@@ -94,8 +94,12 @@ test("healthy follower tabs and leader handoff do not need fallback", async ({ p
   const copiedSession = await page.evaluate(() => ({ ...sessionStorage }));
   const follower = await context.newPage();
   if (browserName === "chromium") {
+    // A mildly slow CPU still has to make the 750ms follower deadline. At 4x
+    // on 2-vCPU CI runners the follower's own boot (lock wait, worker boot,
+    // seeding) routinely overran it and fell back to temporary storage, which
+    // is an accepted outcome on genuinely slow devices, not a regression.
     const cdp = await context.newCDPSession(follower);
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 2 });
   }
   // Model Duplicate Tab / window.open copying sessionStorage from its opener.
   await follower.addInitScript(values => {
