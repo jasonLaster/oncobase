@@ -35,6 +35,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # The container runs as root over a runner-owned checkout; without this,
+      # git refuses the repo ("dubious ownership") and the local stack's
+      # fixture-vault status check fails. --system, not --global: the stack's
+      # publish step runs git under a private HOME.
+      - name: Trust the checkout
+        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
+
       # setup-bun and the local stack's convex-local-backend download both unpack zip files.
       - name: Install unzip
         run: apt-get update -qq && apt-get install -y -qq unzip
