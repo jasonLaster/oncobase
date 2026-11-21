@@ -95,6 +95,113 @@ function preview(status: WorkingTreeStatus, limit = 10) {
   return lines;
 }
 
+export type UpstreamStatus =
+  | { state: "not-git" }
+  | { state: "no-upstream" }
+  | { state: "current"; upstream: string; ahead: number }
+  | { state: "behind"; upstream: string; behind: number; ahead: number }
+  | { state: "fetch-failed"; upstream: string; error: string };
+
+const UPSTREAM_FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * Inspect whether the local vault checkout is behind its configured Git upstream.
+ * Runs `git fetch` against the upstream remote so remote commits (such as edits
+ * committed via Oncobase Chat) are discovered before publishing from a stale tree.
+ */
+export function readUpstreamStatus(
+  vaultPath: string,
+  options: { fetch?: boolean; timeoutMs?: number } = {},
+): UpstreamStatus {
+  const absVault = path.resolve(vaultPath);
+  const timeout = options.timeoutMs ?? UPSTREAM_FETCH_TIMEOUT_MS;
+  let upstream: string;
+  try {
+    upstream = execFileSync(
+      "git",
+      ["-C", absVault, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/not a git repository/i.test(message)) return { state: "not-git" };
+    if (/no upstream configured|does not point to a branch|HEAD/i.test(message)) {
+      return { state: "no-upstream" };
+    }
+    return { state: "no-upstream" };
+  }
+  if (!upstream) return { state: "no-upstream" };
+
+  if (options.fetch !== false) {
+    const slash = upstream.indexOf("/");
+    const remote = slash > 0 ? upstream.slice(0, slash) : undefined;
+    try {
+      execFileSync(
+        "git",
+        remote ? ["-C", absVault, "fetch", "--quiet", remote] : ["-C", absVault, "fetch", "--quiet"],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout },
+      );
+    } catch (error) {
+      return {
+        state: "fetch-failed",
+        upstream,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  const counts = execFileSync(
+    "git",
+    ["-C", absVault, "rev-list", "--left-right", "--count", `HEAD...${upstream}`],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+  )
+    .trim()
+    .split(/\s+/);
+  const ahead = Number.parseInt(counts[0] ?? "0", 10) || 0;
+  const behind = Number.parseInt(counts[1] ?? "0", 10) || 0;
+  if (behind > 0) {
+    return { state: "behind", upstream, behind, ahead };
+  }
+  return { state: "current", upstream, ahead };
+}
+
+export function ensureUpToDateWithUpstream(
+  vaultPath: string,
+  options: { allowBehind?: boolean; fetch?: boolean } = {},
+) {
+  const status = readUpstreamStatus(vaultPath, { fetch: options.fetch });
+  if (status.state === "not-git" || status.state === "no-upstream" || status.state === "current") {
+    return status;
+  }
+
+  if (status.state === "behind") {
+    const headline = `Vault is ${status.behind} commit${status.behind === 1 ? "" : "s"} behind ${status.upstream}.`;
+    if (options.allowBehind) {
+      console.warn(`${headline} (--allow-behind set; continuing)`);
+      return status;
+    }
+    console.error(headline);
+    console.error(
+      "Publishing from a stale checkout can silently revert remote edits (such as edits committed from Chat).",
+    );
+    console.error(
+      "Run `git pull` before publishing, or rerun with --allow-behind to acknowledge.",
+    );
+    process.exit(1);
+  }
+
+  const headline = `Could not fetch ${status.upstream} to verify vault is up to date: ${status.error}`;
+  if (options.allowBehind) {
+    console.warn(`${headline} (--allow-behind set; continuing)`);
+    return status;
+  }
+  console.error(headline);
+  console.error(
+    "Verify connectivity and run `git pull`, or rerun with --allow-behind to bypass the upstream freshness check.",
+  );
+  process.exit(1);
+}
+
 export function ensureCleanVault(
   vaultPath: string,
   options: { allowDirty?: boolean } = {},

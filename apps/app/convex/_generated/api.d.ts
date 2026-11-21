@@ -34,8 +34,8 @@ import type * as lib_serviceAuth from "../lib/serviceAuth.js";
 import type * as lib_serviceFunctions from "../lib/serviceFunctions.js";
 import type * as lib_site from "../lib/site.js";
 import type * as manifestBuilder from "../manifestBuilder.js";
-import type * as manifestDeltaBuilder from "../manifestDeltaBuilder.js";
 import type * as manifestCache from "../manifestCache.js";
+import type * as manifestDeltaBuilder from "../manifestDeltaBuilder.js";
 import type * as migrations from "../migrations.js";
 import type * as pageShares from "../pageShares.js";
 import type * as palettePicks from "../palettePicks.js";
@@ -43,6 +43,7 @@ import type * as pathology from "../pathology.js";
 import type * as prefetch from "../prefetch.js";
 import type * as sites from "../sites.js";
 import type * as users from "../users.js";
+import type * as wikiEdits from "../wikiEdits.js";
 
 import type {
   ApiFromModules,
@@ -77,8 +78,8 @@ declare const fullApi: ApiFromModules<{
   "lib/serviceFunctions": typeof lib_serviceFunctions;
   "lib/site": typeof lib_site;
   manifestBuilder: typeof manifestBuilder;
-  manifestDeltaBuilder: typeof manifestDeltaBuilder;
   manifestCache: typeof manifestCache;
+  manifestDeltaBuilder: typeof manifestDeltaBuilder;
   migrations: typeof migrations;
   pageShares: typeof pageShares;
   palettePicks: typeof palettePicks;
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   prefetch: typeof prefetch;
   sites: typeof sites;
   users: typeof users;
+  wikiEdits: typeof wikiEdits;
 }>;
 
 /**

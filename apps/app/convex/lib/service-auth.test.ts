@@ -18,6 +18,7 @@ import * as manifestCache from "../manifestCache";
 import * as prefetch from "../prefetch";
 import * as pageShares from "../pageShares";
 import * as adminStats from "../adminStats";
+import * as wikiEdits from "../wikiEdits";
 
 export const serviceIdentity = { issuer: SERVICE_ISSUER, subject: SERVICE_SUBJECT, role: "backend-service" };
 const modules = { "../conversations.ts": () => import("../conversations"), "../documents.ts": () => import("../documents"), "../sites.ts": () => import("../sites"), "../users.ts": () => import("../users"),
@@ -25,7 +26,7 @@ const modules = { "../conversations.ts": () => import("../conversations"), "../d
 
 test("every server-only public handler denies before reading or mutating data", async () => {
   let checked = 0;
-  for (const module of [documents, sites, users, access, dicom, imageAnnotations, commentRooms, guestNames, migrations, conversations, manifestCache, prefetch, pageShares, adminStats]) {
+  for (const module of [documents, sites, users, access, dicom, imageAnnotations, commentRooms, guestNames, migrations, conversations, manifestCache, prefetch, pageShares, adminStats, wikiEdits]) {
     for (const exported of Object.values(module)) {
       const fn = exported as { isPublic?: boolean; _handler?: (ctx: unknown, args: unknown) => unknown };
       if (!fn.isPublic || !fn._handler) continue;
@@ -38,8 +39,8 @@ test("every server-only public handler denies before reading or mutating data", 
       checked++;
     }
   }
-  // +3: sites.gate, manifestCache.knownState, access.sessionManifestOverlay; -8: retired epicFhir.
-  expect(checked).toBe(107);
+  // +3: sites.gate, manifestCache.knownState, access.sessionManifestOverlay; -8: retired epicFhir; +11: wikiEdits.
+  expect(checked).toBe(118);
 });
 
 test("document reads, legacy bulk reads, sensitive flag and hash lookups require a verified service identity", async () => {

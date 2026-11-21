@@ -179,6 +179,48 @@ export default defineSchema({
     .index("by_site_token", ["siteId", "tokenHash"])
     .index("by_site_document", ["siteId", "documentId", "revokedAt"]),
 
+  wikiEditProposals: defineTable({
+    siteId: v.id("sites"),
+    conversationId: v.optional(v.string()),
+    ownerKey: v.string(),
+    createdByUserId: v.id("users"),
+    approvedByUserId: v.optional(v.id("users")),
+    slug: v.string(),
+    title: v.string(),
+    filePath: v.string(),
+    branch: v.string(),
+    baseFileSha: v.string(),
+    baseContentHash: v.string(),
+    sensitive: v.boolean(),
+    readSensitiveInSession: v.boolean(),
+    edits: v.array(v.object({ oldText: v.string(), newText: v.string() })),
+    summary: v.string(),
+    commitMessage: v.string(),
+    redactedDiff: v.string(),
+    stats: v.object({ additions: v.number(), deletions: v.number() }),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("executing"),
+      v.literal("committed_pending_publish"),
+      v.literal("published"),
+      v.literal("rejected"),
+      v.literal("failed"),
+      v.literal("expired"),
+    ),
+    executionId: v.optional(v.string()),
+    executionLeaseUntil: v.optional(v.number()),
+    commitSha: v.optional(v.string()),
+    commitUrl: v.optional(v.string()),
+    publishedRevision: v.optional(v.number()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_site_status", ["siteId", "status", "updatedAt"])
+    .index("by_site_owner", ["siteId", "ownerKey", "createdAt"])
+    .index("by_site_conversation", ["siteId", "ownerKey", "conversationId", "createdAt"]),
+
   // What readers typed into the file palette and which page they opened, for
   // judging palette ranking (scripts/eval-palette-judge.ts). Gated readers only.
   palettePicks: defineTable({

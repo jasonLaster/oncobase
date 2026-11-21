@@ -28,6 +28,8 @@ import { createFakeChatModel, isFakeChatModelEnabled } from "./fake-chat-model";
 import { WIKI_CHAT_EMPTY_ANSWER, createWikiChatTools, wikiChatRunSettings, wikiChatSystem } from "./chat-agent";
 import { getSearchCorpus } from "./api/search";
 import type { SessionUser } from "./reader-access";
+import { isWikiEditConfiguredForSite } from "./repo-adapter";
+import { proposeWikiEdit } from "./wiki-edit-service";
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 });
 const generateRunId = createIdGenerator({ prefix: "run", size: 16 });
@@ -103,10 +105,13 @@ export function documentsGateway(
   siteSlug: string,
   includeSensitive: boolean,
   canAccessSlug?: (slug: string) => Promise<boolean>,
+  onReadSensitive?: (slug: string) => void,
 ) {
   const filterPage = async <T extends { slug: string; sensitive?: boolean }>(page: T | null) => {
     if (!page?.sensitive) return page;
-    return canAccessSlug && (await canAccessSlug(page.slug)) ? page : null;
+    const allowed = Boolean(canAccessSlug && (await canAccessSlug(page.slug)));
+    if (allowed) onReadSensitive?.(page.slug);
+    return allowed ? page : null;
   };
   const filterPages = async <T extends { slug: string; sensitive?: boolean }>(
     pages: Array<T | null>,
@@ -129,6 +134,7 @@ export function documentsGateway(
         continue;
       }
       if (canAccessSlug && (await canAccessSlug(page.slug))) {
+        onReadSensitive?.(page.slug);
         visible.push(page);
       }
     }
@@ -204,14 +210,16 @@ export async function createViewerChatTools({
   includeSensitive,
   canAccessSlug,
   sessionUser = null,
+  onReadSensitive,
 }: {
   client: ConvexHttpClient;
   siteSlug: string;
   includeSensitive: boolean;
   canAccessSlug?: (slug: string) => Promise<boolean>;
   sessionUser?: SessionUser | null;
+  onReadSensitive?: (slug: string) => void;
 }) {
-  const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
+  const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug, onReadSensitive);
   const piiPatterns = await getPiiPatterns(client, siteSlug);
   const searchablePages = async () => {
     const corpus = getSearchCorpus(client, siteSlug, includeSensitive ? sessionUser : null, piiPatterns);
@@ -241,6 +249,7 @@ async function loadSystemPrompt(
   siteSlug: string,
   includeSensitive: boolean,
   canAccessSlug?: (slug: string) => Promise<boolean>,
+  canEditWiki = false,
 ): Promise<SystemPromptEntry> {
   const documents = documentsGateway(client, siteSlug, includeSensitive, canAccessSlug);
   const piiPatterns = await getPiiPatterns(client, siteSlug);
@@ -254,6 +263,7 @@ async function loadSystemPrompt(
   const prompt = composeWikiChatSystemPrompt({
     diagnosis: diagnosisDoc ? redact(diagnosisDoc.content) : null,
     index: indexDoc ? redact(indexDoc.content) : null,
+    canEditWiki,
   });
   const sensitiveSlugs = [indexDoc, diagnosisDoc]
     .filter((doc): doc is NonNullable<typeof doc> => doc?.sensitive === true)
@@ -267,9 +277,11 @@ async function buildSystemPrompt(
   includeSensitive: boolean,
   canAccessSlug?: (slug: string) => Promise<boolean>,
   accessCacheKey = "public",
+  canEditWiki = false,
+  manifestRevision = 0,
 ) {
-  const cacheKey = `${siteSlug}:${includeSensitive ? "session" : "public"}:${accessCacheKey}`;
-  const load = () => loadSystemPrompt(client, siteSlug, includeSensitive, canAccessSlug);
+  const cacheKey = `${siteSlug}:${includeSensitive ? "session" : "public"}:${accessCacheKey}:edit=${canEditWiki ? "1" : "0"}:rev=${manifestRevision}`;
+  const load = () => loadSystemPrompt(client, siteSlug, includeSensitive, canAccessSlug, canEditWiki);
   const entry = await getCachedSystemPrompt(cacheKey, load);
   // The cache outlives a role revocation. A prompt that embeds sensitive page
   // content is reused only while the viewer can still read every such page;
@@ -278,9 +290,12 @@ async function buildSystemPrompt(
     const allowed = canAccessSlug
       ? await Promise.all(entry.sensitiveSlugs.map((slug) => canAccessSlug(slug)))
       : [];
-    if (allowed.length !== entry.sensitiveSlugs.length || allowed.some((ok) => !ok)) return (await load()).prompt;
+    if (allowed.length !== entry.sensitiveSlugs.length || allowed.some((ok) => !ok)) {
+      const rebuilt = await load();
+      return { prompt: rebuilt.prompt, hasSensitivePromptContent: rebuilt.sensitiveSlugs.length > 0 };
+    }
   }
-  return entry.prompt;
+  return { prompt: entry.prompt, hasSensitivePromptContent: entry.sensitiveSlugs.length > 0 };
 }
 
 export async function handleChatRequest({
@@ -292,6 +307,7 @@ export async function handleChatRequest({
   canAccessSlug,
   accessCacheKey,
   sessionUser = null,
+  sessionTokenHash,
 }: {
   request: Request;
   client: ConvexHttpClient;
@@ -304,6 +320,8 @@ export async function handleChatRequest({
   accessCacheKey?: string;
   /** Signed-in viewer: grep_wiki searches the pages they may read. */
   sessionUser?: SessionUser | null;
+  /** Hashed HttpOnly user session token used for indexed admin/editor checks. */
+  sessionTokenHash?: string;
 }) {
   installClosedControllerGuard();
 
@@ -414,14 +432,102 @@ export async function handleChatRequest({
     runId,
     siteSlug,
   });
-  const systemPrompt = await buildSystemPrompt(
+  const editorState =
+    sessionTokenHash && isWikiEditConfiguredForSite(siteSlug)
+      ? await client
+          .query(api.wikiEdits.isSiteEditor, { siteSlug, sessionTokenHash })
+          .catch(() => ({ canEdit: false as const }))
+      : ({ canEdit: false as const });
+  const canEditWiki = editorState.canEdit;
+  const manifestRevision = editorState.canEdit ? editorState.manifestRevision : 0;
+
+  const { prompt: baseSystemPrompt, hasSensitivePromptContent } = await buildSystemPrompt(
     client,
     siteSlug,
     includeSensitive,
     canAccessSlug,
     accessCacheKey,
+    canEditWiki,
+    manifestRevision,
   );
-  const tools = await createViewerChatTools({ client, siteSlug, includeSensitive, canAccessSlug, sessionUser });
+  let systemPrompt = baseSystemPrompt;
+  if (canEditWiki && convId && sessionTokenHash) {
+    const recentProposals = await client
+      .query(api.wikiEdits.listForConversation, {
+        siteSlug,
+        sessionTokenHash,
+        ownerKey,
+        conversationId: String(convId),
+      })
+      .catch(() => []);
+    if (recentProposals.length > 0) {
+      const lines = recentProposals.map((item) => {
+        const suffix = item.commitSha ? ` (commit ${item.commitSha.slice(0, 7)})` : "";
+        return `- ${item.slug}: ${item.status}${suffix} — ${item.summary}`;
+      });
+      systemPrompt += `\n\n## RECENT WIKI EDIT PROPOSALS IN THIS CONVERSATION\n${lines.join("\n")}`;
+    }
+  }
+
+  let readSensitiveInSession = hasSensitivePromptContent;
+  const readTools = await createViewerChatTools({
+    client,
+    siteSlug,
+    includeSensitive,
+    canAccessSlug,
+    sessionUser,
+    onReadSensitive: () => {
+      readSensitiveInSession = true;
+    },
+  });
+  const tools = canEditWiki
+    ? {
+        ...readTools,
+        propose_wiki_edit: {
+          description:
+            "Propose a body-only search-and-replace edit to an existing wiki page for the user to review and approve. " +
+            "Never modifies YAML frontmatter, the primary H1 title, redacted/PII spans, or local asset/embed references. " +
+            "Every oldText must match the original page body uniquely and edits must not overlap. No change is written until the user approves.",
+          inputSchema: z.object({
+            slug: z.string().describe('Existing page slug, e.g. "wiki/treatment/plan"'),
+            edits: z
+              .array(
+                z.object({
+                  oldText: z.string().min(1).describe("Exact verbatim text from the original page body to replace"),
+                  newText: z.string().describe("Replacement text (must not introduce PII or alter H1/assets)"),
+                }),
+              )
+              .min(1)
+              .max(20),
+            summary: z.string().min(1).max(500).describe("Short summary of what this edit changes"),
+            commitMessage: z.string().max(120).optional().describe("Optional single-line git commit subject"),
+          }),
+          execute: async ({
+            slug,
+            edits,
+            summary,
+            commitMessage,
+          }: {
+            slug: string;
+            edits: Array<{ oldText: string; newText: string }>;
+            summary: string;
+            commitMessage?: string;
+          }) =>
+            proposeWikiEdit({
+              client,
+              siteSlug,
+              sessionTokenHash: sessionTokenHash!,
+              ownerKey,
+              conversationId: convId ? String(convId) : undefined,
+              slug,
+              edits,
+              summary,
+              commitMessage,
+              readSensitiveInSession,
+            }),
+        },
+      }
+    : readTools;
   const { audience, ...settings } = wikiChatRunSettings({ audience: wikiChatAudience(process.env, request.headers) });
 
   const result = streamText({
@@ -469,12 +575,6 @@ export async function handleChatRequest({
     },
     onFinish: async ({ text, steps }) => {
       if (!convId) return;
-      // The last step cannot call tools, so this is rare: a model that stopped
-      // without writing. Save a visible reply rather than nothing.
-      if (!text.trim()) {
-        await flusher.finalizeError(WIKI_CHAT_EMPTY_ANSWER, generateMessageId());
-        return;
-      }
       const uiParts: Array<Record<string, unknown>> = [];
       for (const step of steps) {
         for (const reasoning of step.reasoning) {
@@ -499,19 +599,29 @@ export async function handleChatRequest({
         }
         if (step.text) uiParts.push({ type: "text", text: step.text });
       }
-      await flusher.finalize(
-        text
-          ? [
-              {
-                role: "assistant",
-                content: text,
-                parts: uiParts as unknown as string,
-                createdAt: Date.now(),
-                messageId: generateMessageId(),
-              },
-            ]
-          : [],
-      );
+      const hasProposalPart = uiParts.some((part) => part.toolName === "propose_wiki_edit");
+      // The last step cannot call tools, so empty text is rare: a model that
+      // stopped without writing. Save a visible reply rather than nothing,
+      // unless a wiki-edit proposal card was emitted (preserve its tool part!).
+      if (!text.trim() && !hasProposalPart) {
+        await flusher.finalizeError(WIKI_CHAT_EMPTY_ANSWER, generateMessageId());
+        return;
+      }
+      const persistedText = text.trim()
+        ? text
+        : "I proposed a wiki edit above — review the diff and approve or reject it.";
+      if (!text.trim()) {
+        uiParts.push({ type: "text", text: persistedText });
+      }
+      await flusher.finalize([
+        {
+          role: "assistant",
+          content: persistedText,
+          parts: uiParts as unknown as string,
+          createdAt: Date.now(),
+          messageId: generateMessageId(),
+        },
+      ]);
     },
   });
 

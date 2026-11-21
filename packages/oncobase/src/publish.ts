@@ -22,7 +22,7 @@ import {
   type PublishAsset,
   type PublishDocument,
 } from "./walk-vault";
-import { ensureCleanVault } from "./working-tree";
+import { ensureCleanVault, ensureUpToDateWithUpstream } from "./working-tree";
 import { publisherPost } from "./publish-post";
 import { installPublishProfile, publishProfile } from "./publish-profile";
 import { WorkQueue } from "./work-queue";
@@ -211,7 +211,7 @@ const { values } = parseArgs({ args: process.argv.slice(2), options: {
   "cache": { type: "string", default: "content" }, "coordination": { type: "string", default: "auto" },
   "dry-run": { type: "boolean" }, force: { type: "boolean" }, "confirm-full-republish": { type: "boolean" },
   "confirm-large-asset-upload": { type: "boolean" }, "confirm-tombstone": { type: "boolean" },
-  "sync-first": { type: "boolean" }, "no-sync-preflight": { type: "boolean" }, "allow-dirty": { type: "boolean" },
+  "sync-first": { type: "boolean" }, "no-sync-preflight": { type: "boolean" }, "allow-dirty": { type: "boolean" }, "allow-behind": { type: "boolean" },
   help: { type: "boolean" },
 } });
 function positiveOption(value: string | undefined, fallback: number, maximum: number, name: string) {
@@ -242,6 +242,7 @@ const confirmTombstone = values["confirm-tombstone"] || force;
 const syncFirst = values["sync-first"];
 const noSyncPreflight = values["no-sync-preflight"];
 const allowDirty = values["allow-dirty"];
+const allowBehind = values["allow-behind"];
 const assetScope = values["asset-files-from"] ? readPublishAssetScope(values["asset-files-from"]) : undefined;
 let scope = values["files-from"] ? readPublishScope(values["files-from"]) : assetScope ? new Set<string>() : undefined;
 const scoped = Boolean(scope || values["changed-since"]);
@@ -267,6 +268,7 @@ if (!site || values.help) {
   --sync-first                  Pull remote changes before a real publish
   --no-sync-preflight            Skip the whole-vault default sync (scoped publishes skip it by default)
   --allow-dirty                 Allow an uncommitted local vault
+  --allow-behind                Allow publishing when HEAD is behind its Git upstream
   --force --confirm-full-republish | --confirm-large-asset-upload | --confirm-tombstone`);
   process.exit(values.help ? 0 : 1);
 }
@@ -295,6 +297,9 @@ const config = publishProfile.sync("config", () => {
 if (values["changed-since"] && (values["files-from"] || allowDirty || syncFirst)) throw new Error("--changed-since conflicts with --files-from, --allow-dirty and --sync-first");
 const token = loadPublishToken(site);
 publishProfile.sync("git.check", () => ensureCleanVault(config.vaultPath, { allowDirty }));
+if (!dryRun) {
+  publishProfile.sync("git.upstream", () => ensureUpToDateWithUpstream(config.vaultPath, { allowBehind }));
+}
 
 if (values["changed-since"]) {
   scope = publishProfile.sync("git.scope", () => readGitPublishScope(config.vaultPath, values["changed-since"]!));

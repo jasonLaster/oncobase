@@ -3,6 +3,7 @@ import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { isManifestFileAssetPath, parseWikiManifest } from "@oncobase/wiki-content";
+import { embed } from "./embeddings";
 import { withSiteSlug } from "./reader-access.js";
 import { siteBlobKey } from "./blob";
 import { traceBackendPhase, traceBackendAttributes, backendClientTraceId } from "./backend-tracing";
@@ -442,6 +443,305 @@ async function checkReader(client: ConvexHttpClient, siteSlug: string, body: Rea
   });
 }
 
+export type ScopedDocumentInput = {
+  slug: string;
+  title: string;
+  content: string;
+  tags: string[];
+  sensitiveInclude: string[];
+  hash: string;
+  sensitive: boolean;
+  embedding?: number[];
+};
+
+async function upsertPublishedDocument({
+  client,
+  siteSlug,
+  piiPatterns,
+  runId,
+  slug,
+  title,
+  content,
+  tags,
+  sensitiveInclude,
+  hash,
+  hashFunctionVersion,
+  embedding,
+  sensitive,
+}: {
+  client: ConvexHttpClient;
+  siteSlug: string;
+  piiPatterns: PiiPattern[] | undefined;
+  runId?: string;
+  slug: string;
+  title: string;
+  content: string;
+  tags: string[];
+  sensitiveInclude: string[];
+  hash: string;
+  hashFunctionVersion?: number;
+  embedding?: number[];
+  sensitive: boolean;
+}) {
+  const { redactedContent, rawContent } = await traceBackendPhase("publish.document.prepare", () => {
+    // Protocol hash v3 covers the exact source content and visibility fields.
+    if (runId?.startsWith(OWNED_RUN_PREFIX) || hashFunctionVersion === 3) {
+      const computed = crypto
+        .createHash("sha256")
+        .update(
+          JSON.stringify({
+            title,
+            content,
+            tags,
+            sensitive,
+            sensitiveInclude,
+          }),
+        )
+        .digest("hex")
+        .slice(0, 16);
+      if (hashFunctionVersion !== 3 || hash !== computed) {
+        throw new Response("Source content does not match hash/version", { status: 400 });
+      }
+    }
+    const redactedContent = applyPiiRedactions(content, { patterns: piiPatterns });
+    const bytes =
+      new TextEncoder().encode(content).byteLength +
+      new TextEncoder().encode(redactedContent).byteLength;
+    return {
+      redactedContent,
+      rawContent: bytes <= MAX_DOCUMENT_CONTENT_STORAGE_BYTES ? content : undefined,
+    };
+  });
+  await renewPublishLease(client, siteSlug, runId);
+  const owned = typeof runId === "string" && runId.startsWith(OWNED_RUN_PREFIX);
+  await client.mutation(
+    api.documents.upsert,
+    withSiteSlug(siteSlug, {
+      runId,
+      slug,
+      title,
+      content: redactedContent,
+      rawContent,
+      replaceRawContent: true,
+      tags,
+      sensitiveInclude,
+      contentHash: hash,
+      hashFunctionVersion,
+      sensitive,
+    }),
+    // Scoped transactions validate ownership and avoid shared site writes.
+    // Allow independent documents through the HTTP client mutation queue.
+    { skipQueue: owned },
+  );
+  if (Array.isArray(embedding)) {
+    await client.mutation(
+      api.documents.upsertEmbedding,
+      withSiteSlug(siteSlug, { slug, embedding, embeddingHash: hash, runId }),
+      { skipQueue: owned },
+    );
+  }
+}
+
+async function verifyAndCompleteScopedPublish({
+  client,
+  siteSlug,
+  runId,
+  verification,
+  hashFunctionVersion,
+  documents,
+  assets,
+}: {
+  client: ConvexHttpClient;
+  siteSlug: string;
+  runId: string;
+  verification: "content" | "metadata";
+  hashFunctionVersion: number;
+  documents: Array<{
+    slug: string;
+    hash: string;
+    sensitive: boolean;
+    sensitiveInclude: string[];
+  }>;
+  assets: Array<{
+    path: string;
+    kind: "pdf" | "file";
+    hash: string;
+    visibilityHash: string;
+    sensitive: boolean;
+    sizeBytes: number;
+  }>;
+}) {
+  await traceBackendPhase("publish.state", async () => {
+    const batches = Math.max(Math.ceil(documents.length / 16), Math.ceil(assets.length / 128));
+    // At most two bounded reads in flight; no full-feed reads or database budget increase.
+    for (let offset = 0; offset < batches; offset += 2) {
+      const checked = await Promise.allSettled(
+        Array.from({ length: Math.min(2, batches - offset) }, async (_, index) => {
+          const batch = offset + index;
+          const docSlice = documents.slice(batch * 16, (batch + 1) * 16);
+          const assetSlice = assets.slice(batch * 128, (batch + 1) * 128);
+          const state = await client.query(api.documents.publisherState, {
+            siteSlug,
+            slugs: docSlice.map((doc) => doc.slug),
+            assets: assetSlice.map((asset) => ({ path: asset.path, kind: asset.kind })),
+          });
+          if (
+            state.version !== 1 ||
+            state.documents.length !== docSlice.length ||
+            state.assets.length !== assetSlice.length ||
+            docSlice.some((doc, i) => {
+              const remote = state.documents[i]!;
+              return (
+                remote.slug !== doc.slug ||
+                !remote.exists ||
+                remote.contentHash !== doc.hash ||
+                remote.hashFunctionVersion !== hashFunctionVersion ||
+                (verification === "content" &&
+                  (remote.observedHash !== doc.hash || remote.readerContentConsistent !== true)) ||
+                remote.sensitive !== doc.sensitive ||
+                JSON.stringify(remote.sensitiveInclude) !== JSON.stringify(doc.sensitiveInclude)
+              );
+            }) ||
+            assetSlice.some((asset, i) => {
+              const remote = state.assets[i]!;
+              return (
+                remote.path !== asset.path ||
+                remote.kind !== asset.kind ||
+                !remote.exists ||
+                !remote.hasBlob ||
+                !remote.hasVisibility ||
+                remote.contentHash !== asset.hash ||
+                remote.visibilityHash !== asset.visibilityHash ||
+                remote.observedVisibilityHash !== asset.visibilityHash ||
+                remote.sizeBytes !== asset.sizeBytes
+              );
+            })
+          ) {
+            throw new Error("Stored content or asset verification failed; publish was not finished");
+          }
+        }),
+      );
+      const failure = checked.find((result) => result.status === "rejected");
+      if (failure?.status === "rejected") throw failure.reason;
+    }
+  });
+  const finished = await client.mutation(api.sites.finishPublish, {
+    slug: siteSlug,
+    runId,
+    clientTraceId: backendClientTraceId(),
+  });
+  // Preserve the commit boundary even if the independent reader check fails.
+  // The client can poll status; it must not abort/replay a completed run.
+  try {
+    const readiness = await checkReader(client, siteSlug, {
+      minimumRevision: finished.revision,
+      documents,
+      assets,
+    });
+    return { ...readiness, committed: true as const, revision: finished.revision };
+  } catch {
+    return { committed: true as const, revision: finished.revision, ready: false };
+  }
+}
+
+/**
+ * In-process scoped document publisher shared by Chat wiki-edit approvals so
+ * server-initiated writes enforce the exact same hash v3, PII redaction,
+ * 950 KB rawContent cap, publisherState verification, and manifest finish
+ * pipeline as `oncobase publish`.
+ */
+export async function publishScopedDocumentsInProcess({
+  client,
+  siteSlug,
+  documents,
+  embedDocument,
+}: {
+  client: ConvexHttpClient;
+  siteSlug: string;
+  documents: ScopedDocumentInput[];
+  embedDocument?: (doc: ScopedDocumentInput) => Promise<number[] | undefined>;
+}) {
+  if (documents.length === 0 || documents.length > 1000) {
+    throw new Error("Scoped publish requires between 1 and 1000 documents");
+  }
+  const site = await client.query(api.sites.getBySlug, { slug: siteSlug });
+  if (!site) throw new Error(`Site not found: ${siteSlug}`);
+  const piiPatterns = sitePiiPatterns(site);
+  const runId = `${OWNED_RUN_PREFIX}${crypto.randomUUID()}`;
+  const runScope = { documents: documents.map((doc) => doc.slug), assets: [] as string[] };
+
+  await traceBackendPhase("publish.lock", () =>
+    client.mutation(api.sites.beginPublish, { slug: siteSlug, runId, scope: runScope }),
+  );
+
+  let completed = false;
+  try {
+    for (const doc of documents) {
+      let embedding = doc.embedding;
+      if (embedding === undefined) {
+        try {
+          embedding = embedDocument
+            ? await embedDocument(doc)
+            : process.env.OPENAI_API_KEY
+              ? await embed(doc.content)
+              : undefined;
+        } catch (error) {
+          // Missing embeddings self-heal on the next CLI publish; never fail a committed edit on OpenAI latency/errors.
+          console.warn(`[publish] optional embedding skipped for ${doc.slug}:`, error instanceof Error ? error.message : String(error));
+        }
+      }
+      await upsertPublishedDocument({
+        client,
+        siteSlug,
+        piiPatterns,
+        runId,
+        slug: doc.slug,
+        title: doc.title,
+        content: doc.content,
+        tags: doc.tags,
+        sensitiveInclude: doc.sensitiveInclude,
+        hash: doc.hash,
+        hashFunctionVersion: 3,
+        embedding,
+        sensitive: doc.sensitive,
+      });
+    }
+
+    const bytesOk = documents.every((doc) => {
+      const redacted = applyPiiRedactions(doc.content, { patterns: piiPatterns });
+      return (
+        new TextEncoder().encode(doc.content).byteLength +
+          new TextEncoder().encode(redacted).byteLength <=
+        MAX_DOCUMENT_CONTENT_STORAGE_BYTES
+      );
+    });
+    const result = await verifyAndCompleteScopedPublish({
+      client,
+      siteSlug,
+      runId,
+      verification: bytesOk ? "content" : "metadata",
+      hashFunctionVersion: 3,
+      documents: documents.map((doc) => ({
+        slug: doc.slug,
+        hash: doc.hash,
+        sensitive: doc.sensitive,
+        sensitiveInclude: doc.sensitiveInclude,
+      })),
+      assets: [],
+    });
+    completed = true;
+    return result;
+  } catch (error) {
+    if (!completed) {
+      const message = error instanceof Error ? error.message : String(error);
+      await client
+        .mutation(api.sites.failPublish, { slug: siteSlug, runId, error: message })
+        .catch(() => {});
+    }
+    throw error;
+  }
+}
+
 export async function handlePublishRequest({
   request,
   client,
@@ -765,46 +1065,21 @@ export async function handlePublishRequest({
           status: 400,
         });
       }
-      const { redactedContent, rawContent } = await traceBackendPhase("publish.document.prepare", () => {
-        // Protocol hash v3 covers the exact source content and visibility fields.
-        if (body.runId?.startsWith(OWNED_RUN_PREFIX) || hashFunctionVersion === 3) {
-          const computed = crypto.createHash("sha256").update(JSON.stringify({ title, content,
-            tags: Array.isArray(tags) ? tags : [], sensitive: sensitive === true,
-            sensitiveInclude: Array.isArray(sensitiveInclude) ? sensitiveInclude : [],
-          })).digest("hex").slice(0, 16);
-          if (hashFunctionVersion !== 3 || hash !== computed) throw new Response("Source content does not match hash/version", { status: 400 });
-        }
-        const redactedContent = applyPiiRedactions(content, { patterns: piiPatterns });
-        const bytes = new TextEncoder().encode(content).byteLength + new TextEncoder().encode(redactedContent).byteLength;
-        return { redactedContent, rawContent: bytes <= MAX_DOCUMENT_CONTENT_STORAGE_BYTES ? content : undefined };
+      await upsertPublishedDocument({
+        client,
+        siteSlug,
+        piiPatterns,
+        runId: typeof body.runId === "string" ? body.runId : undefined,
+        slug,
+        title,
+        content,
+        tags: Array.isArray(tags) ? tags : [],
+        sensitiveInclude: Array.isArray(sensitiveInclude) ? sensitiveInclude : [],
+        hash,
+        hashFunctionVersion,
+        embedding: Array.isArray(embedding) ? embedding : undefined,
+        sensitive: sensitive === true,
       });
-      await renewPublishLease(client, siteSlug, body.runId);
-      await client.mutation(
-        api.documents.upsert,
-        withSiteSlug(siteSlug, {
-          runId: typeof body.runId === "string" ? body.runId : undefined,
-          slug,
-          title,
-          content: redactedContent,
-          rawContent,
-          replaceRawContent: true,
-          tags: Array.isArray(tags) ? tags : [],
-          sensitiveInclude: Array.isArray(sensitiveInclude) ? sensitiveInclude : [],
-          contentHash: hash,
-          hashFunctionVersion,
-          sensitive: sensitive === true,
-        }),
-        // Scoped transactions validate ownership and avoid shared site writes.
-        // Allow independent documents through the HTTP client mutation queue.
-        { skipQueue: typeof body.runId === "string" && body.runId.startsWith(OWNED_RUN_PREFIX) },
-      );
-      if (Array.isArray(embedding)) {
-        await client.mutation(
-          api.documents.upsertEmbedding,
-          withSiteSlug(siteSlug, { slug, embedding, embeddingHash: hash, runId: typeof body.runId === "string" ? body.runId : undefined }),
-          { skipQueue: typeof body.runId === "string" && body.runId.startsWith(OWNED_RUN_PREFIX) },
-        );
-      }
       return Response.json({ ok: true });
     }
 
@@ -836,41 +1111,17 @@ export async function handlePublishRequest({
           !sameScope(site.publishScope.assets, body.assets.map(assetKey))) {
         return new Response("Completion must verify the entire declared scope", { status: 409 });
       }
-      await traceBackendPhase("publish.state", async () => {
-        const batches = Math.max(Math.ceil(body.documents.length / 16), Math.ceil(body.assets.length / 128));
-        // At most two bounded reads in flight; no full-feed reads or database budget increase.
-        for (let offset = 0; offset < batches; offset += 2) {
-          const checked = await Promise.allSettled(Array.from({ length: Math.min(2, batches - offset) }, async (_, index) => {
-            const batch = offset + index;
-            const documents = body.documents.slice(batch * 16, (batch + 1) * 16);
-            const assets = body.assets.slice(batch * 128, (batch + 1) * 128);
-            const state = await client.query(api.documents.publisherState, { siteSlug,
-              slugs: documents.map((doc: any) => doc.slug), assets: assets.map((asset: any) => ({ path: asset.path, kind: asset.kind })) });
-            if (state.version !== 1 || state.documents.length !== documents.length || state.assets.length !== assets.length ||
-                documents.some((doc: any, i: number) => {
-                  const remote = state.documents[i];
-                  return remote.slug !== doc.slug || !remote.exists || remote.contentHash !== doc.hash || remote.hashFunctionVersion !== body.hashFunctionVersion ||
-                    (body.verification === "content" && (remote.observedHash !== doc.hash || remote.readerContentConsistent !== true)) ||
-                    remote.sensitive !== doc.sensitive || JSON.stringify(remote.sensitiveInclude) !== JSON.stringify(doc.sensitiveInclude);
-                }) || assets.some((asset: any, i: number) => {
-                  const remote = state.assets[i];
-                  return remote.path !== asset.path || remote.kind !== asset.kind || !remote.exists || !remote.hasBlob || !remote.hasVisibility ||
-                    remote.contentHash !== asset.hash || remote.visibilityHash !== asset.visibilityHash || remote.observedVisibilityHash !== asset.visibilityHash || remote.sizeBytes !== asset.sizeBytes;
-                })) throw new Error("Stored content or asset verification failed; publish was not finished");
-          }));
-          const failure = checked.find(result => result.status === "rejected");
-          if (failure?.status === "rejected") throw failure.reason;
-        }
-      });
-      const finished = await client.mutation(api.sites.finishPublish, { slug: siteSlug, runId: body.runId, clientTraceId: backendClientTraceId() });
-      // Preserve the commit boundary even if the independent reader check fails.
-      // The client can poll status; it must not abort/replay a completed run.
-      try {
-        const readiness = await checkReader(client, siteSlug, { ...body, minimumRevision: finished.revision });
-        return Response.json({ ...readiness, committed: true, revision: finished.revision });
-      } catch {
-        return Response.json({ committed: true, revision: finished.revision, ready: false });
-      }
+      return Response.json(
+        await verifyAndCompleteScopedPublish({
+          client,
+          siteSlug,
+          runId: body.runId,
+          verification: body.verification,
+          hashFunctionVersion: body.hashFunctionVersion,
+          documents: body.documents,
+          assets: body.assets,
+        }),
+      );
     }
 
     if (step === "finish" || step === "scoped/finish") {

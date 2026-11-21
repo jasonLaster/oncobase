@@ -71,6 +71,16 @@
       "types": "./src/manifest-tree.ts",
       "import": "./src/manifest-tree.ts",
       "default": "./src/manifest-tree.ts"
+    },
+    "./markdown-document": {
+      "types": "./src/markdown-document.ts",
+      "import": "./src/markdown-document.ts",
+      "default": "./src/markdown-document.ts"
+    },
+    "./wiki-edit-patch": {
+      "types": "./src/wiki-edit-patch.ts",
+      "import": "./src/wiki-edit-patch.ts",
+      "default": "./src/wiki-edit-patch.ts"
     }
   },
   "scripts": {
