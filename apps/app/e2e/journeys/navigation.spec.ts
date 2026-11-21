@@ -238,6 +238,49 @@ Review morphology and biomarkers together.
     await waitForPageTitle(page, "Telli 2016 HRD Platinum TNBC");
   });
 
+  test("a deep link reveals the page in the file tree even after its folders were collapsed by hand", async ({ page }) => {
+    // Regression: stored collapse choices overrode the active-ancestor default,
+    // so a deep link into a collapsed folder left the page hidden in the tree.
+    const slug = "sources/diagnostics/sample-report/sample-report";
+    await installWikiApiMocks(page, {
+      // A sibling keeps sample-report a real folder (single-page folders flatten).
+      pageOverrides: {
+        [slug]: { title: "Sample report", tags: [], content: "# Sample report\n\nResults." },
+        "sources/diagnostics/sample-report/originals": { title: "Originals", tags: [], content: "# Originals" },
+      },
+    });
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem("tree-seeded")) return;
+      sessionStorage.setItem("tree-seeded", "1");
+      localStorage.setItem("wiki-vite-expanded-directories", JSON.stringify({
+        sources: false,
+        "sources/diagnostics": false,
+        "sources/diagnostics/sample-report": false,
+      }));
+    });
+    await gotoWiki(page, `/${slug}`);
+    await waitForPageTitle(page, "Sample report");
+    const sidebar = page.getByTestId("wiki-sidebar");
+    await expect(sidebar.locator(`a[href="/${slug}"]`)).toBeVisible();
+    for (const name of ["sources", "diagnostics", "sample report"]) {
+      await expect(
+        sidebar.getByRole("button", { name: new RegExp(`^(Expand|Collapse) ${name}$`, "i") }).first(),
+      ).toHaveAttribute("aria-expanded", "true");
+    }
+
+    // Collapsing an ancestor of the current page by hand sticks until the
+    // next navigation.
+    const diagnostics = sidebar.getByRole("button", { name: /^(Expand|Collapse) diagnostics$/i }).first();
+    await diagnostics.click();
+    await expect(diagnostics).toHaveAttribute("aria-expanded", "false");
+    await expect(sidebar.locator(`a[href="/${slug}"]`)).toHaveCount(0);
+
+    // The next navigation to the page reveals it again.
+    await gotoWiki(page, "/about/About");
+    await gotoWiki(page, `/${slug}`);
+    await expect(sidebar.locator(`a[href="/${slug}"]`)).toBeVisible();
+  });
+
   test("note pages link to available sibling notes only, and unrelated pages show none", async ({ page }) => {
     const base = "sources/meeting-notes/09-13---care-planning";
     await installWikiApiMocks(page, {

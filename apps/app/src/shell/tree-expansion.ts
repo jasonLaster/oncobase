@@ -75,6 +75,29 @@ export function toggleDirectory(slug: string, nextOpen: boolean) {
   emit();
 }
 
+/**
+ * Opens directories the reader explicitly collapsed earlier, so landing on a
+ * page (deep link, palette, back/forward) shows it in the tree. Directories
+ * without a stored choice already open through the active-ancestor default.
+ */
+export function revealDirectories(slugs: Iterable<string>) {
+  const current = getSnapshot();
+  let next: Map<string, boolean> | undefined;
+  for (const slug of slugs) {
+    if (current.get(slug) !== false) continue;
+    next ??= new Map(current);
+    next.set(slug, true);
+  }
+  if (!next) return;
+  snapshot = next;
+  try {
+    safeLocalStorage.setItem(TREE_EXPANSION_KEY, JSON.stringify(Object.fromEntries(next)));
+  } catch {
+    // Keep working in memory when preferences cannot be saved.
+  }
+  emit();
+}
+
 export function useExpandedDirectories() {
   // Both navigation surfaces subscribe to the same choices, including when
   // one is hidden by the responsive layout.

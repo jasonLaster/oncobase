@@ -34,7 +34,7 @@ import {
   useNavigationSlug,
 } from "./navigation-intent";
 import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
-import { toggleDirectory, useExpandedDirectories } from "./tree-expansion";
+import { revealDirectories, toggleDirectory, useExpandedDirectories } from "./tree-expansion";
 import { NavigationStatus } from "./ReaderStatus";
 import { isDocumentRoute, pathnameMatchesRoutePrefix } from "./document-routes";
 import { PhoneIcon } from "../talk/PhoneIcon";
@@ -213,6 +213,12 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
     () => collectActiveAncestors(tree, activeSlug),
     [activeSlug, tree],
   );
+  // Reveal only when the location changes, so collapsing an ancestor of the
+  // current page by hand still sticks until the next navigation.
+  useEffect(() => {
+    revealDirectories(activeAncestorSlugs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationSlug, tree]);
   return { activeAncestorSlugs, expandedSlugs, toggleDirectory };
 }
 
