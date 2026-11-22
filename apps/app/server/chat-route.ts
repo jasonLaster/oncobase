@@ -463,7 +463,9 @@ export async function handleChatRequest({
     if (recentProposals.length > 0) {
       const lines = recentProposals.map((item) => {
         const suffix = item.commitSha ? ` (commit ${item.commitSha.slice(0, 7)})` : "";
-        return `- ${item.slug}: ${item.status}${suffix} — ${item.summary}`;
+        const targetLabel =
+          item.fileCount > 1 ? `${item.fileCount} pages (${item.slugs.join(", ")})` : item.slug;
+        return `- ${targetLabel}: ${item.status}${suffix} — ${item.summary}`;
       });
       systemPrompt += `\n\n## RECENT WIKI EDIT PROPOSALS IN THIS CONVERSATION\n${lines.join("\n")}`;
     }
@@ -485,33 +487,75 @@ export async function handleChatRequest({
         ...readTools,
         propose_wiki_edit: {
           description:
-            "Propose a body-only search-and-replace edit to an existing wiki page for the user to review and approve. " +
-            "Never modifies YAML frontmatter, the primary H1 title, redacted/PII spans, or local asset/embed references. " +
-            "Every oldText must match the original page body uniquely and edits must not overlap. No change is written until the user approves.",
+            "Propose coordinated wiki updates across one or more pages (editing existing pages and/or creating new pages) in a single atomic reviewable changeset. " +
+            "Bundle related multi-page updates (such as creating a new page and adding links to it on an index page) into one call. " +
+            "For edits: never modify YAML frontmatter, the primary H1 title, redacted/PII spans, or local asset/embed references; every oldText must match uniquely and edits must not overlap. " +
+            "For new pages: provide clean slug (no .md), title, optional tags, sensitive (defaults to true), and Markdown body without frontmatter or duplicate H1. " +
+            "No change is written until the user clicks Approve & Publish.",
           inputSchema: z.object({
-            slug: z.string().describe('Existing page slug, e.g. "wiki/treatment/plan"'),
+            summary: z.string().min(1).max(500).describe("Short summary of what this changeset does"),
+            commitMessage: z.string().max(120).optional().describe("Optional single-line git commit subject"),
+            pages: z
+              .array(
+                z.union([
+                  z.object({
+                    operation: z.literal("edit").optional().describe('Edit an existing page (default)'),
+                    slug: z.string().describe('Existing page slug, e.g. "wiki/diagnostics/ctdna-mrd"'),
+                    edits: z
+                      .array(
+                        z.object({
+                          oldText: z.string().min(1).describe("Exact verbatim text from the original page body to replace"),
+                          newText: z.string().describe("Replacement text (must not introduce PII or alter H1/assets)"),
+                        }),
+                      )
+                      .min(1)
+                      .max(20),
+                  }),
+                  z.object({
+                    operation: z.literal("create").describe("Create a brand-new wiki page"),
+                    slug: z.string().describe('New relative slug without .md, e.g. "wiki/diagnostics/ctdna-vendors"'),
+                    title: z.string().min(1).max(200).describe("Page title (used for YAML frontmatter and H1)"),
+                    tags: z.array(z.string()).max(12).optional().describe("Optional frontmatter tags"),
+                    sensitive: z
+                      .boolean()
+                      .optional()
+                      .describe("Defaults to true (fail-closed); set false only for intentionally public pages"),
+                    body: z.string().min(1).describe("Markdown body without YAML frontmatter (use ## for sections)"),
+                  }),
+                ]),
+              )
+              .min(1)
+              .max(10)
+              .optional()
+              .describe("One or more pages to edit or create atomically"),
+            // Legacy single-page fallback fields kept optional for smooth prompt transitions.
+            slug: z.string().optional(),
             edits: z
               .array(
                 z.object({
-                  oldText: z.string().min(1).describe("Exact verbatim text from the original page body to replace"),
-                  newText: z.string().describe("Replacement text (must not introduce PII or alter H1/assets)"),
+                  oldText: z.string().min(1),
+                  newText: z.string(),
                 }),
               )
               .min(1)
-              .max(20),
-            summary: z.string().min(1).max(500).describe("Short summary of what this edit changes"),
-            commitMessage: z.string().max(120).optional().describe("Optional single-line git commit subject"),
+              .max(20)
+              .optional(),
           }),
           execute: async ({
-            slug,
-            edits,
             summary,
             commitMessage,
+            pages,
+            slug,
+            edits,
           }: {
-            slug: string;
-            edits: Array<{ oldText: string; newText: string }>;
             summary: string;
             commitMessage?: string;
+            pages?: Array<
+              | { operation?: "edit"; slug: string; edits: Array<{ oldText: string; newText: string }> }
+              | { operation: "create"; slug: string; title: string; tags?: string[]; sensitive?: boolean; body: string }
+            >;
+            slug?: string;
+            edits?: Array<{ oldText: string; newText: string }>;
           }) =>
             proposeWikiEdit({
               client,
@@ -519,6 +563,7 @@ export async function handleChatRequest({
               sessionTokenHash: sessionTokenHash!,
               ownerKey,
               conversationId: convId ? String(convId) : undefined,
+              pages,
               slug,
               edits,
               summary,

@@ -47,9 +47,43 @@ async function requireEditor(ctx: AnyCtx, site: SiteCtx, sessionTokenHash: strin
   return user;
 }
 
+const proposalFileValidator = v.object({
+  slug: v.string(),
+  title: v.string(),
+  filePath: v.string(),
+  operation: v.union(v.literal("edit"), v.literal("create")),
+  baseFileSha: v.optional(v.string()),
+  baseContentHash: v.optional(v.string()),
+  sensitive: v.boolean(),
+  edits: v.array(v.object({ oldText: v.string(), newText: v.string() })),
+  newContent: v.optional(v.string()),
+  redactedDiff: v.string(),
+  stats: v.object({ additions: v.number(), deletions: v.number() }),
+  firstChangedHeading: v.optional(v.string()),
+});
+
+function normalizeProposalFiles(doc: Doc<"wikiEditProposals">) {
+  if (doc.files && doc.files.length > 0) return doc.files;
+  return [
+    {
+      slug: doc.slug,
+      title: doc.title,
+      filePath: doc.filePath,
+      operation: "edit" as const,
+      baseFileSha: doc.baseFileSha,
+      baseContentHash: doc.baseContentHash,
+      sensitive: doc.sensitive,
+      edits: doc.edits,
+      redactedDiff: doc.redactedDiff,
+      stats: doc.stats,
+    },
+  ];
+}
+
 function projectProposal(doc: Doc<"wikiEditProposals">, now: number) {
   const effectiveStatus =
     doc.status === "pending" && doc.expiresAt <= now ? ("expired" as const) : doc.status;
+  const files = normalizeProposalFiles(doc);
   return {
     _id: doc._id,
     slug: doc.slug,
@@ -65,6 +99,7 @@ function projectProposal(doc: Doc<"wikiEditProposals">, now: number) {
     commitMessage: doc.commitMessage,
     redactedDiff: doc.redactedDiff,
     stats: doc.stats,
+    files,
     status: effectiveStatus,
     commitSha: doc.commitSha,
     commitUrl: doc.commitUrl,
@@ -111,6 +146,7 @@ export const createProposal = mutation({
     commitMessage: v.string(),
     redactedDiff: v.string(),
     stats: v.object({ additions: v.number(), deletions: v.number() }),
+    files: v.optional(v.array(proposalFileValidator)),
   },
   handler: async (ctx, args) => {
     const site = await requireSite(ctx, args.siteSlug);
@@ -138,6 +174,7 @@ export const createProposal = mutation({
       commitMessage: args.commitMessage,
       redactedDiff: args.redactedDiff,
       stats: args.stats,
+      ...(args.files && args.files.length > 0 ? { files: args.files } : {}),
       status: "pending",
       createdAt: now,
       updatedAt: now,
@@ -191,14 +228,19 @@ export const listForConversation = query({
       .order("desc")
       .take(10);
     const now = Date.now();
-    return rows.map((row) => ({
-      proposalId: row._id,
-      slug: row.slug,
-      summary: row.summary,
-      status: row.status === "pending" && row.expiresAt <= now ? ("expired" as const) : row.status,
-      commitSha: row.commitSha,
-      publishedRevision: row.publishedRevision,
-    }));
+    return rows.map((row) => {
+      const files = normalizeProposalFiles(row);
+      return {
+        proposalId: row._id,
+        slug: row.slug,
+        slugs: files.map((file) => file.slug),
+        fileCount: files.length,
+        summary: row.summary,
+        status: row.status === "pending" && row.expiresAt <= now ? ("expired" as const) : row.status,
+        commitSha: row.commitSha,
+        publishedRevision: row.publishedRevision,
+      };
+    });
   },
 });
 

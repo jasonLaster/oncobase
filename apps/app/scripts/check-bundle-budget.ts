@@ -251,7 +251,11 @@ const storeGzipBudget = 828_500;
 // measured 4,257,366 B: 4,253,048 -> 4,259,500.
 // The moved stylesheets add 30.4 KiB to the lazy pool (26 KiB of CSS, gzipped
 // per chunk instead of in one file), measured 4,287,852 B: -> 4,292,500.
-const lazyGzipBudget = 4_292_500;
+// Chat wiki-edit V2 right review panel (Changed files tree, line-numbered Raw
+// diff, WikiMarkdown Preview) loads lazily only when an editor opens a proposal,
+// adding ~5.5 KiB to the lazy pool without changing paint/store/eager limits:
+// 4,292,500 -> 4,302,000.
+const lazyGzipBudget = 4_302_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

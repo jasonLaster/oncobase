@@ -644,6 +644,73 @@ a {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.wiki-vite-chat-workspace {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.wiki-vite-chat-workspace > .wiki-vite-chat-page {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wiki-vite-chat-workspace.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.wiki-edit-review-resizer {
+  display: none;
+}
+
+.wiki-edit-review-pane {
+  background: var(--background);
+  inset: 0;
+  min-height: 0;
+  position: fixed;
+  z-index: 60;
+}
+
+@media (min-width: 1024px) {
+  .wiki-vite-chat-workspace.has-review-panel > .wiki-vite-chat-page {
+    flex: 1 1 calc(100% - var(--wiki-edit-panel-width, 58%));
+    min-width: 340px;
+  }
+
+  .wiki-edit-review-resizer {
+    background: transparent;
+    cursor: col-resize;
+    display: block;
+    flex: 0 0 5px;
+    margin-inline: -2px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .wiki-edit-review-resizer:hover::after,
+  .wiki-vite-chat-workspace.is-resizing .wiki-edit-review-resizer::after {
+    background: var(--brand);
+    content: "";
+    inset: 0 2px;
+    opacity: 0.45;
+    position: absolute;
+  }
+
+  .wiki-edit-review-pane {
+    flex: 0 0 var(--wiki-edit-panel-width, 58%);
+    inset: auto;
+    max-width: 72%;
+    min-width: 480px;
+    position: relative;
+    z-index: 1;
+  }
+}
+
 .app-loading {
   align-items: center;
   display: flex;

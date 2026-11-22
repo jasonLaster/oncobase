@@ -8,7 +8,12 @@ import {
   parseMarkdownDocument,
   splitFrontmatter,
 } from "./markdown-document.ts";
-import { applyValidatedWikiEdit } from "./wiki-edit-patch.ts";
+import {
+  applyValidatedWikiEdit,
+  computeRedactedPreview,
+  findFirstChangedHeading,
+  validateNewWikiPage,
+} from "./wiki-edit-patch.ts";
 import { parseSitePiiPatterns } from "./pii.ts";
 
 describe("markdown-document parser and hash v3", () => {
@@ -232,5 +237,106 @@ describe("applyValidatedWikiEdit", () => {
     });
     expect(overlap.ok).toBe(false);
     if (!overlap.ok) expect(overlap.code).toBe("overlapping_edits");
+  });
+
+  test("computeRedactedPreview and findFirstChangedHeading locate the edited section", () => {
+    const res = applyValidatedWikiEdit({
+      slug: "wiki/care/plan",
+      baseRaw,
+      edits: [
+        {
+          oldText: "Standard pembrolizumab 200 mg IV every 3 weeks.",
+          newText: "Standard pembrolizumab 200 mg IV every 3 weeks.\n\n## Follow-up schedule\n\nLabs every 3 weeks.",
+        },
+      ],
+      piiPatterns: undefined,
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.firstChangedHeading).toBe("Follow-up schedule");
+      expect(findFirstChangedHeading(res.redactedProposedBody, res.redactedDiff)).toBe("Follow-up schedule");
+      const preview = computeRedactedPreview({
+        baseRedactedBody:
+          "# Care Plan\n\nPatient the patient is scheduled for cycle 2.\n\n## Dosing\n\nStandard pembrolizumab 200 mg IV every 3 weeks.\n\n![chart](wiki/care/chart.png)",
+        edits: [
+          {
+            oldText: "Standard pembrolizumab 200 mg IV every 3 weeks.",
+            newText: "Standard pembrolizumab 200 mg IV every 3 weeks.\n\n## Follow-up schedule\n\nLabs every 3 weeks.",
+          },
+        ],
+        redactedDiff: res.redactedDiff,
+      });
+      expect(preview).not.toBeNull();
+      expect(preview?.redactedProposedBody).toContain("## Follow-up schedule");
+      expect(preview?.firstChangedHeading).toBe("Follow-up schedule");
+    }
+  });
+
+  test("validateNewWikiPage enforces fail-closed sensitivity, frontmatter generation, PII, and path rules", () => {
+    const created = validateNewWikiPage({
+      slug: "wiki/diagnostics/ctdna-vendors",
+      title: "Commercial ctDNA Vendors",
+      tags: ["diagnostics", "ctdna"],
+      body: "## Snapshot\n\nSignatera and NeXT Personal are tumor-informed assays.",
+      piiPatterns: undefined,
+    });
+    expect(created.ok).toBe(true);
+    if (created.ok) {
+      expect(created.filePath).toBe("wiki/diagnostics/ctdna-vendors.md");
+      expect(created.parsedProposed.title).toBe("Commercial ctDNA Vendors");
+      expect(created.parsedProposed.sensitive).toBe(true);
+      expect(created.parsedProposed.tags).toEqual(["diagnostics", "ctdna"]);
+      expect(created.proposedRaw).toContain("sensitive: true");
+      expect(created.proposedRaw).toContain("# Commercial ctDNA Vendors");
+      expect(created.stats.additions).toBeGreaterThan(0);
+      expect(created.stats.deletions).toBe(0);
+    }
+
+    const publicPage = validateNewWikiPage({
+      slug: "wiki/diagnostics/public-guide",
+      title: "Public Guide",
+      sensitive: false,
+      body: "# Public Guide\n\n## Overview\n\nGeneral assay overview.",
+      piiPatterns: undefined,
+    });
+    expect(publicPage.ok).toBe(true);
+    if (publicPage.ok) {
+      expect(publicPage.parsedProposed.sensitive).toBe(false);
+      expect(publicPage.proposedRaw.match(/^# Public Guide$/gm)?.length).toBe(1);
+    }
+
+    // Rejects frontmatter injection, PII, local assets, reserved tags, and bad slugs.
+    expect(
+      validateNewWikiPage({
+        slug: "wiki/diagnostics/bad-fm",
+        title: "Bad",
+        body: "---\nsensitive: false\n---\nBody",
+        piiPatterns: undefined,
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateNewWikiPage({
+        slug: "wiki/diagnostics/pii",
+        title: "Notes",
+        body: "Diana Laster had a scan.",
+        piiPatterns: undefined,
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateNewWikiPage({
+        slug: "wiki/diagnostics/img",
+        title: "Images",
+        body: "![pic](scan.png)",
+        piiPatterns: undefined,
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateNewWikiPage({
+        slug: "../escape",
+        title: "Escape",
+        body: "Nope",
+        piiPatterns: undefined,
+      }).ok,
+    ).toBe(false);
   });
 });

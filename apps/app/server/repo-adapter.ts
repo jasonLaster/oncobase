@@ -24,15 +24,27 @@ export class RepoConflictError extends Error {
   }
 }
 
+export type RepoFileCommitInput = {
+  filePath: string;
+  content: string;
+  operation: "edit" | "create";
+  baseSha?: string;
+};
+
 export interface VaultRepoAdapter {
   readonly branch: string;
   readonly repoLabel: string;
-  resolveFile(slug: string): Promise<RepoFile | null>;
-  readIgnoreRules(): Promise<string | null>;
+  resolveFile(slug: string, ref?: string): Promise<RepoFile | null>;
+  readIgnoreRules(ref?: string): Promise<string | null>;
   commitFile(args: {
     filePath: string;
     content: string;
     baseSha: string;
+    message: string;
+    author: RepoAuthor;
+  }): Promise<RepoCommitResult>;
+  commitFiles(args: {
+    files: RepoFileCommitInput[];
     message: string;
     author: RepoAuthor;
   }): Promise<RepoCommitResult>;
@@ -212,9 +224,9 @@ export class GitHubAppRepoAdapter implements VaultRepoAdapter {
     };
   }
 
-  private async readContentFile(relativePath: string): Promise<RepoFile | null> {
+  private async readContentFile(relativePath: string, ref = this.branch): Promise<RepoFile | null> {
     const repoPath = joinRepoPath(this.config.vaultRoot, relativePath);
-    const url = `https://api.github.com/repos/${encodeURIComponent(this.config.owner)}/${encodeURIComponent(this.config.repo)}/contents/${encodeRepoPath(repoPath)}?ref=${encodeURIComponent(this.branch)}`;
+    const url = `https://api.github.com/repos/${encodeURIComponent(this.config.owner)}/${encodeURIComponent(this.config.repo)}/contents/${encodeRepoPath(repoPath)}?ref=${encodeURIComponent(ref)}`;
     const response = await this.fetchImpl(url, {
       headers: await this.githubHeaders(),
       signal: AbortSignal.timeout(10_000),
@@ -239,24 +251,24 @@ export class GitHubAppRepoAdapter implements VaultRepoAdapter {
     return { filePath: relativePath, raw, sha: data.sha };
   }
 
-  async readIgnoreRules(): Promise<string | null> {
-    const file = await this.readContentFile(".oncobaseignore");
+  async readIgnoreRules(ref = this.branch): Promise<string | null> {
+    const file = await this.readContentFile(".oncobaseignore", ref);
     return file?.raw ?? null;
   }
 
-  async resolveFile(slug: string): Promise<RepoFile | null> {
+  async resolveFile(slug: string, ref = this.branch): Promise<RepoFile | null> {
     const cleanSlug = slug.replace(/^\/+/, "").replace(/\.(?:md|mdx)$/i, "");
     if (!cleanSlug || cleanSlug.includes("..") || cleanSlug.includes("\\")) return null;
     const [md, mdx] = await Promise.all([
-      this.readContentFile(`${cleanSlug}.md`),
-      this.readContentFile(`${cleanSlug}.mdx`),
+      this.readContentFile(`${cleanSlug}.md`, ref),
+      this.readContentFile(`${cleanSlug}.mdx`, ref),
     ]);
     if (md && mdx) {
       throw new Error(`Ambiguous page path: both ${cleanSlug}.md and ${cleanSlug}.mdx exist.`);
     }
     const match = md ?? mdx;
     if (!match) return null;
-    const ignoreMatchers = compileOncobaseIgnore(await this.readIgnoreRules());
+    const ignoreMatchers = compileOncobaseIgnore(await this.readIgnoreRules(ref));
     if (isExcludedVaultPath(match.filePath, ignoreMatchers)) return null;
     return match;
   }
@@ -303,6 +315,164 @@ export class GitHubAppRepoAdapter implements VaultRepoAdapter {
     const commitSha = payload.commit?.sha;
     if (!commitSha) throw new Error("GitHub commit succeeded without returning a commit SHA");
     return { commitSha, commitUrl: payload.commit?.html_url };
+  }
+
+  /**
+   * Commit one or more edited/created files in a single atomic Git commit using
+   * GitHub's Git Data API (blobs -> tree -> commit -> non-force ref CAS).
+   */
+  async commitFiles({
+    files,
+    message,
+    author,
+  }: {
+    files: RepoFileCommitInput[];
+    message: string;
+    author: RepoAuthor;
+  }): Promise<RepoCommitResult> {
+    if (files.length === 0) {
+      throw new Error("commitFiles requires at least one file");
+    }
+    const repoBase = `https://api.github.com/repos/${encodeURIComponent(this.config.owner)}/${encodeURIComponent(this.config.repo)}`;
+    const headers = {
+      ...(await this.githubHeaders()),
+      "Content-Type": "application/json",
+    };
+
+    // 1. Read branch head commit & its base tree SHA.
+    const refRes = await this.fetchImpl(
+      `${repoBase}/git/ref/heads/${encodeRepoPath(this.branch)}`,
+      { headers, signal: AbortSignal.timeout(10_000) },
+    );
+    if (!refRes.ok) {
+      throw new Error(`GitHub branch ref lookup failed (${refRes.status})`);
+    }
+    const refData = (await refRes.json()) as { object?: { sha?: string } };
+    const headCommitSha = refData.object?.sha;
+    if (!headCommitSha) throw new Error("GitHub branch ref returned no commit SHA");
+
+    const commitRes = await this.fetchImpl(`${repoBase}/git/commits/${encodeURIComponent(headCommitSha)}`, {
+      headers,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!commitRes.ok) {
+      throw new Error(`GitHub commit lookup failed (${commitRes.status})`);
+    }
+    const commitData = (await commitRes.json()) as { tree?: { sha?: string } };
+    const baseTreeSha = commitData.tree?.sha;
+    if (!baseTreeSha) throw new Error("GitHub head commit returned no tree SHA");
+
+    // 2. Verify per-file preconditions against headCommitSha before writing any blobs.
+    await Promise.all(
+      files.map(async (file) => {
+        if (file.operation === "edit") {
+          const current = await this.readContentFile(file.filePath, headCommitSha);
+          if (!current || current.sha !== file.baseSha) {
+            throw new RepoConflictError(
+              `The file "${file.filePath}" in GitHub changed since this edit was proposed.`,
+            );
+          }
+        } else {
+          const cleanSlug = file.filePath.replace(/^\/+/, "").replace(/\.(?:md|mdx)$/i, "");
+          const [md, mdx] = await Promise.all([
+            this.readContentFile(`${cleanSlug}.md`, headCommitSha),
+            this.readContentFile(`${cleanSlug}.mdx`, headCommitSha),
+          ]);
+          if (md || mdx) {
+            throw new RepoConflictError(
+              `The page "${cleanSlug}" already exists in GitHub.`,
+            );
+          }
+        }
+      }),
+    );
+
+    // 3. Create blobs in parallel.
+    const blobShas = await Promise.all(
+      files.map(async (file) => {
+        const blobRes = await this.fetchImpl(`${repoBase}/git/blobs`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            content: Buffer.from(file.content, "utf8").toString("base64"),
+            encoding: "base64",
+          }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!blobRes.ok) {
+          throw new Error(`GitHub blob creation failed (${blobRes.status}) for ${file.filePath}`);
+        }
+        const blobData = (await blobRes.json()) as { sha?: string };
+        if (!blobData.sha) throw new Error(`GitHub blob creation returned no SHA for ${file.filePath}`);
+        return blobData.sha;
+      }),
+    );
+
+    // 4. Create new tree layered on baseTreeSha.
+    const treeRes = await this.fetchImpl(`${repoBase}/git/trees`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: files.map((file, index) => ({
+          path: joinRepoPath(this.config.vaultRoot, file.filePath),
+          mode: "100644",
+          type: "blob",
+          sha: blobShas[index]!,
+        })),
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!treeRes.ok) {
+      throw new Error(`GitHub tree creation failed (${treeRes.status})`);
+    }
+    const treeData = (await treeRes.json()) as { sha?: string };
+    if (!treeData.sha) throw new Error("GitHub tree creation returned no SHA");
+
+    // 5. Create atomic commit.
+    const newCommitRes = await this.fetchImpl(`${repoBase}/git/commits`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        message,
+        tree: treeData.sha,
+        parents: [headCommitSha],
+        author: { name: author.name, email: author.email },
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!newCommitRes.ok) {
+      throw new Error(`GitHub commit creation failed (${newCommitRes.status})`);
+    }
+    const newCommitData = (await newCommitRes.json()) as { sha?: string; html_url?: string };
+    const commitSha = newCommitData.sha;
+    if (!commitSha) throw new Error("GitHub commit creation returned no SHA");
+
+    // 6. Atomic non-force ref compare-and-swap on the target branch.
+    const updateRefRes = await this.fetchImpl(
+      `${repoBase}/git/refs/heads/${encodeRepoPath(this.branch)}`,
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ sha: commitSha, force: false }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (updateRefRes.status === 409 || updateRefRes.status === 422) {
+      throw new RepoConflictError(
+        "The target branch changed while committing. Ask Chat to propose a fresh edit or retry.",
+      );
+    }
+    if (!updateRefRes.ok) {
+      throw new Error(`GitHub branch ref update failed (${updateRefRes.status})`);
+    }
+
+    return {
+      commitSha,
+      commitUrl:
+        newCommitData.html_url ??
+        `https://github.com/${this.config.owner}/${this.config.repo}/commit/${commitSha}`,
+    };
   }
 
   async findCommitByProposalId(proposalId: string): Promise<RepoCommitResult | null> {
@@ -396,18 +566,57 @@ export class MemoryRepoAdapter implements VaultRepoAdapter {
     message: string;
     author: RepoAuthor;
   }): Promise<RepoCommitResult> {
-    const clean = filePath.replace(/^\/+/, "");
-    const current = this.files.get(clean);
-    if (!current || current.sha !== baseSha) {
-      throw new RepoConflictError("The file changed since this edit was proposed.");
+    return this.commitFiles({
+      files: [{ filePath, content, operation: "edit", baseSha }],
+      message,
+      author,
+    });
+  }
+
+  async commitFiles({
+    files,
+    message,
+    author,
+  }: {
+    files: RepoFileCommitInput[];
+    message: string;
+    author: RepoAuthor;
+  }): Promise<RepoCommitResult> {
+    if (files.length === 0) throw new Error("commitFiles requires at least one file");
+
+    // Validate every file before mutating any state (atomic all-or-nothing).
+    for (const file of files) {
+      const clean = file.filePath.replace(/^\/+/, "");
+      const current = this.files.get(clean);
+      if (file.operation === "edit") {
+        if (!current || current.sha !== file.baseSha) {
+          throw new RepoConflictError(`The file "${clean}" changed since this edit was proposed.`);
+        }
+      } else {
+        const cleanSlug = clean.replace(/\.(?:md|mdx)$/i, "");
+        if (this.files.has(`${cleanSlug}.md`) || this.files.has(`${cleanSlug}.mdx`)) {
+          throw new RepoConflictError(`The page "${cleanSlug}" already exists in the repository.`);
+        }
+      }
     }
-    const nextSha = this.setFile(clean, content);
+
+    const shas: string[] = [];
+    for (const file of files) {
+      shas.push(this.setFile(file.filePath, file.content));
+    }
     const commitSha = crypto
       .createHash("sha1")
-      .update(`${nextSha}:${message}:${this.commits.length}`)
+      .update(`${shas.join(",")}:${message}:${this.commits.length}`)
       .digest("hex");
     const commitUrl = `https://github.com/${this.repoLabel}/commit/${commitSha}`;
-    this.commits.push({ commitSha, commitUrl, filePath: clean, message, author, content });
+    this.commits.push({
+      commitSha,
+      commitUrl,
+      filePath: files.map((f) => f.filePath.replace(/^\/+/, "")).join(","),
+      message,
+      author,
+      content: files[0]!.content,
+    });
     return { commitSha, commitUrl };
   }
 

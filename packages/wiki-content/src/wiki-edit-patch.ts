@@ -2,6 +2,7 @@ import { applyPiiRedactions, type PiiPattern } from "./pii.ts";
 import {
   extractAssetAndEmbedReferences,
   findFirstH1,
+  isExcludedVaultPath,
   parseMarkdownDocument,
   splitFrontmatter,
   type ParsedMarkdownDocument,
@@ -23,8 +24,10 @@ export type ValidatedWikiEditResult =
       proposedRaw: string;
       parsedBase: ParsedMarkdownDocument;
       parsedProposed: ParsedMarkdownDocument;
+      redactedProposedBody: string;
       redactedDiff: string;
       stats: WikiEditDiffStats;
+      firstChangedHeading: string | null;
     }
   | {
       ok: false;
@@ -35,6 +38,30 @@ export type ValidatedWikiEditResult =
         | "overlapping_edits"
         | "redaction_violation"
         | "h1_or_title_changed"
+        | "references_changed";
+      error: string;
+    };
+
+export type ValidatedNewWikiPageResult =
+  | {
+      ok: true;
+      slug: string;
+      filePath: string;
+      proposedRaw: string;
+      parsedProposed: ParsedMarkdownDocument;
+      redactedProposedBody: string;
+      redactedDiff: string;
+      stats: WikiEditDiffStats;
+      firstChangedHeading: string | null;
+    }
+  | {
+      ok: false;
+      code:
+        | "invalid_slug"
+        | "invalid_title"
+        | "invalid_tags"
+        | "invalid_body"
+        | "redaction_violation"
         | "references_changed";
       error: string;
     };
@@ -429,7 +456,306 @@ export function applyValidatedWikiEdit({
     proposedRaw,
     parsedBase,
     parsedProposed,
+    redactedProposedBody: redactedFromRaw,
     redactedDiff: diff,
     stats,
+    firstChangedHeading: findFirstChangedHeading(redactedFromRaw, diff),
+  };
+}
+
+/**
+ * Find the nearest Markdown heading covering the first changed/added line in a
+ * unified diff so the Preview pane can scroll straight to the edited section.
+ */
+export function findFirstChangedHeading(
+  redactedBody: string,
+  redactedDiff: string,
+): string | null {
+  if (!redactedBody || !redactedDiff) return null;
+  const diffLines = redactedDiff.split("\n");
+  let newLine = 0;
+  let firstChangedLine: number | null = null;
+  for (const line of diffLines) {
+    const hunk = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunk) {
+      newLine = Number(hunk[1]);
+      continue;
+    }
+    if (line.startsWith("+") && !line.startsWith("+++")) {
+      firstChangedLine = newLine;
+      break;
+    }
+    if (line.startsWith("-") && !line.startsWith("---")) {
+      firstChangedLine = Math.max(1, newLine);
+      break;
+    }
+    if (line.startsWith(" ")) {
+      newLine++;
+    }
+  }
+  if (firstChangedLine === null) return null;
+
+  const bodyLines = redactedBody.replace(/\r\n/g, "\n").split("\n");
+  const targetIdx = Math.min(Math.max(0, firstChangedLine - 1), bodyLines.length - 1);
+
+  // If the changed region itself introduces a heading within a few lines, prefer it.
+  for (let i = targetIdx; i < Math.min(bodyLines.length, targetIdx + 4); i++) {
+    const m = bodyLines[i]!.match(/^#{1,6}\s+(.+?)\s*#*$/);
+    if (m?.[1]) return m[1].trim();
+  }
+  // Otherwise walk upward to the enclosing section heading.
+  for (let i = targetIdx; i >= 0; i--) {
+    const m = bodyLines[i]!.match(/^#{1,6}\s+(.+?)\s*#*$/);
+    if (m?.[1]) return m[1].trim();
+  }
+  return null;
+}
+
+/**
+ * Apply validated search/replace edits onto an already-redacted Convex page body
+ * to compute the exact Preview body without storing full page text in proposal rows.
+ */
+export function computeRedactedPreview({
+  baseRedactedBody,
+  edits,
+  redactedDiff,
+}: {
+  baseRedactedBody: string;
+  edits: WikiTextEdit[];
+  redactedDiff?: string;
+}): { redactedProposedBody: string; firstChangedHeading: string | null } | null {
+  if (!edits.length) {
+    return {
+      redactedProposedBody: baseRedactedBody,
+      firstChangedHeading: redactedDiff
+        ? findFirstChangedHeading(baseRedactedBody, redactedDiff)
+        : null,
+    };
+  }
+  const spans: SpanReplacement[] = [];
+  for (const edit of edits) {
+    const matches = findAllOccurrences(baseRedactedBody, edit.oldText);
+    if (matches.length !== 1) return null;
+    spans.push({
+      start: matches[0]!,
+      end: matches[0]! + edit.oldText.length,
+      newText: edit.newText,
+    });
+  }
+  if (hasOverlappingSpans(spans)) return null;
+  const proposed = normalizeWhitespace(applySpanReplacements(baseRedactedBody, spans));
+  const diff = redactedDiff ?? buildUnifiedDiff(baseRedactedBody, proposed).diff;
+  return {
+    redactedProposedBody: proposed,
+    firstChangedHeading: findFirstChangedHeading(proposed, diff),
+  };
+}
+
+const RESERVED_CREATE_TAGS = new Set(["sensitive", "echo-sensitive", "serova-sensitive"]);
+const MAX_NEW_PAGE_TAGS = 12;
+const MAX_NEW_PAGE_BODY_CHARS = 80_000;
+
+function yamlQuoteString(value: string): string {
+  return JSON.stringify(value);
+}
+
+/**
+ * Validate and serialize a brand-new wiki page proposed from Chat.
+ *
+ * Security invariants:
+ * - Slug must be a clean, non-excluded vault path (always writes `<slug>.md`).
+ * - Frontmatter is synthesized exclusively by the server (never arbitrary YAML).
+ * - `sensitive` defaults to `true` (fail-closed) unless explicitly set to `false`.
+ * - Title and body must not contain redaction directives, PII patterns, or local
+ *   asset/embed references.
+ */
+export function validateNewWikiPage({
+  slug,
+  title,
+  tags,
+  sensitive = true,
+  body,
+  piiPatterns,
+  ignoreMatchers = [],
+}: {
+  slug: string;
+  title: string;
+  tags?: string[];
+  sensitive?: boolean;
+  body: string;
+  piiPatterns: PiiPattern[] | undefined;
+  ignoreMatchers?: readonly RegExp[];
+}): ValidatedNewWikiPageResult {
+  const cleanSlug = slug.trim().replace(/^\/+/, "").replace(/\/+$/, "");
+  if (!cleanSlug || /\.(?:md|mdx)$/i.test(cleanSlug) || cleanSlug.includes("\\") || cleanSlug.includes("..")) {
+    return {
+      ok: false,
+      code: "invalid_slug",
+      error: "New page slug must be a clean relative path without .md extension or traversal segments.",
+    };
+  }
+  const segments = cleanSlug.split("/");
+  if (
+    segments.some(
+      (seg) =>
+        !seg ||
+        seg.length > 100 ||
+        seg.startsWith(".") ||
+        seg.startsWith(" ") ||
+        seg.endsWith(" ") ||
+        !/^[A-Za-z0-9][A-Za-z0-9 ._-]*$/.test(seg),
+    )
+  ) {
+    return {
+      ok: false,
+      code: "invalid_slug",
+      error: `Invalid slug "${cleanSlug}". Use letters, numbers, hyphens, underscores, or spaces in path segments.`,
+    };
+  }
+  const filePath = `${cleanSlug}.md`;
+  if (isExcludedVaultPath(filePath, ignoreMatchers)) {
+    return {
+      ok: false,
+      code: "invalid_slug",
+      error: `Path "${filePath}" is in an excluded directory or matched by .oncobaseignore.`,
+    };
+  }
+
+  const cleanTitle = title.replace(/\r?\n/g, " ").trim();
+  if (!cleanTitle || cleanTitle.length > 200) {
+    return {
+      ok: false,
+      code: "invalid_title",
+      error: "New page title is required and must be 1–200 characters.",
+    };
+  }
+  const redact = (text: string) => applyPiiRedactions(text, { patterns: piiPatterns });
+  if (REDACTION_MARKUP_RE.test(cleanTitle) || redact(cleanTitle) !== normalizeWhitespace(cleanTitle)) {
+    return {
+      ok: false,
+      code: "redaction_violation",
+      error: "New page title contains restricted redaction markup or PII.",
+    };
+  }
+
+  const cleanTags: string[] = [];
+  if (tags !== undefined) {
+    if (!Array.isArray(tags) || tags.length > MAX_NEW_PAGE_TAGS) {
+      return {
+        ok: false,
+        code: "invalid_tags",
+        error: `At most ${MAX_NEW_PAGE_TAGS} tags are allowed on a new page.`,
+      };
+    }
+    const seen = new Set<string>();
+    for (const rawTag of tags) {
+      const tag = String(rawTag).trim();
+      if (!tag || tag.length > 40 || /[\r\n]/.test(tag) || !/^[A-Za-z0-9][A-Za-z0-9 _/-]*$/.test(tag)) {
+        return {
+          ok: false,
+          code: "invalid_tags",
+          error: `Invalid tag "${tag}".`,
+        };
+      }
+      const lower = tag.toLowerCase();
+      if (RESERVED_CREATE_TAGS.has(lower)) {
+        return {
+          ok: false,
+          code: "invalid_tags",
+          error: `Tag "${tag}" is reserved; control visibility with the sensitive boolean instead.`,
+        };
+      }
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        cleanTags.push(tag);
+      }
+    }
+  }
+
+  const normalizedInputBody = body.replace(/\r\n/g, "\n").trim();
+  if (!normalizedInputBody || normalizedInputBody.length > MAX_NEW_PAGE_BODY_CHARS) {
+    return {
+      ok: false,
+      code: "invalid_body",
+      error: `New page body is required and must be under ${MAX_NEW_PAGE_BODY_CHARS} characters.`,
+    };
+  }
+  if (/^---[ \t]*(?:\n|$)/.test(normalizedInputBody)) {
+    return {
+      ok: false,
+      code: "invalid_body",
+      error: "Do not include YAML frontmatter in body; pass title, tags, and sensitive as fields.",
+    };
+  }
+  if (REDACTION_MARKUP_RE.test(normalizedInputBody)) {
+    return {
+      ok: false,
+      code: "redaction_violation",
+      error: "New page body cannot include redaction directives.",
+    };
+  }
+  if (redact(normalizedInputBody) !== normalizeWhitespace(normalizedInputBody)) {
+    return {
+      ok: false,
+      code: "redaction_violation",
+      error: "New page body contains content that triggers site PII redaction rules.",
+    };
+  }
+  const refs = extractAssetAndEmbedReferences(normalizedInputBody);
+  if (refs.length > 0) {
+    return {
+      ok: false,
+      code: "references_changed",
+      error: "New pages cannot embed local assets (images, PDFs, or transclusions) from Chat.",
+    };
+  }
+
+  // Strip a duplicate leading `# <title>` H1 if the model included it; reject a conflicting H1.
+  let bodyContent = normalizedInputBody;
+  const existingH1 = findFirstH1(bodyContent);
+  if (existingH1) {
+    if (existingH1.lineIndex === 0 && existingH1.heading.trim() === cleanTitle) {
+      bodyContent = bodyContent.replace(/^#\s+.+\n*/, "").trim();
+    } else {
+      return {
+        ok: false,
+        code: "invalid_body",
+        error: "Do not add a separate `# ` H1 heading inside body (it is generated from title); use `##` for sections.",
+      };
+    }
+  }
+  if (!bodyContent) {
+    return {
+      ok: false,
+      code: "invalid_body",
+      error: "New page body must include content beyond the page title.",
+    };
+  }
+
+  const fmLines = ["---", `title: ${yamlQuoteString(cleanTitle)}`];
+  if (cleanTags.length > 0) {
+    fmLines.push(`tags: [${cleanTags.map(yamlQuoteString).join(", ")}]`);
+  }
+  if (sensitive) {
+    fmLines.push("sensitive: true");
+  }
+  fmLines.push("---", "");
+
+  const rawBodyWithH1 = `# ${cleanTitle}\n\n${bodyContent}\n`;
+  const proposedRaw = `${fmLines.join("\n")}\n${rawBodyWithH1}`;
+  const parsedProposed = parseMarkdownDocument(cleanSlug, proposedRaw);
+  const redactedProposedBody = redact(rawBodyWithH1);
+  const { diff, stats } = buildUnifiedDiff("", redactedProposedBody);
+
+  return {
+    ok: true,
+    slug: cleanSlug,
+    filePath,
+    proposedRaw,
+    parsedProposed,
+    redactedProposedBody,
+    redactedDiff: diff,
+    stats,
+    firstChangedHeading: findFirstChangedHeading(redactedProposedBody, diff),
   };
 }
