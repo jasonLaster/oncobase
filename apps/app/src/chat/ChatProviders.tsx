@@ -1,6 +1,7 @@
 import { ChatRuntimeProvider } from "@oncobase/chat/runtime";
 import { wikiChatCopy } from "@oncobase/wiki-content";
 import {
+  WikiChatMessageAction,
   WikiChatToolRenderer,
   extractWikiChatSources,
 } from "@oncobase/wiki-shell/wiki-chat";
@@ -132,6 +133,7 @@ function ChatRuntime({ children }: { children: ReactNode }) {
       LinkComponent={ChatLink}
       MarkdownRenderer={ChatMarkdownRenderer}
       ToolCallRenderer={WikiChatToolRenderer}
+      MessageAction={WikiChatMessageAction}
       routes={routes}
       extractSources={extractWikiChatSources}
       onWikiEdited={() => {

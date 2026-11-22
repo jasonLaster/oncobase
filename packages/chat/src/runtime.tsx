@@ -7,6 +7,7 @@ import type {
   ChatConvexApi,
   ChatCopy,
   ChatMarkdownRenderer,
+  ChatMessageAction,
   ChatSourceExtractor,
   ChatToolCallRenderer,
   ResolvedChatCopy,
@@ -27,6 +28,7 @@ interface ChatRuntimeValue {
   }>;
   MarkdownRenderer?: ChatMarkdownRenderer;
   ToolCallRenderer?: ChatToolCallRenderer;
+  MessageAction?: ChatMessageAction;
   extractSources?: ChatSourceExtractor;
   onWikiEdited?: (event: { slug: string; revision?: number }) => void;
 }
@@ -44,6 +46,7 @@ export function ChatRuntimeProvider({
   LinkComponent,
   MarkdownRenderer,
   ToolCallRenderer,
+  MessageAction,
   extractSources,
   onWikiEdited,
 }: {
@@ -62,6 +65,7 @@ export function ChatRuntimeProvider({
   }>;
   MarkdownRenderer?: ChatMarkdownRenderer;
   ToolCallRenderer?: ChatToolCallRenderer;
+  MessageAction?: ChatMessageAction;
   extractSources?: ChatSourceExtractor;
   onWikiEdited?: (event: { slug: string; revision?: number }) => void;
 }) {
@@ -78,10 +82,11 @@ export function ChatRuntimeProvider({
     LinkComponent,
     MarkdownRenderer,
     ToolCallRenderer,
+    MessageAction,
     extractSources,
     onWikiEdited,
   }), [apiPath, convexApi, resolvedCopy, resolvedRoutes, siteSlug, storageKeyPrefix,
-    LinkComponent, MarkdownRenderer, ToolCallRenderer, extractSources, onWikiEdited]);
+    LinkComponent, MarkdownRenderer, ToolCallRenderer, MessageAction, extractSources, onWikiEdited]);
 
   return (
     <ChatRuntimeContext.Provider value={value}>

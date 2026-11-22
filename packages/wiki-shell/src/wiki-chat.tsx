@@ -6,6 +6,7 @@ import {
 } from "@oncobase/chat/components/tool-call-core";
 import { useChatRuntime } from "@oncobase/chat/runtime";
 import type {
+  ChatMessageActionProps,
   ChatSourceExtractor,
   ChatToolCallRendererProps,
 } from "@oncobase/chat/types";
@@ -515,6 +516,62 @@ export function WikiChatToolRenderer({
   }
 
   return <DefaultToolCallBlock toolName={toolName} state={state} />;
+}
+
+/**
+ * Message-level "Review updates" action. Sits in the assistant message's
+ * hover row next to Copy/Edit/Regenerate and opens the review panel for the
+ * wiki edit proposal(s) the message produced. Stays visible while any
+ * proposal is waiting on the reader, and reveals on hover once resolved.
+ */
+export function WikiChatMessageAction({ parts }: ChatMessageActionProps) {
+  const review = useWikiEditReview();
+  const proposals = useMemo(() => {
+    const found: WikiEditProposalState[] = [];
+    for (const part of parts) {
+      const info = getChatToolInfo(part as Record<string, unknown>);
+      if (!info || info.toolName !== "propose_wiki_edit") continue;
+      if (info.state !== "output-available" || !info.output) continue;
+      const input = (info.input || {}) as { slug?: unknown };
+      const proposal = normalizeWikiEditProposal(
+        info.output as Parameters<typeof normalizeWikiEditProposal>[0],
+        undefined,
+        typeof input.slug === "string" ? input.slug : undefined,
+      );
+      if (proposal) found.push(proposal);
+    }
+    return found;
+  }, [parts]);
+
+  if (!review || proposals.length === 0) return null;
+
+  const live = proposals.map((p) => review.getProposal(p.proposalId) ?? p);
+  const fileCount = live.reduce((n, p) => n + p.files.length, 0);
+  const waiting = live.find((p) => p.status === "pending");
+  const target = waiting ?? live[0]!;
+  const isOpen = live.some((p) => p.proposalId === review.activeProposalId);
+
+  return (
+    <button
+      type="button"
+      onClick={() => review.openProposal(target.proposalId, target)}
+      aria-label={`Review updates (${fileCount})`}
+      title="Review wiki updates"
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs transition-colors ${
+        waiting
+          ? "bg-[var(--brand)]/10 font-medium text-[var(--brand)] hover:bg-[var(--brand)]/15"
+          : "text-[var(--text-muted)] opacity-100 hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] sm:opacity-0 sm:group-hover/assistant:opacity-100 sm:focus-visible:opacity-100"
+      } ${isOpen ? "ring-1 ring-[var(--brand)]/40" : ""}`}
+      data-test-id="wiki-edit-message-action"
+      data-proposal-status={target.status}
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 2.5h7l3 3v8H3z" />
+        <path d="M5.5 9l1.5 1.5L10.5 7" />
+      </svg>
+      <span>Review updates ({fileCount})</span>
+    </button>
+  );
 }
 
 export const extractWikiChatSources: ChatSourceExtractor = (parts) => {

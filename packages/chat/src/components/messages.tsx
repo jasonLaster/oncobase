@@ -355,6 +355,7 @@ function AssistantMessageImpl({
       {showActions && fullText && (
         <AssistantMessageActions
           text={fullText}
+          parts={parts}
           messageId={message.id}
           onEdit={onEdit}
           onRegenerate={onRegenerate}
@@ -378,25 +379,29 @@ export const AssistantMessage = memo(
 
 function AssistantMessageActionsImpl({
   text,
+  parts,
   messageId,
   onEdit,
   onRegenerate,
 }: {
   text: string;
+  parts: ChatUIMessage["parts"];
   messageId: string;
   onEdit?: () => void;
   onRegenerate?: (messageId: string) => void;
 }) {
+  const { MessageAction } = useChatRuntime();
   return (
-    <div
-      className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover/assistant:opacity-100 sm:focus-within:opacity-100 transition-opacity"
-      data-slot="assistant-message-actions"
-    >
-      <CopyButton text={text} />
-      {onEdit && <EditResponseButton onClick={onEdit} />}
-      {onRegenerate && (
-        <RegenerateButton onClick={() => onRegenerate(messageId)} />
-      )}
+    <div className="flex items-center gap-1" data-slot="assistant-message-actions">
+      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover/assistant:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+        <CopyButton text={text} />
+        {onEdit && <EditResponseButton onClick={onEdit} />}
+        {onRegenerate && (
+          <RegenerateButton onClick={() => onRegenerate(messageId)} />
+        )}
+      </div>
+      {/* Owns its own visibility so it can stay visible while work is pending. */}
+      {MessageAction && <MessageAction parts={parts} />}
     </div>
   );
 }
