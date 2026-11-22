@@ -9,7 +9,13 @@ import { SERVICE_ISSUER, SERVICE_SUBJECT } from "../convex/lib/serviceAuth";
 import { drainScheduled } from "../convex/lib/drain-scheduled.testutil";
 import { handleWikiEditsRequest } from "./api/wiki-edits";
 import { resolveChatOwner } from "./chat-owner";
-import { MemoryRepoAdapter, normalizePem, setTestRepoAdapter } from "./repo-adapter";
+import {
+  GitHubAppRepoAdapter,
+  MemoryRepoAdapter,
+  normalizePem,
+  readGitHubAppConfigFromEnv,
+  setTestRepoAdapter,
+} from "./repo-adapter";
 import { USER_SESSION_COOKIE, hashSessionToken } from "./user-auth";
 import {
   approveAndPublishWikiEdit,
@@ -404,5 +410,46 @@ describe("wiki-edit-service", () => {
     expect(normalizePem(sample.replace(/\n/g, "\\n"))).toBe(sample);
     expect(normalizePem(sample.replace(/\n/g, " "))).toBe(sample);
     expect(normalizePem(Buffer.from(sample, "utf8").toString("base64"))).toBe(sample);
+  });
+
+  test("readGitHubAppConfigFromEnv supports WIKI_EDIT_GITHUB_TOKEN fine-grained PAT", async () => {
+    const config = readGitHubAppConfigFromEnv({
+      WIKI_EDIT_GITHUB_TOKEN: "github_pat_test_123",
+      WIKI_EDIT_GITHUB_REPO: "jasonLaster/diana-tnbc",
+      WIKI_EDIT_GITHUB_BRANCH: "preview/chat-wiki-editing",
+      WIKI_EDIT_GITHUB_VAULT_ROOT: "obsidian",
+      WIKI_EDIT_SITE_SLUG: "diana",
+    });
+    expect(config).toEqual({
+      siteSlug: "diana",
+      auth: { kind: "token", token: "github_pat_test_123" },
+      owner: "jasonLaster",
+      repo: "diana-tnbc",
+      branch: "preview/chat-wiki-editing",
+      vaultRoot: "obsidian",
+    });
+
+    const seenAuth: string[] = [];
+    const adapter = new GitHubAppRepoAdapter(config!, (async (input, init) => {
+      const headers = new Headers(init?.headers);
+      seenAuth.push(headers.get("authorization") ?? "");
+      const url = String(input);
+      if (url.includes(".oncobaseignore") || url.includes(".mdx")) {
+        return new Response("not found", { status: 404 });
+      }
+      return new Response(
+        JSON.stringify({
+          type: "file",
+          encoding: "base64",
+          sha: "sha-file-1",
+          content: Buffer.from("# Hello\n", "utf8").toString("base64"),
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch);
+
+    const file = await adapter.resolveFile("wiki/hello");
+    expect(file).toEqual({ filePath: "wiki/hello.md", raw: "# Hello\n", sha: "sha-file-1" });
+    expect(seenAuth.every((header) => header === "Bearer github_pat_test_123")).toBe(true);
   });
 });

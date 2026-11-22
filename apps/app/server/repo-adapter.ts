@@ -39,11 +39,21 @@ export interface VaultRepoAdapter {
   findCommitByProposalId(proposalId: string): Promise<RepoCommitResult | null>;
 }
 
+export type GitHubRepoAuth =
+  | {
+      kind: "app";
+      appId: string;
+      privateKeyPem: string;
+      installationId: string;
+    }
+  | {
+      kind: "token";
+      token: string;
+    };
+
 export type GitHubAppConfig = {
   siteSlug: string;
-  appId: string;
-  privateKeyPem: string;
-  installationId: string;
+  auth: GitHubRepoAuth;
   owner: string;
   repo: string;
   branch: string;
@@ -89,18 +99,32 @@ export function normalizePem(raw: string): string {
 export function readGitHubAppConfigFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): GitHubAppConfig | null {
+  const repoFull = env.WIKI_EDIT_GITHUB_REPO?.trim();
+  if (!repoFull) return null;
+  const parts = repoFull.split("/");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+
   const appId = env.WIKI_EDIT_GITHUB_APP_ID?.trim();
   const privateKey = env.WIKI_EDIT_GITHUB_PRIVATE_KEY?.trim();
   const installationId = env.WIKI_EDIT_GITHUB_INSTALLATION_ID?.trim();
-  const repoFull = env.WIKI_EDIT_GITHUB_REPO?.trim();
-  if (!appId || !privateKey || !installationId || !repoFull) return null;
-  const parts = repoFull.split("/");
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+  const token = env.WIKI_EDIT_GITHUB_TOKEN?.trim();
+
+  let auth: GitHubRepoAuth | null = null;
+  if (appId && privateKey && installationId) {
+    auth = {
+      kind: "app",
+      appId,
+      privateKeyPem: normalizePem(privateKey),
+      installationId,
+    };
+  } else if (token) {
+    auth = { kind: "token", token };
+  }
+  if (!auth) return null;
+
   return {
     siteSlug: env.WIKI_EDIT_SITE_SLUG?.trim() || "diana",
-    appId,
-    privateKeyPem: normalizePem(privateKey),
-    installationId,
+    auth,
     owner: parts[0],
     repo: parts[1],
     branch: env.WIKI_EDIT_GITHUB_BRANCH?.trim() || "main",
@@ -148,13 +172,16 @@ export class GitHubAppRepoAdapter implements VaultRepoAdapter {
   }
 
   private async installationToken(): Promise<string> {
+    if (this.config.auth.kind === "token") {
+      return this.config.auth.token;
+    }
     const now = Date.now();
     if (this.cachedToken && this.cachedToken.expiresAtMs - now > 5 * 60 * 1000) {
       return this.cachedToken.token;
     }
-    const jwt = createGitHubAppJwt(this.config.appId, this.config.privateKeyPem);
+    const jwt = createGitHubAppJwt(this.config.auth.appId, this.config.auth.privateKeyPem);
     const response = await this.fetchImpl(
-      `https://api.github.com/app/installations/${encodeURIComponent(this.config.installationId)}/access_tokens`,
+      `https://api.github.com/app/installations/${encodeURIComponent(this.config.auth.installationId)}/access_tokens`,
       {
         method: "POST",
         headers: {
@@ -407,7 +434,11 @@ export function getRepoAdapterForSite(
   if (override) return override;
   const config = readGitHubAppConfigFromEnv(env);
   if (!config || config.siteSlug !== siteSlug) return null;
-  const cacheKey = `${config.siteSlug}:${config.appId}:${config.installationId}:${config.owner}/${config.repo}:${config.branch}:${config.vaultRoot}`;
+  const authKey =
+    config.auth.kind === "app"
+      ? `app:${config.auth.appId}:${config.auth.installationId}`
+      : `token:${crypto.createHash("sha256").update(config.auth.token).digest("hex").slice(0, 12)}`;
+  const cacheKey = `${config.siteSlug}:${authKey}:${config.owner}/${config.repo}:${config.branch}:${config.vaultRoot}`;
   if (!cachedEnvAdapter || cachedEnvAdapter.key !== cacheKey) {
     cachedEnvAdapter = { key: cacheKey, adapter: new GitHubAppRepoAdapter(config) };
   }
