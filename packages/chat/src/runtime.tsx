@@ -28,6 +28,7 @@ interface ChatRuntimeValue {
   MarkdownRenderer?: ChatMarkdownRenderer;
   ToolCallRenderer?: ChatToolCallRenderer;
   extractSources?: ChatSourceExtractor;
+  onWikiEdited?: (event: { slug: string; revision?: number }) => void;
 }
 
 const ChatRuntimeContext = createContext<ChatRuntimeValue | null>(null);
@@ -44,6 +45,7 @@ export function ChatRuntimeProvider({
   MarkdownRenderer,
   ToolCallRenderer,
   extractSources,
+  onWikiEdited,
 }: {
   apiPath?: string;
   children: ReactNode;
@@ -61,6 +63,7 @@ export function ChatRuntimeProvider({
   MarkdownRenderer?: ChatMarkdownRenderer;
   ToolCallRenderer?: ChatToolCallRenderer;
   extractSources?: ChatSourceExtractor;
+  onWikiEdited?: (event: { slug: string; revision?: number }) => void;
 }) {
   const resolvedCopy = useMemo(() => resolveChatCopy(copy), [copy]);
   const resolvedRoutes = useMemo(() => createChatRoutes(routes), [routes]);
@@ -76,8 +79,9 @@ export function ChatRuntimeProvider({
     MarkdownRenderer,
     ToolCallRenderer,
     extractSources,
+    onWikiEdited,
   }), [apiPath, convexApi, resolvedCopy, resolvedRoutes, siteSlug, storageKeyPrefix,
-    LinkComponent, MarkdownRenderer, ToolCallRenderer, extractSources]);
+    LinkComponent, MarkdownRenderer, ToolCallRenderer, extractSources, onWikiEdited]);
 
   return (
     <ChatRuntimeContext.Provider value={value}>

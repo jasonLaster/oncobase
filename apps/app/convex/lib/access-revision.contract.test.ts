@@ -108,6 +108,13 @@ const MUTATIONS: Record<string, Effect> = {
   "dicom:upsertSeriesWithImages": NO_MANIFEST_DATA,
   "pathology:upsert": NO_MANIFEST_DATA,
   "pathology:saveRegions": NO_MANIFEST_DATA,
+  "wikiEdits:createProposal": NO_MANIFEST_DATA,
+  "wikiEdits:claimForExecution": NO_MANIFEST_DATA,
+  "wikiEdits:recordCommit": NO_MANIFEST_DATA,
+  "wikiEdits:markPublished": NO_MANIFEST_DATA,
+  "wikiEdits:markPendingPublish": NO_MANIFEST_DATA,
+  "wikiEdits:markFailed": NO_MANIFEST_DATA,
+  "wikiEdits:rejectProposal": NO_MANIFEST_DATA,
 };
 
 test("every exported mutation is classified for the manifest token", async () => {

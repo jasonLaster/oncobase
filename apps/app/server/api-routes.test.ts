@@ -6,14 +6,14 @@ import { API_ROUTES, EDUCATION_API_ALIASES, PUBLISH_API_ROUTES, RAW_API_ROUTES, 
 const CLAIMED_EXACT = [
   "/api/page-shares",
   "/api/login", "/api/auth/session", "/api/auth/signin", "/api/auth/signup", "/api/auth/signout", "/api/auth/tokens",
-  "/api/ai-search", "/api/chat", "/api/search", "/api/timeline", "/api/diagnostic-studies", "/api/share-preview", "/api/share-image",
+  "/api/ai-search", "/api/chat", "/api/chat/wiki-edits", "/api/search", "/api/timeline", "/api/diagnostic-studies", "/api/share-preview", "/api/share-image",
   "/api/dicom/file", "/api/dicom/studies", "/api/dicom/series", "/api/dicom/annotations", "/api/dicom/comparisons",
   "/api/test/diagnostic-studies", "/api/test/dicom-comparisons", "/api/tools", "/api/mcp",
   "/api/liveblocks-auth", "/api/liveblocks-threads", "/api/liveblocks-add-comment", "/api/liveblocks-delete-thread",
   "/api/liveblocks-users", "/api/liveblocks-guest", "/api/liveblocks-webhook",
   "/api/download", "/api/file", "/api/page-copy",
 ];
-const CLAIMED_PREFIXES = ["/api/wiki/", "/api/admin/", "/api/publish/", "/api/pathology/", "/api/dicom/comparisons/", "/api/page-shares/"];
+const CLAIMED_PREFIXES = ["/api/wiki/", "/api/admin/", "/api/publish/", "/api/pathology/", "/api/dicom/comparisons/", "/api/page-shares/", "/api/chat/wiki-edits/"];
 
 function wasGateExempt(pathname: string) {
   return pathname === "/api/login" ||
@@ -75,6 +75,7 @@ test("privatized responses are the four previously wrapped routes", () => {
 test("tracing names only fixed route strings", () => {
   expect([...TRACED_API_ROUTES].sort()).toEqual([
     "/api/admin/access", "/api/admin/roles", "/api/admin/session", "/api/admin/stats", "/api/admin/users", "/api/admin/users/role",
+    "/api/chat/wiki-edits/approve", "/api/chat/wiki-edits/reject",
     "/api/page-shares/read", "/api/page-shares/asset",
     ...CLAIMED_EXACT, "/api/wiki/manifest", "/api/wiki/pages", "/api/wiki/palette-pick", "/api/wiki/palette-recommend", "/api/wiki/prefetch", "/api/wiki/session", "/api/wiki/talk", "/api/wiki/convex-token",
     ...RAW_API_ROUTES.map(route => route.path), ...PUBLISH_API_ROUTES,

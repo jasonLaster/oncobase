@@ -10,6 +10,7 @@ import { Suspense, lazy, useEffect, useMemo, type ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api.js";
 import { publishChatPerfSnapshot } from "../observability";
+import { REFRESH_MANIFEST_EVENT } from "../sync/events";
 import { useWikiSession } from "../wiki-context";
 import { hrefForSlug } from "../wiki-utils";
 import { ChatImage } from "./chat-image";
@@ -133,6 +134,9 @@ function ChatRuntime({ children }: { children: ReactNode }) {
       ToolCallRenderer={WikiChatToolRenderer}
       routes={routes}
       extractSources={extractWikiChatSources}
+      onWikiEdited={() => {
+        window.dispatchEvent(new Event(REFRESH_MANIFEST_EVENT));
+      }}
       siteSlug={identity?.siteSlug}
       storageKeyPrefix="wiki-vite-chat"
     >

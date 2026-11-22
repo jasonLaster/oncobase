@@ -143,6 +143,11 @@ export const API_ROUTES: readonly ApiRoute[] = [
 
   { path: "/api/ai-search", gate: "required", load: () => import("./api/ai-search-route").then(m => m.handleAiSearchRoute) },
   { path: "/api/chat", gate: "required", load: () => import("./api/chat").then(m => m.handleChatRoute) },
+  { path: "/api/chat/wiki-edits", gate: "required", load: () => import("./api/wiki-edits").then(m => legacy(m.handleWikiEditsRequest)) },
+  {
+    prefix: "/api/chat/wiki-edits/", gate: "required", tracedSubpaths: ["approve", "reject"],
+    load: () => import("./api/wiki-edits").then(m => legacy(m.handleWikiEditsRequest)),
+  },
   { path: "/api/tools", gate: "required", load: () => import("./api/tools").then(m => legacy(m.handleToolsRequest)) },
   { path: "/api/mcp", gate: "required", load: () => import("./api/mcp").then(m => legacy(m.handleMcpRequest)) },
 

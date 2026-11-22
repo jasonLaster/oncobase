@@ -1,10 +1,12 @@
 import type { ApiRouteRequest } from "../api-routes";
 import { resolveChatOwner } from "../chat-owner";
 import { handleChatRequest } from "../chat-route";
-import { canUserAccessSlug, getSessionUser } from "../reader-access";
+import { canUserAccessSlug, getSessionUser, sessionTokenFromCookie } from "../reader-access";
+import { hashSessionToken } from "../user-auth";
 
 export async function handleChatRoute({ request, client, siteSlug }: ApiRouteRequest) {
   const sessionUser = await getSessionUser(request, client, siteSlug);
+  const rawSessionToken = sessionTokenFromCookie(request.headers.get("cookie") ?? "");
   return handleChatRequest({
     request,
     client,
@@ -14,5 +16,6 @@ export async function handleChatRoute({ request, client, siteSlug }: ApiRouteReq
     canAccessSlug: (slug) => canUserAccessSlug(client, siteSlug, sessionUser, slug),
     accessCacheKey: sessionUser ? String(sessionUser._id) : "public",
     sessionUser,
+    sessionTokenHash: rawSessionToken ? hashSessionToken(rawSessionToken) : undefined,
   });
 }

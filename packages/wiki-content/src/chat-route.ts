@@ -113,13 +113,27 @@ Search strategy:
 
 Be direct, compassionate, and precise. Use medical terminology but explain it when needed.`;
 
+/** Additional system instructions appended ONLY for authorized wiki editors when a repo is configured. */
+export const WIKI_CHAT_EDIT_SYSTEM_PROMPT = `## WIKI EDITING (ADMIN ONLY)
+You have access to the \`propose_wiki_edit\` tool to propose body-only edits to existing wiki pages.
+- ONLY call \`propose_wiki_edit\` when the user explicitly asks to update or fix a wiki page.
+- Read the exact section with \`read_page\` (using \`offset\` or \`#anchor\` on long pages) BEFORE calling \`propose_wiki_edit\`.
+- Every \`oldText\` must be copied verbatim from the original page body, match uniquely, and not overlap other edits in the same call.
+- Never attempt to edit YAML frontmatter, the primary \`#\` H1 heading, redacted/PII regions, or local asset/embed links (images, PDFs, transclusions).
+- Proposing an edit does NOT modify the wiki until the user clicks "Approve & Publish" on the proposal card. Always briefly tell the user to review the diff card and approve or reject it.`;
+
 /** The full system prompt: base rules, then the diagnosis and the page index
  * (both already redacted for the viewer). The route and the eval share it. */
 export function composeWikiChatSystemPrompt(
-  { diagnosis, index }: { diagnosis?: string | null; index?: string | null },
+  {
+    diagnosis,
+    index,
+    canEditWiki = false,
+  }: { diagnosis?: string | null; index?: string | null; canEditWiki?: boolean },
   base = WIKI_CHAT_SYSTEM_PROMPT_BASE,
 ) {
   let prompt = base;
+  if (canEditWiki) prompt += `\n\n${WIKI_CHAT_EDIT_SYSTEM_PROMPT}`;
   if (diagnosis) prompt += `\n\n## PATIENT DIAGNOSIS\n\n${diagnosis}`;
   if (index) prompt += `\n\n## PAGE INDEX\n\nUse these slugs with read_page to get full content:\n\n${index}`;
   return prompt;
