@@ -67,6 +67,13 @@ export interface ChatToolCallRendererProps {
 
 export type ChatToolCallRenderer = ComponentType<ChatToolCallRendererProps>;
 
+/** Extra action rendered in an assistant message's action row (e.g. "Review updates"). */
+export interface ChatMessageActionProps {
+  parts: UIMessage["parts"];
+}
+
+export type ChatMessageAction = ComponentType<ChatMessageActionProps>;
+
 export interface ChatSource {
   id?: string;
   title: string;

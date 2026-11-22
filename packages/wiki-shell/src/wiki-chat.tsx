@@ -6,6 +6,7 @@ import {
 } from "@oncobase/chat/components/tool-call-core";
 import { useChatRuntime } from "@oncobase/chat/runtime";
 import type {
+  ChatMessageActionProps,
   ChatSourceExtractor,
   ChatToolCallRendererProps,
 } from "@oncobase/chat/types";
@@ -218,45 +219,6 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
   );
 });
 
-function DocumentIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0 opacity-80"
-      aria-hidden="true"
-    >
-      <path d="M4 2.5h5.2L12.5 5.8V13a.8.8 0 0 1-.8.8H4.3a.8.8 0 0 1-.8-.8V3.3a.8.8 0 0 1 .8-.8Z" />
-      <path d="M9 2.5V6h3.5M5.5 8.5h5M5.5 10.8h3.5" />
-    </svg>
-  );
-}
-
-function ArrowRightIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0 opacity-80 transition-transform group-hover:translate-x-0.5"
-      aria-hidden="true"
-    >
-      <path d="M3.5 8h9M8.8 4.2 12.5 8l-3.7 3.8" />
-    </svg>
-  );
-}
-
 const WikiEditProposalCard = memo(function WikiEditProposalCard({
   input,
   output,
@@ -356,134 +318,52 @@ const WikiEditProposalCard = memo(function WikiEditProposalCard({
     return <DefaultToolCallBlock toolName="propose_wiki_edit" state="output-available" />;
   }
 
+  // The card is gone: the message's "Review updates" action opens the panel.
+  // This stays as a quiet status line and keeps the seeding/auto-open effects.
   const fileCount = proposal.files.length;
-  const isOpen = review?.activeProposalId === proposal.proposalId;
-  const hasPublicFile = proposal.files.some((file) => !file.sensitive);
-  const allSensitive = proposal.files.every((file) => file.sensitive);
-
-  const statusBadge = (() => {
-    switch (proposal.status) {
-      case "published":
-        return "border-emerald-300/70 bg-emerald-500/10 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300";
-      case "rejected":
-      case "expired":
-        return "border-[var(--sidebar-border)] bg-[var(--accent-light)] text-[var(--text-muted)]";
-      case "failed":
-        return "border-red-300/70 bg-red-500/10 text-red-700 dark:border-red-800 dark:text-red-300";
-      case "committed_pending_publish":
-      case "executing":
-        return "border-amber-300/70 bg-amber-500/10 text-amber-800 dark:border-amber-800 dark:text-amber-300";
-      default:
-        return "border-[var(--brand)]/40 bg-[var(--brand)]/10 text-[var(--brand)]";
-    }
-  })();
-
   const statusLabel = (() => {
     switch (proposal.status) {
       case "pending":
-        return "Awaiting approval";
+        return "awaiting approval";
       case "executing":
-        return "Publishing…";
+        return "publishing…";
       case "committed_pending_publish":
-        return "Publish pending";
+        return "publish pending";
       case "published":
-        return "Published";
+        return "published";
       case "rejected":
-        return "Rejected";
+        return "rejected";
       case "expired":
-        return "Expired";
+        return "expired";
       case "failed":
-        return "Failed";
+        return "failed";
     }
   })();
 
-  const buttonLabel =
-    fileCount > 1 ? `Review ${fileCount} wiki edits` : "Review wiki edit";
-
   return (
-    <section
-      aria-label={
-        fileCount > 1
-          ? `Proposed wiki edits (${fileCount} files)`
-          : `Proposed wiki edit for ${proposal.title || proposal.slug}`
-      }
-      className="my-2 inline-flex w-full max-w-md flex-col gap-2 rounded-xl border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)]/60 p-3 text-xs"
-      data-test-id="wiki-edit-proposal-card"
+    <div
+      className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-xs text-[var(--text-muted)]"
+      data-test-id="wiki-edit-proposal-status"
       data-proposal-id={proposal.proposalId}
       data-proposal-status={proposal.status}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-medium text-[var(--foreground)]">
-            {fileCount > 1
-              ? `${fileCount} wiki pages`
-              : proposal.title || proposal.slug}
-          </span>
-          <span
-            className={`rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-              allSensitive
-                ? "border-amber-300/70 bg-amber-500/10 text-amber-800 dark:border-amber-800 dark:text-amber-300"
-                : "border-[var(--sidebar-border)] text-[var(--text-muted)]"
-            }`}
-          >
-            {allSensitive ? "Sensitive" : hasPublicFile && proposal.files.some((f) => f.sensitive) ? "Mixed" : "Public"}
-          </span>
-          {proposal.stats ? (
-            <span className="font-mono text-[11px] text-[var(--text-muted)]">
-              <span className="text-emerald-600 dark:text-emerald-400">
-                +{proposal.stats.additions}
-              </span>
-              {proposal.stats.deletions > 0 ? (
-                <>
-                  {" "}
-                  <span className="text-red-600 dark:text-red-400">
-                    -{proposal.stats.deletions}
-                  </span>
-                </>
-              ) : null}
-            </span>
-          ) : null}
-        </div>
-        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge}`}>
-          {statusLabel}
-        </span>
-      </div>
-
-      {proposal.summary ? (
-        <p className="line-clamp-2 text-[var(--text-muted)]">{proposal.summary}</p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => review?.openProposal(proposal.proposalId, proposal)}
-          disabled={!review}
-          className={`group inline-flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-            isOpen
-              ? "border-[var(--brand)] bg-[var(--brand)]/15 text-[var(--foreground)]"
-              : "border-[var(--brand)]/45 bg-[var(--background)] text-[var(--foreground)] hover:border-[var(--brand)] hover:bg-[var(--brand)]/10"
-          }`}
-          data-test-id="wiki-edit-review-open"
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+        <path d="M3 8.5l3 3 7-7" />
+      </svg>
+      <span className="min-w-0 truncate">
+        Drafted wiki updates, {fileCount} {fileCount === 1 ? "page" : "pages"} · {statusLabel}
+      </span>
+      {proposal.commitUrl ? (
+        <a
+          href={proposal.commitUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-mono text-[11px] text-[var(--brand)] hover:underline"
         >
-          <span className="inline-flex items-center gap-2">
-            <DocumentIcon />
-            <span>{buttonLabel}</span>
-          </span>
-          <ArrowRightIcon />
-        </button>
-
-        {proposal.commitUrl ? (
-          <a
-            href={proposal.commitUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-mono text-[11px] text-[var(--brand)] hover:underline"
-          >
-            Commit {proposal.commitSha?.slice(0, 7)} ↗
-          </a>
-        ) : null}
-      </div>
-    </section>
+          {proposal.commitSha?.slice(0, 7)} ↗
+        </a>
+      ) : null}
+    </div>
   );
 });
 
@@ -515,6 +395,62 @@ export function WikiChatToolRenderer({
   }
 
   return <DefaultToolCallBlock toolName={toolName} state={state} />;
+}
+
+/**
+ * Message-level "Review updates" action. Sits in the assistant message's
+ * hover row next to Copy/Edit/Regenerate and opens the review panel for the
+ * wiki edit proposal(s) the message produced. Stays visible while any
+ * proposal is waiting on the reader, and reveals on hover once resolved.
+ */
+export function WikiChatMessageAction({ parts }: ChatMessageActionProps) {
+  const review = useWikiEditReview();
+  const proposals = useMemo(() => {
+    const found: WikiEditProposalState[] = [];
+    for (const part of parts) {
+      const info = getChatToolInfo(part as Record<string, unknown>);
+      if (!info || info.toolName !== "propose_wiki_edit") continue;
+      if (info.state !== "output-available" || !info.output) continue;
+      const input = (info.input || {}) as { slug?: unknown };
+      const proposal = normalizeWikiEditProposal(
+        info.output as Parameters<typeof normalizeWikiEditProposal>[0],
+        undefined,
+        typeof input.slug === "string" ? input.slug : undefined,
+      );
+      if (proposal) found.push(proposal);
+    }
+    return found;
+  }, [parts]);
+
+  if (!review || proposals.length === 0) return null;
+
+  const live = proposals.map((p) => review.getProposal(p.proposalId) ?? p);
+  const fileCount = live.reduce((n, p) => n + p.files.length, 0);
+  const waiting = live.find((p) => p.status === "pending");
+  const target = waiting ?? live[0]!;
+  const isOpen = live.some((p) => p.proposalId === review.activeProposalId);
+
+  return (
+    <button
+      type="button"
+      onClick={() => review.openProposal(target.proposalId, target)}
+      aria-label={`Review updates (${fileCount})`}
+      title="Review wiki updates"
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs transition-colors ${
+        waiting
+          ? "bg-[var(--brand)]/10 font-medium text-[var(--brand)] hover:bg-[var(--brand)]/15"
+          : "text-[var(--text-muted)] opacity-100 hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] sm:opacity-0 sm:group-hover/assistant:opacity-100 sm:focus-visible:opacity-100"
+      } ${isOpen ? "ring-1 ring-[var(--brand)]/40" : ""}`}
+      data-test-id="wiki-edit-message-action"
+      data-proposal-status={target.status}
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 2.5h7l3 3v8H3z" />
+        <path d="M5.5 9l1.5 1.5L10.5 7" />
+      </svg>
+      <span>Review updates ({fileCount})</span>
+    </button>
+  );
 }
 
 export const extractWikiChatSources: ChatSourceExtractor = (parts) => {
