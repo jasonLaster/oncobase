@@ -8,6 +8,7 @@ import { hashSessionToken } from "../user-auth";
 import {
   WikiEditError,
   approveAndPublishWikiEdit,
+  hydrateProposalPreviews,
   rejectWikiEdit,
 } from "../wiki-edit-service";
 
@@ -86,7 +87,13 @@ export async function handleWikiEditsRequest(
         proposalId,
       });
       if (!proposal) return json({ error: "Proposal not found" }, 404);
-      return json({ proposal });
+      const includePreview = url.searchParams.get("includePreview") === "1";
+      if (!includePreview) {
+        const sanitizedFiles = proposal.files.map(({ newContent: _omitted, ...rest }) => rest);
+        return json({ proposal: { ...proposal, files: sanitizedFiles } });
+      }
+      const hydrated = await hydrateProposalPreviews({ client, siteSlug, proposal });
+      return json({ proposal: hydrated });
     }
 
     const body = (await boundedJson(request, 8192)) as Record<string, unknown>;

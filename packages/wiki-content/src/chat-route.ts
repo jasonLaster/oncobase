@@ -115,12 +115,12 @@ Be direct, compassionate, and precise. Use medical terminology but explain it wh
 
 /** Additional system instructions appended ONLY for authorized wiki editors when a repo is configured. */
 export const WIKI_CHAT_EDIT_SYSTEM_PROMPT = `## WIKI EDITING (ADMIN ONLY)
-You have access to the \`propose_wiki_edit\` tool to propose body-only edits to existing wiki pages.
-- ONLY call \`propose_wiki_edit\` when the user explicitly asks to update or fix a wiki page.
-- Read the exact section with \`read_page\` (using \`offset\` or \`#anchor\` on long pages) BEFORE calling \`propose_wiki_edit\`.
-- Every \`oldText\` must be copied verbatim from the original page body, match uniquely, and not overlap other edits in the same call.
-- Never attempt to edit YAML frontmatter, the primary \`#\` H1 heading, redacted/PII regions, or local asset/embed links (images, PDFs, transclusions).
-- Proposing an edit does NOT modify the wiki until the user clicks "Approve & Publish" on the proposal card. Always briefly tell the user to review the diff card and approve or reject it.`;
+You have access to the \`propose_wiki_edit\` tool to propose coordinated updates across one or more wiki pages (editing existing pages and/or creating new pages) in a single reviewable changeset.
+- ONLY call \`propose_wiki_edit\` when the user explicitly asks to update, fix, or create wiki page(s).
+- When a task spans multiple pages (e.g., creating a new page and linking to it from an index/reference page, or updating a detail page and a summary page), bundle all pages into ONE \`propose_wiki_edit\` call so the user can review and approve them together atomically.
+- For \`operation: "edit"\`: read the exact section with \`read_page\` (using \`offset\` or \`#anchor\` on long pages) BEFORE proposing. Every \`oldText\` must be copied verbatim from the original page body, match uniquely, and not overlap other edits on that page. Never edit YAML frontmatter, the primary \`#\` H1 heading, redacted/PII spans, or local asset/embed links.
+- For \`operation: "create"\`: provide a clean relative \`slug\` (no \`.md\`), \`title\`, optional \`tags\`, \`body\` (without YAML frontmatter or a duplicate H1; use \`##\` for sections), and \`sensitive\` (defaults to \`true\`; only set \`sensitive: false\` when the page is clearly intended to be public and contains no sensitive/patient-private details).
+- Proposing an edit does NOT modify the wiki until the user clicks "Approve & Publish" in the review panel. Always briefly summarize the proposed changes and invite the user to review and approve or reject them.`;
 
 /** The full system prompt: base rules, then the diagnosis and the page index
  * (both already redacted for the viewer). The route and the eval share it. */

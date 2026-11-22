@@ -198,6 +198,25 @@ export default defineSchema({
     commitMessage: v.string(),
     redactedDiff: v.string(),
     stats: v.object({ additions: v.number(), deletions: v.number() }),
+    // V2 multi-page changeset (optional so existing V1 single-file rows keep working).
+    files: v.optional(
+      v.array(
+        v.object({
+          slug: v.string(),
+          title: v.string(),
+          filePath: v.string(),
+          operation: v.union(v.literal("edit"), v.literal("create")),
+          baseFileSha: v.optional(v.string()),
+          baseContentHash: v.optional(v.string()),
+          sensitive: v.boolean(),
+          edits: v.array(v.object({ oldText: v.string(), newText: v.string() })),
+          newContent: v.optional(v.string()),
+          redactedDiff: v.string(),
+          stats: v.object({ additions: v.number(), deletions: v.number() }),
+          firstChangedHeading: v.optional(v.string()),
+        }),
+      ),
+    ),
     status: v.union(
       v.literal("pending"),
       v.literal("executing"),

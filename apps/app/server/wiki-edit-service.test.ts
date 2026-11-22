@@ -452,4 +452,158 @@ describe("wiki-edit-service", () => {
     expect(file).toEqual({ filePath: "wiki/hello.md", raw: "# Hello\n", sha: "sha-file-1" });
     expect(seenAuth.every((header) => header === "Bearer github_pat_test_123")).toBe(true);
   });
+
+  test("proposes, previews, and atomically commits + publishes multi-page edit and new page", async () => {
+    const { t, client, repo, ownerSessionToken, ownerTokenHash, ownerKey } =
+      await createServiceFixture();
+
+    try {
+      const proposed = await proposeWikiEdit({
+        client,
+        siteSlug: "diana",
+        sessionTokenHash: ownerTokenHash,
+        ownerKey,
+        repo,
+        readSensitiveInSession: true,
+        summary: "Create ctDNA vendor reference and link it from Treatment Plan",
+        commitMessage: "Add ctDNA vendor guide and cross-link",
+        pages: [
+          {
+            operation: "create",
+            slug: "wiki/diagnostics/ctdna-vendors",
+            title: "ctDNA Vendor Guide",
+            tags: ["diagnostics", "ctdna"],
+            sensitive: true,
+            body: "## Platforms\n\nSignatera and NeXT Personal are tumor-informed.",
+          },
+          {
+            operation: "edit",
+            slug: "wiki/treatment/plan",
+            edits: [
+              {
+                oldText: "Dosing schedule: every 3 weeks.",
+                newText:
+                  "Dosing schedule: every 3 weeks.\n\nSee also: [ctDNA Vendor Guide](/wiki/diagnostics/ctdna-vendors).",
+              },
+            ],
+          },
+        ],
+      });
+      expect(proposed.ok).toBe(true);
+      if (!proposed.ok) return;
+      expect(proposed.files).toHaveLength(2);
+      expect(proposed.files[0]?.operation).toBe("create");
+      expect(proposed.files[0]?.sensitive).toBe(true);
+      expect(proposed.files[1]?.operation).toBe("edit");
+      // Top-level sensitive is false because one file (plan) is public.
+      expect(proposed.sensitive).toBe(false);
+
+      // GET with includePreview=1 hydrates redacted previews for both files.
+      const previewRes = await handleWikiEditsRequest(
+        new Request(
+          `https://wiki.test/api/chat/wiki-edits?id=${proposed.proposalId}&includePreview=1`,
+          {
+            method: "GET",
+            headers: { cookie: `${USER_SESSION_COOKIE}=${ownerSessionToken}` },
+          },
+        ),
+        client,
+        "diana",
+      );
+      expect(previewRes.status).toBe(200);
+      const previewBody = (await previewRes.json()) as {
+        proposal: {
+          files: Array<{ slug: string; redactedPreview?: string; newContent?: string }>;
+        };
+      };
+      expect(previewBody.proposal.files[0]?.newContent).toBeUndefined();
+      expect(previewBody.proposal.files[0]?.redactedPreview).toContain("# ctDNA Vendor Guide");
+      expect(previewBody.proposal.files[1]?.redactedPreview).toContain("the patient");
+      expect(previewBody.proposal.files[1]?.redactedPreview).not.toContain("Diana Laster");
+      expect(previewBody.proposal.files[1]?.redactedPreview).toContain("ctDNA Vendor Guide");
+
+      // Approve lands both pages in ONE atomic commit and publishes both to Convex.
+      const approved = await approveAndPublishWikiEdit({
+        client,
+        siteSlug: "diana",
+        sessionTokenHash: ownerTokenHash,
+        ownerKey,
+        proposalId: proposed.proposalId,
+        repo,
+      });
+      expect(approved.status).toBe("published");
+      expect(repo.commits).toHaveLength(1);
+      expect(repo.files.has("wiki/diagnostics/ctdna-vendors.md")).toBe(true);
+      expect(repo.files.get("wiki/treatment/plan.md")?.raw).toContain("Diana Laster");
+      expect(repo.files.get("wiki/treatment/plan.md")?.raw).toContain("ctDNA Vendor Guide");
+
+      const createdConvex = await client.query(api.documents.getBySlug, {
+        siteSlug: "diana",
+        slug: "wiki/diagnostics/ctdna-vendors",
+        includeSensitive: true,
+      });
+      expect(createdConvex?.title).toBe("ctDNA Vendor Guide");
+      expect(createdConvex?.sensitive).toBe(true);
+
+      const editedConvex = await client.query(api.documents.getBySlug, {
+        siteSlug: "diana",
+        slug: "wiki/treatment/plan",
+        includeSensitive: true,
+      });
+      expect(editedConvex?.content).toContain("ctDNA Vendor Guide");
+      expect(editedConvex?.content).not.toContain("Diana Laster");
+    } finally {
+      await drainScheduled(t);
+    }
+  });
+
+  test("multi-page approve aborts atomically without writing any file if one page conflicts", async () => {
+    const { t, client, repo, ownerTokenHash, ownerKey } = await createServiceFixture();
+
+    try {
+      const proposed = await proposeWikiEdit({
+        client,
+        siteSlug: "diana",
+        sessionTokenHash: ownerTokenHash,
+        ownerKey,
+        repo,
+        summary: "Create note + update plan",
+        pages: [
+          {
+            operation: "create",
+            slug: "wiki/diagnostics/new-note",
+            title: "New Note",
+            body: "## Details\n\nFresh content.",
+          },
+          {
+            operation: "edit",
+            slug: "wiki/treatment/plan",
+            edits: [{ oldText: "every 3 weeks.", newText: "every 2 weeks." }],
+          },
+        ],
+      });
+      expect(proposed.ok).toBe(true);
+      if (!proposed.ok) return;
+
+      // External edit modifies plan in GitHub after proposal was created.
+      repo.setFile("wiki/treatment/plan.md", `${RAW_PLAN}\nExternal update.\n`);
+
+      await expect(
+        approveAndPublishWikiEdit({
+          client,
+          siteSlug: "diana",
+          sessionTokenHash: ownerTokenHash,
+          ownerKey,
+          proposalId: proposed.proposalId,
+          repo,
+        }),
+      ).rejects.toThrow(/changed after this edit was proposed/i);
+
+      // Neither file was committed or created.
+      expect(repo.commits).toHaveLength(0);
+      expect(repo.files.has("wiki/diagnostics/new-note.md")).toBe(false);
+    } finally {
+      await drainScheduled(t);
+    }
+  });
 });

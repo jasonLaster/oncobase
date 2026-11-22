@@ -66,6 +66,16 @@
       "import": "./src/wiki-chat.tsx",
       "default": "./src/wiki-chat.tsx"
     },
+    "./wiki-edit-review": {
+      "types": "./src/wiki-edit-review-context.tsx",
+      "import": "./src/wiki-edit-review-context.tsx",
+      "default": "./src/wiki-edit-review-context.tsx"
+    },
+    "./wiki-edit-review-panel": {
+      "types": "./src/wiki-edit-review-panel.tsx",
+      "import": "./src/wiki-edit-review-panel.tsx",
+      "default": "./src/wiki-edit-review-panel.tsx"
+    },
     "./navigation": {
       "types": "./src/navigation.tsx",
       "import": "./src/navigation.tsx",

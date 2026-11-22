@@ -1,20 +1,32 @@
 import crypto from "node:crypto";
 import type { ConvexHttpClient } from "convex/browser";
-import { parseMarkdownDocument } from "@oncobase/wiki-content/markdown-document";
-import { applyValidatedWikiEdit, type WikiTextEdit } from "@oncobase/wiki-content/wiki-edit-patch";
-import { parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
+import {
+  compileOncobaseIgnore,
+  parseMarkdownDocument,
+  splitFrontmatter,
+} from "@oncobase/wiki-content/markdown-document";
+import {
+  applyValidatedWikiEdit,
+  computeRedactedPreview,
+  findFirstChangedHeading,
+  validateNewWikiPage,
+  type WikiTextEdit,
+} from "@oncobase/wiki-content/wiki-edit-patch";
+import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
 import { api } from "../convex/_generated/api.js";
 import type { Id } from "../convex/_generated/dataModel.js";
 import { publishScopedDocumentsInProcess, type ScopedDocumentInput } from "./publish-api";
 import {
   RepoConflictError,
   getRepoAdapterForSite,
+  type RepoFileCommitInput,
   type VaultRepoAdapter,
 } from "./repo-adapter";
 import { DEFAULT_SITE_SLUG, withSiteSlug } from "./reader-access";
 
 const MAX_SUMMARY_CHARS = 500;
 const MAX_COMMIT_SUBJECT_CHARS = 120;
+export const MAX_PAGES_PER_PROPOSAL = 10;
 
 export class WikiEditError extends Error {
   constructor(
@@ -77,6 +89,32 @@ function isLeaseContentionError(error: unknown): boolean {
   return /publish already running|Publish conflict:/i.test(message);
 }
 
+export type WikiPageChangeInput =
+  | {
+      operation?: "edit";
+      slug: string;
+      edits: WikiTextEdit[];
+    }
+  | {
+      operation: "create";
+      slug: string;
+      title: string;
+      tags?: string[];
+      sensitive?: boolean;
+      body: string;
+    };
+
+export type ProposalFileSummary = {
+  slug: string;
+  title: string;
+  filePath: string;
+  operation: "edit" | "create";
+  sensitive: boolean;
+  redactedDiff: string;
+  stats: { additions: number; deletions: number };
+  firstChangedHeading?: string;
+};
+
 export type ProposeWikiEditResult =
   | {
       ok: true;
@@ -91,6 +129,7 @@ export type ProposeWikiEditResult =
       commitMessage: string;
       redactedDiff: string;
       stats: { additions: number; deletions: number };
+      files: ProposalFileSummary[];
       status: "pending";
       expiresAt: number;
     }
@@ -98,7 +137,35 @@ export type ProposeWikiEditResult =
       ok: false;
       code: string;
       error: string;
+      errors?: Array<{ slug: string; code: string; error: string }>;
     };
+
+type PreparedProposalFile = {
+  slug: string;
+  title: string;
+  filePath: string;
+  operation: "edit" | "create";
+  baseFileSha?: string;
+  baseContentHash?: string;
+  sensitive: boolean;
+  edits: WikiTextEdit[];
+  newContent?: string;
+  redactedDiff: string;
+  stats: { additions: number; deletions: number };
+  firstChangedHeading?: string;
+};
+
+function normalizeInputPages(args: {
+  slug?: string;
+  edits?: WikiTextEdit[];
+  pages?: WikiPageChangeInput[];
+}): WikiPageChangeInput[] {
+  if (Array.isArray(args.pages) && args.pages.length > 0) return args.pages;
+  if (typeof args.slug === "string" && Array.isArray(args.edits)) {
+    return [{ operation: "edit", slug: args.slug, edits: args.edits }];
+  }
+  return [];
+}
 
 export async function proposeWikiEdit({
   client,
@@ -108,6 +175,7 @@ export async function proposeWikiEdit({
   conversationId,
   slug,
   edits,
+  pages: rawPages,
   summary,
   commitMessage,
   readSensitiveInSession = false,
@@ -118,8 +186,9 @@ export async function proposeWikiEdit({
   sessionTokenHash: string;
   ownerKey: string;
   conversationId?: string;
-  slug: string;
-  edits: WikiTextEdit[];
+  slug?: string;
+  edits?: WikiTextEdit[];
+  pages?: WikiPageChangeInput[];
   summary: string;
   commitMessage?: string;
   readSensitiveInSession?: boolean;
@@ -134,65 +203,207 @@ export async function proposeWikiEdit({
     };
   }
 
-  const normalizedSlug = slug.trim().replace(/^\/+/, "").replace(/\.(?:md|mdx)$/i, "");
-  if (!normalizedSlug || normalizedSlug.includes("..") || normalizedSlug.includes("\\")) {
-    return { ok: false, code: "invalid_slug", error: "Invalid page slug." };
+  const pages = normalizeInputPages({ slug, edits, pages: rawPages });
+  if (pages.length === 0) {
+    return { ok: false, code: "invalid_pages", error: "Provide at least one page to edit or create." };
   }
-
-  let file: Awaited<ReturnType<VaultRepoAdapter["resolveFile"]>>;
-  try {
-    file = await repo.resolveFile(normalizedSlug);
-  } catch (error) {
+  if (pages.length > MAX_PAGES_PER_PROPOSAL) {
     return {
       ok: false,
-      code: "repo_read_failed",
-      error: error instanceof Error ? error.message : "Failed to read page from repository.",
-    };
-  }
-  if (!file) {
-    return {
-      ok: false,
-      code: "not_found",
-      error: `Page "${normalizedSlug}" was not found in the vault repository or is excluded from publishing.`,
+      code: "too_many_pages",
+      error: `At most ${MAX_PAGES_PER_PROPOSAL} pages can be updated in one proposal.`,
     };
   }
 
-  const convexDoc = await client.query(
-    api.documents.getBySlug,
-    withSiteSlug(siteSlug, { slug: normalizedSlug, includeSensitive: true }),
+  const [piiPatterns, ignoreRulesRaw] = await Promise.all([
+    resolveSitePiiPatterns(client, siteSlug),
+    repo.readIgnoreRules().catch(() => null),
+  ]);
+  const ignoreMatchers = compileOncobaseIgnore(ignoreRulesRaw);
+
+  const seenSlugs = new Set<string>();
+  const prepared: PreparedProposalFile[] = [];
+  const errors: Array<{ slug: string; code: string; error: string }> = [];
+
+  for (const page of pages) {
+    const normalizedSlug = page.slug.trim().replace(/^\/+/, "").replace(/\.(?:md|mdx)$/i, "");
+    if (!normalizedSlug || normalizedSlug.includes("..") || normalizedSlug.includes("\\")) {
+      errors.push({ slug: page.slug, code: "invalid_slug", error: "Invalid page slug." });
+      continue;
+    }
+    const slugKey = normalizedSlug.toLowerCase();
+    if (seenSlugs.has(slugKey)) {
+      errors.push({
+        slug: normalizedSlug,
+        code: "duplicate_slug",
+        error: `Page "${normalizedSlug}" appears more than once in this proposal; combine edits for the same page.`,
+      });
+      continue;
+    }
+    seenSlugs.add(slugKey);
+
+    if (page.operation === "create") {
+      const validated = validateNewWikiPage({
+        slug: normalizedSlug,
+        title: page.title,
+        tags: page.tags,
+        sensitive: page.sensitive ?? true,
+        body: page.body,
+        piiPatterns,
+        ignoreMatchers,
+      });
+      if (!validated.ok) {
+        errors.push({ slug: normalizedSlug, code: validated.code, error: validated.error });
+        continue;
+      }
+
+      let existingGit: Awaited<ReturnType<VaultRepoAdapter["resolveFile"]>>;
+      try {
+        existingGit = await repo.resolveFile(validated.slug);
+      } catch (error) {
+        errors.push({
+          slug: validated.slug,
+          code: "repo_read_failed",
+          error: error instanceof Error ? error.message : "Failed to check repository for existing page.",
+        });
+        continue;
+      }
+      if (existingGit) {
+        errors.push({
+          slug: validated.slug,
+          code: "already_exists",
+          error: `Page "${validated.slug}" already exists in the vault repository. Use operation: "edit" instead.`,
+        });
+        continue;
+      }
+
+      const existingConvex = await client.query(
+        api.documents.getBySlug,
+        withSiteSlug(siteSlug, { slug: validated.slug, includeSensitive: true }),
+      );
+      if (existingConvex) {
+        errors.push({
+          slug: validated.slug,
+          code: "already_exists",
+          error: `Page "${validated.slug}" already exists in the published wiki. Use operation: "edit" instead.`,
+        });
+        continue;
+      }
+
+      prepared.push({
+        slug: validated.slug,
+        title: validated.parsedProposed.title,
+        filePath: validated.filePath,
+        operation: "create",
+        sensitive: validated.parsedProposed.sensitive,
+        edits: [],
+        newContent: validated.proposedRaw,
+        redactedDiff: validated.redactedDiff,
+        stats: validated.stats,
+        ...(validated.firstChangedHeading ? { firstChangedHeading: validated.firstChangedHeading } : {}),
+      });
+      continue;
+    }
+
+    // operation === "edit"
+    let file: Awaited<ReturnType<VaultRepoAdapter["resolveFile"]>>;
+    try {
+      file = await repo.resolveFile(normalizedSlug);
+    } catch (error) {
+      errors.push({
+        slug: normalizedSlug,
+        code: "repo_read_failed",
+        error: error instanceof Error ? error.message : "Failed to read page from repository.",
+      });
+      continue;
+    }
+    if (!file) {
+      errors.push({
+        slug: normalizedSlug,
+        code: "not_found",
+        error: `Page "${normalizedSlug}" was not found in the vault repository or is excluded from publishing.`,
+      });
+      continue;
+    }
+
+    const convexDoc = await client.query(
+      api.documents.getBySlug,
+      withSiteSlug(siteSlug, { slug: normalizedSlug, includeSensitive: true }),
+    );
+    if (!convexDoc) {
+      errors.push({
+        slug: normalizedSlug,
+        code: "not_published",
+        error: `Page "${normalizedSlug}" does not exist in Convex yet. Publish it from the vault CLI before editing in Chat.`,
+      });
+      continue;
+    }
+
+    const parsedGit = parseMarkdownDocument(normalizedSlug, file.raw);
+    if (!convexDoc.contentHash || parsedGit.hash !== convexDoc.contentHash) {
+      errors.push({
+        slug: normalizedSlug,
+        code: "baseline_drift",
+        error: `The Git repository and published wiki are out of sync for "${normalizedSlug}". Publish from an up-to-date vault checkout before editing in Chat.`,
+      });
+      continue;
+    }
+
+    const validated = applyValidatedWikiEdit({
+      slug: normalizedSlug,
+      baseRaw: file.raw,
+      edits: page.edits,
+      piiPatterns,
+    });
+    if (!validated.ok) {
+      errors.push({ slug: normalizedSlug, code: validated.code, error: validated.error });
+      continue;
+    }
+
+    prepared.push({
+      slug: normalizedSlug,
+      title: validated.parsedBase.title,
+      filePath: file.filePath,
+      operation: "edit",
+      baseFileSha: file.sha,
+      baseContentHash: convexDoc.contentHash,
+      sensitive: validated.parsedBase.sensitive,
+      edits: page.edits,
+      redactedDiff: validated.redactedDiff,
+      stats: validated.stats,
+      ...(validated.firstChangedHeading ? { firstChangedHeading: validated.firstChangedHeading } : {}),
+    });
+  }
+
+  if (errors.length > 0) {
+    const first = errors[0]!;
+    return {
+      ok: false,
+      code: first.code,
+      error:
+        errors.length === 1
+          ? first.error
+          : errors.map((e) => `${e.slug}: ${e.error}`).join("\n"),
+      errors,
+    };
+  }
+
+  const primary = prepared[0]!;
+  const aggregateStats = prepared.reduce(
+    (acc, item) => ({
+      additions: acc.additions + item.stats.additions,
+      deletions: acc.deletions + item.stats.deletions,
+    }),
+    { additions: 0, deletions: 0 },
   );
-  if (!convexDoc) {
-    return {
-      ok: false,
-      code: "not_published",
-      error: `Page "${normalizedSlug}" does not exist in Convex yet. Publish it from the vault CLI before editing in Chat.`,
-    };
-  }
-
-  const parsedGit = parseMarkdownDocument(normalizedSlug, file.raw);
-  if (!convexDoc.contentHash || parsedGit.hash !== convexDoc.contentHash) {
-    return {
-      ok: false,
-      code: "baseline_drift",
-      error: `The Git repository and published wiki are out of sync for "${normalizedSlug}". Publish from an up-to-date vault checkout before editing in Chat.`,
-    };
-  }
-
-  const piiPatterns = await resolveSitePiiPatterns(client, siteSlug);
-  const validated = applyValidatedWikiEdit({
-    slug: normalizedSlug,
-    baseRaw: file.raw,
-    edits,
-    piiPatterns,
-  });
-  if (!validated.ok) {
-    return { ok: false, code: validated.code, error: validated.error };
-  }
-
-  const cleanSummary = summary.trim().slice(0, MAX_SUMMARY_CHARS) || `Edit ${normalizedSlug}`;
+  // Conservative top-level visibility flag for V1 compatibility: false if ANY page is public.
+  const allSensitive = prepared.every((item) => item.sensitive);
+  const fallbackLabel =
+    prepared.length === 1 ? primary.slug : `${prepared.length} wiki pages`;
+  const cleanSummary = summary.trim().slice(0, MAX_SUMMARY_CHARS) || `Edit ${fallbackLabel}`;
   const cleanCommitMessage = sanitizeCommitSubject(
     commitMessage?.trim() || cleanSummary,
-    normalizedSlug,
+    fallbackLabel,
   );
 
   const created = await client.mutation(
@@ -202,36 +413,49 @@ export async function proposeWikiEdit({
       sessionTokenHash,
       ownerKey,
       ...(conversationId ? { conversationId } : {}),
-      slug: normalizedSlug,
-      title: validated.parsedBase.title,
-      filePath: file.filePath,
+      slug: primary.slug,
+      title: primary.title,
+      filePath: primary.filePath,
       branch: repo.branch,
-      baseFileSha: file.sha,
-      baseContentHash: convexDoc.contentHash,
-      sensitive: validated.parsedBase.sensitive,
+      baseFileSha: primary.baseFileSha ?? "",
+      baseContentHash: primary.baseContentHash ?? "",
+      sensitive: allSensitive,
       readSensitiveInSession,
-      edits,
+      edits: primary.edits,
       summary: cleanSummary,
       commitMessage: cleanCommitMessage,
-      redactedDiff: validated.redactedDiff,
-      stats: validated.stats,
+      redactedDiff: primary.redactedDiff,
+      stats: aggregateStats,
+      files: prepared,
     },
     { skipQueue: true },
   );
 
+  const fileSummaries: ProposalFileSummary[] = prepared.map((item) => ({
+    slug: item.slug,
+    title: item.title,
+    filePath: item.filePath,
+    operation: item.operation,
+    sensitive: item.sensitive,
+    redactedDiff: item.redactedDiff,
+    stats: item.stats,
+    ...(item.firstChangedHeading ? { firstChangedHeading: item.firstChangedHeading } : {}),
+  }));
+
   return {
     ok: true,
     proposalId: String(created.proposalId),
-    slug: normalizedSlug,
-    title: validated.parsedBase.title,
-    filePath: file.filePath,
+    slug: primary.slug,
+    title: primary.title,
+    filePath: primary.filePath,
     branch: repo.branch,
-    sensitive: validated.parsedBase.sensitive,
+    sensitive: allSensitive,
     readSensitiveInSession,
     summary: cleanSummary,
     commitMessage: cleanCommitMessage,
-    redactedDiff: validated.redactedDiff,
-    stats: validated.stats,
+    redactedDiff: primary.redactedDiff,
+    stats: aggregateStats,
+    files: fileSummaries,
     status: "pending",
     expiresAt: created.expiresAt,
   };
@@ -266,12 +490,12 @@ export async function approveAndPublishWikiEdit({
     { skipQueue: true },
   );
   const typedProposalId = proposal._id as Id<"wikiEditProposals">;
+  const files = proposal.files;
 
   try {
     const piiPatterns = await resolveSitePiiPatterns(client, siteSlug);
 
-    // Check whether a prior interrupted execution already landed the Git commit
-    // (either recorded on the row or discoverable via the Oncobase-Proposal trailer).
+    // Check whether a prior interrupted execution already landed the Git commit.
     let commitSha = proposal.commitSha;
     let commitUrl = proposal.commitUrl;
     if (!commitSha) {
@@ -293,60 +517,139 @@ export async function approveAndPublishWikiEdit({
       }
     }
 
-    let docToPublish: ScopedDocumentInput;
+    const docsToPublish: ScopedDocumentInput[] = [];
 
     if (!commitSha) {
-      const liveFile = await repo.resolveFile(proposal.slug);
-      if (!liveFile) {
-        throw new WikiEditError(409, "file_missing", `Page "${proposal.slug}" no longer exists in the repository.`);
-      }
-      if (liveFile.sha !== proposal.baseFileSha) {
-        throw new WikiEditError(
-          409,
-          "repo_conflict",
-          "The page in GitHub changed after this edit was proposed. Ask Chat to re-read the page and propose a fresh edit.",
-        );
-      }
-      const convexDoc = await client.query(
-        api.documents.getBySlug,
-        withSiteSlug(siteSlug, { slug: proposal.slug, includeSensitive: true }),
-      );
-      if (!convexDoc || convexDoc.contentHash !== proposal.baseContentHash) {
-        throw new WikiEditError(
-          409,
-          "convex_conflict",
-          "The published wiki page changed after this edit was proposed. Ask Chat to re-read the page and propose a fresh edit.",
-        );
-      }
+      const commitInputs: RepoFileCommitInput[] = [];
 
-      const validated = applyValidatedWikiEdit({
-        slug: proposal.slug,
-        baseRaw: liveFile.raw,
-        edits: proposal.edits,
-        piiPatterns,
-      });
-      if (!validated.ok) {
-        throw new WikiEditError(409, validated.code, validated.error);
+      for (const item of files) {
+        if (item.operation === "create") {
+          const existingGit = await repo.resolveFile(item.slug);
+          if (existingGit) {
+            throw new WikiEditError(
+              409,
+              "already_exists",
+              `Page "${item.slug}" now already exists in GitHub.`,
+            );
+          }
+          const existingConvex = await client.query(
+            api.documents.getBySlug,
+            withSiteSlug(siteSlug, { slug: item.slug, includeSensitive: true }),
+          );
+          if (existingConvex) {
+            throw new WikiEditError(
+              409,
+              "already_exists",
+              `Page "${item.slug}" now already exists in the published wiki.`,
+            );
+          }
+          if (!item.newContent) {
+            throw new WikiEditError(
+              400,
+              "missing_content",
+              `Proposal for new page "${item.slug}" is missing its generated content.`,
+            );
+          }
+          const parsed = parseMarkdownDocument(item.slug, item.newContent);
+          commitInputs.push({
+            filePath: item.filePath,
+            content: item.newContent,
+            operation: "create",
+          });
+          docsToPublish.push({
+            slug: parsed.slug,
+            title: parsed.title,
+            content: parsed.content,
+            tags: parsed.tags,
+            sensitiveInclude: parsed.sensitiveInclude,
+            hash: parsed.hash,
+            sensitive: parsed.sensitive,
+          });
+        } else {
+          const liveFile = await repo.resolveFile(item.slug);
+          if (!liveFile) {
+            throw new WikiEditError(
+              409,
+              "file_missing",
+              `Page "${item.slug}" no longer exists in the repository.`,
+            );
+          }
+          if (liveFile.sha !== item.baseFileSha) {
+            throw new WikiEditError(
+              409,
+              "repo_conflict",
+              `The page "${item.slug}" in GitHub changed after this edit was proposed. Ask Chat to re-read the page and propose a fresh edit.`,
+            );
+          }
+          const convexDoc = await client.query(
+            api.documents.getBySlug,
+            withSiteSlug(siteSlug, { slug: item.slug, includeSensitive: true }),
+          );
+          if (!convexDoc || convexDoc.contentHash !== item.baseContentHash) {
+            throw new WikiEditError(
+              409,
+              "convex_conflict",
+              `The published wiki page "${item.slug}" changed after this edit was proposed. Ask Chat to re-read the page and propose a fresh edit.`,
+            );
+          }
+
+          const validated = applyValidatedWikiEdit({
+            slug: item.slug,
+            baseRaw: liveFile.raw,
+            edits: item.edits,
+            piiPatterns,
+          });
+          if (!validated.ok) {
+            throw new WikiEditError(409, validated.code, validated.error);
+          }
+
+          commitInputs.push({
+            filePath: liveFile.filePath,
+            content: validated.proposedRaw,
+            operation: "edit",
+            baseSha: liveFile.sha,
+          });
+          docsToPublish.push({
+            slug: validated.parsedProposed.slug,
+            title: validated.parsedProposed.title,
+            content: validated.parsedProposed.content,
+            tags: validated.parsedProposed.tags,
+            sensitiveInclude: validated.parsedProposed.sensitiveInclude,
+            hash: validated.parsedProposed.hash,
+            sensitive: validated.parsedProposed.sensitive,
+          });
+        }
       }
 
       const fullCommitMessage = formatCommitMessage({
         subject: proposal.commitMessage,
-        slug: proposal.slug,
+        slug: files.length === 1 ? proposal.slug : `${files.length} wiki pages`,
         approverName: approver.name,
         approverEmail: approver.email,
         proposalId: String(proposal._id),
       });
 
-      const committed = await repo.commitFile({
-        filePath: liveFile.filePath,
-        content: validated.proposedRaw,
-        baseSha: liveFile.sha,
-        message: fullCommitMessage,
-        author: {
-          name: approver.name || approver.email,
-          email: approver.email,
-        },
-      });
+      const committed =
+        commitInputs.length === 1 && commitInputs[0]!.operation === "edit" && commitInputs[0]!.baseSha
+          ? await repo.commitFile({
+              filePath: commitInputs[0]!.filePath,
+              content: commitInputs[0]!.content,
+              baseSha: commitInputs[0]!.baseSha,
+              message: fullCommitMessage,
+              author: {
+                name: approver.name || approver.email,
+                email: approver.email,
+              },
+            })
+          : await repo.commitFiles({
+              files: commitInputs,
+              message: fullCommitMessage,
+              author: {
+                name: approver.name || approver.email,
+                email: approver.email,
+              },
+            });
+
       commitSha = committed.commitSha;
       commitUrl = committed.commitUrl;
 
@@ -362,39 +665,35 @@ export async function approveAndPublishWikiEdit({
         },
         { skipQueue: true },
       );
-
-      docToPublish = {
-        slug: validated.parsedProposed.slug,
-        title: validated.parsedProposed.title,
-        content: validated.parsedProposed.content,
-        tags: validated.parsedProposed.tags,
-        sensitiveInclude: validated.parsedProposed.sensitiveInclude,
-        hash: validated.parsedProposed.hash,
-        sensitive: validated.parsedProposed.sensitive,
-      };
     } else {
-      // Retry/reconcile path: Git commit already landed; publish the live committed content.
-      const liveFile = await repo.resolveFile(proposal.slug);
-      if (!liveFile) {
-        throw new WikiEditError(409, "file_missing", `Page "${proposal.slug}" was not found in the repository during publish retry.`);
+      // Retry/reconcile path: Git commit already landed; publish all committed files.
+      for (const item of files) {
+        const liveFile = await repo.resolveFile(item.slug, commitSha);
+        if (!liveFile) {
+          throw new WikiEditError(
+            409,
+            "file_missing",
+            `Page "${item.slug}" was not found in the repository during publish retry.`,
+          );
+        }
+        const parsed = parseMarkdownDocument(item.slug, liveFile.raw);
+        docsToPublish.push({
+          slug: parsed.slug,
+          title: parsed.title,
+          content: parsed.content,
+          tags: parsed.tags,
+          sensitiveInclude: parsed.sensitiveInclude,
+          hash: parsed.hash,
+          sensitive: parsed.sensitive,
+        });
       }
-      const parsed = parseMarkdownDocument(proposal.slug, liveFile.raw);
-      docToPublish = {
-        slug: parsed.slug,
-        title: parsed.title,
-        content: parsed.content,
-        tags: parsed.tags,
-        sensitiveInclude: parsed.sensitiveInclude,
-        hash: parsed.hash,
-        sensitive: parsed.sensitive,
-      };
     }
 
     try {
       const published = await publishScopedDocumentsInProcess({
         client,
         siteSlug,
-        documents: [docToPublish],
+        documents: docsToPublish,
         embedDocument,
       });
       const updated = await client.mutation(
@@ -409,7 +708,12 @@ export async function approveAndPublishWikiEdit({
         },
         { skipQueue: true },
       );
-      return { status: "published" as const, proposal: updated, revision: published.revision };
+      return {
+        status: "published" as const,
+        proposal: updated,
+        revision: published.revision,
+        slugs: docsToPublish.map((doc) => doc.slug),
+      };
     } catch (publishError) {
       const message = publishError instanceof Error ? publishError.message : String(publishError);
       if (isLeaseContentionError(publishError)) {
@@ -484,4 +788,119 @@ export async function rejectWikiEdit({
     { siteSlug, sessionTokenHash, ownerKey, proposalId },
     { skipQueue: true },
   );
+}
+
+/**
+ * Compute PII-redacted full Markdown previews on demand for GET /api/chat/wiki-edits?includePreview=1.
+ * Avoids storing large full-page previews inside Convex wikiEditProposals rows while keeping
+ * Preview strictly redacted and fast (zero GitHub API calls).
+ */
+export async function hydrateProposalPreviews<
+  T extends {
+    status: string;
+    files: Array<{
+      slug: string;
+      title: string;
+      filePath: string;
+      operation: "edit" | "create";
+      sensitive: boolean;
+      edits: WikiTextEdit[];
+      newContent?: string;
+      redactedDiff: string;
+      stats: { additions: number; deletions: number };
+      firstChangedHeading?: string;
+    }>;
+  },
+>({
+  client,
+  siteSlug,
+  proposal,
+}: {
+  client: ConvexHttpClient;
+  siteSlug: string;
+  proposal: T;
+}) {
+  const piiPatterns = await resolveSitePiiPatterns(client, siteSlug);
+  const hydratedFiles = await Promise.all(
+    proposal.files.map(async (file) => {
+      const { newContent, ...safeFile } = file;
+      if (file.operation === "create") {
+        let previewBody: string | undefined;
+        if (newContent) {
+          const { body } = splitFrontmatter(newContent);
+          previewBody = applyPiiRedactions(body, { patterns: piiPatterns });
+        } else if (proposal.status === "published") {
+          const doc = await client
+            .query(
+              api.documents.getBySlug,
+              withSiteSlug(siteSlug, { slug: file.slug, includeSensitive: true }),
+            )
+            .catch(() => null);
+          if (doc) previewBody = `# ${doc.title}\n\n${doc.content}`;
+        }
+        const heading =
+          file.firstChangedHeading ??
+          (previewBody ? findFirstChangedHeading(previewBody, file.redactedDiff) ?? undefined : undefined);
+        return {
+          ...safeFile,
+          ...(previewBody ? { redactedPreview: previewBody } : {}),
+          ...(heading ? { firstChangedHeading: heading } : {}),
+        };
+      }
+
+      const convexDoc = await client
+        .query(
+          api.documents.getBySlug,
+          withSiteSlug(siteSlug, { slug: file.slug, includeSensitive: true }),
+        )
+        .catch(() => null);
+      if (!convexDoc) return safeFile;
+
+      const fullConvexMarkdown = `# ${convexDoc.title}\n\n${convexDoc.content}`;
+      if (proposal.status === "published") {
+        const heading =
+          file.firstChangedHeading ??
+          findFirstChangedHeading(fullConvexMarkdown, file.redactedDiff) ??
+          undefined;
+        return {
+          ...safeFile,
+          redactedPreview: fullConvexMarkdown,
+          ...(heading ? { firstChangedHeading: heading } : {}),
+        };
+      }
+
+      const computed =
+        computeRedactedPreview({
+          baseRedactedBody: fullConvexMarkdown,
+          edits: file.edits,
+          redactedDiff: file.redactedDiff,
+        }) ??
+        (() => {
+          const bodyOnly = computeRedactedPreview({
+            baseRedactedBody: convexDoc.content,
+            edits: file.edits,
+            redactedDiff: file.redactedDiff,
+          });
+          return bodyOnly
+            ? {
+                redactedProposedBody: `# ${convexDoc.title}\n\n${bodyOnly.redactedProposedBody}`,
+                firstChangedHeading: bodyOnly.firstChangedHeading,
+              }
+            : null;
+        })();
+
+      if (!computed) return safeFile;
+      const heading = file.firstChangedHeading ?? computed.firstChangedHeading ?? undefined;
+      return {
+        ...safeFile,
+        redactedPreview: computed.redactedProposedBody,
+        ...(heading ? { firstChangedHeading: heading } : {}),
+      };
+    }),
+  );
+
+  return {
+    ...proposal,
+    files: hydratedFiles,
+  };
 }
