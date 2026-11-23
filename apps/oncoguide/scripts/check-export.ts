@@ -39,5 +39,10 @@ const initialBytes = Math.max(...readerRoutes.map(file => {
   return [...initialChunks].reduce((sum, chunk) => sum + chunkSizes.get(chunk)!, 0);
 }));
 if (initialBytes > 350 * 1024) throw Error(`Initial reader JavaScript exceeds 350 KiB gzip: ${initialBytes}`);
-if (gzipBytes > 550 * 1024) throw Error(`Client JavaScript including lazy learning chat exceeds 550 KiB gzip: ${gzipBytes}`);
+// The UI SDK migration (approved bundle hit) brings UI SDK parts into the
+// shared palette, image theater, chat, comments and shell: 636,154 B gzip
+// measured with every chunk counted (initial reader 316 KiB, still under 350).
+// node:zlib reads ~1% larger on Vercel, so allow ~3%: 550 -> 640 KiB.
+const totalClientBudget = 640 * 1024;
+if (gzipBytes > totalClientBudget) throw Error(`Client JavaScript including lazy learning chat exceeds ${totalClientBudget / 1024} KiB gzip: ${gzipBytes}`);
 console.info(`Static export verified: ${pages.length} lessons, ${manifest.assets.length} assets, ${Math.round(gzipBytes / 1024)} KiB gzip JavaScript (${Math.round(initialBytes / 1024)} KiB maximum initial reader)`);
