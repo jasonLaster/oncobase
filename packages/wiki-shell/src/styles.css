@@ -2460,4 +2460,17 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-tree-chevron[data-expanded] {
   transform: rotate(90deg);
 }
+/* The drawer places and slides the sheet itself (translate), inside its own
+   full-screen viewport: drop the old absolute placement and transform. */
+.wiki-shell-bottom-nav-panel[data-slot="drawer-content"] {
+  inset: auto;
+  position: relative;
+  transform: none;
+  transition: none;
+  width: 100%;
+}
+
+.wiki-shell-bottom-nav-backdrop[data-slot="drawer-backdrop"] {
+  position: fixed;
+}
 /* end ui-sdk: w8-nav-tree-resizable */

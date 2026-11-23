@@ -14,6 +14,7 @@ import {
   type WikiTreePageLinkRenderArgs,
 } from "@oncobase/wiki-shell";
 import { ChevronDown, ClipboardCheck, MessageSquareText, Search, WandSparkles } from "lucide-react";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
 import { MobileChatIcon, nodeIcon } from "./navigation-icons";
 import {
   lazy,
@@ -515,25 +516,20 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
         title={<MarkdownTitle title={pageTitle} />}
         trigger={false}
       >
-        <div className="wiki-vite-mobile-sheet-tabs">
-          <button
-            type="button"
-            className={activeTab === "pages" ? "active" : undefined}
-            onClick={() => setActiveTab("pages")}
-          >
-            Page nav
-          </button>
-          <button
-            type="button"
-            className={activeTab === "outline" ? "active" : undefined}
-            onClick={showOutlineTab}
-          >
-            Outline
-          </button>
-        </div>
-        <nav data-test-id={activeTab === "outline" ? "bottom-nav-outline" : "bottom-nav-page-tree"} data-tree-freshness={freshness}>
-          {activeTab === "outline" ? (
-            outlineItems.length > 0 ? (
+        <Tabs
+          className="wiki-vite-mobile-sheet-tabs-root"
+          value={activeTab}
+          onValueChange={(tab) => {
+            if (tab === "outline") showOutlineTab();
+            else setActiveTab("pages");
+          }}
+        >
+          <TabsList className="wiki-vite-mobile-sheet-tabs" aria-label="Navigation view">
+            <TabsTab value="pages">Page nav</TabsTab>
+            <TabsTab value="outline">Outline</TabsTab>
+          </TabsList>
+          <TabsPanel value="outline" render={<nav data-test-id="bottom-nav-outline" data-tree-freshness={freshness} />}>
+            {outlineItems.length > 0 ? (
               <div className="wiki-vite-mobile-outline-list">
                 {outlineItems.map((item) => {
                   const active = item.id === activeHeadingId;
@@ -553,41 +549,40 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
               </div>
             ) : (
               <p className="wiki-vite-mobile-outline-empty">No headings found on this page.</p>
-            )
-          ) : (
-            <>
-              <CommentsTreeLink
-                activePathname={pathname}
-                onNavigate={() => setOpen(false)}
-                testId="mobile-view-comments"
-              />
-              <DiagnosticsTreeLink
-                activePathname={pathname}
-                onNavigate={() => setOpen(false)}
-                testId="mobile-view-diagnostics"
-              />
-              <WikiSidebarSignInPrompt
-                onAuthSubmit={submitAuth}
-                onSessionChange={setSessionUser}
-                sessionLoading={sessionLoading}
-                hideWhileLoading={accountPending}
-                sessionUser={sessionUser}
-              />
-              <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
-              <WikiTree
-                activeSlug={activeSlug}
-                expandedSlugs={expandedSlugs}
-                formatNodeName={formatTreeLabel}
-                getFileHref={fileHrefForNode}
-                onNavigate={() => setOpen(false)}
-                onToggleDirectory={toggleDirectory}
-                renderNodeIcon={nodeIcon}
-                renderPageLink={renderPageLink}
-                tree={tree}
-              />
-            </>
-          )}
-        </nav>
+            )}
+          </TabsPanel>
+          <TabsPanel value="pages" render={<nav data-test-id="bottom-nav-page-tree" data-tree-freshness={freshness} />}>
+            <CommentsTreeLink
+              activePathname={pathname}
+              onNavigate={() => setOpen(false)}
+              testId="mobile-view-comments"
+            />
+            <DiagnosticsTreeLink
+              activePathname={pathname}
+              onNavigate={() => setOpen(false)}
+              testId="mobile-view-diagnostics"
+            />
+            <WikiSidebarSignInPrompt
+              onAuthSubmit={submitAuth}
+              onSessionChange={setSessionUser}
+              sessionLoading={sessionLoading}
+              hideWhileLoading={accountPending}
+              sessionUser={sessionUser}
+            />
+            <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
+            <WikiTree
+              activeSlug={activeSlug}
+              expandedSlugs={expandedSlugs}
+              formatNodeName={formatTreeLabel}
+              getFileHref={fileHrefForNode}
+              onNavigate={() => setOpen(false)}
+              onToggleDirectory={toggleDirectory}
+              renderNodeIcon={nodeIcon}
+              renderPageLink={renderPageLink}
+              tree={tree}
+            />
+          </TabsPanel>
+        </Tabs>
       </WikiMobileNavigationSheet>
       {!open && !talkOpen ? (
         <div
