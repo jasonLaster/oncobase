@@ -86,6 +86,19 @@ test.describe("comments (mocked Liveblocks)", () => {
     await expect(panel).toHaveAttribute("aria-label", "Document comments");
     await expect(panel).toContainText("0 unresolved threads");
     await expect(panel.getByText("Sign in to leave a comment")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Comments" })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Resize comments panel" })).toBeVisible();
+
+    // The actions menu opens above the sheet and its choice stays in the sheet.
+    await panel.getByRole("button", { name: "Comment actions" }).click();
+    await page.getByRole("menuitem", { name: "View all threads" }).click();
+    await expect(panel).toContainText("0 total threads");
+
+    // Escape closes the sheet and returns focus to the page.
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await page.getByTestId("mobile-header-comments").click();
+    await expect(panel).toBeVisible();
 
     await panel.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);

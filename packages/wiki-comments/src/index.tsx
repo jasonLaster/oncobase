@@ -19,6 +19,14 @@ import "./liveblocks-styles.ts";
 import { cn } from "./utils.ts";
 import { LiveblocksRoom } from "./room.tsx";
 import { commentsEnabled } from "./feature.ts";
+import {
+  Drawer,
+  DrawerBackdrop,
+  DrawerClose,
+  DrawerContent,
+  DrawerHandle,
+  DrawerTitle,
+} from "@oncobase/ui/drawer";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@oncobase/ui/menu";
 import type { LiveblocksProviderShellProps } from "./provider.tsx";
 import {
@@ -178,6 +186,7 @@ const COMMENTS_COLLAPSED_WIDTH = 64; // w-16
 const DESKTOP_SIDEBAR_TOP_OFFSET = 24;
 const COMMENTS_PANE_EVENT = "comments-pane-state-change";
 const MOBILE_COMMENTS_PANEL_EVENT = "mobile-comments-panel-open";
+const MOBILE_PANEL_SNAP_POINTS = [0.5, 1];
 
 type PaneStateSnapshot = {
   open: boolean;
@@ -750,15 +759,6 @@ function CommentsShell({
       window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobileCommentsPanel);
     };
   }, [openMobileCommentsPanel]);
-
-  useEffect(() => {
-    if (!mobilePanelOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [mobilePanelOpen]);
 
   useEffect(() => {
     const root = articleRef.current;
@@ -1415,66 +1415,58 @@ function CommentsShell({
         </div>
       </div>
 
-      {mobilePanelOpen ? (
-        <div
-          className="fixed inset-0 z-50 md:hidden"
+      <Drawer
+        open={mobilePanelOpen}
+        onOpenChange={setMobilePanelOpen}
+        snapPoints={MOBILE_PANEL_SNAP_POINTS}
+        defaultSnapPoint={1}
+      >
+        <DrawerBackdrop className="fixed inset-0 m-0 size-full max-h-none max-w-none border-0 bg-black/50 p-0 backdrop-blur-[2px] md:hidden" />
+        <DrawerContent
+          data-comments-bottom-rail
           data-test-id="mobile-comments-panel"
-          data-state="open"
+          aria-label="Document comments"
+          className="flex h-[88dvh] w-full flex-col rounded-t-[1.125rem] bg-[var(--sidebar-bg)] shadow-2xl md:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          <button
-            type="button"
-            aria-label="Close comments panel backdrop"
-            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-            onClick={() => setMobilePanelOpen(false)}
-          />
-          <aside
-            data-comments-bottom-rail
-            aria-label="Document comments"
-            className="absolute inset-x-0 bottom-0 flex h-[88dvh] flex-col rounded-t-[1.125rem] bg-[var(--sidebar-bg)] shadow-2xl"
-            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-          >
-            <div className="shrink-0 pt-2">
-              <div
-                role="separator"
-                aria-label="Resize comments panel"
-                aria-orientation="horizontal"
-                className="flex h-6 w-full items-center justify-center"
-              >
-                <div className="h-1 w-10 rounded-full bg-[var(--text-muted)]/30" />
+          <div className="shrink-0 pt-2">
+            <DrawerHandle
+              aria-label="Resize comments panel"
+              className="flex h-6 w-full items-center justify-center"
+            >
+              <span className="h-1 w-10 rounded-full bg-[var(--text-muted)]/30" />
+            </DrawerHandle>
+            <div className="border-b border-[var(--sidebar-border)] px-3 py-2">
+              <div className="mb-2 flex items-center gap-2">
+                <DrawerTitle className="m-0 min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
+                  Comments
+                </DrawerTitle>
+                <DrawerClose
+                  aria-label="Close comments panel"
+                  className="flex h-auto w-auto cursor-pointer items-center justify-center rounded-lg px-2 py-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] active:bg-[var(--accent-light)] active:text-[var(--brand)]"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                    <line x1="4" y1="4" x2="12" y2="12" />
+                    <line x1="12" y1="4" x2="4" y2="12" />
+                  </svg>
+                </DrawerClose>
               </div>
-              <div className="border-b border-[var(--sidebar-border)] px-3 py-2">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
-                    Comments
-                  </span>
-                  <SidebarButton
-                    onClick={() => setMobilePanelOpen(false)}
-                    aria-label="Close comments panel"
-                    className="h-auto w-auto px-2 py-1"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <line x1="4" y1="4" x2="12" y2="12" />
-                      <line x1="12" y1="4" x2="4" y2="12" />
-                    </svg>
-                  </SidebarButton>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {visibleThreads.length} {showResolvedThreads ? "total" : "unresolved"} thread{visibleThreads.length === 1 ? "" : "s"}
-                  </p>
-                  <CommentActionsMenu
-                    showResolvedThreads={showResolvedThreads}
-                    onToggleResolved={() => setShowResolvedThreads((current) => !current)}
-                  />
-                </div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-[var(--text-muted)]">
+                  {visibleThreads.length} {showResolvedThreads ? "total" : "unresolved"} thread{visibleThreads.length === 1 ? "" : "s"}
+                </p>
+                <CommentActionsMenu
+                  showResolvedThreads={showResolvedThreads}
+                  onToggleResolved={() => setShowResolvedThreads((current) => !current)}
+                />
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              {sidebarContent}
-            </div>
-          </aside>
-        </div>
-      ) : null}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {sidebarContent}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       <aside
         className={cn(
