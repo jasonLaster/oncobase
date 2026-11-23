@@ -2281,3 +2281,14 @@ a {
   outline-offset: 2px;
 }
 /* end ui-sdk: w2-cellularity-marketing */
+/* ui-sdk: w3-palettes-search */
+/* The tree focuses the whole item, children included; ring only its own row. */
+.search-text-tree [data-slot="tree-item"]:focus-visible {
+  outline: none;
+}
+
+.search-text-tree [data-slot="tree-item"]:focus-visible > [data-slot="tree-label"] {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+/* end ui-sdk: w3-palettes-search */

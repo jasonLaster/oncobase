@@ -144,7 +144,7 @@ test.describe("account access (real backend)", () => {
   test("text search finds the private page for the care team and hides it from a reader without a role", async ({ page }) => {
     const search = async () => {
       await page.goto("/search?q=oncology+visit");
-      await page.getByRole("button", { name: "Text Search" }).click();
+      await page.getByRole("radio", { name: "Text Search" }).click();
       await expect(page.getByTestId("search-text-summary").or(page.getByTestId("search-text-empty"))).toBeVisible();
     };
 

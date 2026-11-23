@@ -43,7 +43,7 @@ test.describe("finding things (real backend)", () => {
 
   test("text search shows snippets for the query and opens the matching page", async ({ page }) => {
     await page.goto("/search?q=lumpectomy");
-    await page.getByRole("button", { name: "Text Search" }).click();
+    await page.getByRole("radio", { name: "Text Search" }).click();
     await expect(page.getByTestId("search-text-summary")).toBeVisible();
     await expect(page.getByTestId("search-text-file").filter({ hasText: /treatment/ })).toBeVisible();
     const hit = page.getByTestId("search-text-result").filter({ hasText: /lumpectomy/i }).first();
@@ -56,7 +56,7 @@ test.describe("finding things (real backend)", () => {
 
   test("searching from the search page updates the URL and results, and a miss shows an empty state", async ({ page }) => {
     await page.goto("/search?q=carboplatin");
-    await page.getByRole("button", { name: "Text Search" }).click();
+    await page.getByRole("radio", { name: "Text Search" }).click();
     const input = page.getByTestId("search-form-input");
     await expect(page.getByTestId("search-text-summary")).toBeVisible();
     await input.fill("pembrolizumab");
@@ -78,10 +78,11 @@ test.describe("finding things (real backend)", () => {
 
   test("a text-search result can be opened from the keyboard", async ({ page }) => {
     await page.goto("/search?q=pembrolizumab");
-    await page.getByRole("button", { name: "Text Search" }).click();
+    await page.getByRole("radio", { name: "Text Search" }).click();
     const first = page.getByTestId("search-text-result").first();
     await expect(first).toBeVisible();
-    await first.focus();
+    // Results are a tree: focus sits on the tree item, and Enter follows its link.
+    await first.locator("..").focus();
     await page.keyboard.press("Enter");
     await expect(page).not.toHaveURL(/\/search/);
     await expect(article(page)).toBeVisible();

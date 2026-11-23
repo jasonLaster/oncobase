@@ -177,7 +177,8 @@ test.describe("search (mocked backend)", () => {
     await page.goto(`/search?q=${encodeURIComponent("mock ai ranked results")}`, { waitUntil: "domcontentloaded" });
 
     await ai.waitForRequest();
-    await expect(page.getByTestId("search-tab-ai")).toHaveAttribute("aria-pressed", "true");
+    // The mode switch is a segmented control: its items are radios.
+    await expect(page.getByTestId("search-tab-ai")).toHaveAttribute("aria-checked", "true");
     await expect(page.getByTestId("search-ai-summary")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("search-ai-result").first()).toContainText("9/10");
     await expect(page.getByText("7/10").first()).toBeVisible();

@@ -1,9 +1,9 @@
+import { Input } from "@oncobase/ui/input";
+import { SegmentedControl, SegmentedControlItem } from "@oncobase/ui/segmented-control";
 import {
   type ButtonHTMLAttributes,
   type ComponentProps,
   type FormHTMLAttributes,
-  type InputHTMLAttributes,
-  type Key,
   type ReactNode,
 } from "react";
 import { cn } from "./utils.ts";
@@ -42,10 +42,10 @@ export function WikiSearchForm({ className, ...props }: WikiSearchFormProps) {
   return <form className={cn("wiki-shell-search-form search-page-form", className)} {...props} />;
 }
 
-export type WikiSearchInputProps = InputHTMLAttributes<HTMLInputElement>;
+export type WikiSearchInputProps = Omit<ComponentProps<typeof Input>, "className"> & { className?: string };
 
 export function WikiSearchInput({ className, ...props }: WikiSearchInputProps) {
-  return <input className={cn("wiki-shell-search-input", className)} {...props} />;
+  return <Input className={cn("wiki-shell-search-input", className)} {...props} />;
 }
 
 export type WikiSearchSubmitButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;
@@ -65,13 +65,17 @@ export function WikiSearchSubmitButton({
 }
 
 export type WikiSearchModeOption = {
-  key: Key;
+  key: string;
   label: ReactNode;
   onSelect: () => void;
   pressed: boolean;
 };
 
-export type WikiSearchModeToggleProps = Omit<ComponentProps<"div">, "children"> & {
+export type WikiSearchModeToggleProps = Omit<
+  ComponentProps<typeof SegmentedControl>,
+  "children" | "className" | "defaultValue" | "onValueChange" | "value"
+> & {
+  className?: string;
   options: WikiSearchModeOption[];
 };
 
@@ -81,23 +85,19 @@ export function WikiSearchModeToggle({
   ...props
 }: WikiSearchModeToggleProps) {
   return (
-    <div
+    <SegmentedControl
       aria-label="Search mode"
       className={cn("wiki-shell-search-mode-toggle search-mode-toggle", className)}
-      role="group"
+      onValueChange={(value) => options.find((option) => option.key === value)?.onSelect()}
+      value={options.find((option) => option.pressed)?.key ?? null}
       {...props}
     >
       {options.map((option) => (
-        <button
-          aria-pressed={option.pressed}
-          key={option.key}
-          onClick={option.onSelect}
-          type="button"
-        >
+        <SegmentedControlItem key={option.key} value={option.key}>
           {option.label}
-        </button>
+        </SegmentedControlItem>
       ))}
-    </div>
+    </SegmentedControl>
   );
 }
 
