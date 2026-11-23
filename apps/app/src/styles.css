@@ -2336,4 +2336,16 @@ a {
 [data-tree-freshness]:not([data-tree-freshness="current"]) .wiki-shell-tree-root [data-slot="tree-item"]:not(:focus-visible):not([data-current]) > [data-slot="tree-label"]:not(:hover) svg {
   opacity: 0.5;
 }
+.wiki-vite-mobile-sheet-tabs-root {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+@media (max-width: 767px) {
+  .wiki-vite-mobile-sheet-tabs button[data-selected] {
+    background: var(--accent-light);
+    color: var(--brand);
+  }
+}
 /* end ui-sdk: w8-nav-tree-resizable */

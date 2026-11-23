@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
+import { Drawer, DrawerBackdrop, DrawerClose, DrawerContent, DrawerTrigger } from "@oncobase/ui/drawer";
 import { Tree, TreeItem, TreeItemIndicator, TreeItemLabel, type TreeItemData, visibleTreeRows } from "@oncobase/ui/tree";
 import { cn } from "./utils.ts";
 
@@ -461,123 +462,48 @@ export function WikiMobileNavigationSheet({
   trigger,
   ...props
 }: WikiMobileNavigationSheetProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
-  const close = useCallback(() => {
-    onNavigate?.();
-    onOpenChange(false);
-  }, [onNavigate, onOpenChange]);
-
-  useEffect(() => {
-    if (!open) return;
-    previouslyFocusedRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const focusTimeout = window.setTimeout(() => {
-      const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      (firstFocusable ?? panelRef.current)?.focus();
-    }, 0);
-
-    const onDocumentKeyDown = (event: KeyboardEvent) => {
-      // An account dialog inside the sheet owns Tab and Escape until it closes.
-      // The outer capture listener must not dismiss both layers at once.
-      if (panelRef.current?.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        close();
-        return;
-      }
-
-      if (event.key !== "Tab" || !panelRef.current) return;
-      const focusable = Array.from(
-        panelRef.current.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((element) => element.getClientRects().length > 0);
-      if (focusable.length === 0) {
-        event.preventDefault();
-        panelRef.current.focus();
-        return;
-      }
-
-      // Safari may skip buttons on Tab. Own each step so focus cannot escape.
-      event.preventDefault();
-      const current = focusable.indexOf(document.activeElement as HTMLElement);
-      const next = current < 0 ? (event.shiftKey ? focusable.length - 1 : 0)
-        : (current + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
-      focusable[next].focus();
-    };
-
-    document.addEventListener("keydown", onDocumentKeyDown, { capture: true });
-    return () => {
-      window.clearTimeout(focusTimeout);
-      document.removeEventListener("keydown", onDocumentKeyDown, { capture: true });
-      document.body.style.overflow = previousOverflow;
-      previouslyFocusedRef.current?.focus();
-      previouslyFocusedRef.current = null;
-    };
-  }, [close, open]);
-
   return (
-    <>
+    <Drawer
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onNavigate?.();
+        onOpenChange(nextOpen);
+      }}
+    >
       {trigger === false ? null : (
         trigger ?? (
-          <button
+          <DrawerTrigger
             className="wiki-shell-bottom-nav-trigger bottom-nav-trigger"
             data-test-id="bottom-nav-trigger"
-            type="button"
-            aria-expanded={open}
             aria-controls={sheetId}
-            onClick={(event) => {
-              event.currentTarget.focus();
-              onOpenChange(true);
-            }}
           >
             <span>{title}</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
               <path d="M4 10l4-4 4 4" />
             </svg>
-          </button>
+          </DrawerTrigger>
         )
       )}
-      <div
-        className={cn("wiki-shell-bottom-nav-sheet bottom-nav-sheet", open && "open", className)}
+      <DrawerBackdrop className="wiki-shell-bottom-nav-backdrop bottom-nav-backdrop" />
+      <DrawerContent
+        className={cn("wiki-shell-bottom-nav-panel bottom-nav-panel", className)}
         {...props}
         data-test-id="bottom-nav-sheet"
         id={sheetId}
-        inert={!open}
-        role={open ? "dialog" : undefined}
-        aria-hidden={open ? undefined : true}
-        aria-modal={open ? true : undefined}
         aria-label={sheetAriaLabel}
       >
-        <div
-          aria-hidden="true"
-          className="wiki-shell-bottom-nav-backdrop bottom-nav-backdrop"
-          onClick={close}
-        />
-        <div
-          className="wiki-shell-bottom-nav-panel bottom-nav-panel"
-          ref={panelRef}
-          tabIndex={-1}
-        >
-          <div className="wiki-shell-bottom-nav-handle bottom-nav-handle" aria-hidden="true" />
-          <div className="wiki-shell-bottom-nav-header bottom-nav-header">
-            {heading ? <strong>{heading}</strong> : null}
-            <button type="button" onClick={close} aria-label="Close navigation">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
-                <path d="M4 4l8 8M12 4l-8 8" />
-              </svg>
-            </button>
-          </div>
-          {open ? children : null}
+        <div className="wiki-shell-bottom-nav-handle bottom-nav-handle" aria-hidden="true" />
+        <div className="wiki-shell-bottom-nav-header bottom-nav-header">
+          {heading ? <strong>{heading}</strong> : null}
+          <DrawerClose aria-label="Close navigation">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M4 4l8 8M12 4l-8 8" />
+            </svg>
+          </DrawerClose>
         </div>
-      </div>
-    </>
+        {children}
+      </DrawerContent>
+    </Drawer>
   );
 }
 

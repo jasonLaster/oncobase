@@ -80,11 +80,11 @@ test.describe("markdown rendering (mocked backend)", () => {
     await page.setViewportSize({ width: 393, height: 852 });
     await gotoWiki(page, "/wiki/updates/week-5-april-12-to-18");
     await page.getByTestId("bottom-nav-trigger").click();
-    await page.getByRole("button", { name: "Outline", exact: true }).click();
+    await page.getByRole("tab", { name: "Outline", exact: true }).click();
     await page.getByRole("button", { name: "Treatment note", exact: true }).click();
 
     await expect(page).toHaveURL(/#treatment-note$/);
-    await expect(page.getByTestId("bottom-nav-sheet")).toHaveAttribute("aria-hidden", "true");
+    await expect(page.getByTestId("bottom-nav-sheet")).toBeHidden();
     await expectScrolledTo(page, "treatment-note", 300);
 
     await page.reload({ waitUntil: "domcontentloaded" });
