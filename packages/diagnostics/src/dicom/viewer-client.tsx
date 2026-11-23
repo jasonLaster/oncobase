@@ -18,7 +18,6 @@ import {
   FileText,
   ImageIcon,
   Info,
-  Move,
   PanelLeftClose,
   PanelRightClose,
   PanelRightOpen,
@@ -29,12 +28,14 @@ import {
   Share2,
   SlidersHorizontal,
   X,
-  ZoomIn,
 } from "lucide-react";
 import useSWR from "swr";
 
 import { copyTextToClipboard } from "@oncobase/wiki-shell";
-import { Badge, Button, cn } from "./ui.tsx";
+import { useShortcut } from "@oncobase/ui/shortcuts";
+import { Toggle } from "@oncobase/ui/toggle";
+import { Badge, Button, buttonClassName, cn } from "./ui.tsx";
+import { focusAllowsViewerShortcut, RangeSlider, ToolModeGroup, type ToolMode } from "./viewer-controls.tsx";
 import {
   DIAGNOSTIC_STUDY_SET_PARAM,
   getPrimaryReportLink,
@@ -53,7 +54,6 @@ import { matchesSeriesIdentifier } from "./series-identifier.ts";
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
 
-type ToolMode = "window" | "pan" | "zoom";
 type DicomRail = "series" | "stack";
 
 const DICOM_SERIES_RAIL_MIN_WIDTH = 240;
@@ -861,34 +861,19 @@ export function DicomViewerClient({
     [seriesRailWidth, setDicomRailWidth, stackRailWidth],
   );
 
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    const target = event.target;
-    if (
-      target instanceof HTMLElement &&
-      (target.closest("a, button, input, select, textarea, [role='separator']") ||
-        target.isContentEditable)
-    ) {
-      return;
-    }
-    if (!activeStack?.images.length) return;
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      event.preventDefault();
-      void showImage(sliceIndexRef.current + 1);
-    }
-    if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      event.preventDefault();
-      void showImage(sliceIndexRef.current - 1);
-    }
-    if (event.key === " ") {
-      event.preventDefault();
-      setIsPlaying((value) => !value);
-    }
-  }, [activeStack?.images.length, showImage]);
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+  const imageShortcutsActive = () =>
+    Boolean(activeStack?.images.length) && focusAllowsViewerShortcut();
+  const nextImage = () => void showImage(sliceIndexRef.current + 1);
+  const previousImage = () => void showImage(sliceIndexRef.current - 1);
+  const imageShortcut = { repeat: true, when: imageShortcutsActive };
+  useShortcut("arrowright", nextImage, { ...imageShortcut, description: "Next image" });
+  useShortcut("arrowdown", nextImage, { ...imageShortcut, description: "Next image" });
+  useShortcut("arrowleft", previousImage, { ...imageShortcut, description: "Previous image" });
+  useShortcut("arrowup", previousImage, { ...imageShortcut, description: "Previous image" });
+  useShortcut("space", () => setIsPlaying((value) => !value), {
+    description: "Play or pause cine",
+    when: imageShortcutsActive,
+  });
 
   useEffect(() => {
     const query = window.matchMedia("(max-width: 1023px), (max-height: 560px)");
@@ -1220,28 +1205,7 @@ export function DicomViewerClient({
               className="flex shrink-0 items-center gap-1 overflow-x-auto"
               data-test-id="dicom-tools-row"
             >
-              <ToolButton
-                active={toolMode === "window"}
-                icon={<SlidersHorizontal className="size-4" />}
-                label="W/L"
-                onClick={() => setToolMode("window")}
-              />
-              <ToolButton
-                active={toolMode === "pan"}
-                icon={<Move className="size-4" />}
-                label="Pan"
-                onClick={() =>
-                  setToolMode((mode) => (mode === "pan" ? "window" : "pan"))
-                }
-              />
-              <ToolButton
-                active={toolMode === "zoom"}
-                icon={<ZoomIn className="size-4" />}
-                label="Zoom"
-                onClick={() =>
-                  setToolMode((mode) => (mode === "zoom" ? "window" : "zoom"))
-                }
-              />
+              <ToolModeGroup onToolModeChange={setToolMode} toolMode={toolMode} />
               <Button
                 variant="outline"
                 size="sm"
@@ -1298,16 +1262,14 @@ export function DicomViewerClient({
                 <ChevronRight className="size-4" />
               </Button>
               <div className="min-w-24 flex-1 px-1 sm:min-w-36 sm:px-2">
-                <input
-                  className="h-2 w-full accent-emerald-300"
-                  type="range"
-                  min={0}
-                  max={Math.max(0, (activeStack?.images.length ?? 1) - 1)}
-                  aria-label="Image"
-                  aria-valuetext={`Image ${(loadingImageIndex ?? sliceIndex) + 1} of ${activeStack?.images.length ?? 0}`}
-                  value={loadingImageIndex ?? sliceIndex}
+                <RangeSlider
                   disabled={!hasStack}
-                  onChange={(event) => void showImage(Number(event.currentTarget.value))}
+                  label="Image"
+                  max={Math.max(0, (activeStack?.images.length ?? 1) - 1)}
+                  min={0}
+                  onValueChange={(index) => void showImage(index)}
+                  value={loadingImageIndex ?? sliceIndex}
+                  valueText={(index) => `Image ${index + 1} of ${activeStack?.images.length ?? 0}`}
                 />
               </div>
               <div className="shrink-0 font-mono text-xs text-zinc-400">
@@ -1338,18 +1300,16 @@ export function DicomViewerClient({
                         <SlidersHorizontal className="size-4" />
                         Edit
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-zinc-300 hover:bg-white/10"
-                        onClick={() => setStackRailOpen(false)}
-                        title="Collapse editor rail"
+                      <Toggle
                         aria-label="Collapse editor rail"
-                        aria-pressed={stackRailOpen}
+                        className={buttonClassName({ size: "icon-sm", variant: "ghost" }, "text-zinc-300 hover:bg-white/10")}
                         data-test-id="dicom-toggle-stack-rail"
+                        onPressedChange={setStackRailOpen}
+                        pressed={stackRailOpen}
+                        title="Collapse editor rail"
                       >
-                        <PanelRightClose className="size-4" />
-                      </Button>
+                        <PanelRightClose aria-hidden="true" className="size-4" />
+                      </Toggle>
                     </div>
                     <div ref={setAnnotationEditorRailNode} />
                   </section>
@@ -1361,18 +1321,16 @@ export function DicomViewerClient({
                           <Info className="size-4" />
                           Stack
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-zinc-300 hover:bg-white/10"
-                          onClick={() => setStackRailOpen(false)}
-                          title="Collapse stack rail"
+                        <Toggle
                           aria-label="Collapse stack rail"
-                          aria-pressed={stackRailOpen}
+                          className={buttonClassName({ size: "icon-sm", variant: "ghost" }, "text-zinc-300 hover:bg-white/10")}
                           data-test-id="dicom-toggle-stack-rail"
+                          onPressedChange={setStackRailOpen}
+                          pressed={stackRailOpen}
+                          title="Collapse stack rail"
                         >
-                          <PanelRightClose className="size-4" />
-                        </Button>
+                          <PanelRightClose aria-hidden="true" className="size-4" />
+                        </Toggle>
                       </div>
                       <dl className="space-y-3 text-sm">
                         <MetaRow label="Title" value={activeStack?.title} />
@@ -1436,18 +1394,16 @@ export function DicomViewerClient({
           </aside>
         ) : (
           <div className="hidden min-h-0 border-l border-white/10 bg-[#11151a] xl:flex xl:items-start xl:justify-center xl:pt-3">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-zinc-300 hover:bg-white/10"
-              onClick={() => setStackRailOpen(true)}
-              title="Open stack rail"
+            <Toggle
               aria-label="Open stack rail"
-              aria-pressed={stackRailOpen}
+              className={buttonClassName({ size: "icon-sm", variant: "ghost" }, "text-zinc-300 hover:bg-white/10")}
               data-test-id="dicom-toggle-stack-rail"
+              onPressedChange={setStackRailOpen}
+              pressed={stackRailOpen}
+              title="Open stack rail"
             >
-              <PanelRightOpen className="size-4" />
-            </Button>
+              <PanelRightOpen aria-hidden="true" className="size-4" />
+            </Toggle>
           </div>
         )}
       </div>
@@ -1690,34 +1646,6 @@ function DicomRailResizeHandle({
     >
       <span className="my-3 w-px flex-1 rounded-full bg-white/15 transition-colors group-hover:bg-emerald-300/70 group-focus-visible:bg-emerald-300" />
     </div>
-  );
-}
-
-function ToolButton({
-  active,
-  icon,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      className={cn(
-        "border-white/15 bg-white/5 text-zinc-300 hover:bg-white/10",
-        active && "border-emerald-300/50 bg-emerald-300/15 text-emerald-100",
-      )}
-      onClick={onClick}
-      aria-pressed={active}
-    >
-      {icon}
-      <span className="sr-only sm:not-sr-only">{label}</span>
-    </Button>
   );
 }
 

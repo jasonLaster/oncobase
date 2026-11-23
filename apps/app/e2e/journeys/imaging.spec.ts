@@ -157,6 +157,13 @@ test.describe("DICOM imaging journeys", () => {
     heldRequest.release();
     await expect(page.getByTestId("dicom-image-loading")).toBeHidden();
     await expect(page.getByTestId("dicom-slice-counter")).toHaveText(counter(6));
+
+    // Space toggles cine once focus is off the controls.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("Space");
+    await expect(page.getByRole("button", { name: "Pause cine" })).toBeVisible();
+    await page.keyboard.press("Space");
+    await expect(page.getByRole("button", { name: "Play cine" })).toBeVisible();
   });
 
   test("draws an annotation, keeps it per image, and restores it after reload", async ({ page }) => {
@@ -165,7 +172,7 @@ test.describe("DICOM imaging journeys", () => {
     await gotoViewer(page);
 
     await page.getByRole("button", { name: "Draw" }).click();
-    await page.getByRole("button", { name: "Arrow" }).click();
+    await page.getByRole("menuitemradio", { name: "Arrow" }).click();
     await expect(page.getByTestId("dicom-annotation-tool-arrow")).toHaveAttribute("aria-pressed", "true");
 
     const canvas = page.getByTestId("dicom-annotation-canvas");
@@ -347,7 +354,7 @@ test.describe("DICOM imaging journeys", () => {
 
     // Text annotations: inline edit, delete, then undo brings the edited text back.
     await page.getByRole("button", { name: "Draw" }).click();
-    await page.getByRole("button", { name: "Text" }).click();
+    await page.getByRole("menuitemradio", { name: "Text" }).click();
     await expect(page.getByTestId("dicom-annotation-tool-text")).toHaveAttribute("aria-pressed", "true");
     await page.mouse.move(box!.x + box!.width * 0.12, box!.y + box!.height * 0.8);
     await page.mouse.down();
@@ -409,6 +416,12 @@ test.describe("DICOM imaging journeys", () => {
     const images = await page.getByTestId("dicom-compare-viewports").boundingBox();
     const control = await previous.boundingBox();
     expect(control!.y).toBeGreaterThanOrEqual(images!.y + images!.height);
+
+    // Arrow keys step the matched slices once focus is off the controls.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    const stepped = await leftCounter.innerText();
+    await page.keyboard.press("ArrowRight");
+    await expect(leftCounter).not.toHaveText(stepped);
   });
 
   test("mobile portrait uses a bottom sheet and mobile landscape gives the image the full width", async ({ page }) => {
