@@ -8,6 +8,7 @@ import {
   ScrollAreaScrollToEnd,
   ScrollAreaViewport,
 } from "@oncobase/ui/scroll-area";
+import { useShortcut } from "@oncobase/ui/shortcuts";
 import { ArrowDownIcon } from "lucide-react";
 import {
   DefaultChatTransport,
@@ -663,18 +664,9 @@ export function ChatInterface({
     [messages, queuedMessages, isStreaming, handleEditUser, handleStop, removeQueuedMessage]
   );
 
-  // Global keyboard shortcuts:
-  // - Cmd/Ctrl+/ focuses the composer from anywhere on the chat page.
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
-        e.preventDefault();
-        textareaRef.current?.focus();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  useShortcut("mod+/", () => textareaRef.current?.focus(), {
+    description: "Focus the message box",
+  });
 
   const showEmptyState = messages.length === 0 && !isStreaming;
 
