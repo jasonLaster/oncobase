@@ -1,6 +1,9 @@
-import type { FormEvent, KeyboardEvent } from "react";
+import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, LockKeyhole } from "lucide-react";
+import { Button } from "@oncobase/ui/button";
+import { Field, FieldError, FieldLabel } from "@oncobase/ui/field";
+import { PasswordInput, PasswordInputControl } from "@oncobase/ui/password-input";
 import { PublicThemeControl } from "../PublicThemeControl";
 import { SIGN_IN_TITLE } from "../special-route-metadata";
 import { DianaBrand, VillageTexture } from "./LandingBrands";
@@ -14,13 +17,6 @@ function PasswordForm() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const redirect = useMemo(() => signInRedirectTarget(window.location), []);
-
-  function handlePasswordKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-
-    event.preventDefault();
-    event.currentTarget.form?.requestSubmit();
-  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,30 +48,31 @@ function PasswordForm() {
 
   return (
     <form onSubmit={onSubmit} className="auth-card">
-      <input
-        type="password"
-        aria-label="Password"
-        placeholder="Password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        onKeyDown={handlePasswordKeyDown}
-        className="auth-input"
-        enterKeyHint="go"
-        autoComplete="current-password"
-        required
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? "login-error" : undefined}
-      />
-      {error ? (
-        <p className="auth-error" id="login-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <button type="submit" className="auth-button" disabled={submitting}>
+      <Field invalid={Boolean(error)}>
+        <FieldLabel className="sr-only">Password</FieldLabel>
+        <PasswordInput
+          value={password}
+          onValueChange={setPassword}
+          autoComplete="current-password"
+          required
+        >
+          <PasswordInputControl
+            placeholder="Password"
+            className="auth-input"
+            enterKeyHint="go"
+          />
+        </PasswordInput>
+        {error ? (
+          <FieldError match className="auth-error" role="alert">
+            {error}
+          </FieldError>
+        ) : null}
+      </Field>
+      <Button type="submit" className="auth-button" disabled={submitting}>
         {submitting
           ? "Opening Diana’s knowledge base…"
           : "Enter Diana’s knowledge base"}
-      </button>
+      </Button>
       <p className="lp-access-note">
         <LockKeyhole size={13} /> A private space for Diana’s village.
       </p>
