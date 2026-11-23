@@ -2253,3 +2253,31 @@ a {
   opacity: 0.55;
 }
 /* end ui-sdk: w1-admin-forms */
+/* ui-sdk: w2-cellularity-marketing */
+.tag-tree-folder {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.tag-tree-indicator {
+  display: inline-flex;
+}
+
+.tag-tree-folder[data-expanded] svg {
+  transform: rotate(90deg);
+}
+
+.tag-tree-root [data-slot="tree-item"] {
+  outline: none;
+}
+
+.tag-tree-root [data-slot="tree-item"]:focus-visible > [data-slot="tree-label"] {
+  border-radius: 4px;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+/* end ui-sdk: w2-cellularity-marketing */
