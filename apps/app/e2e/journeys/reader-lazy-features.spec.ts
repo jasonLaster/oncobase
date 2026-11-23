@@ -88,7 +88,7 @@ test("a keyboard-opened image loads the theater and an early Escape cancels the 
     await expect(dialog).toBeVisible();
     await expect(dialog.locator(":focus")).toHaveCount(1);
     await expect(dialog.getByRole("link", { name: "Download image" })).toHaveAttribute("href", /figure\.png/);
-    await dialog.getByRole("button", { name: "Close image preview" }).click();
+    await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(opener).toBeFocused();
   } finally {

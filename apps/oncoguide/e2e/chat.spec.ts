@@ -173,7 +173,7 @@ test("a lesson supplies context; retry preserves it; dark cartoons and mobile co
   if (cartoon) {
     await page.locator(".edu-chat-visual img:visible").first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByRole("button", { name: "Close image preview", exact: true }).click();
+    await page.keyboard.press("Escape");
   }
   await page.getByRole("button", { name: "Dark theme", exact: true }).click();
   const visible = page.locator(".edu-chat-visual img:visible");

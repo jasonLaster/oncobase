@@ -63,7 +63,7 @@ test("search, themes, mobile navigation and shared image theater work", async ({
   await page.reload(); await expect(page.locator("html")).toHaveClass(/dark/);
   await page.locator('article img[data-theater-image]:visible').first().click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "Close image preview", exact: true }).click();
+  await page.keyboard.press("Escape");
   await theme.click(); await expect(page.locator("html")).not.toHaveClass(/dark/);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open education navigation" }).click();
