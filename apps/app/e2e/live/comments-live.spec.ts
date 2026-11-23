@@ -142,7 +142,7 @@ test("creates an anchored comment, restores its URL, and shows it globally", asy
       .poll(async () => (await documentArticle(page).textContent())?.trim().length ?? 0)
       .toBeGreaterThan(100);
     const commentsTab = page
-      .getByRole("button", { name: "Comments", exact: true })
+      .getByRole("radio", { name: "Comments", exact: true })
       .last();
     await expect(commentsTab).toBeVisible();
     await commentsTab.click();

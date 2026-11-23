@@ -1,6 +1,7 @@
 import { safeLocalStorage } from "@oncobase/safe-storage";
 import {
   type ReactNode,
+  type RefObject,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -88,6 +89,56 @@ export function useResizableSidebarWidth() {
   return useSyncExternalStore(subscribe, getWidthSnapshot, () => DEFAULT_WIDTH);
 }
 
+type ResizableController = ReturnType<typeof createResizableController>;
+
+/**
+ * Keeps a panel at a width in pixels. Group sizes are shares, so the group
+ * rescales the panel with the window; this applies the width once the group
+ * has attached its panels, whenever the group's width changes, and when the
+ * width does. Returns whether it has applied: until then, size the panel
+ * from CSS (the group first renders at its default size).
+ */
+export function usePanelPixelWidth(
+  controller: ResizableController,
+  groupRef: RefObject<HTMLElement | null>,
+  panelId: string,
+  width: number | null,
+) {
+  const [applied, setApplied] = useState(false);
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group || width === null) {
+      setApplied(false);
+      return;
+    }
+    let frame = 0;
+    const apply = () => {
+      cancelAnimationFrame(frame);
+      if (controller.getLayout().length === 0) {
+        frame = requestAnimationFrame(apply);
+        return;
+      }
+      controller.resize(panelId, `${width}px`);
+      setApplied(true);
+    };
+    apply();
+    let groupWidth = group.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (group.clientWidth === groupWidth) return;
+      groupWidth = group.clientWidth;
+      // After the group has rescaled its shares for the new width.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(apply);
+    });
+    observer.observe(group);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [controller, groupRef, panelId, width]);
+  return applied;
+}
+
 export type ResizableLayoutProps = {
   children: ReactNode;
   sidebar: ReactNode;
@@ -101,37 +152,9 @@ export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
   const [controller] = useState(createResizableController);
   const groupRef = useRef<HTMLDivElement>(null);
 
-  // Panel sizes are shares of the group, but the sidebar keeps its saved
-  // width in pixels: apply it once the group attaches, and again whenever the
-  // group's width or the saved width changes. Until the first apply, styles.css
-  // sizes the panel from the pre-paint variable (the group starts at its
-  // default size, which would flash).
-  const [widthApplied, setWidthApplied] = useState(false);
-  useEffect(() => {
-    const apply = () => {
-      const current = getWidthSnapshot();
-      if (current === 0) return;
-      controller.resize(SIDEBAR_PANEL_ID, `${current}px`);
-    };
-    apply();
-    setWidthApplied(true);
-    const group = groupRef.current;
-    if (!group) return;
-    let groupWidth = group.clientWidth;
-    let frame = 0;
-    const observer = new ResizeObserver(() => {
-      if (group.clientWidth === groupWidth) return;
-      groupWidth = group.clientWidth;
-      // After the group has rescaled its shares for the new width.
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(apply);
-    });
-    observer.observe(group);
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, [controller, width]);
+  // Until the saved width is applied, styles.css sizes the panel from the
+  // variable sidebar-startup.ts writes before the first paint.
+  const widthApplied = usePanelPixelWidth(controller, groupRef, SIDEBAR_PANEL_ID, collapsed ? null : width);
 
   // A document without the startup script still gets the saved width before paint.
   useLayoutEffect(() => { syncSidebarState(getWidthSnapshot()); }, []);

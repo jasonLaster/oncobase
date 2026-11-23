@@ -2487,4 +2487,50 @@ html[data-initial-sidebar-state="collapsed"]
     background: var(--brand);
   }
 }
+/* The expanded outline pane is the last panel of a resizable group fixed
+   over the page; the spacer panel before it lets presses through. */
+@media (min-width: 768px) {
+  .wiki-shell-right-rail-group {
+    inset: 0;
+    pointer-events: none;
+    position: fixed;
+    z-index: 30;
+  }
+
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail,
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail-resize {
+    pointer-events: auto;
+  }
+
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail {
+    inset: auto;
+    position: relative;
+  }
+
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail:not([data-width-applied]) {
+    flex: 0 0 var(--comments-pane-width, 24rem) !important;
+  }
+
+  /* Drawn over the pane's left edge, where the old handle sat. */
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail-resize {
+    inset: auto;
+    left: 3px;
+    position: relative;
+  }
+
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail-resize:is([data-hovering], [data-dragging], :focus-visible) {
+    background: var(--brand);
+  }
+}
+
+@media (max-width: 767px) {
+  .wiki-shell-right-rail-group {
+    display: none !important;
+  }
+}
+
+.wiki-shell-outline-tabs [data-slot="segmented-control-item"][data-checked] {
+  background: var(--accent-light);
+  color: var(--brand);
+}
 /* end ui-sdk: w8-nav-tree-resizable */
