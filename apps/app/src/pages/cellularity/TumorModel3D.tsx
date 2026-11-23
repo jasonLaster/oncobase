@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
+import { Toolbar, ToolbarButton } from "@oncobase/ui/toolbar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
+import { CelCheckbox, CelSlider } from "./controls";
 import type { CellularityData, PackedMesh } from "./types";
 import { heatColor } from "./utils";
 
@@ -644,8 +648,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
     if (next) onSelectBlock(next);
   };
 
-  const toggleSlidesOnly = () => {
-    const next = !slidesOnly;
+  const setSlidesOnlyMode = (next: boolean) => {
     setSlidesOnly(next);
     setShowCore(!next);
     setShowHalo(!next);
@@ -655,56 +658,47 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
   return (
     <>
       <div className="cel-controls">
-        <label>
-          <input type="checkbox" checked={showSlices} onChange={(e) => setShowSlices(e.target.checked)} />
+        <CelCheckbox checked={showSlices} onCheckedChange={setShowSlices}>
           <strong>Slide cross-sections</strong>
-        </label>
-        <label>
-          <input type="checkbox" checked={spotlight} onChange={(e) => setSpotlight(e.target.checked)} />
+        </CelCheckbox>
+        <CelCheckbox checked={spotlight} onCheckedChange={setSpotlight}>
           Spotlight active slide
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={showCore}
-            onChange={(e) => {
-              setShowCore(e.target.checked);
-              if (e.target.checked) setSlidesOnly(false);
-            }}
-          />
+        </CelCheckbox>
+        <CelCheckbox
+          checked={showCore}
+          onCheckedChange={(checked) => {
+            setShowCore(checked);
+            if (checked) setSlidesOnly(false);
+          }}
+        >
           3D core (≥5% / ≥12%)
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={showHalo}
-            onChange={(e) => {
-              setShowHalo(e.target.checked);
-              if (e.target.checked) setSlidesOnly(false);
-            }}
-          />
+        </CelCheckbox>
+        <CelCheckbox
+          checked={showHalo}
+          onCheckedChange={(checked) => {
+            setShowHalo(checked);
+            if (checked) setSlidesOnly(false);
+          }}
+        >
           3D sparse halo
-        </label>
-        <label>
-          <input type="checkbox" checked={showHull} onChange={(e) => setShowHull(e.target.checked)} />
+        </CelCheckbox>
+        <CelCheckbox checked={showHull} onCheckedChange={setShowHull}>
           Specimen hull
-        </label>
-        <label>
-          <input type="checkbox" checked={showCav} onChange={(e) => setShowCav(e.target.checked)} />
+        </CelCheckbox>
+        <CelCheckbox checked={showCav} onCheckedChange={setShowCav}>
           {m3.cavity_toggle_label}
-        </label>
-        <label>
-          <input type="checkbox" checked={showMargins} onChange={(e) => setShowMargins(e.target.checked)} />
+        </CelCheckbox>
+        <CelCheckbox checked={showMargins} onCheckedChange={setShowMargins}>
           Shaves &amp; end-caps
-        </label>
+        </CelCheckbox>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           Hull
-          <input
-            type="range"
+          <CelSlider
+            label="Hull opacity"
             min={0}
             max={45}
             value={hullOpacity}
-            onChange={(e) => setHullOpacity(Number(e.target.value))}
+            onValueChange={setHullOpacity}
             style={{ width: 64 }}
           />
         </span>
@@ -716,33 +710,44 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
         ) : (
           <>
             <div className="cel-webgl-hud">
-              <div className="cel-cam-bar">
-                <button type="button" className={camMode === "iso" ? "active" : ""} onClick={() => handleCam("iso")}>
-                  Isometric
-                </button>
-                <button type="button" className={camMode === "ant" ? "active" : ""} onClick={() => handleCam("ant")}>
-                  Anterior
-                </button>
-                <button type="button" className={camMode === "sup" ? "active" : ""} onClick={() => handleCam("sup")}>
-                  Superior
-                </button>
-                <button type="button" className={camMode === "focus" ? "active" : ""} onClick={() => handleCam("focus")}>
-                  {m3.focus_preset_label}
-                </button>
-                <button
-                  type="button"
-                  className={slidesOnly ? "active" : ""}
-                  onClick={toggleSlidesOnly}
-                  title="Hide interpolated 3D shells to inspect raw 4 µm cross-sections"
+              <Toolbar className="cel-cam-bar" aria-label="3D view">
+                <ToggleGroup<CamMode>
+                  className="cel-cam-group"
+                  aria-label="Camera"
+                  value={[camMode]}
+                  onValueChange={(next) => handleCam(next[0] ?? camMode)}
                 >
-                  Slides only
-                </button>
-                <button type="button" onClick={() => stepSlide(-1)} title="Previous slide">‹</button>
-                <button type="button" onClick={() => stepSlide(1)} title="Next slide">›</button>
-                <button type="button" className={spinning ? "active" : ""} onClick={() => setSpinning((s) => !s)}>
+                  <Toggle value="iso">Isometric</Toggle>
+                  <Toggle value="ant">Anterior</Toggle>
+                  <Toggle value="sup">Superior</Toggle>
+                  <Toggle value="focus">{m3.focus_preset_label}</Toggle>
+                </ToggleGroup>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<Toggle pressed={slidesOnly} onPressedChange={setSlidesOnlyMode} />}
+                  >
+                    Slides only
+                  </TooltipTrigger>
+                  <TooltipContent className="cel-tooltip" side="bottom" sideOffset={6}>
+                    Hide interpolated 3D shells to inspect raw 4 µm cross-sections
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip type="label">
+                  <TooltipTrigger render={<ToolbarButton onClick={() => stepSlide(-1)} />}>‹</TooltipTrigger>
+                  <TooltipContent className="cel-tooltip" side="bottom" sideOffset={6}>
+                    Previous slide
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip type="label">
+                  <TooltipTrigger render={<ToolbarButton onClick={() => stepSlide(1)} />}>›</TooltipTrigger>
+                  <TooltipContent className="cel-tooltip" side="bottom" sideOffset={6}>
+                    Next slide
+                  </TooltipContent>
+                </Tooltip>
+                <Toggle pressed={spinning} onPressedChange={setSpinning}>
                   Spin
-                </button>
-              </div>
+                </Toggle>
+              </Toolbar>
               <div className="cel-webgl-hint">Click slide to inspect</div>
             </div>
             <div className="cel-webgl-labels" ref={labelsRef} />

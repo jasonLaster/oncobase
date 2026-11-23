@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link } from "react-router";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
 import { AnatomicalContextDiagram } from "./AnatomicalContextDiagram";
 import { B6CircleExplorer } from "./B6CircleExplorer";
 import { BlocksAndValidationSection } from "./BlocksAndValidationSection";
@@ -9,6 +11,7 @@ import {
   BreastBlocksGrid2x3,
   TopDownView,
 } from "./BreadloafAndTopDownViews";
+import { CelDrawer } from "./controls";
 import { ReconcileAndRcbSection } from "./ReconcileAndRcbSection";
 import { adoptStyles } from "../../lazy-styles";
 import type { CellularityData } from "./types";
@@ -22,6 +25,13 @@ const TumorModel3D = lazy(() =>
 );
 
 type BedMode = "webgl" | "3d" | "topdown" | "grid";
+
+const BED_MODES: { value: BedMode; label: string }[] = [
+  { value: "webgl", label: "3D Tumor Model" },
+  { value: "3d", label: "Breadloaf Slices" },
+  { value: "topdown", label: "2D Top-Down" },
+  { value: "grid", label: "All Bed Blocks" },
+];
 
 export function CellularityPage() {
   const [data, setData] = useState<CellularityData | null>(null);
@@ -105,13 +115,14 @@ export function CellularityPage() {
             <Link to={header.report_link.to}>{header.report_link.label}</Link>
           ) : null}
         </div>
-        <button
-          type="button"
+        <Toggle
           className="cel-btn-ghost"
-          onClick={() => setAllDrawersOpen((open) => !open)}
+          aria-label="Expand all details"
+          pressed={allDrawersOpen}
+          onPressedChange={setAllDrawersOpen}
         >
           {allDrawersOpen ? "Collapse all details" : "Expand all details"}
-        </button>
+        </Toggle>
       </nav>
 
       {/* HERO / EXECUTIVE SUMMARY */}
@@ -147,18 +158,25 @@ export function CellularityPage() {
       </section>
 
       {/* SECTION 1: TWO-SCALE CONTEXT + 3D TUMOR MODEL / BREADLOAF / TOP-DOWN + INSPECTOR */}
-      <section id="bed" className="cel-section">
+      <Tabs<BedMode>
+        render={<section id="bed" className="cel-section" />}
+        value={bedMode}
+        onValueChange={(next) => {
+          if (next) setBedMode(next);
+        }}
+      >
         <div className="cel-sec-head">
           <div>
             <h2>{specimen.section_title}</h2>
             <p>{specimen.section_subtitle}</p>
           </div>
-          <div className="cel-seg">
-            <button type="button" className={bedMode === "webgl" ? "active" : ""} onClick={() => setBedMode("webgl")}>3D Tumor Model</button>
-            <button type="button" className={bedMode === "3d" ? "active" : ""} onClick={() => setBedMode("3d")}>Breadloaf Slices</button>
-            <button type="button" className={bedMode === "topdown" ? "active" : ""} onClick={() => setBedMode("topdown")}>2D Top-Down</button>
-            <button type="button" className={bedMode === "grid" ? "active" : ""} onClick={() => setBedMode("grid")}>All Bed Blocks</button>
-          </div>
+          <TabsList className="cel-seg" aria-label="Tumor bed view">
+            {BED_MODES.map((mode) => (
+              <TabsTab key={mode.value} value={mode.value}>
+                {mode.label}
+              </TabsTab>
+            ))}
+          </TabsList>
         </div>
 
         <AnatomicalContextDiagram
@@ -169,37 +187,43 @@ export function CellularityPage() {
 
         <div className="cel-bed-layout">
           <div className="cel-card">
-            {bedMode === "webgl" ? (
+            <TabsPanel value="webgl" className="cel-bed-panel">
               <Suspense fallback={<div className="cel-webgl-wrap" style={{ display: "grid", placeItems: "center", color: "#5b5953" }}>Loading 3D WebGL model…</div>}>
                 <TumorModel3D data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} />
               </Suspense>
-            ) : null}
-            {bedMode === "3d" ? (
+            </TabsPanel>
+            <TabsPanel value="3d" className="cel-bed-panel">
               <BreadloafView data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} />
-            ) : null}
-            {bedMode === "topdown" ? (
+            </TabsPanel>
+            <TabsPanel value="topdown" className="cel-bed-panel">
               <TopDownView data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} />
-            ) : null}
-            {bedMode === "grid" ? (
+            </TabsPanel>
+            <TabsPanel value="grid" className="cel-bed-panel">
               <BreastBlocksGrid2x3 data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} />
-            ) : null}
+            </TabsPanel>
 
-            <div className="cel-slice-strip">
+            <ToggleGroup
+              className="cel-slice-strip"
+              aria-label="Inspect block"
+              value={[activeBlock]}
+              onValueChange={(next) => {
+                if (next[0]) setSelectedBlock(next[0]);
+              }}
+            >
               {sliceButtons.map((it) => {
                 const swColor = !it.scanned ? "#bdb9ae" : it.kind === "virtual" ? "#2563eb" : "#d9481f";
                 return (
-                  <button
+                  <Toggle
                     key={it.id}
-                    type="button"
-                    className={`cel-slice-btn${it.id === activeBlock ? " active" : ""}${!it.scanned ? " unscanned" : ""}`}
-                    onClick={() => setSelectedBlock(it.id)}
+                    value={it.id}
+                    className={`cel-slice-btn${!it.scanned ? " unscanned" : ""}`}
                   >
                     <span className="cel-swatch" style={{ background: swColor }} />
                     {it.label}
-                  </button>
+                  </Toggle>
                 );
               })}
-            </div>
+            </ToggleGroup>
 
             <div className="cel-legend-row">
               <div>
@@ -223,20 +247,12 @@ export function CellularityPage() {
         </div>
 
         <div className="cel-drawers">
-          <details className="cel-drawer" open={allDrawersOpen || undefined}>
-            <summary>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-                <span className="cel-chev">▶</span> {specimen.ink_drawer.title}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-muted)" }}>{specimen.ink_drawer.meta}</span>
-            </summary>
-            <div className="cel-drawer-body">
-              <p>{specimen.ink_drawer.body}</p>
-              <img className="cel-fig-img" src={cellularityAssetUrl(specimen.ink_drawer.img)} alt="Ink-aligned whole-slide thumbnails" loading="lazy" />
-            </div>
-          </details>
+          <CelDrawer title={specimen.ink_drawer.title} meta={specimen.ink_drawer.meta} allOpen={allDrawersOpen}>
+            <p>{specimen.ink_drawer.body}</p>
+            <img className="cel-fig-img" src={cellularityAssetUrl(specimen.ink_drawer.img)} alt="Ink-aligned whole-slide thumbnails" loading="lazy" />
+          </CelDrawer>
         </div>
-      </section>
+      </Tabs>
 
       <B6CircleExplorer data={data} allDrawersOpen={allDrawersOpen} />
       <BlocksAndValidationSection data={data} onJumpToBlock={handleJumpToBlock} allDrawersOpen={allDrawersOpen} />

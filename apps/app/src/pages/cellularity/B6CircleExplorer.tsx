@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
+import { CelDrawer, CelSlider } from "./controls";
 import type { CellularityData } from "./types";
 import { cellularityAssetUrl, draw2DGrid } from "./utils";
 
@@ -11,10 +14,12 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
   const b6C = data.b6_cum;
   const cfg = data.report.focus_explorer;
   const [k, setK] = useState(cfg.default_k);
-  const [serialTabKey, setSerialTabKey] = useState(cfg.serial_drawer.tabs[0]?.key ?? "");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const sliderVal = Math.round((1000 * Math.log(Math.max(1, k))) / Math.log(b6C.total));
+  const sliderToK = (v: number) =>
+    Math.max(1, Math.min(b6C.total, Math.round(Math.pow(b6C.total, v / 1000))));
+  const activePreset = cfg.presets.find((p) => Math.abs(p.k - k) <= (p.k > 20 ? 3 : 0));
   const idx = Math.max(0, Math.min(b6C.total - 1, k - 1));
   const area = b6C.area[idx];
   const nlo = b6C.nlo[idx];
@@ -47,8 +52,6 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
   const bandPoly = pts(b6C.nhi).concat(pts(b6C.nlo).reverse()).join(" ");
 
   const f = data.f33;
-  const activeSerialTab =
-    cfg.serial_drawer.tabs.find((t) => t.key === serialTabKey) ?? cfg.serial_drawer.tabs[0];
 
   return (
     <section id="focus" className="cel-section">
@@ -60,18 +63,21 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
       </div>
 
       <div className="cel-card">
-        <div className="cel-preset-row">
+        <ToggleGroup
+          className="cel-preset-row"
+          aria-label="Circled area presets"
+          value={activePreset ? [String(activePreset.k)] : []}
+          onValueChange={(next) => {
+            const preset = cfg.presets.find((p) => String(p.k) === next[0]);
+            if (preset) setK(preset.k);
+          }}
+        >
           {cfg.presets.map((p) => (
-            <button
-              key={p.k}
-              type="button"
-              className={`cel-preset-btn${Math.abs(p.k - k) <= (p.k > 20 ? 3 : 0) ? " active" : ""}`}
-              onClick={() => setK(p.k)}
-            >
+            <Toggle key={p.k} value={String(p.k)} className="cel-preset-btn">
               {p.label}
-            </button>
+            </Toggle>
           ))}
-        </div>
+        </ToggleGroup>
 
         <div className="cel-b6-grid">
           <div>
@@ -82,15 +88,13 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
                   {k} mm² ({k} field{k > 1 ? "s" : ""})
                 </span>
               </div>
-              <input
-                type="range"
+              <CelSlider
+                label={cfg.slider_title}
                 min={0}
                 max={1000}
                 value={sliderVal}
-                onChange={(e) => {
-                  const t = Number(e.target.value) / 1000;
-                  setK(Math.max(1, Math.min(b6C.total, Math.round(Math.pow(b6C.total, t)))));
-                }}
+                format={(v) => `${sliderToK(v)} mm²`}
+                onValueChange={(v) => setK(sliderToK(v))}
               />
               <div className="cel-slider-labels cel-num">
                 {cfg.slider_ticks.map((tick) => (
@@ -177,90 +181,60 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
       </div>
 
       <div className="cel-drawers">
-        <details className="cel-drawer" open={allDrawersOpen || undefined}>
-          <summary>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-              <span className="cel-chev">▶</span> {cfg.hotfields_drawer.title}
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-muted)" }}>{cfg.hotfields_drawer.meta}</span>
-          </summary>
-          <div className="cel-drawer-body">
-            <p>{cfg.hotfields_drawer.body}</p>
-            <img className="cel-fig-img" src={cellularityAssetUrl(cfg.hotfields_drawer.img)} alt="High-resolution focus fields" loading="lazy" />
-            <div className="cel-table-wrap" style={{ marginTop: 12 }}>
-              <table className="cel-table cel-num">
-                <thead>
-                  <tr><th>Region</th><th>Size</th><th>Cancer % of area</th><th>Cancer % of solid tissue</th><th>Cancer % of nuclei</th></tr>
-                </thead>
-                <tbody>
-                  {cfg.hotfields_drawer.rows.map((r) => (
-                    <tr key={r[0]}>
-                      <td>{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td><td>{r[4]}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        <CelDrawer title={cfg.hotfields_drawer.title} meta={cfg.hotfields_drawer.meta} allOpen={allDrawersOpen}>
+          <p>{cfg.hotfields_drawer.body}</p>
+          <img className="cel-fig-img" src={cellularityAssetUrl(cfg.hotfields_drawer.img)} alt="High-resolution focus fields" loading="lazy" />
+          <div className="cel-table-wrap" style={{ marginTop: 12 }}>
+            <table className="cel-table cel-num">
+              <thead>
+                <tr><th>Region</th><th>Size</th><th>Cancer % of area</th><th>Cancer % of solid tissue</th><th>Cancer % of nuclei</th></tr>
+              </thead>
+              <tbody>
+                {cfg.hotfields_drawer.rows.map((r) => (
+                  <tr key={r[0]}>
+                    <td>{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td><td>{r[4]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </details>
+        </CelDrawer>
 
-        <details className="cel-drawer" open={allDrawersOpen || undefined}>
-          <summary>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-              <span className="cel-chev">▶</span> {cfg.serial_drawer.title}
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-muted)" }}>{cfg.serial_drawer.meta}</span>
-          </summary>
-          <div className="cel-drawer-body">
-            <p>{cfg.serial_drawer.body}</p>
-            <div className="cel-seg" style={{ marginBottom: 10 }}>
+        <CelDrawer title={cfg.serial_drawer.title} meta={cfg.serial_drawer.meta} allOpen={allDrawersOpen}>
+          <p>{cfg.serial_drawer.body}</p>
+          <Tabs defaultValue={cfg.serial_drawer.tabs[0]?.key}>
+            <TabsList className="cel-seg" aria-label={cfg.serial_drawer.title} style={{ marginBottom: 10 }}>
               {cfg.serial_drawer.tabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  className={activeSerialTab?.key === tab.key ? "active" : ""}
-                  onClick={() => setSerialTabKey(tab.key)}
-                >
+                <TabsTab key={tab.key} value={tab.key}>
                   {tab.label}
-                </button>
+                </TabsTab>
               ))}
-            </div>
-            {activeSerialTab ? (
-              <img
-                className="cel-fig-img"
-                src={cellularityAssetUrl(activeSerialTab.img)}
-                alt={activeSerialTab.label}
-                loading="lazy"
-              />
-            ) : null}
-          </div>
-        </details>
+            </TabsList>
+            {cfg.serial_drawer.tabs.map((tab) => (
+              <TabsPanel key={tab.key} value={tab.key}>
+                <img className="cel-fig-img" src={cellularityAssetUrl(tab.img)} alt={tab.label} loading="lazy" />
+              </TabsPanel>
+            ))}
+          </Tabs>
+        </CelDrawer>
 
-        <details className="cel-drawer" open={allDrawersOpen || undefined}>
-          <summary>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-              <span className="cel-chev">▶</span> {cfg.recount_drawer.title}
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-muted)" }}>{cfg.recount_drawer.meta}</span>
-          </summary>
-          <div className="cel-drawer-body">
-            <p>{cfg.recount_drawer.body}</p>
-            <img className="cel-fig-img" src={cellularityAssetUrl(cfg.recount_drawer.img)} alt="Pixel-level recount" loading="lazy" />
-            <div className="cel-table-wrap" style={{ marginTop: 12 }}>
-              <table className="cel-table cel-num">
-                <thead><tr><th>Quantity</th><th>Pixels</th><th>Value / Area</th><th>How it is used</th></tr></thead>
-                <tbody>
-                  <tr><td>Field (denominator, RCB area)</td><td>{f.tot.toLocaleString()}</td><td>{f.field_mm2.toFixed(3)} mm² ({Math.round(f.side_um)} × {Math.round(f.side_um)} µm)</td><td>Whole field is inside specimen</td></tr>
-                  <tr><td>Keratin+ cancer area (numerator)</td><td>{f.final.toLocaleString()}</td><td>{f.ker_mm2.toFixed(3)} mm²</td><td>Pixels left after hue, ink &amp; hole-fill steps</td></tr>
-                  <tr><td>Cancer ÷ field</td><td>—</td><td><strong>{((100 * f.final) / f.tot).toFixed(1)}%</strong></td><td>Quoted area cellularity for this field</td></tr>
-                  <tr><td>Solid-tissue denominator (excl. fat)</td><td>{f.solid.toLocaleString()}</td><td>{((100 * f.final) / f.solid).toFixed(1)}%</td><td>Excludes empty fat lumens</td></tr>
-                  <tr><td>Snapped to MD Anderson bin</td><td>—</td><td>30%</td><td>Protocol bins: 0, 1, 5, 10, 20, 30…%</td></tr>
-                  <tr><td>Without black-ink rule (sensitivity)</td><td>{f.no_ink.toLocaleString()}</td><td>{((100 * f.no_ink) / f.tot).toFixed(1)}%</td><td>Ink rule trims darkest keratin edges (conservative)</td></tr>
-                </tbody>
-              </table>
-            </div>
+        <CelDrawer title={cfg.recount_drawer.title} meta={cfg.recount_drawer.meta} allOpen={allDrawersOpen}>
+          <p>{cfg.recount_drawer.body}</p>
+          <img className="cel-fig-img" src={cellularityAssetUrl(cfg.recount_drawer.img)} alt="Pixel-level recount" loading="lazy" />
+          <div className="cel-table-wrap" style={{ marginTop: 12 }}>
+            <table className="cel-table cel-num">
+              <thead><tr><th>Quantity</th><th>Pixels</th><th>Value / Area</th><th>How it is used</th></tr></thead>
+              <tbody>
+                <tr><td>Field (denominator, RCB area)</td><td>{f.tot.toLocaleString()}</td><td>{f.field_mm2.toFixed(3)} mm² ({Math.round(f.side_um)} × {Math.round(f.side_um)} µm)</td><td>Whole field is inside specimen</td></tr>
+                <tr><td>Keratin+ cancer area (numerator)</td><td>{f.final.toLocaleString()}</td><td>{f.ker_mm2.toFixed(3)} mm²</td><td>Pixels left after hue, ink &amp; hole-fill steps</td></tr>
+                <tr><td>Cancer ÷ field</td><td>—</td><td><strong>{((100 * f.final) / f.tot).toFixed(1)}%</strong></td><td>Quoted area cellularity for this field</td></tr>
+                <tr><td>Solid-tissue denominator (excl. fat)</td><td>{f.solid.toLocaleString()}</td><td>{((100 * f.final) / f.solid).toFixed(1)}%</td><td>Excludes empty fat lumens</td></tr>
+                <tr><td>Snapped to MD Anderson bin</td><td>—</td><td>30%</td><td>Protocol bins: 0, 1, 5, 10, 20, 30…%</td></tr>
+                <tr><td>Without black-ink rule (sensitivity)</td><td>{f.no_ink.toLocaleString()}</td><td>{((100 * f.no_ink) / f.tot).toFixed(1)}%</td><td>Ink rule trims darkest keratin edges (conservative)</td></tr>
+              </tbody>
+            </table>
           </div>
-        </details>
+        </CelDrawer>
       </div>
     </section>
   );

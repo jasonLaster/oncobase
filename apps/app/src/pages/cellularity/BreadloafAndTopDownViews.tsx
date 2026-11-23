@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
+import { CelCheckbox, CelSlider } from "./controls";
 import type { BlockRow, CellularityData, SliceMeta } from "./types";
 import { draw2DGrid, type GridGeometry, heatColor } from "./utils";
 
@@ -307,14 +309,14 @@ export function BreadloafView({
     <>
       <div className="cel-controls">
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          Spread <input type="range" min={0} max={100} value={spread} onChange={(e) => setSpread(Number(e.target.value))} style={{ width: 96 }} />
+          Spread <CelSlider label="Spread" min={0} max={100} value={spread} onValueChange={setSpread} style={{ width: 96 }} />
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          Angle <input type="range" min={10} max={65} value={angleDeg} onChange={(e) => setAngleDeg(Number(e.target.value))} style={{ width: 96 }} />
+          Angle <CelSlider label="Angle" min={10} max={65} value={angleDeg} format={(v) => `${v}°`} onValueChange={setAngleDeg} style={{ width: 96 }} />
         </span>
-        <label><input type="checkbox" checked={showBox} onChange={(e) => setShowBox(e.target.checked)} /> 41×20 mm bed box</label>
-        <label><input type="checkbox" checked={showShaves} onChange={(e) => setShowShaves(e.target.checked)} /> Cavity shaves (C, D, E1)</label>
-        <label><input type="checkbox" checked={showUnscanned} onChange={(e) => setShowUnscanned(e.target.checked)} /> Perp. end-caps</label>
+        <CelCheckbox checked={showBox} onCheckedChange={setShowBox}>41×20 mm bed box</CelCheckbox>
+        <CelCheckbox checked={showShaves} onCheckedChange={setShowShaves}>Cavity shaves (C, D, E1)</CelCheckbox>
+        <CelCheckbox checked={showUnscanned} onCheckedChange={setShowUnscanned}>Perp. end-caps</CelCheckbox>
       </div>
       <div className="cel-canvas-wrap">
         <canvas
@@ -484,9 +486,9 @@ export function TopDownView({
   return (
     <>
       <div className="cel-controls">
-        <label><input type="checkbox" checked={showBox} onChange={(e) => setShowBox(e.target.checked)} /> 41×20 mm bed box</label>
-        <label><input type="checkbox" checked={showE1} onChange={(e) => setShowE1(e.target.checked)} /> E1 lateral margin</label>
-        <label><input type="checkbox" checked={showUnscanned} onChange={(e) => setShowUnscanned(e.target.checked)} /> Perp. end-caps</label>
+        <CelCheckbox checked={showBox} onCheckedChange={setShowBox}>41×20 mm bed box</CelCheckbox>
+        <CelCheckbox checked={showE1} onCheckedChange={setShowE1}>E1 lateral margin</CelCheckbox>
+        <CelCheckbox checked={showUnscanned} onCheckedChange={setShowUnscanned}>Perp. end-caps</CelCheckbox>
       </div>
       <div className="cel-canvas-wrap">
         <canvas
@@ -509,14 +511,10 @@ function MiniBlockTile({
   block,
   row,
   data,
-  selected,
-  onSelect,
 }: {
   block: string;
   row: BlockRow;
   data: CellularityData;
-  selected: boolean;
-  onSelect: () => void;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const isVirt = row.method.startsWith("virtual");
@@ -526,11 +524,10 @@ function MiniBlockTile({
   }, [block, data]);
 
   return (
-    <button
-      type="button"
-      className={`cel-mini-card${isVirt ? " virtual" : ""}${selected ? " selected" : ""}`}
+    <Toggle
+      value={block}
+      className={`cel-mini-card${isVirt ? " virtual" : ""}`}
       style={{ textAlign: "left", width: "100%" }}
-      onClick={onSelect}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 12.5, fontWeight: 650, marginBottom: 4 }}>
         <span style={{ color: isVirt ? "#2563eb" : "#161614" }}>{block} · {isVirt ? "virtual" : "real"}</span>
@@ -539,7 +536,7 @@ function MiniBlockTile({
         </span>
       </div>
       <canvas ref={ref} width={220} height={140} />
-    </button>
+    </Toggle>
   );
 }
 
@@ -554,7 +551,14 @@ export function BreastBlocksGrid2x3({
 }) {
   const byBlock = Object.fromEntries(data.summary.rows.map((r) => [r.block, r]));
   return (
-    <div className="cel-blocks-2x3">
+    <ToggleGroup
+      className="cel-blocks-2x3"
+      aria-label="Bed blocks"
+      value={[selectedBlock]}
+      onValueChange={(next) => {
+        if (next[0]) onSelectBlock(next[0]);
+      }}
+    >
       {["B3", "B4", "B5", "B6", "B7", "B8"].map((b) => {
         const row = byBlock[b];
         if (!row) return null;
@@ -564,12 +568,10 @@ export function BreastBlocksGrid2x3({
             block={b}
             row={row}
             data={data}
-            selected={b === selectedBlock}
-            onSelect={() => onSelectBlock(b)}
           />
         );
       })}
-    </div>
+    </ToggleGroup>
   );
 }
 
@@ -708,12 +710,12 @@ export function BlockInspector({
       </div>
 
       <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 12, color: "var(--text-muted)" }}>
-        <label style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <input type="checkbox" checked={showBed} onChange={(e) => setShowBed(e.target.checked)} /> Tight-bed outline
-        </label>
-        <label style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <input type="checkbox" checked={showNums} onChange={(e) => setShowNums(e.target.checked)} /> Label ≥1% fields
-        </label>
+        <CelCheckbox checked={showBed} onCheckedChange={setShowBed} style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+          Tight-bed outline
+        </CelCheckbox>
+        <CelCheckbox checked={showNums} onCheckedChange={setShowNums} style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+          Label ≥1% fields
+        </CelCheckbox>
       </div>
 
       <div className="cel-stat-mini-grid cel-num">
