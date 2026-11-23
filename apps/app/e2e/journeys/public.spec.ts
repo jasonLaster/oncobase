@@ -405,7 +405,11 @@ test.describe("education guests (deployed gate)", () => {
     // The public library opens without the care reader.
     const readerRequests: string[] = [];
     page.on("request", (req) => {
-      if (/\/api\/(?:wiki|auth|timeline|diagnostic-studies|chat)\b/.test(new URL(req.url()).pathname))
+      const pathname = new URL(req.url()).pathname;
+      // Boot telemetry beacons from every route (main.tsx); they flush on a
+      // timer or pagehide, so whether one lands mid-test is timing, not reader.
+      if (pathname === "/api/wiki/telemetry") return;
+      if (/\/api\/(?:wiki|auth|timeline|diagnostic-studies|chat)\b/.test(pathname))
         readerRequests.push(req.url());
     });
     await page.goto("/education");
