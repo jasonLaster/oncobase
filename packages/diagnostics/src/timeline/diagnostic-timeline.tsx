@@ -13,7 +13,6 @@ import {
   type UIEvent as ReactUIEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   CalendarDays,
   ChevronDown,
@@ -25,6 +24,14 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+
+import {
+  createHoverCardController,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+  type HoverCardController,
+} from "@oncobase/ui/hover-card";
 
 import {
   Badge,
@@ -107,14 +114,6 @@ interface TimelineTick {
   time: number;
 }
 
-interface TooltipAnchor {
-  eventId: string;
-  x: number;
-  y: number;
-  vertical: "above" | "below";
-  horizontal: "left" | "center" | "right";
-}
-
 type DragState =
   | {
       mode: "zoom";
@@ -133,16 +132,14 @@ interface TimelineState {
   collapsedSleeves: Set<string>;
   drag: DragState | null;
   filter: string;
-  tooltipAnchor: TooltipAnchor | null;
   visibleRange: DateRange;
 }
 
 type TimelineAction =
-  | { type: "hideEvent"; eventId?: string }
+  | { type: "setActiveEvent"; eventId: string | null }
   | { type: "setDrag"; drag: DragState | null }
   | { type: "setFilter"; filter: string }
   | { type: "setVisibleRange"; range: DateRange | ((range: DateRange) => DateRange) }
-  | { type: "showEvent"; anchor: TooltipAnchor; eventId: string }
   | { type: "toggleSleeve"; sleeveId: string };
 
 type DrilldownTarget =
@@ -156,20 +153,13 @@ type DrilldownTarget =
       track: DiagnosticTimelineTrack;
     };
 
-interface DrilldownTooltipState {
-  color: string;
-  date: string;
-  details: string[];
-  id: string;
-  label: string;
-  links: DiagnosticTimelineLink[];
-  placement: "above" | "below";
-  result: string;
-  trackLabel: string;
-  valueLabel: string | null;
-  x: number;
-  y: number;
+interface DrilldownPointRef {
+  event: DiagnosticTimelineEvent;
+  track: DiagnosticTimelineTrack;
 }
+
+type TimelineEventCard = HoverCardController<TimelineEventRef>;
+type DrilldownPointCard = HoverCardController<DrilldownPointRef>;
 
 export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
   const fullRange = useMemo(
@@ -204,7 +194,6 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
       collapsedSleeves: defaultCollapsedSleeves(data.sleeves),
       drag: null,
       filter: "",
-      tooltipAnchor: null,
       visibleRange,
     }),
   );
@@ -213,7 +202,6 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
     collapsedSleeves,
     drag,
     filter,
-    tooltipAnchor,
     visibleRange,
   } = state;
   const [drilldownTarget, setDrilldownTarget] = useState<DrilldownTarget | null>(
@@ -224,7 +212,7 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
   );
   const desktopTimelineRef = useRef<HTMLDivElement>(null);
   const timelineScrollLeft = useRef(0);
-  const tooltipHideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [eventCard] = useState(() => createHoverCardController<TimelineEventRef>());
 
   const allEventRefs = useMemo(() => flattenEvents(data.sleeves), [data.sleeves]);
   const activeEvent = activeEventId
@@ -268,60 +256,6 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
   const activeOverviewX = activeEvent
     ? percentForDate(activeEvent.event.date, fullRange)
     : null;
-
-  const clearTooltipHide = useCallback(() => {
-    if (tooltipHideTimeout.current) {
-      clearTimeout(tooltipHideTimeout.current);
-      tooltipHideTimeout.current = null;
-    }
-  }, []);
-
-  const hideTimelineEvent = useCallback(
-    (eventId?: string) => {
-      clearTooltipHide();
-      dispatch({ type: "hideEvent", eventId });
-    },
-    [clearTooltipHide],
-  );
-
-  const scheduleHideTimelineEvent = useCallback(
-    (eventId: string) => {
-      clearTooltipHide();
-      tooltipHideTimeout.current = setTimeout(() => {
-        hideTimelineEvent(eventId);
-      }, 140);
-    },
-    [clearTooltipHide, hideTimelineEvent],
-  );
-
-  const showTimelineEvent = useCallback(
-    (eventId: string, anchorElement: HTMLElement) => {
-      clearTooltipHide();
-      const rect = anchorElement.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      dispatch({
-        type: "showEvent",
-        eventId,
-        anchor: {
-          eventId,
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-          vertical:
-            rect.top > Math.min(360, viewportHeight * 0.46) ? "above" : "below",
-          horizontal:
-            rect.left < 260
-              ? "left"
-              : rect.right > viewportWidth - 360
-                ? "right"
-                : "center",
-        },
-      });
-    },
-    [clearTooltipHide],
-  );
-
-  useEffect(() => clearTooltipHide, [clearTooltipHide]);
 
   const setVisibleRange = useCallback(
     (range: DateRange | ((range: DateRange) => DateRange)) => {
@@ -441,8 +375,7 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
           drag={drag}
           dragHandlers={dragHandlers}
           monthTicks={monthTicks}
-          onActivate={showTimelineEvent}
-          onDeactivate={scheduleHideTimelineEvent}
+          eventCard={eventCard}
           onInspectSleeve={(sleeve) =>
             setDrilldownTarget({ scope: "sleeve", sleeve })
           }
@@ -466,14 +399,12 @@ export function DiagnosticTimeline({ data }: { data: DiagnosticTimelineData }) {
         target={drilldownTarget}
       />
 
-      {activeEvent && tooltipAnchor?.eventId === activeEvent.event.id ? (
-        <TimelineTooltip
-          activeEvent={activeEvent}
-          anchor={tooltipAnchor}
-          onMouseEnter={clearTooltipHide}
-          onMouseLeave={() => hideTimelineEvent(activeEvent.event.id)}
-        />
-      ) : null}
+      <TimelineEventHoverCard
+        controller={eventCard}
+        onActiveEventChange={(eventId) =>
+          dispatch({ type: "setActiveEvent", eventId })
+        }
+      />
     </section>
   );
 }
@@ -1059,18 +990,8 @@ function MobileTimelineBottomSheet({
 
 function timelineReducer(state: TimelineState, action: TimelineAction): TimelineState {
   switch (action.type) {
-    case "hideEvent": {
-      const shouldClear =
-        action.eventId === undefined || state.activeEventId === action.eventId;
-      return {
-        ...state,
-        activeEventId: shouldClear ? null : state.activeEventId,
-        tooltipAnchor:
-          action.eventId === undefined || state.tooltipAnchor?.eventId === action.eventId
-            ? null
-            : state.tooltipAnchor,
-      };
-    }
+    case "setActiveEvent":
+      return { ...state, activeEventId: action.eventId };
     case "setDrag":
       return { ...state, drag: action.drag };
     case "setFilter":
@@ -1082,12 +1003,6 @@ function timelineReducer(state: TimelineState, action: TimelineAction): Timeline
           typeof action.range === "function"
             ? action.range(state.visibleRange)
             : action.range,
-      };
-    case "showEvent":
-      return {
-        ...state,
-        activeEventId: action.eventId,
-        tooltipAnchor: action.anchor,
       };
     case "toggleSleeve": {
       const collapsedSleeves = new Set(state.collapsedSleeves);
@@ -1386,9 +1301,8 @@ function DrilldownChart({
     () => clampRange(visibleRangeState, drilldownRange, DRILLDOWN_MIN_RANGE_MS),
     [drilldownRange, visibleRangeState],
   );
-  const [tooltip, setTooltip] = useState<DrilldownTooltipState | null>(null);
+  const [pointCard] = useState(() => createHoverCardController<DrilldownPointRef>());
   const [activeAxisTrackId, setActiveAxisTrackId] = useState<string | null>(null);
-  const tooltipHideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drilldownTracks: Array<{
     domain: [number, number];
     events: Array<DiagnosticTimelineEvent & { value: number }>;
@@ -1438,61 +1352,12 @@ function DrilldownChart({
     axis: drilldownAxisPlacement(index, drilldownTracks.length, plot),
   }));
 
-  const showTooltip = useCallback(
-    (element: SVGGraphicsElement, track: DiagnosticTimelineTrack, event: DiagnosticTimelineEvent) => {
-      if (tooltipHideTimeout.current) {
-        clearTimeout(tooltipHideTimeout.current);
-        tooltipHideTimeout.current = null;
-      }
-      const targetBox = element.getBoundingClientRect();
-
-      setActiveAxisTrackId(track.id);
-      setTooltip({
-        color: track.color,
-        date: formatDisplayDate(event.date),
-        details: event.details ?? [],
-        id: `${track.id}-${event.id}`,
-        label: event.label,
-        links: event.links ?? [],
-        placement: "above",
-        result: event.result,
-        trackLabel: track.label,
-        valueLabel: event.valueLabel ?? null,
-        x: targetBox.left + targetBox.width / 2,
-        y: targetBox.top + targetBox.height / 2,
-      });
-    },
-    [],
-  );
   const activateAxis = useCallback((trackId: string | null) => {
     setActiveAxisTrackId(trackId);
   }, []);
   const hideTooltip = useCallback(() => {
-    if (tooltipHideTimeout.current) {
-      clearTimeout(tooltipHideTimeout.current);
-      tooltipHideTimeout.current = null;
-    }
-    setActiveAxisTrackId(null);
-    setTooltip(null);
-  }, []);
-  const scheduleHideTooltip = useCallback(() => {
-    if (tooltipHideTimeout.current) {
-      clearTimeout(tooltipHideTimeout.current);
-    }
-    tooltipHideTimeout.current = setTimeout(() => {
-      setActiveAxisTrackId(null);
-      setTooltip(null);
-      tooltipHideTimeout.current = null;
-    }, 140);
-  }, []);
-  useEffect(
-    () => () => {
-      if (tooltipHideTimeout.current) {
-        clearTimeout(tooltipHideTimeout.current);
-      }
-    },
-    [],
-  );
+    pointCard.close();
+  }, [pointCard]);
   const scrollLeftForRange = useCallback(
     (range: DateRange) => {
       if (fullSpan <= 0) return 0;
@@ -1601,7 +1466,6 @@ function DrilldownChart({
           visibleRange.end,
         )}`}
         onScroll={handleScroll}
-        onPointerLeave={scheduleHideTooltip}
         ref={chartRef}
       >
         <div
@@ -1820,91 +1684,72 @@ function DrilldownChart({
                   />
                 ) : null}
                 {events.map((event) => (
-                  <circle
-                    aria-label={`${track.label}: ${
-                      event.valueLabel ?? event.result
-                    } on ${formatDisplayDate(event.date)}`}
-                    data-test-id={`timeline-drilldown-point-${track.id}-${event.id}`}
+                  <HoverCardTrigger
+                    controller={pointCard}
                     key={`point-${track.id}-${event.id}`}
-                    cx={chartX(toTime(event.date), drilldownRange, contentPlot)}
-                    cy={chartY(event.value ?? 0, domain, track.scale, plot)}
-                    r="5"
-                    fill={track.color}
-                    onBlur={hideTooltip}
-                    onFocus={(focusEvent) =>
-                      showTooltip(focusEvent.currentTarget, track, event)
-                    }
-                    onPointerEnter={(pointerEvent) =>
-                      showTooltip(pointerEvent.currentTarget, track, event)
-                    }
-                    onPointerLeave={scheduleHideTooltip}
-                    onPointerMove={(pointerEvent) =>
-                      showTooltip(pointerEvent.currentTarget, track, event)
-                    }
-                    stroke="var(--background)"
-                    strokeWidth="2"
-                    tabIndex={0}
-                    vectorEffect="non-scaling-stroke"
-                  >
-                    <title>
-                      {track.label}: {event.valueLabel ?? event.result} on{" "}
-                      {formatDisplayDate(event.date)}
-                    </title>
-                  </circle>
+                    payload={{ event, track } satisfies DrilldownPointRef}
+                    render={(props) => (
+                      <circle
+                        {...props}
+                        aria-label={`${track.label}: ${
+                          event.valueLabel ?? event.result
+                        } on ${formatDisplayDate(event.date)}`}
+                        data-test-id={`timeline-drilldown-point-${track.id}-${event.id}`}
+                        cx={chartX(toTime(event.date), drilldownRange, contentPlot)}
+                        cy={chartY(event.value ?? 0, domain, track.scale, plot)}
+                        r="5"
+                        fill={track.color}
+                        stroke="var(--background)"
+                        strokeWidth="2"
+                        tabIndex={0}
+                        vectorEffect="non-scaling-stroke"
+                      >
+                        <title>
+                          {track.label}: {event.valueLabel ?? event.result} on{" "}
+                          {formatDisplayDate(event.date)}
+                        </title>
+                      </circle>
+                    )}
+                  />
                 ))}
               </g>
             );
           })}
           {chartTracks.flatMap(({ eventMarkers, track }) =>
             eventMarkers.map((event) => (
-              <circle
-                aria-label={`${track.label}: ${event.label} on ${formatDisplayDate(
-                  event.date,
-                )}`}
-                data-test-id={`timeline-drilldown-event-${track.id}-${event.id}`}
+              <HoverCardTrigger
+                controller={pointCard}
                 key={`event-${track.id}-${event.id}`}
-                cx={chartX(toTime(event.date), drilldownRange, contentPlot)}
-                cy={chartY(0.5, [0, 1], "linear", plot)}
-                r="5"
-                fill={track.color}
-                onBlur={hideTooltip}
-                onFocus={(focusEvent) =>
-                  showTooltip(focusEvent.currentTarget, track, event)
-                }
-                onPointerEnter={(pointerEvent) =>
-                  showTooltip(pointerEvent.currentTarget, track, event)
-                }
-                onPointerLeave={scheduleHideTooltip}
-                onPointerMove={(pointerEvent) =>
-                  showTooltip(pointerEvent.currentTarget, track, event)
-                }
-                opacity="0.85"
-                stroke="var(--background)"
-                strokeWidth="2"
-                tabIndex={0}
-                vectorEffect="non-scaling-stroke"
-              >
-                <title>
-                  {track.label}: {event.label} on {formatDisplayDate(event.date)}
-                </title>
-              </circle>
+                payload={{ event, track } satisfies DrilldownPointRef}
+                render={(props) => (
+                  <circle
+                    {...props}
+                    aria-label={`${track.label}: ${event.label} on ${formatDisplayDate(
+                      event.date,
+                    )}`}
+                    data-test-id={`timeline-drilldown-event-${track.id}-${event.id}`}
+                    cx={chartX(toTime(event.date), drilldownRange, contentPlot)}
+                    cy={chartY(0.5, [0, 1], "linear", plot)}
+                    r="5"
+                    fill={track.color}
+                    opacity="0.85"
+                    stroke="var(--background)"
+                    strokeWidth="2"
+                    tabIndex={0}
+                    vectorEffect="non-scaling-stroke"
+                  >
+                    <title>
+                      {track.label}: {event.label} on {formatDisplayDate(event.date)}
+                    </title>
+                  </circle>
+                )}
+              />
             )),
           )}
         </svg>
         </div>
-        {tooltip ? (
-          <DrilldownTooltip
-            onPointerEnter={() => {
-              if (tooltipHideTimeout.current) {
-                clearTimeout(tooltipHideTimeout.current);
-                tooltipHideTimeout.current = null;
-              }
-            }}
-            onPointerLeave={hideTooltip}
-            tooltip={tooltip}
-          />
-        ) : null}
       </div>
+      <DrilldownPointHoverCard controller={pointCard} onActiveTrackChange={activateAxis} />
     </div>
   );
 }
@@ -2002,61 +1847,74 @@ function DrilldownYAxis({
   );
 }
 
-function DrilldownTooltip({
-  onPointerEnter,
-  onPointerLeave,
-  tooltip,
+function DrilldownPointHoverCard({
+  controller,
+  onActiveTrackChange,
 }: {
-  onPointerEnter: () => void;
-  onPointerLeave: () => void;
-  tooltip: DrilldownTooltipState;
+  controller: DrilldownPointCard;
+  onActiveTrackChange: (trackId: string | null) => void;
 }) {
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      className={cn(
-        "pointer-events-auto fixed z-[100] max-w-[320px] rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg",
-        tooltip.placement === "above"
-          ? "-translate-x-1/2 -translate-y-[calc(100%+12px)]"
-          : "-translate-x-1/2 translate-y-3",
-      )}
-      data-test-id="timeline-drilldown-tooltip"
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
-      role="tooltip"
-      style={{ left: tooltip.x, top: tooltip.y }}
+  return (
+    <HoverCard
+      closeDelay={150}
+      controller={controller}
+      delay={0}
+      onOpenChange={(open) => {
+        if (!open) onActiveTrackChange(null);
+      }}
+      onPayloadChange={(payload) =>
+        onActiveTrackChange((payload as DrilldownPointRef | undefined)?.track.id ?? null)
+      }
     >
+      <HoverCardContent<DrilldownPointRef>
+        className="max-w-[320px] rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg"
+        data-test-id="timeline-drilldown-tooltip"
+        side="top"
+        sideOffset={12}
+      >
+        {(state) =>
+          state.payload ? <DrilldownPointCardBody point={state.payload} /> : null
+        }
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+function DrilldownPointCardBody({ point: { event, track } }: { point: DrilldownPointRef }) {
+  const details = event.details ?? [];
+  const links = event.links ?? [];
+  return (
+    <>
       <div className="flex items-center gap-2">
         <span
           aria-hidden="true"
           className="size-2 rounded-full"
-          style={{ backgroundColor: tooltip.color }}
+          style={{ backgroundColor: track.color }}
         />
-        <span className="font-semibold">{tooltip.trackLabel}</span>
-        <span className="text-muted-foreground">{tooltip.date}</span>
+        <span className="font-semibold">{track.label}</span>
+        <span className="text-muted-foreground">{formatDisplayDate(event.date)}</span>
       </div>
-      {tooltip.label !== tooltip.trackLabel ? (
-        <div className="mt-1 font-medium">{tooltip.label}</div>
+      {event.label !== track.label ? (
+        <div className="mt-1 font-medium">{event.label}</div>
       ) : null}
-      {tooltip.valueLabel ? (
-        <div className="mt-1 text-muted-foreground">{tooltip.valueLabel}</div>
+      {event.valueLabel ? (
+        <div className="mt-1 text-muted-foreground">{event.valueLabel}</div>
       ) : null}
-      <div className="mt-1 leading-snug">{tooltip.result}</div>
-      {tooltip.details.length > 0 ? (
+      <div className="mt-1 leading-snug">{event.result}</div>
+      {details.length > 0 ? (
         <ul className="mt-2 grid gap-1 text-muted-foreground">
-          {tooltip.details.map((detail) => (
+          {details.map((detail) => (
             <li key={detail}>{detail}</li>
           ))}
         </ul>
       ) : null}
-      {tooltip.links.length > 0 ? (
+      {links.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {tooltip.links.map((link) => (
+          {links.map((link) => (
             <a
               className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-medium text-foreground hover:bg-muted"
               href={link.href}
-              key={`${tooltip.id}-${link.href}`}
+              key={link.href}
             >
               {link.label}
               <ExternalLink className="size-3" />
@@ -2064,8 +1922,7 @@ function DrilldownTooltip({
           ))}
         </div>
       ) : null}
-    </div>,
-    document.body,
+    </>
   );
 }
 
@@ -2074,9 +1931,8 @@ function TimelineSleeves({
   collapsedSleeves,
   drag,
   dragHandlers,
+  eventCard,
   monthTicks,
-  onActivate,
-  onDeactivate,
   onInspectSleeve,
   onInspectTrack,
   onTimelineScroll,
@@ -2090,9 +1946,8 @@ function TimelineSleeves({
   collapsedSleeves: Set<string>;
   drag: DragState | null;
   dragHandlers: ReturnType<typeof usePlotDragHandlers>;
+  eventCard: TimelineEventCard;
   monthTicks: TimelineTick[];
-  onActivate: (eventId: string, anchorElement: HTMLElement) => void;
-  onDeactivate: (eventId: string) => void;
   onInspectSleeve: (sleeve: DiagnosticTimelineSleeve) => void;
   onInspectTrack: (
     sleeve: DiagnosticTimelineSleeve,
@@ -2165,10 +2020,9 @@ function TimelineSleeves({
                     activeEventId={activeEventId}
                     drag={drag}
                     dragHandlers={dragHandlers}
+                    eventCard={eventCard}
                     key={track.id}
                     monthTicks={monthTicks}
-                    onActivate={onActivate}
-                    onDeactivate={onDeactivate}
                     onInspect={() => onInspectTrack(sleeve, track)}
                     onTimelineScroll={onTimelineScroll}
                     registerTimelineScrollRegion={registerTimelineScrollRegion}
@@ -2275,9 +2129,8 @@ function TimelineTrackRow({
   activeEventId,
   drag,
   dragHandlers,
+  eventCard,
   monthTicks,
-  onActivate,
-  onDeactivate,
   onInspect,
   onTimelineScroll,
   registerTimelineScrollRegion,
@@ -2289,9 +2142,8 @@ function TimelineTrackRow({
   activeEventId: string | null;
   drag: DragState | null;
   dragHandlers: ReturnType<typeof usePlotDragHandlers>;
+  eventCard: TimelineEventCard;
   monthTicks: TimelineTick[];
-  onActivate: (eventId: string, anchorElement: HTMLElement) => void;
-  onDeactivate: (eventId: string) => void;
   onInspect: () => void;
   onTimelineScroll: (event: ReactUIEvent<HTMLDivElement>) => void;
   registerTimelineScrollRegion: (element: HTMLDivElement | null) => void;
@@ -2404,10 +2256,9 @@ function TimelineTrackRow({
           {visibleEvents.map((event, index) => (
             <TimelineMarker
               event={event}
+              eventCard={eventCard}
               isActive={event.id === activeEventId}
               key={event.id}
-              onActivate={onActivate}
-              onDeactivate={onDeactivate}
               sleeve={sleeve}
               stackIndex={index}
               track={track}
@@ -2429,18 +2280,16 @@ function TimelineTrackRow({
 
 function TimelineMarker({
   event,
+  eventCard,
   isActive,
-  onActivate,
-  onDeactivate,
   sleeve,
   stackIndex,
   track,
   visibleRange,
 }: {
   event: DiagnosticTimelineEvent;
+  eventCard: TimelineEventCard;
   isActive: boolean;
-  onActivate: (eventId: string, anchorElement: HTMLElement) => void;
-  onDeactivate: (eventId: string) => void;
   sleeve: DiagnosticTimelineSleeve;
   stackIndex: number;
   track: DiagnosticTimelineTrack;
@@ -2469,9 +2318,7 @@ function TimelineMarker({
           }}
         />
       ) : null}
-      <button
-        type="button"
-        aria-describedby={isActive ? `timeline-tooltip-${event.id}` : undefined}
+      <HoverCardTrigger
         aria-label={label}
         className={cn(
           "absolute z-10 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35",
@@ -2479,12 +2326,17 @@ function TimelineMarker({
           flagged && "ring-2 ring-red-200",
           isActive && "scale-125 ring-3 ring-ring/35",
         )}
+        controller={eventCard}
         data-test-id={`timeline-marker-${event.id}`}
-        onBlur={() => onDeactivate(event.id)}
-        onClick={(item) => onActivate(event.id, item.currentTarget)}
-        onFocus={(item) => onActivate(event.id, item.currentTarget)}
-        onMouseEnter={(item) => onActivate(event.id, item.currentTarget)}
-        onMouseLeave={() => onDeactivate(event.id)}
+        // Touch has no hover, so a tap opens the card too.
+        onClick={(item) =>
+          eventCard.open({
+            anchor: item.currentTarget,
+            payload: { event, sleeve, track },
+          })
+        }
+        payload={{ event, sleeve, track } satisfies TimelineEventRef}
+        render={<button type="button" />}
         style={
           {
             "--track-color": track.color,
@@ -2504,7 +2356,7 @@ function TimelineMarker({
             style={{ backgroundColor: track.color }}
           />
         ) : null}
-      </button>
+      </HoverCardTrigger>
     </>
   );
 }
@@ -2538,40 +2390,55 @@ function TimelineGrid({
   );
 }
 
-function TimelineTooltip({
-  activeEvent,
-  anchor,
-  onMouseEnter,
-  onMouseLeave,
+function TimelineEventHoverCard({
+  controller,
+  onActiveEventChange,
 }: {
-  activeEvent: TimelineEventRef;
-  anchor: TooltipAnchor;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
+  controller: TimelineEventCard;
+  onActiveEventChange: (eventId: string | null) => void;
 }) {
+  return (
+    <HoverCard
+      closeDelay={150}
+      controller={controller}
+      delay={200}
+      onOpenChange={(open) => {
+        if (!open) onActiveEventChange(null);
+      }}
+      onPayloadChange={(payload) =>
+        onActiveEventChange((payload as TimelineEventRef | undefined)?.event.id ?? null)
+      }
+    >
+      <HoverCardContent<TimelineEventRef>
+        className="max-h-80 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border bg-card p-4 text-card-foreground shadow-xl"
+        collisionPadding={16}
+        render={(props, state) => (
+          <div
+            {...props}
+            data-test-id={
+              state.payload ? `timeline-tooltip-${state.payload.event.id}` : undefined
+            }
+          />
+        )}
+        side="top"
+        sideOffset={14}
+        style={(state) =>
+          state.payload ? { borderColor: `${state.payload.track.color}66` } : undefined
+        }
+      >
+        {(state) =>
+          state.payload ? <TimelineEventCardBody activeEvent={state.payload} /> : null
+        }
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+function TimelineEventCardBody({ activeEvent }: { activeEvent: TimelineEventRef }) {
   const { event, sleeve, track } = activeEvent;
 
   return (
-    <aside
-      className="fixed z-50 max-h-80 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border bg-card p-4 shadow-xl"
-      data-test-id={`timeline-tooltip-${event.id}`}
-      id={`timeline-tooltip-${event.id}`}
-      onBlur={(item) => {
-        if (!item.currentTarget.contains(item.relatedTarget as Node | null)) {
-          onMouseLeave();
-        }
-      }}
-      onFocus={onMouseEnter}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      role="tooltip"
-      style={{
-        borderColor: `${track.color}66`,
-        left: anchor.x,
-        top: anchor.y,
-        transform: tooltipTransform(anchor),
-      }}
-    >
+    <>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
@@ -2624,22 +2491,8 @@ function TimelineTooltip({
           ))}
         </div>
       ) : null}
-    </aside>
+    </>
   );
-}
-
-function tooltipTransform(anchor: TooltipAnchor) {
-  const verticalOffset =
-    anchor.vertical === "above" ? "calc(-100% - 14px)" : "14px";
-
-  if (anchor.horizontal === "left") {
-    return `translate(-16px, ${verticalOffset})`;
-  }
-  if (anchor.horizontal === "right") {
-    return `translate(calc(-100% + 16px), ${verticalOffset})`;
-  }
-
-  return `translate(-50%, ${verticalOffset})`;
 }
 
 function TimelineLink({ link }: { link: DiagnosticTimelineLink }) {
