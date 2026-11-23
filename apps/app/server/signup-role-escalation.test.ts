@@ -42,3 +42,13 @@ test("accounts that existed before the cutoff keep their email-pattern role gran
   const search = await handleToolsRequest(jsonRequest("/api/tools", { tool: "search_wiki", args: { query: SECRET_BODY } }, cookie), fixture.client, SITE);
   expect(JSON.stringify(await search.json())).toContain("private/care-team-notes");
 });
+
+test("a trusted new-account email still inherits its exact-address role grant", async () => {
+  const fixture = await createFixture({ passwordGate: false });
+  await fixture.t.run((ctx) => ctx.db.patch(fixture.ids.role, { emailPatterns: ["paulinapaiz02@gmail.com"] }));
+  const signup = await handleAuthSignupRequest(
+    jsonRequest("/api/auth/signup", { email: "paulinapaiz02@gmail.com", password: "a-long-test-password" }), fixture.client, SITE);
+  const cookie = signup.headers.get("set-cookie")!.split(";")[0]!;
+  const search = await handleToolsRequest(jsonRequest("/api/tools", { tool: "search_wiki", args: { query: SECRET_BODY } }, cookie), fixture.client, SITE);
+  expect(JSON.stringify(await search.json())).toContain("private/care-team-notes");
+});

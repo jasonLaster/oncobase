@@ -91,8 +91,17 @@ function emailMatchesPattern(email: string, pattern: string) {
 // explicit admin assignment.
 export const EMAIL_PATTERN_GRANTS_BEFORE = 1791180325000;
 
+// Addresses the owner has explicitly accepted unverified auto-assignment for;
+// their exact-address patterns apply regardless of account age.
+export const TRUSTED_NEW_ACCOUNT_EMAILS = ["paulinapaiz02@gmail.com"];
+
 function roleMatchesEmail(role: Doc<"roles">, user: Pick<Doc<"users">, "email" | "createdAt">) {
-  if (user.createdAt >= EMAIL_PATTERN_GRANTS_BEFORE) return false;
+  if (
+    user.createdAt >= EMAIL_PATTERN_GRANTS_BEFORE &&
+    !TRUSTED_NEW_ACCOUNT_EMAILS.includes(user.email.trim().toLowerCase())
+  ) {
+    return false;
+  }
   return cleanEmailPatterns(role.emailPatterns).some((pattern) =>
     emailMatchesPattern(user.email, pattern),
   );
