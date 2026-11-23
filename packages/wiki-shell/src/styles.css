@@ -2715,3 +2715,15 @@ html[data-initial-sidebar-state="collapsed"]
   color: var(--brand);
 }
 /* end ui-sdk: w8-nav-tree-resizable */
+/* ui-sdk: hidden-form-inputs */
+/* Checkbox, Radio, Segmented Control and Select keep a native input next to
+   the control for forms. UI SDK styles it inline as an offset-less
+   position:absolute 1px box, so inside an inner scroll container with no
+   positioned ancestor it lands at its static position and stretches the
+   document's scroll height. Fixed positioning takes it out of every scroll
+   container; it stays clipped, transparent and inert. */
+[data-slot$="-input"][aria-hidden="true"][tabindex="-1"] {
+  inset: 0 auto auto 0 !important;
+  position: fixed !important;
+}
+/* end ui-sdk: hidden-form-inputs */

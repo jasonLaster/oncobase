@@ -872,20 +872,6 @@ a {
   text-decoration: underline;
 }
 
-.tag-tree-folder summary {
-  align-items: center;
-  cursor: pointer;
-  display: inline-flex;
-  gap: 4px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  list-style: none;
-}
-
-.tag-tree-folder[open] > summary svg {
-  transform: rotate(90deg);
-}
-
 .app-error {
   color: var(--red);
 }
@@ -2225,11 +2211,6 @@ a {
   background: var(--brand);
   border-color: var(--brand);
   color: white;
-}
-
-/* UI SDK's hidden form inputs are position: absolute; keep them inside .admin-main's scroll box. */
-.admin-section {
-  position: relative;
 }
 
 .admin-toolbar[data-slot="toolbar"] button[data-disabled] {
