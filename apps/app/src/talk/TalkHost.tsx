@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
 import { useLocation } from "react-router";
 import { isDocumentRoute } from "../shell/document-routes";
 import { PhoneIcon } from "./PhoneIcon";
@@ -24,18 +25,22 @@ export function TalkHost() {
   }
   if (!isDocumentRoute(pathname)) return null;
   return (
-    <button
-      type="button"
-      className="wiki-vite-talk-launcher"
-      data-test-id="talk-launcher"
-      aria-label="Talk with the page"
-      title="Talk with the page"
-      ref={launcher}
-      onClick={openTalk}
-      onPointerEnter={() => void loadTalkPanel()}
-      onFocus={() => void loadTalkPanel()}
-    >
-      <PhoneIcon />
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        render={<button
+          type="button"
+          className="wiki-vite-talk-launcher"
+          data-test-id="talk-launcher"
+          aria-label="Talk with the page"
+          ref={launcher}
+          onClick={openTalk}
+          onPointerEnter={() => void loadTalkPanel()}
+          onFocus={() => void loadTalkPanel()}
+        />}
+      >
+        <PhoneIcon />
+      </TooltipTrigger>
+      <TooltipContent className="reader-tooltip" side="left">Talk with the page</TooltipContent>
+    </Tooltip>
   );
 }
