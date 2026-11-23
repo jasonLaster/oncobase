@@ -111,12 +111,11 @@ test.describe("reading the wiki (real backend)", () => {
     }, url);
     expect(await show(versioned), "first load reaches the network").toBeGreaterThan(0);
     expect(await show(path), "unversioned first load").toBeGreaterThan(0);
-    await page.reload();
+    // Open a new document by navigating, not reloading: Chrome may validate a
+    // reloaded document's subresources (CI saw a 304, 463 B, on this branch's
+    // standalone server), and the contract is reuse in a new document.
+    await page.goto(page.url());
     await expect(article(page)).toBeVisible();
-    // Chrome revalidates subresources requested while a reloaded document is
-    // still loading. The article paints before the load event, so wait for it
-    // to test the HTTP cache rather than the reload's validation mode.
-    await page.waitForLoadState("load");
     expect(await show(versioned), "versioned image after reload").toBe(0);
     expect(await show(path), "unversioned image after reload stays no-store").toBeGreaterThan(0);
   });
