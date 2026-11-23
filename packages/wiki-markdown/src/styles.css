@@ -688,6 +688,33 @@
   padding: 0 1.5rem 2rem;
 }
 
+.wiki-image-theater__stage--slides {
+  display: block;
+  padding: 0;
+  scrollbar-width: none;
+}
+
+.wiki-image-theater__stage--slides:focus-visible {
+  outline: 2px solid white;
+  outline-offset: -2px;
+}
+
+.wiki-image-theater__slides {
+  display: flex;
+  height: 100%;
+}
+
+.wiki-image-theater__slide {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 100%;
+  height: 100%;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 1.5rem 2rem;
+}
+
 .wiki-image-theater__image {
   border-radius: 0.75rem;
   box-shadow: 0 24px 80px color-mix(in srgb, black 60%, transparent);
