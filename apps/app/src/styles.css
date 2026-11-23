@@ -2243,6 +2243,11 @@ a {
   color: white;
 }
 
+/* UI SDK's hidden form inputs are position: absolute; keep them inside .admin-main's scroll box. */
+.admin-section {
+  position: relative;
+}
+
 .admin-toolbar[data-slot="toolbar"] button[data-disabled] {
   cursor: not-allowed;
   opacity: 0.55;
