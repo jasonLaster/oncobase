@@ -4,6 +4,7 @@
   background: var(--card); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: 0 20px 70px #0005; font-size: 0.9375rem; line-height: 1.5;
 }
+.page-share-dialog[data-slot="dialog-content"] { position: fixed; inset: 0; height: fit-content; }
 .page-share-dialog::backdrop { background: #0007; }
 .page-share-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .page-share-heading h2 { font-size: 1.125rem; font-weight: 600; margin: 0; }
@@ -12,7 +13,7 @@
 .page-share-dialog button, .shared-page button { min-height: 44px; padding: 0.5rem 0.875rem; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; }
 .page-share-dialog .page-share-close { display: grid; place-items: center; flex: none; width: 44px; padding: 0; border: 0; }
 .page-share-dialog button:hover { background: var(--muted); }
-.page-share-dialog button:disabled { opacity: 0.5; cursor: wait; }
+.page-share-dialog button:is(:disabled, [aria-disabled="true"]) { opacity: 0.5; cursor: wait; }
 .page-share-dialog .page-share-primary { background: var(--foreground); color: var(--background); }
 .page-share-dialog .page-share-primary:hover { background: var(--foreground); opacity: 0.9; }
 .page-share-dialog button:focus-visible, .page-share-dialog input:focus-visible { outline: 2px solid var(--foreground); outline-offset: 3px; }

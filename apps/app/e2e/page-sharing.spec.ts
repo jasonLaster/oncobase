@@ -31,13 +31,13 @@ for (const { width, theme } of [{ width: 393, theme: "light" }, { width: 1440, t
     await dialog.getByRole("button", { name: "Create link", exact: true }).click();
     await expect(dialog.getByLabel("Secure link", { exact: true })).toHaveValue(new RegExp(`/share#${token}$`));
     await dialog.getByRole("button", { name: "Copy link" }).click();
-    await expect(dialog.getByRole("button", { name: "Copied", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Link copied");
     await expect(dialog.getByRole("button", { name: "Replace link", exact: true })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Revoke link", exact: true })).toBeVisible();
     await expect(dialog.getByRole("combobox")).toHaveCount(0);
     await page.addScriptTag({ content: axe.source });
     const violations = await page.evaluate(async () => {
-      const result = await (window as typeof window & { axe: typeof axe }).axe.run(document.querySelector("dialog")!, { runOnly: ["wcag2a", "wcag2aa"] });
+      const result = await (window as typeof window & { axe: typeof axe }).axe.run(document.querySelector('[role="dialog"]')!, { runOnly: ["wcag2a", "wcag2aa"] });
       return result.violations.map(v => v.id);
     });
     expect(violations).toEqual([]);
@@ -73,7 +73,7 @@ test("readers without sharing permission see an explanation and no create action
   await installWikiApiMocks(page, { sessionAuthenticated: true });
   await page.route("**/api/page-shares**", route => route.fulfill({ status: 403, json: { error: "Only the site owner or an admin can share this page." } }));
   await gotoWiki(page, "/private/plan?scope=session"); await page.getByRole("button", { name: "Share private page" }).click();
-  await expect(page.getByRole("alert")).toContainText("Only the site owner or an admin");
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("Only the site owner or an admin");
   await expect(page.getByRole("button", { name: "Create link", exact: true })).toHaveCount(0);
 });
 
