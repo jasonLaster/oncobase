@@ -3,15 +3,16 @@
 import { resolveWebStorage, safeSessionStorage } from "@oncobase/safe-storage";
 import { Button } from "@oncobase/ui/button";
 import { Field, FieldLabel } from "@oncobase/ui/field";
+import { ScrollArea, ScrollAreaContent, ScrollAreaScrollToEnd, ScrollAreaViewport } from "@oncobase/ui/scroll-area";
 import { Textarea } from "@oncobase/ui/textarea";
 import { DefaultChatTransport, type UIMessage } from "ai";
+import { ArrowDownIcon } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { StreamingMarkdown } from "./streaming-markdown";
 import type { ChatMarkdownRenderer } from "../types";
 import { sessionModelMessages } from "../session-messages";
 import { deleteSavedChat, isChatMessages, isSavedChatId, listSavedChats, loadSavedChat, newSavedChatId, saveChat, type SavedChatSummary } from "../saved-chats";
-import { Conversation, ConversationContent, ConversationScrollButton } from "./ai-elements/conversation";
 
 /** What a host's cards can do: ask a question for the reader, optionally with
  * extra request fields for that one message, and fields to send with whatever
@@ -156,7 +157,7 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, chatId
     <div className="session-chat-heading"><div><h1>{title}</h1><p>{description}</p></div>
       {messages.length > 0 && <Button type="button" className="session-chat-reset" onClick={() => { open(null, []); inputRef.current?.focus(); }}>New chat</Button>}
     </div>
-    {/* Outside the stick-to-bottom scroller, so the welcome opens at its top. */}
+    {/* Outside the sticky scroller, so the welcome opens at its top. */}
     {messages.length === 0 && <div className="session-chat-welcome">{welcomeAction}<p>Start with something you’re curious about.</p><div className="session-chat-suggestions">{suggestions.map(question => <Button type="button" key={question} onClick={() => submit(question)}>{question}<span aria-hidden="true">↗</span></Button>)}</div>
       {recent.length > 0 && <section className="session-chat-saved" aria-labelledby="session-chat-saved-heading">
         <h2 id="session-chat-saved-heading">Pick up where you left off</h2>
@@ -166,8 +167,10 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, chatId
         </li>)}</ul>
         <p>Saved only in this browser, so there’s no account to make. Anyone using this browser can see them.</p>
       </section>}</div>}
-    <Conversation className="session-chat-conversation" aria-label="Learning conversation" aria-live="polite" aria-relevant="additions">
-      <ConversationContent className="session-chat-conversation-content" scrollClassName="session-chat-scroll">
+    <ScrollArea stickToEnd className="session-chat-conversation">
+      {/* OncoGuide's stylesheet has no rule for the viewport's size, so it is set here as the old scroller did. */}
+      <ScrollAreaViewport className="session-chat-scroll" style={{ height: "100%", width: "100%", scrollbarGutter: "stable both-edges" }} role="log" aria-label="Learning conversation" aria-live="polite" aria-relevant="additions">
+      <ScrollAreaContent className="session-chat-conversation-content">
       {messages.map((message, index) => <article key={message.id} className={`session-chat-message session-chat-${message.role}`} aria-label={message.role === "user" ? "You" : assistantName}>
         <div className="session-chat-speaker">{message.role === "user" ? "You" : assistantName}</div>
         {message.parts.filter(part => part.type === "text").map((part, i) => part.type === "text" && (message.role === "user" ? <p key={i}>{part.text}</p> : renderText
@@ -176,9 +179,11 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, chatId
         {renderData?.(message, actions(index))}
       </article>)}
       {status === "submitted" && <p className="session-chat-working" role="status">Finding helpful lessons…</p>}
-      </ConversationContent>
-      <ConversationScrollButton className="session-chat-scroll-button" aria-label="Scroll to latest reply" />
-    </Conversation>
+      </ScrollAreaContent>
+      </ScrollAreaViewport>
+      {/* The class only applies while visible: OncoGuide's display rule for it would override the hidden attribute. */}
+      <ScrollAreaScrollToEnd aria-label="Scroll to latest reply" render={(props, { visible }) => <button {...props} className={visible ? "session-chat-scroll-button" : undefined} hidden={!visible}><ArrowDownIcon aria-hidden="true" /></button>} />
+    </ScrollArea>
     {error && <div className="session-chat-error" role="alert"><span>{errorMessage}</span><Button type="button" onClick={() => { clearError(); void regenerate(); }}>Retry</Button></div>}
     <form className="session-chat-composer" onSubmit={event => { event.preventDefault(); submit(input); }}>
       <Field>

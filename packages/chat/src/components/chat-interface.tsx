@@ -3,6 +3,13 @@
 import { safeSessionStorage } from "@oncobase/safe-storage";
 import { Button } from "@oncobase/ui/button";
 import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaScrollToEnd,
+  ScrollAreaViewport,
+} from "@oncobase/ui/scroll-area";
+import { ArrowDownIcon } from "lucide-react";
+import {
   DefaultChatTransport,
   type UIMessage,
 } from "ai";
@@ -11,11 +18,6 @@ import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { nowMs, recordChatPerf, trackStream } from "../perf";
 import { useChatRuntime } from "../runtime";
-import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from "./ai-elements/conversation";
 import { ChatComposer } from "./chat-composer";
 import {
   AssistantMessage,
@@ -841,11 +843,16 @@ export function ChatInterface({
         </div>
       ) : (
         <>
-      <Conversation className="flex-1 min-h-0" data-test-id="chat-message-log">
-        <ConversationContent
-          className="px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4"
+      <ScrollArea stickToEnd className="relative min-h-0 min-w-0 flex-1 overflow-y-hidden">
+        <ScrollAreaViewport
+          className="size-full [scrollbar-gutter:stable_both-edges]"
+          role="log"
+          aria-label="Conversation"
           aria-live="polite"
+          aria-relevant="additions"
+          data-test-id="chat-message-log"
         >
+        <ScrollAreaContent className="flex min-w-0 flex-col gap-8 p-4 px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4">
 
           {/* Memoized list. Re-renders only when length or trailing id change. */}
           <PriorMessages
@@ -881,9 +888,15 @@ export function ChatInterface({
             )}
 
           {errorBanner}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+        </ScrollAreaContent>
+        </ScrollAreaViewport>
+        <ScrollAreaScrollToEnd
+          aria-label="Scroll to latest reply"
+          className="absolute bottom-4 left-[50%] hidden size-8 translate-x-[-50%] cursor-pointer items-center justify-center rounded-full border border-border bg-background bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none hover:border-primary/40 hover:bg-accent hover:text-primary focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px data-visible:inline-flex dark:border-input dark:bg-background dark:hover:border-primary/50 dark:hover:bg-muted [&_svg]:pointer-events-none [&_svg]:shrink-0"
+        >
+          <ArrowDownIcon className="size-4" aria-hidden="true" />
+        </ScrollAreaScrollToEnd>
+      </ScrollArea>
 
       <div className="shrink-0 border-t border-[var(--sidebar-border)] px-2 sm:px-4 py-2 sm:py-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:pb-3">
         {queuedList}
