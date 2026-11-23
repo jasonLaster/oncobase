@@ -19,12 +19,7 @@ import "./liveblocks-styles.ts";
 import { cn } from "./utils.ts";
 import { LiveblocksRoom } from "./room.tsx";
 import { commentsEnabled } from "./feature.ts";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./menu.tsx";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@oncobase/ui/menu";
 import type { LiveblocksProviderShellProps } from "./provider.tsx";
 import {
   buildCommentListItems,
@@ -112,6 +107,50 @@ function RailToggleIcon({ direction }: { direction: "up" | "down" | "right" }) {
     >
       <polyline points={points} />
     </svg>
+  );
+}
+
+function CommentActionsMenu({
+  showResolvedThreads,
+  onToggleResolved,
+}: {
+  showResolvedThreads: boolean;
+  onToggleResolved: () => void;
+}) {
+  return (
+    <Menu>
+      <MenuTrigger className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] data-[open]:bg-[var(--accent-light)] data-[open]:text-[var(--foreground)]">
+        <span className="sr-only">Comment actions</span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="3.5" cy="8" r="1" />
+          <circle cx="8" cy="8" r="1" />
+          <circle cx="12.5" cy="8" r="1" />
+        </svg>
+      </MenuTrigger>
+      <MenuContent
+        align="end"
+        sideOffset={4}
+        className="m-0 w-40 rounded-md border border-[var(--sidebar-border)] bg-[var(--card)] p-1 text-sm text-[var(--foreground)] shadow-lg"
+      >
+        <MenuItem
+          value="toggle-resolved"
+          onSelect={onToggleResolved}
+          className="block w-full cursor-pointer rounded px-2 py-1.5 text-left text-[var(--foreground)] outline-none hover:bg-[var(--accent-light)] data-[highlighted]:bg-[var(--accent-light)]"
+        >
+          {showResolvedThreads ? "Show unresolved only" : "View all threads"}
+        </MenuItem>
+      </MenuContent>
+    </Menu>
   );
 }
 
@@ -999,35 +1038,10 @@ function CommentsShell({
             </p>
           </div>
           {sidebarMode === "comments" ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]">
-                <span className="sr-only">Comment actions</span>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="3.5" cy="8" r="1" />
-                  <circle cx="8" cy="8" r="1" />
-                  <circle cx="12.5" cy="8" r="1" />
-                </svg>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem
-                  onClick={() =>
-                    setShowResolvedThreads((current) => !current)
-                  }
-                >
-                  {showResolvedThreads ? "Show unresolved only" : "View all threads"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <CommentActionsMenu
+              showResolvedThreads={showResolvedThreads}
+              onToggleResolved={() => setShowResolvedThreads((current) => !current)}
+            />
           ) : null}
         </div>
       </div>
@@ -1448,23 +1462,10 @@ function CommentsShell({
                   <p className="text-xs text-[var(--text-muted)]">
                     {visibleThreads.length} {showResolvedThreads ? "total" : "unresolved"} thread{visibleThreads.length === 1 ? "" : "s"}
                   </p>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]">
-                      <span className="sr-only">Comment actions</span>
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <circle cx="3.5" cy="8" r="1" />
-                        <circle cx="8" cy="8" r="1" />
-                        <circle cx="12.5" cy="8" r="1" />
-                      </svg>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40">
-                      <DropdownMenuItem
-                        onClick={() => setShowResolvedThreads((current) => !current)}
-                      >
-                        {showResolvedThreads ? "Show unresolved only" : "View all threads"}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <CommentActionsMenu
+                    showResolvedThreads={showResolvedThreads}
+                    onToggleResolved={() => setShowResolvedThreads((current) => !current)}
+                  />
                 </div>
               </div>
             </div>
