@@ -13,7 +13,7 @@ export type CellularityViewState = {
   sensitivityThreshold?: number;
   methodTab?: string;
   rcbCellularity?: number;
-  model?: { camera: string; hidden: string[]; spotlight: boolean; slidesOnly: boolean; spinning: boolean };
+  model?: { view: string; question: string; hidden: string[]; laidOut: boolean; cut: boolean; separated: number };
 };
 
 let state: CellularityViewState = {};
@@ -59,7 +59,10 @@ export function describeViewState(view: CellularityViewState, data: CellularityD
   const m = view.model;
   if (m && view.view === "webgl") {
     lines.push(
-      `3D model: ${m.camera} camera${m.spinning ? ", spinning" : ""}${m.spotlight ? ", spotlight on" : ""}${m.slidesOnly ? ", slides only" : ""}` +
+      `3D model: "${m.view}" view (${m.question})` +
+        (m.laidOut ? ", slabs laid out face-up" : "") +
+        (m.cut ? ", slabs lateral to the selected slide cut away" : "") +
+        (m.separated > 0 ? `, slabs pulled ${Math.round(m.separated * 100)}% apart` : "") +
         (m.hidden.length ? `; hidden layers: ${m.hidden.join(", ")}` : "; all layers shown") + ".",
     );
   }

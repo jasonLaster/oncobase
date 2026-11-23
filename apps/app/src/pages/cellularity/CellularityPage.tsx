@@ -24,6 +24,39 @@ const TumorModel3D = lazy(() =>
 
 type BedMode = "webgl" | "3d" | "topdown" | "grid";
 
+function PageSliceStrip({
+  data,
+  activeBlock,
+  onSelect,
+}: {
+  data: CellularityData;
+  activeBlock: string;
+  onSelect: (id: string) => void;
+}) {
+  const items = [
+    ...data.slices.map((s) => ({ id: s.id, label: s.label, kind: s.kind, scanned: s.scanned })),
+    ...data.report.specimen.extra_blocks.map((b) => ({ id: b.id, label: b.label, kind: "keratin" as const, scanned: true })),
+  ];
+  return (
+    <div className="cel-slice-strip">
+      {items.map((it) => {
+        const swColor = !it.scanned ? "#bdb9ae" : it.kind === "virtual" ? "#2563eb" : "#d9481f";
+        return (
+          <button
+            key={it.id}
+            type="button"
+            className={`cel-slice-btn${it.id === activeBlock ? " active" : ""}${!it.scanned ? " unscanned" : ""}`}
+            onClick={() => onSelect(it.id)}
+          >
+            <span className="cel-swatch" style={{ background: swColor }} />
+            {it.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CellularityPage() {
   const [data, setData] = useState<CellularityData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,16 +113,6 @@ export function CellularityPage() {
 
   const { header, specimen } = data.report;
   const activeBlock = selectedBlock ?? specimen.focus_block;
-
-  const sliceButtons = [
-    ...data.slices.map((s) => ({ id: s.id, label: s.label, kind: s.kind, scanned: s.scanned })),
-    ...specimen.extra_blocks.map((b) => ({
-      id: b.id,
-      label: b.label,
-      kind: "keratin" as const,
-      scanned: true,
-    })),
-  ];
 
   const handleJumpToBlock = (id: string) => {
     setSelectedBlock(id);
@@ -188,22 +211,8 @@ export function CellularityPage() {
               <BreastBlocksGrid2x3 data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} />
             ) : null}
 
-            <div className="cel-slice-strip">
-              {sliceButtons.map((it) => {
-                const swColor = !it.scanned ? "#bdb9ae" : it.kind === "virtual" ? "#2563eb" : "#d9481f";
-                return (
-                  <button
-                    key={it.id}
-                    type="button"
-                    className={`cel-slice-btn${it.id === activeBlock ? " active" : ""}${!it.scanned ? " unscanned" : ""}`}
-                    onClick={() => setSelectedBlock(it.id)}
-                  >
-                    <span className="cel-swatch" style={{ background: swColor }} />
-                    {it.label}
-                  </button>
-                );
-              })}
-            </div>
+            {/* The 3D model has its own thumbnail strip, linked to the scene. */}
+            {bedMode !== "webgl" ? <PageSliceStrip data={data} activeBlock={activeBlock} onSelect={setSelectedBlock} /> : null}
 
             <div className="cel-legend-row">
               <div>
