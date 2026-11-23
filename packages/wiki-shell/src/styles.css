@@ -2654,4 +2654,18 @@ html[data-initial-sidebar-state="collapsed"]
 .wiki-shell-bottom-nav-backdrop[data-slot="drawer-backdrop"] {
   position: fixed;
 }
+/* Until the layout has applied the saved width to the resizable group, the
+   width written to <html> before paint (sidebar-startup.ts) sizes the panel. */
+[data-sidebar-expanded-rail]:not([data-width-applied]) {
+  flex: 0 0 var(--wiki-sidebar-width, 256px) !important;
+}
+@media (min-width: 768px) {
+  .wiki-shell-resizable-layout > .sidebar-resize-handle {
+    width: 3px;
+  }
+
+  .wiki-shell-resizable-layout > .sidebar-resize-handle:is([data-hovering], [data-dragging], :focus-visible) {
+    background: var(--brand);
+  }
+}
 /* end ui-sdk: w8-nav-tree-resizable */

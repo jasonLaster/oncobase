@@ -1,12 +1,13 @@
 import { safeLocalStorage } from "@oncobase/safe-storage";
 import {
-  type PointerEvent,
   type ReactNode,
-  useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
+import { createResizableController, Resizable, ResizableHandle, ResizablePanel } from "@oncobase/ui/resizable";
 import {
   SIDEBAR_DEFAULT_WIDTH as DEFAULT_WIDTH,
   SIDEBAR_MAX_WIDTH as MAX_WIDTH,
@@ -15,10 +16,6 @@ import {
 } from "./sidebar-startup.ts";
 
 const MIN_WIDTH = 160;
-// The rail's width comes from a custom property on <html> (set before the
-// first paint by installSidebarStartupState, then kept in sync below), never
-// from a per-user inline width, so server and client markup are the same.
-const RAIL_WIDTH = `var(${SIDEBAR_WIDTH_VARIABLE}, ${DEFAULT_WIDTH}px)`;
 
 let listeners: Array<() => void> = [];
 let widthCache: number | null = null;
@@ -96,69 +93,63 @@ export type ResizableLayoutProps = {
   sidebar: ReactNode;
 };
 
+const SIDEBAR_PANEL_ID = "wiki-sidebar-panel";
+
 export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
   const width = useResizableSidebarWidth();
   const collapsed = width === 0;
+  const [controller] = useState(createResizableController);
+  const groupRef = useRef<HTMLDivElement>(null);
+
+  // Panel sizes are shares of the group, but the sidebar keeps its saved
+  // width in pixels: apply it once the group attaches, and again whenever the
+  // group's width or the saved width changes. Until the first apply, styles.css
+  // sizes the panel from the pre-paint variable (the group starts at its
+  // default size, which would flash).
+  const [widthApplied, setWidthApplied] = useState(false);
+  useEffect(() => {
+    const apply = () => {
+      const current = getWidthSnapshot();
+      if (current === 0) return;
+      controller.resize(SIDEBAR_PANEL_ID, `${current}px`);
+    };
+    apply();
+    setWidthApplied(true);
+    const group = groupRef.current;
+    if (!group) return;
+    let groupWidth = group.clientWidth;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      if (group.clientWidth === groupWidth) return;
+      groupWidth = group.clientWidth;
+      // After the group has rescaled its shares for the new width.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(apply);
+    });
+    observer.observe(group);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [controller, width]);
+
   // A document without the startup script still gets the saved width before paint.
   useLayoutEffect(() => { syncSidebarState(getWidthSnapshot()); }, []);
-  const dragging = useRef(false);
-  const lastWidth = useRef(0);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
 
-  const toggle = useCallback(() => {
-    setResizableSidebarWidth(collapsed ? DEFAULT_WIDTH : 0);
-  }, [collapsed]);
-
-  const onPointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      dragging.current = true;
-      startX.current = event.clientX;
-      startWidth.current = width || DEFAULT_WIDTH;
-      lastWidth.current = startWidth.current;
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [width],
-  );
-
-  const onPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return;
-    const delta = event.clientX - startX.current;
-    const nextWidth = Math.min(
-      MAX_WIDTH,
-      Math.max(MIN_WIDTH, startWidth.current + delta),
-    );
-    lastWidth.current = nextWidth;
-    setResizableSidebarWidth(nextWidth, { persist: false });
-  }, []);
-
-  // A touch scroll, alt-tab or OS gesture can cancel the drag without a
-  // pointer-up. Keep the width reached so far and stop tracking, or hovering
-  // the handle later would keep resizing.
-  const onPointerCancel = useCallback(() => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    setResizableSidebarWidth(lastWidth.current);
-  }, []);
-
-  const onPointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    const delta = event.clientX - startX.current;
-    const nextWidth = Math.min(
-      MAX_WIDTH,
-      Math.max(MIN_WIDTH, startWidth.current + delta),
-    );
-    setResizableSidebarWidth(nextWidth);
-  }, []);
+  const toggle = () => setResizableSidebarWidth(collapsed ? DEFAULT_WIDTH : 0);
 
   return (
-    <div
+    <Resizable
+      ref={groupRef}
       className="app-shell wiki-shell-resizable-layout"
+      controller={controller}
       data-sidebar-layout
       data-sidebar-state={collapsed ? "collapsed" : "expanded"}
+      onLayoutCommit={(_layout, details) => {
+        if (details.reason === "imperative" || details.reason === "resize") return;
+        const panel = groupRef.current?.querySelector<HTMLElement>("[data-sidebar-expanded-rail]");
+        if (panel) setResizableSidebarWidth(Math.round(panel.getBoundingClientRect().width));
+      }}
     >
       <div className="sidebar-collapsed-rail" data-sidebar-collapsed-rail>
         <button
@@ -183,10 +174,14 @@ export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
           </svg>
         </button>
       </div>
-      <div
+      <ResizablePanel
+        id={SIDEBAR_PANEL_ID}
         className="sidebar-expanded-rail"
         data-sidebar-expanded-rail
-        style={{ width: RAIL_WIDTH }}
+        data-width-applied={widthApplied || undefined}
+        defaultSize={`${DEFAULT_WIDTH}px`}
+        minSize={`${MIN_WIDTH}px`}
+        maxSize={`${MAX_WIDTH}px`}
       >
         <button
           type="button"
@@ -209,20 +204,13 @@ export function ResizableLayout({ children, sidebar }: ResizableLayoutProps) {
           </svg>
         </button>
         {sidebar}
-      </div>
-      <div
+      </ResizablePanel>
+      <ResizableHandle
         className="sidebar-resize-handle"
         data-sidebar-resize-handle
-        role="separator"
         aria-label="Resize sidebar"
-        aria-orientation="vertical"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerCancel}
-        onLostPointerCapture={onPointerCancel}
       />
-      <div className="app-content">{children}</div>
-    </div>
+      <ResizablePanel id="wiki-content-panel" className="app-content">{children}</ResizablePanel>
+    </Resizable>
   );
 }
