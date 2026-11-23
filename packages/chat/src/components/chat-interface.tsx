@@ -1,6 +1,7 @@
 "use client";
 
 import { safeSessionStorage } from "@oncobase/safe-storage";
+import { Button } from "@oncobase/ui/button";
 import {
   DefaultChatTransport,
   type UIMessage,
@@ -15,14 +16,7 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "./ai-elements/conversation";
-import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputTextarea,
-  PromptInputSubmit,
-  PromptInputFooter,
-  type PromptInputMessage,
-} from "./ai-elements/prompt-input";
+import { ChatComposer } from "./chat-composer";
 import {
   AssistantMessage,
   PriorMessages,
@@ -503,10 +497,9 @@ export function ChatInterface({
   // tab is driving; a submit during either is queued instead of dropped.
   const isBusy = isStreaming || isPreparing || showCrossTabStream;
 
-  // <PromptInput> hands us its own message + event shape on submit.
   const handlePromptSubmit = useCallback(
-    async (message: PromptInputMessage) => {
-      const trimmed = message.text.trim();
+    async (text: string) => {
+      const trimmed = text.trim();
       if (!trimmed) return;
       if (isBusy || preparingRef.current || queuedMessages.length > 0) {
         enqueueMessage(trimmed);
@@ -637,7 +630,7 @@ export function ChatInterface({
   // - Up arrow on empty composer pulls the last queued message back for edit,
   //   or else focuses the last user message for edit (terminal-style recall).
   // - Esc aborts an active stream.
-  // ai-elements <PromptInputTextarea> handles Enter (IME-safe) internally.
+  // The composer's Textarea handles Enter (IME-safe) itself.
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const handleComposerKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -706,23 +699,23 @@ export function ChatInterface({
       </div>
       <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
         {messages.length > 0 ? (
-          <button
+          <Button
             type="button"
             onClick={handleRetryAfterError}
             className="rounded border border-current px-2 py-1 text-xs font-medium transition-colors hover:bg-red-100 dark:hover:bg-red-900/40"
             data-test-id="chat-error-retry"
           >
             Retry
-          </button>
+          </Button>
         ) : null}
-        <button
+        <Button
           type="button"
           onClick={clearError}
           className="rounded px-2 py-1 text-xs font-medium transition-colors hover:bg-red-100 dark:hover:bg-red-900/40"
           data-test-id="chat-error-dismiss"
         >
           Dismiss
-        </button>
+        </Button>
       </div>
     </div>
   ) : null;
@@ -745,7 +738,7 @@ export function ChatInterface({
           <span className="min-w-0 flex-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[var(--foreground)]">
             {queued.text}
           </span>
-          <button
+          <Button
             type="button"
             onClick={() => removeQueuedMessage(queued.id)}
             aria-label="Remove queued message"
@@ -755,44 +748,24 @@ export function ChatInterface({
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z" />
             </svg>
-          </button>
+          </Button>
         </li>
       ))}
     </ul>
   ) : null;
 
   const renderComposer = (flat = false) => (
-    <PromptInput
+    <ChatComposer
+      flat={flat}
+      value={input}
+      onValueChange={setInput}
       onSubmit={handlePromptSubmit}
-      data-test-id="chat-composer"
-      className={
-        flat
-          ? "[&_[data-slot=input-group]]:bg-white [&_[data-slot=input-group]]:border-[var(--sidebar-border)] dark:[&_[data-slot=input-group]]:bg-neutral-800 dark:[&_[data-slot=input-group]]:border-neutral-700 [&_[data-slot=input-group]]:shadow-sm [&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-0 [&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-[var(--brand)]"
-          : undefined
-      }
-    >
-      <PromptInputBody>
-        <PromptInputTextarea
-          autoFocus
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleComposerKeyDown}
-          placeholder={copy.promptPlaceholder}
-          data-test-id="chat-composer-textarea"
-        />
-      </PromptInputBody>
-      <PromptInputFooter>
-        <span className="flex-1" />
-        <PromptInputSubmit
-          status={status}
-          disabled={!isStreaming && !input.trim()}
-          onStop={handleStop}
-          data-test-id="chat-submit-button"
-          className="bg-[var(--brand)] text-white hover:bg-[var(--brand)]/90 disabled:bg-[var(--brand)] disabled:text-white disabled:opacity-100"
-        />
-      </PromptInputFooter>
-    </PromptInput>
+      onStop={handleStop}
+      onKeyDown={handleComposerKeyDown}
+      status={status}
+      placeholder={copy.promptPlaceholder}
+      textareaRef={textareaRef}
+    />
   );
 
   const suggestedPills = copy.suggestedPrompts.length > 0 && (
@@ -809,7 +782,7 @@ export function ChatInterface({
             const prompt = typeof p === "string" ? { label: p } : p;
             return (
               <li key={prompt.label}>
-                <button
+                <Button
                   type="button"
                   aria-label={prompt.label}
                   onClick={() => void submitMessage(prompt.label)}
@@ -825,7 +798,7 @@ export function ChatInterface({
                     </span>
                   )}
                   <span>{prompt.label}</span>
-                </button>
+                </Button>
               </li>
             );
           })}
