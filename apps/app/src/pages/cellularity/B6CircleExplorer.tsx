@@ -41,19 +41,10 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
   const x = (v: number) => pL + (Math.log(v) / Math.log(Math.max(300, b6C.total))) * (W - pL - pR);
   const y = (v: number) => pT + (1 - Math.min(65, Math.max(0, v)) / 65) * (H - pT - pB);
 
-  const areaPts = useMemo(
-    () => b6C.area.map((v, i) => `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(" "),
-    [b6C.area, b6C.total],
-  );
-  const nmidPts = useMemo(
-    () => b6C.nmid.map((v, i) => `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join(" "),
-    [b6C.nmid, b6C.total],
-  );
-  const bandPoly = useMemo(() => {
-    const top = b6C.nhi.map((v, i) => `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`);
-    const bot = b6C.nlo.map((v, i) => `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).reverse();
-    return top.concat(bot).join(" ");
-  }, [b6C.nhi, b6C.nlo, b6C.total]);
+  const pts = (vals: readonly number[]) => vals.map((v, i) => `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`);
+  const areaPts = pts(b6C.area).join(" ");
+  const nmidPts = pts(b6C.nmid).join(" ");
+  const bandPoly = pts(b6C.nhi).concat(pts(b6C.nlo).reverse()).join(" ");
 
   const f = data.f33;
   const activeSerialTab =

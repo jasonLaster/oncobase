@@ -63,7 +63,9 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelsRef = useRef<HTMLDivElement | null>(null);
   const onSelectRef = useRef(onSelectBlock);
-  onSelectRef.current = onSelectBlock;
+  useEffect(() => {
+    onSelectRef.current = onSelectBlock;
+  }, [onSelectBlock]);
 
   const [showSlices, setShowSlices] = useState(true);
   const [spotlight, setSpotlight] = useState(false);
@@ -97,15 +99,23 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
     const container = containerRef.current;
     const labelLayer = labelsRef.current;
     if (!container || !labelLayer) return;
+    // Read specimen geometry from `data` so the scene rebuilds exactly when the dataset changes.
+    const spec = data.report.specimen;
+    const m3 = spec.model3d;
 
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     } catch {
+      let active = true;
       queueMicrotask(() => {
-        setWebglError("WebGL is unavailable in this browser. Switch to the Breadloaf Slices or 2D Top-Down tab.");
+        if (active) {
+          setWebglError("WebGL is unavailable in this browser. Switch to the Breadloaf Slices or 2D Top-Down tab.");
+        }
       });
-      return;
+      return () => {
+        active = false;
+      };
     }
 
     const W = container.clientWidth || 720;
