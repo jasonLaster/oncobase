@@ -322,7 +322,6 @@
       "name": "@oncobase/wiki-markdown",
       "version": "0.1.0",
       "dependencies": {
-        "@base-ui/react": "^1.3.0",
         "@oncobase/safe-storage": "workspace:*",
         "@oncobase/smart-table": "workspace:*",
         "@oncobase/ui": "workspace:*",

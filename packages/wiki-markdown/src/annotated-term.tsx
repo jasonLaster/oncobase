@@ -11,7 +11,7 @@ export type AnnotatedTermProps = ComponentProps<"abbr"> & {
 };
 
 type TooltipModule = typeof import("./annotated-term-tooltip.tsx");
-// The tooltip library (and floating-ui) is about 38 KB gzip that most articles
+// The tooltip library is about 34 KB gzip that most articles
 // never use. It loads after the article paints, when the first drug term renders.
 let tooltipModule: TooltipModule | null = null;
 let tooltipLoad: Promise<TooltipModule> | null = null;
