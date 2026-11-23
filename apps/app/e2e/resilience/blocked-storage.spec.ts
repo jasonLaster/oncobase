@@ -34,6 +34,9 @@ test("the reader opens, changes theme and resizes panels when every storage acce
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ colorScheme: "light" });
   await blockWebStorage(page);
+  // Vercel injects its feedback toolbar (vercel.live) into preview
+  // deployments, and it reads localStorage unguarded. It is not the reader.
+  await page.route("https://vercel.live/**", route => route.abort());
   await installWikiApiMocks(page);
 
   await gotoWiki(page, "/");
