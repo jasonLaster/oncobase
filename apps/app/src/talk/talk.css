@@ -199,3 +199,14 @@
   .wiki-vite-talk-orb .wiki-vite-talk-avatar, .wiki-vite-talk-card, .wiki-vite-talk-avatar *, .wiki-vite-talk-stage, .wiki-vite-talk-end { animation: none !important; transition: none !important; }
   .wiki-vite-talk-orb::before { display: none; }
 }
+
+/* The consent card is a non-modal dialog in the top layer, so it carries the
+ * corner placement the .wiki-vite-talk wrapper gives the live call. */
+.wiki-vite-talk-consent[data-slot="dialog-content"] {
+  inset: auto 1.5rem calc(1.5rem + env(safe-area-inset-bottom)) auto;
+  margin: 0;
+  position: fixed;
+}
+@media (max-width: 767px) {
+  .wiki-vite-talk-consent[data-slot="dialog-content"] { inset: auto 16px calc(2rem + env(safe-area-inset-bottom)) auto; }
+}
