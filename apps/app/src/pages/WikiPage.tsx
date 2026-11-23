@@ -18,7 +18,6 @@ import {
   WikiSourceLinks,
   WikiStatusNotice,
   WikiTagList,
-  WikiToast,
   type WikiBreadcrumbItem,
 } from "@oncobase/wiki-shell";
 import {
@@ -38,6 +37,7 @@ import {
   useState,
 } from "react";
 import type { WikiMermaidGanttMarker } from "@oncobase/wiki-markdown/mermaid";
+import { toast } from "@oncobase/ui/toast";
 import { Link, useLocation, useNavigate, useNavigationType } from "react-router";
 import { savedScrollPosition } from "../shell/scroll-memory";
 import type {
@@ -204,7 +204,6 @@ export const WikiPage = memo(function WikiPage({
   const identityPending = useWikiIdentityPending();
   const online = useBrowserOnline();
   const signInHref = signInHrefFor(location);
-  const [toast, setToast] = useState<string | null>(null);
   const routeSlug = slugFromPath(location.pathname);
   const slug = contentSlugFromRouteSlug(routeSlug);
   // Keep the previous live query on screen until the destination has content
@@ -299,19 +298,12 @@ export const WikiPage = memo(function WikiPage({
     }),
     [navigate],
   );
-  const toastTimer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(null), 1800);
-  }, []);
   const notification = useMemo<WikiMarkdownNotificationAdapter>(
     () => ({
-      success: showToast,
-      error: showToast,
+      success: (message) => { toast.success(message); },
+      error: (message) => { toast.error(message); },
     }),
-    [showToast],
+    [],
   );
 
   useEffect(() => {
@@ -517,7 +509,6 @@ export const WikiPage = memo(function WikiPage({
     <>
       <span hidden data-reader-ready={page.contentStatus === "fresh" && !routePending ? "true" : undefined} data-route-pending={routePending ? "true" : undefined} />
       {routePending ? <PageActivity key={slug} label="Opening page…" transferSlug={slug} onRetry={retryPage} /> : null}
-      {toast ? <WikiToast>{toast}</WikiToast> : null}
       {syncStatus === "error" && pageIndex.length === 0 ? (
         <WikiStatusNotice data-test-id="navigation-unavailable">
           This page is available, but navigation could not be loaded.
