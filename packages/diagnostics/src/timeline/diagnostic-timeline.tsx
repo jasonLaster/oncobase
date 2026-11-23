@@ -15,7 +15,6 @@ import {
 } from "react";
 import {
   CalendarDays,
-  ChevronDown,
   ChevronRight,
   ExternalLink,
   FileText,
@@ -32,6 +31,22 @@ import {
   HoverCardTrigger,
   type HoverCardController,
 } from "@oncobase/ui/hover-card";
+
+import {
+  Accordion,
+  AccordionHeader,
+  AccordionItem,
+  AccordionPanel,
+  AccordionTrigger,
+} from "@oncobase/ui/accordion";
+import {
+  Slider,
+  SliderControl,
+  SliderThumb,
+  SliderTrack,
+} from "@oncobase/ui/slider";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
+import { Toolbar, ToolbarButton, ToolbarInput } from "@oncobase/ui/toolbar";
 
 import {
   Badge,
@@ -439,9 +454,6 @@ function MobileDiagnosticTimeline({
     () => defaultMobileSelectedEventRef(bloodSleeve, allEventRefs),
     [allEventRefs, bloodSleeve],
   );
-  const [expandedMobileSleeveId, setExpandedMobileSleeveId] = useState<string | null>(
-    null,
-  );
   const selectedRef =
     (mobileSelectedEventId
       ? allEventRefs.find((item) => item.event.id === mobileSelectedEventId)
@@ -575,62 +587,58 @@ function MobileDiagnosticTimeline({
 
       {selectedRef ? <MobileTimelineBottomSheet selectedRef={selectedRef} /> : null}
 
-      <div className="grid gap-2 pb-4">
+      <Accordion className="grid gap-2 pb-4">
         {nearbySleeves.slice(0, 4).map((sleeve) => {
           const count = sleeve.tracks.reduce(
             (total, track) => total + track.events.length,
             0,
           );
-          const expanded = expandedMobileSleeveId === sleeve.id;
           return (
-            <div
+            <AccordionItem
               className="overflow-hidden rounded-lg border border-border bg-background"
               key={sleeve.id}
               data-test-id={`mobile-timeline-sleeve-${sleeve.id}`}
+              value={sleeve.id}
             >
-              <button
-                aria-expanded={expanded}
-                className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
-                data-test-id={`mobile-toggle-sleeve-${sleeve.id}`}
-                onClick={() =>
-                  setExpandedMobileSleeveId(expanded ? null : sleeve.id)
-                }
-                type="button"
-              >
-                <span
-                  aria-hidden="true"
-                  className="h-9 w-1 rounded-full"
-                  style={{ backgroundColor: sleeve.tone }}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-foreground">
-                      {sleeve.label}
+              <AccordionHeader className="m-0 text-base font-normal">
+                <AccordionTrigger
+                  className="group flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+                  data-test-id={`mobile-toggle-sleeve-${sleeve.id}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-9 w-1 rounded-full"
+                    style={{ backgroundColor: sleeve.tone }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {sleeve.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{count}</span>
                     </span>
-                    <span className="text-xs text-muted-foreground">{count}</span>
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {sleeve.description}
-                  </p>
-                </div>
-                {expanded ? (
-                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                )}
-              </button>
-              {expanded ? (
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      {sleeve.description}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-muted-foreground transition-transform group-data-open:rotate-90"
+                  />
+                </AccordionTrigger>
+              </AccordionHeader>
+              <AccordionPanel>
                 <MobileSleeveSwimlanes
                   mobilePanHandlers={mobilePanHandlers}
                   onSelectEvent={onMobileSelectEvent}
                   sleeve={sleeve}
                   visibleRange={visibleRange}
                 />
-              ) : null}
-            </div>
+              </AccordionPanel>
+            </AccordionItem>
           );
         })}
-      </div>
+      </Accordion>
     </div>
   );
 }
@@ -1054,7 +1062,8 @@ function TimelineStickyHeader({
       className="sticky top-0 z-40 rounded-t-lg border-b border-border bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/88"
       data-test-id="timeline-sticky-header"
     >
-      <div
+      <Toolbar
+        aria-label="Timeline controls"
         className="flex flex-wrap items-center gap-3 border-b border-border/80 px-3 py-2"
         data-test-id="timeline-toolbar"
       >
@@ -1072,7 +1081,7 @@ function TimelineStickyHeader({
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
           <div className="relative min-w-56 flex-1 sm:max-w-md">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
+            <ToolbarInput
               aria-label="Filter timeline results"
               value={filter}
               onChange={(event) => onFilterChange(event.target.value)}
@@ -1082,39 +1091,33 @@ function TimelineStickyHeader({
             />
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={() => onZoom(0.7)}
+            <ToolbarButton
               aria-label="Zoom in"
+              onClick={() => onZoom(0.7)}
+              render={<Button size="icon-sm" variant="outline" />}
               title="Zoom in"
             >
-              <ZoomIn className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={() => onZoom(1.35)}
+              <ZoomIn aria-hidden="true" className="size-4" />
+            </ToolbarButton>
+            <ToolbarButton
               aria-label="Zoom out"
+              onClick={() => onZoom(1.35)}
+              render={<Button size="icon-sm" variant="outline" />}
               title="Zoom out"
             >
-              <ZoomOut className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={onResetRange}
+              <ZoomOut aria-hidden="true" className="size-4" />
+            </ToolbarButton>
+            <ToolbarButton
               aria-label="Reset timeline range"
+              onClick={onResetRange}
+              render={<Button size="icon-sm" variant="outline" />}
               title="Reset range"
             >
-              <RotateCcw className="size-4" />
-            </Button>
+              <RotateCcw aria-hidden="true" className="size-4" />
+            </ToolbarButton>
           </div>
         </div>
-      </div>
+      </Toolbar>
 
       <div
         className="grid border-b border-border/80"
@@ -1197,25 +1200,6 @@ function TimelineDrilldownDialog({
       : new Set(allTrackIds);
 
   const visibleTracks = tracks.filter((track) => enabledTrackIds.has(track.id));
-  const toggleTrack = useCallback(
-    (trackId: string) => {
-      setTrackToggleState((current) => {
-        const currentIds =
-          current.targetKey === targetKey
-            ? current.enabledTrackIds
-            : new Set(allTrackIds);
-        const next = new Set(currentIds);
-        if (next.has(trackId)) {
-          if (next.size <= 1) return { enabledTrackIds: next, targetKey };
-          next.delete(trackId);
-        } else {
-          next.add(trackId);
-        }
-        return { enabledTrackIds: next, targetKey };
-      });
-    },
-    [allTrackIds, targetKey],
-  );
 
   return (
     <Dialog open={target !== null} onOpenChange={onOpenChange}>
@@ -1228,26 +1212,33 @@ function TimelineDrilldownDialog({
         </DialogHeader>
         {target ? (
           <div className="grid gap-4 px-5 pb-5">
-            <div className="flex flex-wrap gap-2 pt-4">
+            <ToggleGroup
+              aria-label="Tracks shown"
+              className="flex flex-wrap gap-2 pt-4"
+              multiple
+              onValueChange={(next, details) => {
+                // At least one track stays on, so the chart never goes empty.
+                if (next.length === 0) {
+                  details.cancel();
+                  return;
+                }
+                setTrackToggleState({ enabledTrackIds: new Set(next), targetKey });
+              }}
+              value={tracks
+                .filter((track) => enabledTrackIds.has(track.id))
+                .map((track) => track.id)}
+            >
               {tracks.map((track) => {
                 const events = reportedEventsForTrack(track);
                 const numericEvents = numericEventsForTrack(track);
                 const domain = domainForTrack(track);
-                const enabled = enabledTrackIds.has(track.id);
                 return (
-                  <button
-                    aria-pressed={enabled}
-                    className={cn(
-                      "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
-                      enabled
-                        ? "bg-background text-foreground"
-                        : "bg-muted/40 text-muted-foreground opacity-60 hover:opacity-85",
-                    )}
+                  <Toggle
+                    className="inline-flex h-8 items-center gap-1.5 rounded-full border bg-muted/40 px-3 text-sm font-medium text-muted-foreground opacity-60 transition-colors hover:opacity-85 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 data-pressed:bg-background data-pressed:text-foreground data-pressed:opacity-100"
                     data-test-id={`timeline-drilldown-track-toggle-${track.id}`}
                     key={track.id}
-                    onClick={() => toggleTrack(track.id)}
-                    type="button"
                     style={{ borderColor: `${track.color}66` }}
+                    value={track.id}
                   >
                     <span
                       aria-hidden="true"
@@ -1270,10 +1261,10 @@ function TimelineDrilldownDialog({
                         log
                       </span>
                     ) : null}
-                  </button>
+                  </Toggle>
                 );
               })}
-            </div>
+            </ToggleGroup>
             <DrilldownChart fullRange={fullRange} tracks={visibleTracks} />
           </div>
         ) : null}
@@ -1960,38 +1951,58 @@ function TimelineSleeves({
   visibleRange: DateRange;
   weekTicks: TimelineTick[];
 }) {
+  const openSleeveIds = sleeves
+    .filter((sleeve) => !collapsedSleeves.has(sleeve.id))
+    .map((sleeve) => sleeve.id);
   return (
-    <div className="divide-y divide-border" data-test-id="timeline-sleeves">
+    <Accordion
+      className="divide-y divide-border"
+      data-test-id="timeline-sleeves"
+      multiple
+      onValueChange={(next) => {
+        const wasOpen = new Set(openSleeveIds);
+        const isOpen = new Set(next);
+        for (const sleeve of sleeves) {
+          if (wasOpen.has(sleeve.id) !== isOpen.has(sleeve.id)) {
+            onToggleSleeve(sleeve.id);
+          }
+        }
+      }}
+      value={openSleeveIds}
+    >
       {sleeves.map((sleeve) => {
-        const collapsed = collapsedSleeves.has(sleeve.id);
         const eventCount = sleeve.tracks.reduce(
           (total, track) => total + track.events.length,
           0,
         );
 
         return (
-          <section key={sleeve.id} data-test-id={`timeline-sleeve-${sleeve.id}`}>
+          <AccordionItem
+            data-test-id={`timeline-sleeve-${sleeve.id}`}
+            key={sleeve.id}
+            render={<section />}
+            value={sleeve.id}
+          >
             <div
               className="grid w-full items-center bg-muted/50"
               style={{ gridTemplateColumns: `${TIMELINE_LABEL_COLUMN} minmax(0, 1fr)` }}
             >
               <div className="flex min-w-0 items-center gap-1 border-r border-border px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => onToggleSleeve(sleeve.id)}
-                  data-test-id={`timeline-toggle-sleeve-${sleeve.id}`}
-                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-0.5 text-left text-sm font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
-                >
-                  {collapsed ? (
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-                  )}
-                  <span className="min-w-0 truncate">{sleeve.label}</span>
-                  <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                    {eventCount}
-                  </span>
-                </button>
+                <AccordionHeader className="m-0 flex min-w-0 flex-1 text-base font-normal">
+                  <AccordionTrigger
+                    data-test-id={`timeline-toggle-sleeve-${sleeve.id}`}
+                    className="group flex min-w-0 flex-1 items-center gap-2 rounded-md py-0.5 text-left text-sm font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+                  >
+                    <ChevronRight
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-muted-foreground group-data-open:rotate-90"
+                    />
+                    <span className="min-w-0 truncate">{sleeve.label}</span>
+                    <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                      {eventCount}
+                    </span>
+                  </AccordionTrigger>
+                </AccordionHeader>
                 <Button
                   type="button"
                   variant="ghost"
@@ -2013,8 +2024,7 @@ function TimelineSleeves({
               </div>
             </div>
 
-            {!collapsed ? (
-              <div>
+            <AccordionPanel>
                 {sleeve.tracks.map((track) => (
                   <TimelineTrackRow
                     activeEventId={activeEventId}
@@ -2032,12 +2042,11 @@ function TimelineSleeves({
                     weekTicks={weekTicks}
                   />
                 ))}
-              </div>
-            ) : null}
-          </section>
+            </AccordionPanel>
+          </AccordionItem>
         );
       })}
-    </div>
+    </Accordion>
   );
 }
 
@@ -2532,43 +2541,22 @@ function Overview({
   const overviewRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     initialRange: DateRange;
-    mode: "move" | "resize-left" | "resize-right";
     startX: number;
     width: number;
   } | null>(null);
   const left = percentForTime(visibleRange.start, fullRange);
   const right = percentForTime(visibleRange.end, fullRange);
+  const rangeLabel = formatRange(visibleRange);
 
-  const dragWindow = useCallback(
-    (clientX: number) => {
-      const drag = dragRef.current;
-      if (!drag) return;
-      const fullSpan = fullRange.end - fullRange.start;
-      const delta = ((clientX - drag.startX) / drag.width) * fullSpan;
-      if (drag.mode === "resize-left") {
-        onRangeChange(resizeRangeLeft(drag.initialRange, fullRange, delta));
-        return;
-      }
-      if (drag.mode === "resize-right") {
-        onRangeChange(resizeRangeRight(drag.initialRange, fullRange, delta));
-        return;
-      }
-      onRangeChange(panRangeByTime(drag.initialRange, fullRange, delta));
-    },
-    [fullRange, onRangeChange],
-  );
-
-  const startWindowDrag = useCallback(
-    (event: ReactPointerEvent<HTMLElement>, mode: "move" | "resize-left" | "resize-right") => {
+  const onWindowPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
       if (event.button !== 0) return;
       const rect = overviewRef.current?.getBoundingClientRect();
       if (!rect || rect.width <= 0) return;
       event.preventDefault();
-      event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
       dragRef.current = {
         initialRange: visibleRange,
-        mode,
         startX: event.clientX,
         width: rect.width,
       };
@@ -2576,30 +2564,16 @@ function Overview({
     [visibleRange],
   );
 
-  const onWindowPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLElement>) => startWindowDrag(event, "move"),
-    [startWindowDrag],
-  );
-
-  const onLeftHandlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLElement>) =>
-      startWindowDrag(event, "resize-left"),
-    [startWindowDrag],
-  );
-
-  const onRightHandlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLElement>) =>
-      startWindowDrag(event, "resize-right"),
-    [startWindowDrag],
-  );
-
   const onWindowPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
-      if (!dragRef.current) return;
+      const drag = dragRef.current;
+      if (!drag) return;
       event.preventDefault();
-      dragWindow(event.clientX);
+      const fullSpan = fullRange.end - fullRange.start;
+      const delta = ((event.clientX - drag.startX) / drag.width) * fullSpan;
+      onRangeChange(panRangeByTime(drag.initialRange, fullRange, delta));
     },
-    [dragWindow],
+    [fullRange, onRangeChange],
   );
 
   const stopWindowDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
@@ -2609,6 +2583,7 @@ function Overview({
     dragRef.current = null;
   }, []);
 
+  // Moving the whole window has no slider equivalent, so it keeps its own keys.
   const onWindowKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -2617,25 +2592,6 @@ function Overview({
       const direction = event.key === "ArrowLeft" ? -1 : 1;
       const step = span * (event.shiftKey ? 0.25 : 0.1) * direction;
       onRangeChange(panRangeByTime(visibleRange, fullRange, step));
-    },
-    [fullRange, onRangeChange, visibleRange],
-  );
-
-  const onHandleKeyDown = useCallback(
-    (
-      event: ReactKeyboardEvent<HTMLElement>,
-      mode: "resize-left" | "resize-right",
-    ) => {
-      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-      event.preventDefault();
-      const span = visibleRange.end - visibleRange.start;
-      const direction = event.key === "ArrowLeft" ? -1 : 1;
-      const step = span * (event.shiftKey ? 0.25 : 0.1) * direction;
-      onRangeChange(
-        mode === "resize-left"
-          ? resizeRangeLeft(visibleRange, fullRange, step)
-          : resizeRangeRight(visibleRange, fullRange, step),
-      );
     },
     [fullRange, onRangeChange, visibleRange],
   );
@@ -2665,10 +2621,44 @@ function Overview({
           />
         );
       })}
+      <Slider
+        aria-label="Visible timeline window"
+        className="absolute inset-0"
+        format={(time) =>
+          Number.isFinite(time) ? DISPLAY_DATE_FORMATTER.format(time) : ""
+        }
+        max={fullRange.end}
+        min={fullRange.start}
+        minStepsBetweenThumbs={Math.round(MIN_RANGE_MS / MS_PER_DAY)}
+        onValueChange={(value) => {
+          const [start, end] = value as number[];
+          onRangeChange(clampRange({ start: start!, end: end! }, fullRange));
+        }}
+        step={MS_PER_DAY}
+        value={[visibleRange.start, visibleRange.end]}
+      >
+        {/* Thumbs centre on their value; the transforms tuck each handle inside the window. */}
+        <SliderControl className="absolute inset-0">
+          <SliderTrack className="h-full w-full">
+            <SliderThumb
+              aria-label={`Resize timeline window start, ${rangeLabel}`}
+              className="z-10 h-12 w-4 cursor-ew-resize rounded-l-md [transform:translateX(50%)] border border-primary/70 bg-primary/35 transition-colors hover:bg-primary/45 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/35"
+              data-test-id="timeline-overview-window-left-handle"
+              index={0}
+            />
+            <SliderThumb
+              aria-label={`Resize timeline window end, ${rangeLabel}`}
+              className="z-10 h-12 w-4 cursor-ew-resize rounded-r-md [transform:translateX(-50%)] border border-primary/70 bg-primary/35 transition-colors hover:bg-primary/45 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/35"
+              data-test-id="timeline-overview-window-right-handle"
+              index={1}
+            />
+          </SliderTrack>
+        </SliderControl>
+      </Slider>
       <button
         type="button"
-        aria-label={`Drag visible timeline window, ${formatRange(visibleRange)}`}
-        className="absolute inset-y-1 cursor-grab rounded-md border border-primary/50 bg-primary/15 transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35 active:cursor-grabbing"
+        aria-label={`Drag visible timeline window, ${rangeLabel}`}
+        className="absolute inset-y-1 z-[5] cursor-grab rounded-md border border-primary/50 bg-primary/15 transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35 active:cursor-grabbing"
         data-test-id="timeline-overview-window"
         onKeyDown={onWindowKeyDown}
         onPointerCancel={stopWindowDrag}
@@ -2676,30 +2666,6 @@ function Overview({
         onPointerMove={onWindowPointerMove}
         onPointerUp={stopWindowDrag}
         style={{ left: `${left}%`, width: `${Math.max(1, right - left)}%` }}
-      />
-      <button
-        type="button"
-        aria-label={`Resize timeline window start, ${formatRange(visibleRange)}`}
-        className="absolute inset-y-1 z-10 w-4 cursor-ew-resize rounded-l-md border border-primary/70 bg-primary/35 transition-colors hover:bg-primary/45 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35"
-        data-test-id="timeline-overview-window-left-handle"
-        onKeyDown={(event) => onHandleKeyDown(event, "resize-left")}
-        onPointerCancel={stopWindowDrag}
-        onPointerDown={onLeftHandlePointerDown}
-        onPointerMove={onWindowPointerMove}
-        onPointerUp={stopWindowDrag}
-        style={{ left: `${left}%` }}
-      />
-      <button
-        type="button"
-        aria-label={`Resize timeline window end, ${formatRange(visibleRange)}`}
-        className="absolute inset-y-1 z-10 w-4 cursor-ew-resize rounded-r-md border border-primary/70 bg-primary/35 transition-colors hover:bg-primary/45 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35"
-        data-test-id="timeline-overview-window-right-handle"
-        onKeyDown={(event) => onHandleKeyDown(event, "resize-right")}
-        onPointerCancel={stopWindowDrag}
-        onPointerDown={onRightHandlePointerDown}
-        onPointerMove={onWindowPointerMove}
-        onPointerUp={stopWindowDrag}
-        style={{ left: `calc(${right}% - 1rem)` }}
       />
       {activeX !== null && activeX >= 0 && activeX <= 100 ? (
         <div
@@ -3370,26 +3336,6 @@ function panRangeByTime(range: DateRange, fullRange: DateRange, delta: number) {
     },
     fullRange,
   );
-}
-
-function resizeRangeLeft(range: DateRange, fullRange: DateRange, delta: number) {
-  return {
-    start: Math.min(
-      Math.max(range.start + delta, fullRange.start),
-      range.end - MIN_RANGE_MS,
-    ),
-    end: range.end,
-  };
-}
-
-function resizeRangeRight(range: DateRange, fullRange: DateRange, delta: number) {
-  return {
-    start: range.start,
-    end: Math.max(
-      Math.min(range.end + delta, fullRange.end),
-      range.start + MIN_RANGE_MS,
-    ),
-  };
 }
 
 function percentForDate(date: string, range: DateRange) {
