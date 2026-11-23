@@ -1,5 +1,13 @@
 import { ArrowUp, BookOpen, ChevronsLeftRight, FileSearch, Search, Sparkles } from "lucide-react";
-import { useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
+import {
+  Accordion,
+  AccordionHeader,
+  AccordionItem,
+  AccordionPanel,
+  AccordionTrigger,
+} from "@oncobase/ui/accordion";
+import { Slider, SliderControl, SliderThumb, SliderTrack } from "@oncobase/ui/slider";
 import { ThemedImage } from "./LandingShowcase";
 
 /** A screenshot with numbered pins at percentage positions, plus a key. */
@@ -68,87 +76,54 @@ export function ThemeCompare({
   height: number;
 }) {
   const [split, setSplit] = useState(50);
-  const stage = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-
-  const moveTo = (clientX: number) => {
-    const rect = stage.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return;
-    setSplit(Math.round(Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100))));
-  };
 
   return (
     <figure className="ft-compare">
-      <div
-        className="ft-compare-stage"
-        onPointerCancel={() => {
-          dragging.current = false;
-        }}
-        onPointerDown={(event) => {
-          dragging.current = true;
-          event.currentTarget.setPointerCapture(event.pointerId);
-          moveTo(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (dragging.current) moveTo(event.clientX);
-        }}
-        onPointerUp={() => {
-          dragging.current = false;
-        }}
-        ref={stage}
+      <Slider
+        format={(value) => `${value}% light`}
+        largeStep={20}
+        max={100}
+        min={0}
+        onValueChange={setSplit}
         style={{ "--split": `${split}%` } as CSSProperties}
+        value={split}
       >
-        <img
-          alt={alt}
-          decoding="async"
-          draggable={false}
-          height={height}
-          loading="lazy"
-          src={`${base}-light.${extension}`}
-          width={width}
-        />
-        <img
-          alt=""
-          aria-hidden="true"
-          className="ft-compare-dark"
-          decoding="async"
-          draggable={false}
-          height={height}
-          loading="lazy"
-          src={`${base}-dark.${extension}`}
-          width={width}
-        />
-        <span aria-hidden="true" className="ft-compare-tag ft-compare-tag-light">
-          Light
-        </span>
-        <span aria-hidden="true" className="ft-compare-tag ft-compare-tag-dark">
-          Dark
-        </span>
-        <div
-          aria-label="Compare light and dark"
-          aria-orientation="horizontal"
-          aria-valuemax={100}
-          aria-valuemin={0}
-          aria-valuenow={split}
-          aria-valuetext={`${split}% light`}
-          className="ft-compare-handle"
-          onKeyDown={(event) => {
-            const step = event.shiftKey ? 20 : 5;
-            if (event.key === "ArrowLeft" || event.key === "ArrowDown") setSplit((value) => Math.max(0, value - step));
-            else if (event.key === "ArrowRight" || event.key === "ArrowUp") setSplit((value) => Math.min(100, value + step));
-            else if (event.key === "Home") setSplit(0);
-            else if (event.key === "End") setSplit(100);
-            else return;
-            event.preventDefault();
-          }}
-          role="slider"
-          tabIndex={0}
-        >
-          <span className="ft-compare-grip">
-            <ChevronsLeftRight size={20} aria-hidden="true" />
+        <SliderControl className="ft-compare-stage">
+          <img
+            alt={alt}
+            decoding="async"
+            draggable={false}
+            height={height}
+            loading="lazy"
+            src={`${base}-light.${extension}`}
+            width={width}
+          />
+          <img
+            alt=""
+            aria-hidden="true"
+            className="ft-compare-dark"
+            decoding="async"
+            draggable={false}
+            height={height}
+            loading="lazy"
+            src={`${base}-dark.${extension}`}
+            width={width}
+          />
+          <span aria-hidden="true" className="ft-compare-tag ft-compare-tag-light">
+            Light
           </span>
-        </div>
-      </div>
+          <span aria-hidden="true" className="ft-compare-tag ft-compare-tag-dark">
+            Dark
+          </span>
+          <SliderTrack className="ft-compare-track">
+            <SliderThumb aria-label="Compare light and dark" className="ft-compare-handle">
+              <span className="ft-compare-grip">
+                <ChevronsLeftRight size={20} aria-hidden="true" />
+              </span>
+            </SliderThumb>
+          </SliderTrack>
+        </SliderControl>
+      </Slider>
       <figcaption className="ft-caption">Drag the handle to compare light and dark.</figcaption>
     </figure>
   );
@@ -245,31 +220,46 @@ export function FeatureCard({
   );
 }
 
+/** Groups that each open on their own; closed rows stay findable with the browser's find. */
+export function AccordionList({ children }: { children: ReactNode }) {
+  return (
+    <Accordion className="ft-acc-list" hiddenUntilFound multiple>
+      {children}
+    </Accordion>
+  );
+}
+
 /** A section header that is always visible and opens to show its rows. */
 export function AccordionGroup({
   title,
   summary,
   preview,
   count,
+  className,
+  bodyClassName = "ft-acc-body",
   children,
 }: {
   title: string;
   summary: string;
   preview: string;
-  count: number;
+  count?: number;
+  className?: string;
+  bodyClassName?: string;
   children: ReactNode;
 }) {
   return (
-    <details className="ft-acc">
-      <summary>
-        <span className="ft-acc-title">
-          <strong>{title}</strong>
-          <span>{summary}</span>
-        </span>
-        <span className="ft-acc-preview">{preview}</span>
-        <span className="ft-acc-count">{count}</span>
-      </summary>
-      <div className="ft-acc-body">{children}</div>
-    </details>
+    <AccordionItem className={className ? `ft-acc ${className}` : "ft-acc"}>
+      <AccordionHeader className="ft-acc-header">
+        <AccordionTrigger className="ft-acc-trigger">
+          <span className="ft-acc-title">
+            <strong>{title}</strong>
+            <span>{summary}</span>
+          </span>
+          <span className="ft-acc-preview">{preview}</span>
+          {count === undefined ? null : <span className="ft-acc-count">{count}</span>}
+        </AccordionTrigger>
+      </AccordionHeader>
+      <AccordionPanel className={bodyClassName}>{children}</AccordionPanel>
+    </AccordionItem>
   );
 }

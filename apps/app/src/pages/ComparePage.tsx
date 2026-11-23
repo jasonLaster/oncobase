@@ -3,6 +3,7 @@ import { ArrowRight, Check, GitBranch, Minus, Scale, X } from "lucide-react";
 import { compareRouteMetadata } from "../special-route-metadata";
 import { updateClientRouteMetadata } from "../document-title";
 import { OncobaseBrand, VillageTexture } from "./LandingBrands";
+import { AccordionGroup, AccordionList } from "./FeaturesShowcase";
 import { PublicHeader } from "./PublicChrome";
 import { dianaUrl } from "../site-links";
 import {
@@ -174,32 +175,30 @@ function Hero() {
           <h2 id="options-title">Each option</h2>
           <p>What each one is great at, and what to keep in mind. Open one to read more.</p>
         </div>
-        <div className="ft-acc-list">
+        <AccordionList>
           {products.map((product) => (
-            <details className="ft-acc cp-prod" key={product.id}>
-              <summary>
-                <span className="ft-acc-title">
-                  <strong>{product.name}</strong>
-                  <span>{product.tagline}</span>
-                </span>
-                <span className="ft-acc-preview">{product.kind}</span>
-              </summary>
-              <div className="cp-prod-body">
-                <p>
-                  <b>Great at</b>
-                  {product.great}
-                </p>
-                <p>
-                  <b>Keep in mind</b>
-                  {product.consider}
-                </p>
-                <a className="lp-text-link" href={product.url} {...external}>
-                  {product.id === "oncobase" ? "View the code" : `Visit ${product.name}`} <ArrowRight size={15} />
-                </a>
-              </div>
-            </details>
+            <AccordionGroup
+              bodyClassName="cp-prod-body"
+              className="cp-prod"
+              key={product.id}
+              preview={product.kind}
+              summary={product.tagline}
+              title={product.name}
+            >
+              <p>
+                <b>Great at</b>
+                {product.great}
+              </p>
+              <p>
+                <b>Keep in mind</b>
+                {product.consider}
+              </p>
+              <a className="lp-text-link" href={product.url} {...external}>
+                {product.id === "oncobase" ? "View the code" : `Visit ${product.name}`} <ArrowRight size={15} />
+              </a>
+            </AccordionGroup>
           ))}
-      </div>
+        </AccordionList>
     </section>
   );
 }

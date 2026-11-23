@@ -39,6 +39,7 @@ import { CallDemo } from "./CallDemo";
 import { CommentsDemo } from "./CommentsDemo";
 import {
   AccordionGroup,
+  AccordionList,
   ChatDemo,
   FeatureCard,
   FeatureGrid,
@@ -853,7 +854,7 @@ function Details() {
   return (
     <section className="ft-group lp-container" id="details" aria-labelledby="details-title">
       <SectionHeading icon={<Check size={15} aria-hidden="true" />} id="details" />
-      <div className="ft-acc-list">
+      <AccordionList>
         {detailGroups.map((group) => {
           const items = detailItems.filter((item) => item.group === group.id);
           return (
@@ -887,7 +888,7 @@ function Details() {
             </AccordionGroup>
           );
         })}
-      </div>
+      </AccordionList>
     </section>
   );
 }
@@ -991,7 +992,7 @@ bun run local:stack        # a full local backend`}
           <a href="/features.md">/features.md</a>.
         </p>
       </div>
-      <div className="ft-acc-list">
+      <AccordionList>
         {interfaceCategories.map((category) => {
           const items = interfaces.filter((item) => item.category === category.id);
           return (
@@ -1030,7 +1031,7 @@ bun run local:stack        # a full local backend`}
             </AccordionGroup>
           );
         })}
-      </div>
+      </AccordionList>
     </section>
   );
 }

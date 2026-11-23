@@ -58,7 +58,7 @@ test("every feature and interface is in the page's tables", async ({ page }) => 
   for (const group of groups) {
     await expect(all.getByRole("cell", { name: group.title, exact: true })).toBeVisible();
   }
-  const rows = page.locator("#build details tbody tr");
+  const rows = page.locator("#build .ft-acc tbody tr");
   await expect(rows).toHaveCount(interfaces.length);
 });
 
@@ -90,22 +90,27 @@ test("the light and dark compare handle moves by drag and by keyboard", async ({
   const handle = page.getByRole("slider", { name: "Compare light and dark" });
   await handle.scrollIntoViewIfNeeded();
   const stage = page.locator(".ft-compare-stage");
-  await expect(handle).toHaveAttribute("aria-valuenow", "50");
-  // The handle sits on the image itself, not in a control below it.
+  await expect(handle).toHaveValue("50");
+  // The handle sits on the image itself, not in a control below it. The slider's
+  // focusable range input is visually hidden inside it, so measure the thumb.
   const stageBox = (await stage.boundingBox())!;
-  const handleBox = (await handle.boundingBox())!;
+  const handleBox = (await page.locator(".ft-compare-handle").boundingBox())!;
   expect(handleBox.y).toBeGreaterThanOrEqual(stageBox.y - 1);
   expect(handleBox.y + handleBox.height).toBeLessThanOrEqual(stageBox.y + stageBox.height + 1);
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(stageBox.x + stageBox.width * 0.2, handleBox.y + handleBox.height / 2, { steps: 6 });
   await page.mouse.up();
-  await expect(handle).toHaveAttribute("aria-valuenow", /^(1[89]|2[0-2])$/);
+  await expect(handle).toHaveValue(/^(1[89]|2[0-2])$/);
   await handle.focus();
   await page.keyboard.press("End");
-  await expect(handle).toHaveAttribute("aria-valuenow", "100");
+  await expect(handle).toHaveValue("100");
   await page.keyboard.press("Home");
-  await expect(handle).toHaveAttribute("aria-valuenow", "0");
+  await expect(handle).toHaveValue("0");
+  await page.keyboard.press("ArrowRight");
+  await expect(handle).toHaveValue("1");
+  await page.keyboard.press("PageUp");
+  await expect(handle).toHaveValue("21");
 });
 
 for (const width of [360, 390, 1440]) {

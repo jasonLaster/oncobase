@@ -400,16 +400,19 @@
   right: 12px;
 }
 /* The divider and its grip sit on the image, where the dragging happens. */
+/* UI SDK keeps the track position: relative, so it overlays the image as a shared grid cell. */
+.ft-compare-stage {
+  display: grid;
+}
+.ft-compare-stage > img:first-child,
+.ft-compare-track {
+  grid-area: 1 / 1;
+}
 .ft-compare-handle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--split);
   display: grid;
   place-items: center;
   width: 44px;
-  transform: translateX(-50%);
-  outline: none;
+  height: 100%;
 }
 .ft-compare-handle::before {
   content: "";
@@ -436,7 +439,7 @@
     0 0 0 1px rgb(0 0 0 / 0.3),
     0 6px 16px rgb(0 0 0 / 0.35);
 }
-.ft-compare-handle:focus-visible .ft-compare-grip {
+.ft-compare-handle:has(:focus-visible) .ft-compare-grip {
   outline: 3px solid var(--lp-ink);
   outline-offset: 3px;
 }
@@ -1147,7 +1150,17 @@
   border-radius: 14px;
   background: var(--lp-card);
 }
-.ft-acc summary {
+.ft-root .ft-acc-header {
+  font: inherit;
+  letter-spacing: normal;
+}
+.ft-acc-trigger {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) auto 20px;
   align-items: center;
@@ -1157,10 +1170,7 @@
   cursor: pointer;
   list-style: none;
 }
-.ft-acc summary::-webkit-details-marker {
-  display: none;
-}
-.ft-acc summary::after {
+.ft-acc-trigger::after {
   content: "";
   width: 8px;
   height: 8px;
@@ -1169,10 +1179,10 @@
   transform: rotate(45deg);
   transition: transform 0.2s ease;
 }
-.ft-acc[open] summary::after {
+.ft-acc-trigger[data-open]::after {
   transform: rotate(-135deg);
 }
-.ft-acc summary:hover {
+.ft-acc-trigger:hover {
   background: var(--lp-panel);
 }
 .ft-acc-title {
@@ -1209,6 +1219,10 @@
   overflow-x: auto;
   border-top: 1px solid var(--lp-line);
 }
+/* Closed panels stay in the page for find-in-page; don't count them as scroll regions. */
+.ft-acc-body:not([data-open]) {
+  overflow: hidden;
+}
 .ft-acc-body .ft-table {
   min-width: 640px;
 }
@@ -1222,7 +1236,7 @@
   border-bottom: 0;
 }
 @media (max-width: 760px) {
-  .ft-acc summary {
+  .ft-acc-trigger {
     grid-template-columns: minmax(0, 1fr) auto 20px;
   }
   .ft-acc-preview {
