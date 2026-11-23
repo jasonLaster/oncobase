@@ -1,11 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
-import { getDocument, GlobalWorkerOptions, TextLayer, type PDFDocumentProxy, type RenderTask } from "pdfjs-dist";
+import { getDocument, GlobalWorkerOptions, TextLayer, version as pdfjsVersion, type PDFDocumentProxy, type RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { withContentVersion } from "@oncobase/wiki-content";
 import "./pdf-viewer-styles";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
+
+type ReportContext = Record<string, string | number | boolean | null>;
+
+/** Sends a viewer failure to the server's runtime logs; never throws. */
+function reportViewerError(stage: "open" | "render", path: string, cause: unknown, page: number | undefined, context: ReportContext) {
+  const error = cause instanceof Error
+    ? { name: cause.name.slice(0, 120), message: cause.message.slice(0, 1000), stack: cause.stack?.slice(0, 4000) }
+    : { name: "NonError", message: String(cause).slice(0, 1000) };
+  const body = JSON.stringify({
+    source: "pdf-viewer", stage, path, page, error,
+    context: {
+      pdfjs: pdfjsVersion, devicePixelRatio: window.devicePixelRatio || 1,
+      viewportWidth: window.innerWidth, viewportHeight: window.innerHeight, ...context,
+    },
+  });
+  try {
+    void fetch("/api/client-errors", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body }).catch(() => undefined);
+  } catch { /* reporting must never break the viewer */ }
+}
 
 function initialPage() {
   const page = Number(new URLSearchParams(window.location.hash.slice(1)).get("page"));
@@ -47,6 +66,7 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
       setPageInput(current => String(Math.min(Number(current), document.numPages)));
     }).catch((cause: unknown) => {
       if (!active) return;
+      reportViewerError("open", path, cause, undefined, {});
       if (cause instanceof Error && cause.name === "InvalidPDFException") {
         setError("The stored file is not a valid PDF. Download the original or check its source page for a replacement.");
       } else {
@@ -55,7 +75,7 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
       }
     });
     return () => { active = false; void task.destroy(); };
-  }, [fileUrl, name]);
+  }, [fileUrl, name, path]);
 
   useEffect(() => {
     const element = container.current;
@@ -73,6 +93,7 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
     const element = canvas.current;
     const textElement = text.current;
     setRendering(true);
+    const context: ReportContext = { numPages: pdf.numPages, zoom, containerWidth: width, step: "getPage" };
     void (async () => {
       const pdfPage = await pdf.getPage(page);
       if (!active) return;
@@ -82,6 +103,7 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
       element.width = Math.floor(viewport.width * ratio);
       element.height = Math.floor(viewport.height * ratio);
+      Object.assign(context, { scale, ratio, canvasWidth: element.width, canvasHeight: element.height, step: "render" });
       element.style.width = `${viewport.width}px`;
       element.style.height = `${viewport.height}px`;
       const paper = element.parentElement!;
@@ -94,6 +116,7 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
         transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0] });
       await renderingTask.promise;
       if (!active) return;
+      context.step = "textLayer";
       const content = await pdfPage.getTextContent();
       if (!active) return;
       textLayer = new TextLayer({ textContentSource: content, container: textElement, viewport });
@@ -101,11 +124,12 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
       if (active) setRendering(false);
     })().catch((cause: unknown) => {
       if (active && !(cause instanceof Error && cause.name === "RenderingCancelledException")) {
+        reportViewerError("render", path, cause, page, context);
         setError("This page could not be rendered. You can still download the original PDF.");
       }
     });
     return () => { active = false; renderingTask?.cancel(); textLayer?.cancel(); };
-  }, [pdf, page, width, zoom]);
+  }, [path, pdf, page, width, zoom]);
 
   function goToPage(value: number) {
     if (!pdf) return;
