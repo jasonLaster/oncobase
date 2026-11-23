@@ -1,16 +1,4 @@
 {
-  "actions-menu.dark.desktop": {
-    "target-size": {
-      "impact": "serious",
-      "nodes": 6
-    }
-  },
-  "actions-menu.light.desktop": {
-    "target-size": {
-      "impact": "serious",
-      "nodes": 6
-    }
-  },
   "admin-roles.light.desktop": {
     "color-contrast": {
       "impact": "serious",
@@ -68,13 +56,13 @@
   "search.light.desktop": {
     "color-contrast": {
       "impact": "serious",
-      "nodes": 4
+      "nodes": 3
     }
   },
   "search.light.mobile": {
     "color-contrast": {
       "impact": "serious",
-      "nodes": 4
+      "nodes": 3
     }
   }
 }
