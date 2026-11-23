@@ -475,7 +475,6 @@ export function WikiMobileNavigationSheet({
           <DrawerTrigger
             className="wiki-shell-bottom-nav-trigger bottom-nav-trigger"
             data-test-id="bottom-nav-trigger"
-            aria-controls={sheetId}
           >
             <span>{title}</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
