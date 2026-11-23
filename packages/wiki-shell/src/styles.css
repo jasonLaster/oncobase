@@ -2442,3 +2442,81 @@ html[data-initial-sidebar-state="collapsed"]
   }
 }
 /* ==== end page-states ==== */
+
+/* ui-sdk: w3-palettes-search */
+.wiki-shell-command-palette[data-slot="dialog-content"],
+.wiki-shell-command-palette[data-slot="alert-dialog-content"] {
+  inset: max(10dvh, 8px) 0 auto;
+  margin: 0 auto;
+  padding: 0;
+  position: fixed;
+  width: min(576px, calc(100% - 16px));
+}
+
+@media (min-width: 640px) {
+  .wiki-shell-command-palette[data-slot="dialog-content"],
+  .wiki-shell-command-palette[data-slot="alert-dialog-content"] {
+    top: 25dvh;
+  }
+}
+
+.wiki-shell-command-palette:focus {
+  outline: none;
+}
+
+.wiki-shell-command-backdrop[data-slot$="dialog-backdrop"] {
+  margin: 0;
+  padding: 0;
+  width: auto;
+  height: auto;
+  border: 0;
+}
+
+.wiki-shell-command-empty:empty {
+  display: none;
+}
+
+.wiki-shell-command-palette.wiki-shell-command-confirm {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  width: min(420px, calc(100% - 16px));
+}
+
+.wiki-shell-command-confirm h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.wiki-shell-command-confirm p {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.wiki-shell-command-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.wiki-shell-command-confirm-actions button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.wiki-shell-command-confirm-actions .wiki-shell-command-confirm-primary {
+  background: var(--foreground);
+  border-color: var(--foreground);
+  color: var(--background);
+}
+/* end ui-sdk: w3-palettes-search */

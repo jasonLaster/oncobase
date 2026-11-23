@@ -1,26 +1,51 @@
 import {
-  type AnchorHTMLAttributes,
-  type ButtonHTMLAttributes,
+  CommandEmpty,
+  CommandGroupLabel,
+  CommandItem,
+  CommandList,
+} from "@oncobase/ui/command";
+import { DialogBackdrop, DialogContent, DialogTitle } from "@oncobase/ui/dialog";
+import {
   type ComponentProps,
   type CSSProperties,
   type ReactNode,
-  forwardRef,
 } from "react";
 import { cn } from "./utils.ts";
 
-export type WikiCommandBackdropProps = ComponentProps<"div">;
+type ClassName<State> = string | ((state: State) => string | undefined);
 
-export function WikiCommandBackdrop({
-  className,
-  ...props
-}: WikiCommandBackdropProps) {
-  return <div className={cn("wiki-shell-command-backdrop command-backdrop", className)} {...props} />;
+function withClass<State>(base: string, className: ClassName<State> | undefined) {
+  if (typeof className === "function") return (state: State) => cn(base, className(state));
+  return cn(base, className);
 }
 
-export type WikiCommandPanelProps = ComponentProps<"section">;
+export type WikiCommandBackdropProps = ComponentProps<typeof DialogBackdrop>;
 
-export function WikiCommandPanel({ className, ...props }: WikiCommandPanelProps) {
-  return <section className={cn("wiki-shell-command-palette command-palette", className)} {...props} />;
+export function WikiCommandBackdrop({ className, ...props }: WikiCommandBackdropProps) {
+  return (
+    <DialogBackdrop
+      className={withClass("wiki-shell-command-backdrop command-backdrop", className)}
+      {...props}
+    />
+  );
+}
+
+export type WikiCommandPanelProps = Omit<ComponentProps<typeof DialogContent>, "children"> & {
+  children?: ReactNode;
+  /** The dialog's accessible name, rendered as a visually hidden title. */
+  title: string;
+};
+
+export function WikiCommandPanel({ children, className, title, ...props }: WikiCommandPanelProps) {
+  return (
+    <DialogContent
+      className={withClass("wiki-shell-command-palette command-palette", className)}
+      {...props}
+    >
+      <DialogTitle className="wiki-shell-sr-only">{title}</DialogTitle>
+      {children}
+    </DialogContent>
+  );
 }
 
 export type WikiCommandSearchProps = ComponentProps<"div">;
@@ -29,63 +54,32 @@ export function WikiCommandSearch({ className, ...props }: WikiCommandSearchProp
   return <div className={cn("wiki-shell-command-search command-search", className)} {...props} />;
 }
 
-export type WikiCommandTabsProps = ComponentProps<"div">;
+export type WikiCommandListProps = ComponentProps<typeof CommandList>;
 
-export function WikiCommandTabs({ className, ...props }: WikiCommandTabsProps) {
-  return <div className={cn("wiki-shell-command-tabs command-tabs", className)} {...props} />;
-}
-
-export type WikiCommandListProps = ComponentProps<"div">;
-
-export const WikiCommandList = forwardRef<HTMLDivElement, WikiCommandListProps>(
-  function WikiCommandList({ className, ...props }, ref) {
-    return (
-      <div
-        className={cn("wiki-shell-command-list command-list", className)}
-        ref={ref}
-        {...props}
-      />
-    );
-  },
-);
-
-export type WikiCommandGroupHeadingProps = ComponentProps<"div"> & {
-  heading: ReactNode;
-};
-
-export function WikiCommandGroupHeading({
-  heading,
-  className,
-  ...props
-}: WikiCommandGroupHeadingProps) {
+export function WikiCommandList({ className, ...props }: WikiCommandListProps) {
   return (
-    <div
-      className={cn("wiki-shell-command-group-heading", className)}
-      role="presentation"
+    <CommandList
+      className={withClass("wiki-shell-command-list command-list", className)}
       {...props}
-    >
-      {heading}
-    </div>
+    />
   );
 }
 
-export type WikiCommandItemContentProps = {
-  active?: boolean;
-  depth?: number;
-  description?: ReactNode;
-  icon?: ReactNode;
-  label: ReactNode;
-};
+export type WikiCommandGroupHeadingProps = ComponentProps<typeof CommandGroupLabel>;
+
+export function WikiCommandGroupHeading({ className, ...props }: WikiCommandGroupHeadingProps) {
+  return (
+    <CommandGroupLabel
+      className={withClass("wiki-shell-command-group-heading", className)}
+      {...props}
+    />
+  );
+}
 
 export type WikiCommandItemTextProps = ComponentProps<"span"> & {
   description?: ReactNode;
   label: ReactNode;
 };
-
-function commandItemStyle(style: CSSProperties | undefined, depth: number | undefined) {
-  if (depth === undefined) return style;
-  return { ...style, "--outline-depth": depth } as CSSProperties;
-}
 
 export function WikiCommandItemText({
   className,
@@ -101,76 +95,60 @@ export function WikiCommandItemText({
   );
 }
 
-export type WikiCommandItemButtonProps = Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  "children"
-> &
-  WikiCommandItemContentProps;
+export type WikiCommandItemProps = Omit<ComponentProps<typeof CommandItem>, "children" | "label"> & {
+  depth?: number;
+  description?: ReactNode;
+  /** Renders the command as a link; Enter follows it. */
+  href?: string;
+  icon?: ReactNode;
+  label: string;
+  rel?: string;
+  target?: string;
+};
 
-export function WikiCommandItemButton({
-  active = false,
+export function WikiCommandItem({
   className,
   depth,
   description,
+  href,
   icon,
   label,
+  rel,
+  render,
   style,
-  type = "button",
+  target,
   ...props
-}: WikiCommandItemButtonProps) {
+}: WikiCommandItemProps) {
+  const depthStyle = depth === undefined ? undefined : ({ "--outline-depth": depth } as CSSProperties);
   return (
-    // Rows live in a role="listbox" driven by the search input's
-    // aria-activedescendant, so they are options; aria-selected is ignored
-    // on a plain button or link.
-    <button
-      role="option"
+    <CommandItem
+      className={(state) =>
+        cn(
+          "wiki-shell-command-item",
+          state.highlighted && "active",
+          typeof className === "function" ? className(state) : className,
+        )
+      }
+      label={label}
+      render={render ?? (href ? <a href={href} rel={rel} target={target} /> : undefined)}
+      style={depthStyle || style ? { ...depthStyle, ...(typeof style === "object" ? style : undefined) } : undefined}
       {...props}
-      aria-selected={active}
-      className={cn("wiki-shell-command-item", active && "active", className)}
-      data-active={active ? "true" : undefined}
-      style={commandItemStyle(style, depth)}
-      type={type}
     >
       {icon}
       <WikiCommandItemText description={description} label={label} />
-    </button>
+    </CommandItem>
   );
 }
 
-export type WikiCommandItemLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "children"> &
-  WikiCommandItemContentProps & {
-    href: string;
-  };
-
-export function WikiCommandItemLink({
-  active = false,
-  className,
-  depth,
-  description,
-  icon,
-  label,
-  style,
-  ...props
-}: WikiCommandItemLinkProps) {
-  return (
-    <a
-      role="option"
-      {...props}
-      aria-selected={active}
-      className={cn("wiki-shell-command-item", active && "active", className)}
-      data-active={active ? "true" : undefined}
-      style={commandItemStyle(style, depth)}
-    >
-      {icon}
-      <WikiCommandItemText description={description} label={label} />
-    </a>
-  );
-}
-
-export type WikiCommandEmptyProps = ComponentProps<"div">;
+export type WikiCommandEmptyProps = ComponentProps<typeof CommandEmpty>;
 
 export function WikiCommandEmpty({ className, ...props }: WikiCommandEmptyProps) {
-  return <div className={cn("wiki-shell-command-empty command-empty", className)} {...props} />;
+  return (
+    <CommandEmpty
+      className={withClass("wiki-shell-command-empty command-empty", className)}
+      {...props}
+    />
+  );
 }
 
 export type WikiCommandFooterProps = ComponentProps<"footer">;
