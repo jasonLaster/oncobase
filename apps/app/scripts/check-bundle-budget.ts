@@ -94,7 +94,10 @@ const budgets: Budget[] = [
   // Only first-paint styles belong here; route stylesheets adopt themselves
   // from their chunks (src/lazy-styles.ts). 38,716 B gzip after that split.
   { label: "eager stylesheet", pattern: /^style-[\w-]+\.css$/, maxGzipBytes: 40_960 },
-  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 20_736 },
+  // UI SDK migration (Phase 3, approved bundle hit): the shell's Tree, Menu,
+  // Drawer, Toast and Tooltip wiring lands here, 19,964 -> 21,639 B gzip
+  // (main -> branch, same machine). Cap 20,736 -> 22,272 (measured + ~3%).
+  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 22_272 },
   // A1 step 1 moved WikiSync's effects into a plain, unit-tested
   // SyncController: 10,959 -> 11,312 B gzip (raw is smaller; the denser code
   // compresses worse). +256 B; the store pool total is unchanged.
@@ -213,8 +216,17 @@ const storeLoaderPatterns = [
 // sharing, Liveblocks comments) load inside their own chunks (src/lazy-styles.ts):
 // the eager stylesheet 63.7 -> 37.8 KiB, paint 303,951 -> 277,541 B.
 // Paint 306,000 -> 280,000, eager 1,134,500 -> 1,108,500.
-const eagerGzipBudget = 1_108_500;
-const paintGzipBudget = 280_000;
+// UI SDK migration, Phase 3 (the reader paint path; the bundle hit was
+// approved, to optimize later): the actions menu, auth dialog, mobile sheet,
+// toast, resizable layout and sidebar tree bring UI SDK's kernel, popup,
+// layer, menu, tree, drawer, dialog, field and tooltip code into the paint
+// set. Measured on one build of main and of the branch: paint ~279,245 ->
+// ~430,797 B (272.7 -> 420.7 KiB), eager ~1,104,998 -> ~1,256,550 B
+// (1,079.1 -> 1,227.1 KiB); store unchanged. Lazy-loading the popups on
+// first interaction (plan section 5, Phase 3) would take most of it back.
+// Paint 280,000 -> 436,000; eager 1,108,500 -> 1,262,000.
+const eagerGzipBudget = 1_262_000;
+const paintGzipBudget = 436_000;
 const storeGzipBudget = 828_500;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
@@ -260,7 +272,12 @@ const storeGzipBudget = 828_500;
 // inside the lazy chunk via adoptStyles, adding ~169.4 KiB to the lazy pool with
 // zero impact on paint, store, or eager limits (measured 4,472,627 B):
 // 4,302,000 -> 4,480,000.
-const lazyGzipBudget = 4_480_000;
+// UI SDK migration (Phases 1-3, approved bundle hit): the migrated lazy pages,
+// palettes, dialogs, diagnostics and chat use UI SDK parts, and Base UI, cmdk,
+// sonner and use-stick-to-bottom are gone. Most shared UI SDK code now sits in
+// the paint set above, so lazy grows only ~4,466,278 -> ~4,509,594 B
+// (4,361.6 -> 4,403.9 KiB, main -> branch): 4,480,000 -> 4,520,000.
+const lazyGzipBudget = 4_520_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
