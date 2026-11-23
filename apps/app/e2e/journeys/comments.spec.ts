@@ -78,7 +78,7 @@ test.describe("comments (mocked Liveblocks)", () => {
       .poll(() => page.evaluate(() => Number(localStorage.getItem("comments-pane-width"))))
       .toBeCloseTo(await railWidth(), -1);
 
-    await rail.getByRole("button", { name: "Outline" }).click();
+    await rail.getByRole("tab", { name: "Outline" }).click();
     await expect(rail.getByRole("button", { name: "Insurance", exact: true })).toHaveClass(/active/);
   });
 

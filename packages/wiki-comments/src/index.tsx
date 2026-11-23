@@ -2,7 +2,7 @@
 
 import { safeLocalStorage } from "@oncobase/safe-storage";
 import {
-  type ButtonHTMLAttributes,
+  type ComponentProps,
   type ReactNode,
   useCallback,
   useEffect,
@@ -29,6 +29,8 @@ import {
   DrawerTitle,
 } from "@oncobase/ui/drawer";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@oncobase/ui/menu";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
 import type { LiveblocksProviderShellProps } from "./provider.tsx";
 import {
   buildCommentListItems,
@@ -63,7 +65,10 @@ type OutlineItem = {
   level: number;
 };
 
-type SidebarButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+const SIDEBAR_TAB_CLASS =
+  "flex-1 cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] active:bg-[var(--accent-light)] active:text-[var(--brand)] data-[selected]:bg-[var(--accent-light)] data-[selected]:text-[var(--brand)]";
+
+type SidebarButtonProps = ComponentProps<"button"> & {
   active?: boolean;
   variant?: "tab" | "icon" | "list";
 };
@@ -91,6 +96,40 @@ function SidebarButton({
       )}
       {...props}
     />
+  );
+}
+
+function OutlineEntry({
+  item,
+  active,
+  onSelect,
+}: {
+  item: OutlineItem;
+  active?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <Tooltip type="label" delay={600}>
+      <TooltipTrigger
+        render={
+          <SidebarButton
+            active={active}
+            variant="list"
+            onClick={onSelect}
+            style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
+          />
+        }
+      >
+        <span className="line-clamp-2">{item.text}</span>
+      </TooltipTrigger>
+      <TooltipContent
+        side="left"
+        sideOffset={8}
+        className="max-w-xs rounded-md bg-[var(--foreground)] px-2 py-1 text-xs text-[var(--background)] shadow-lg"
+      >
+        {item.text}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -965,22 +1004,17 @@ function CommentsShell({
     <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-            <SidebarButton
-              variant="tab"
-              active={sidebarMode === "comments"}
-              onClick={() => toggleSidebarMode("comments")}
-            >
+          <TabsList
+            aria-label="Sidebar view"
+            className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5"
+          >
+            <TabsTab value="comments" className={SIDEBAR_TAB_CLASS}>
               Comments
-            </SidebarButton>
-            <SidebarButton
-              variant="tab"
-              active={sidebarMode === "outline"}
-              onClick={() => toggleSidebarMode("outline")}
-            >
+            </TabsTab>
+            <TabsTab value="outline" className={SIDEBAR_TAB_CLASS}>
               Outline
-            </SidebarButton>
-          </div>
+            </TabsTab>
+          </TabsList>
           <SidebarButton
             onClick={toggleCommentsPane}
             aria-label="Collapse comments pane"
@@ -1084,16 +1118,12 @@ function CommentsShell({
           ) : (
             <div className="space-y-0.5">
               {outlineItems.map((item) => (
-                <SidebarButton
+                <OutlineEntry
                   key={item.id}
+                  item={item}
                   active={item.id === activeHeadingId}
-                  variant="list"
-                  onClick={() => jumpToHeading(item.id)}
-                  style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                  title={item.text}
-                >
-                  <span className="line-clamp-2">{item.text}</span>
-                </SidebarButton>
+                  onSelect={() => jumpToHeading(item.id)}
+                />
               ))}
             </div>
           )
@@ -1443,8 +1473,21 @@ function CommentsShell({
           railClassName="bg-[var(--background)] shadow-[-4px_0_12px_rgba(0,0,0,0.12)]"
           railProps={{ "data-wiki-shell-right-rail": true }}
         >
-          {sidebarHeader}
-          <div className="min-h-0 flex-1 overflow-y-auto">{sidebarContent}</div>
+          <Tabs
+            value={sidebarMode}
+            onValueChange={(mode) => {
+              if (mode) setSidebarMode(mode as SidebarMode);
+            }}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            {sidebarHeader}
+            <TabsPanel value="comments" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              {sidebarContent}
+            </TabsPanel>
+            <TabsPanel value="outline" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              {sidebarContent}
+            </TabsPanel>
+          </Tabs>
         </ResizableRail>
       ) : (
         <aside
@@ -1629,15 +1672,11 @@ export function OutlineShell({
               ) : (
                 <div className="space-y-0.5">
                   {outlineItems.map((item) => (
-                    <SidebarButton
+                    <OutlineEntry
                       key={item.id}
-                      variant="list"
-                      onClick={() => jumpToHeading(item.id)}
-                      style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                      title={item.text}
-                    >
-                      <span className="line-clamp-2">{item.text}</span>
-                    </SidebarButton>
+                      item={item}
+                      onSelect={() => jumpToHeading(item.id)}
+                    />
                   ))}
                 </div>
               )}
@@ -1744,15 +1783,11 @@ export function OutlineShell({
               ) : (
                 <div className="space-y-0.5">
                   {outlineItems.map((item) => (
-                    <SidebarButton
+                    <OutlineEntry
                       key={item.id}
-                      variant="list"
-                      onClick={() => jumpToHeading(item.id)}
-                      style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                      title={item.text}
-                    >
-                      <span className="line-clamp-2">{item.text}</span>
-                    </SidebarButton>
+                      item={item}
+                      onSelect={() => jumpToHeading(item.id)}
+                    />
                   ))}
                 </div>
               )}
