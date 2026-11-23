@@ -1,0 +1,57 @@
+/* ui-sdk: w9-shell-overlays. UI SDK parts in the education shell, adopted after
+ * @oncobase/education/styles.css so these rules win at equal specificity. */
+.edu-sr-only {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+.edu-topic {
+  margin: 4px 0;
+}
+.edu-topic-trigger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+}
+.edu-topic-trigger:hover {
+  background: var(--edu-soft);
+}
+.edu-topic-trigger > svg {
+  color: var(--edu-muted);
+  flex-shrink: 0;
+  transform: rotate(-90deg);
+}
+.edu-topic-trigger[data-open] > svg {
+  transform: none;
+}
+.edu-drawer-backdrop {
+  background: rgb(0 0 0 / 0.2);
+}
+.edu-sidebar.edu-drawer {
+  box-shadow: 16px 0 30px #0002;
+  display: flex;
+  height: 100%;
+  width: min(320px, 85vw);
+}
+@media (max-width: 700px) {
+  .edu-topic-trigger {
+    min-height: 44px;
+  }
+}
+/* end ui-sdk: w9-shell-overlays */
