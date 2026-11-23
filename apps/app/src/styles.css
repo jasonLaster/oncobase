@@ -2124,4 +2124,25 @@ a {
 .reader-tooltip[data-instant] {
   transition: none;
 }
+
+.livestore-devtools-collapsible {
+  margin-left: auto;
+  max-width: min(760px, 100%);
+}
+
+.livestore-devtools-summary {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 6px;
+  justify-content: flex-end;
+  min-height: 24px;
+  padding: 0;
+  user-select: none;
+  width: 100%;
+}
 /* end ui-sdk: w9-shell-overlays */

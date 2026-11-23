@@ -1,3 +1,4 @@
+import { Button } from "@oncobase/ui/button";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { NavigationFreshness } from "../types";
 import { emit } from "../reader-bus";
@@ -36,7 +37,7 @@ export function NavigationStatus({ freshness, hasPages }: { freshness: Navigatio
         {label ? <><span className="reader-status-dot" aria-hidden="true" />{label}</> : null}
       </span>
       {freshness === "checking" && slow && receivedBytes > 0 ? <span className="reader-transfer-detail">{receivedLabel(receivedBytes)}</span> : null}
-      {freshness === "saved" || slow ? <button type="button" className="reader-transfer-retry" aria-label="Retry loading pages" onClick={() => emit("refresh-manifest")}>Retry</button> : null}
+      {freshness === "saved" || slow ? <Button className="reader-transfer-retry" aria-label="Retry loading pages" onClick={() => emit("refresh-manifest")}>Retry</Button> : null}
       </span>
     </div>
   );
