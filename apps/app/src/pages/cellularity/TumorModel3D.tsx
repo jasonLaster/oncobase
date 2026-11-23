@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { usePublishViewState } from "./view-state";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { CellularityData, PackedMesh } from "./types";
@@ -79,6 +80,14 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
   const [spinning, setSpinning] = useState(false);
   const [slidesOnly, setSlidesOnly] = useState(false);
   const [webglError, setWebglError] = useState<string | null>(null);
+  usePublishViewState("model", {
+    camera: { iso: "isometric", ant: "anterior", sup: "superior", focus: "focus close-up" }[camMode],
+    hidden: [
+      !showSlices && "slice planes", !showCore && "dense core", !showHalo && "sparse halo",
+      !showHull && "specimen hull", !showCav && "biopsy cavity", !showMargins && "margins",
+    ].filter((x): x is string => Boolean(x)),
+    spotlight, slidesOnly, spinning,
+  });
 
   const sceneApiRef = useRef<{
     moveCam: (pos: [number, number, number], look: [number, number, number]) => void;

@@ -7,7 +7,7 @@ import { EMPTY_READER_ROWS, readerQuery, useInitialReaderData, useReaderQuery } 
 import type { PageIndexRow } from "../types";
 import { useWikiScope } from "../wiki-context";
 import { isDocumentRoute } from "../shell/document-routes";
-import { appTalkPage, loadAppTalkText } from "./talk-pages";
+import { appTalkPage, appTalkStateNote, loadAppTalkText } from "./talk-pages";
 import { contentSlugFromRouteSlug, hrefForSlug, slugFromPath } from "../wiki-utils";
 import { findTalkPage } from "./find-page";
 import { PageConversation, type PageTalkStatus, type TalkPage } from "./page-conversation";
@@ -188,6 +188,22 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
     }, talkPageForPath(window.location.pathname));
     conversation.current = current;
 
+    // Selections on app pages (a block, a slider, a view) reach the voice as quiet notes.
+    let stateTimer: ReturnType<typeof setTimeout> | undefined;
+    let lastState = "";
+    let unsubscribeState = () => {};
+    void import("../pages/cellularity/view-state").then(({ subscribeCellularityViewState }) => {
+      if (cancelled) return;
+      unsubscribeState = subscribeCellularityViewState(() => {
+        clearTimeout(stateTimer);
+        stateTimer = setTimeout(async () => {
+          const page = appTalkPage(window.location.pathname);
+          const note = page ? await appTalkStateNote(page.slug) : null;
+          if (note && note !== lastState) { lastState = note; current.noteState(note); }
+        }, 1_200);
+      });
+    });
+
     void connectTalk({
       apiUrl: TALK_API,
       onEvent: event => current.handle(event),
@@ -211,6 +227,8 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
       window.removeEventListener("pagehide", hangUp);
       clearTimeout(idleTimer);
       clearTimeout(callTimer);
+      clearTimeout(stateTimer);
+      unsubscribeState();
       stopLevels();
       current.close();
       transport.current?.close();

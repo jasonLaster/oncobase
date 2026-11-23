@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { usePublishViewState } from "./view-state";
 import type { BlockRow, CellularityData } from "./types";
 import { cellularityAssetUrl } from "./utils";
 
@@ -31,6 +32,8 @@ export function BlocksAndValidationSection({
   );
   const actT = sensThresholds[sensIdx] ?? data.validation.threshold;
   const actRow = data.validation.sensitivity[String(actT)] ?? {};
+  usePublishViewState("sensitivityThreshold", actT);
+  usePublishViewState("methodTab", methodTabKey);
 
   const W = 480, H = 250, pL = 44, pR = 62, pT = 18, pB = 38;
   const x = (t: number) => pL + ((t - 0.015) / (0.155 - 0.015)) * (W - pL - pR);

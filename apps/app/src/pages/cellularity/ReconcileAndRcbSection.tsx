@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { usePublishViewState } from "./view-state";
 import type { CellularityData } from "./types";
 import { calcRCB, calcRcbNodalTerm, rcbClass } from "./utils";
 
@@ -23,6 +24,7 @@ export function ReconcileAndRcbSection({ data }: Props) {
   const rcbCfg = cfg.rcb;
   const [activeCa, setActiveCa] = useState(rcbCfg.default_ca);
   const [hoveredBar, setHoveredBar] = useState<string | null>(null);
+  usePublishViewState("rcbCellularity", Math.round(activeCa * 100) / 100);
 
   const compareItems = cfg.compare_bars;
   const nodalTerm = calcRcbNodalTerm(rcbCfg.positive_nodes, rcbCfg.max_met_mm);
