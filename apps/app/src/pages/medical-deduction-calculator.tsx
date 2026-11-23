@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Check } from "lucide-react";
+import { Button } from "@oncobase/ui/button";
+import { Checkbox, CheckboxIndicator } from "@oncobase/ui/checkbox";
+import { Field, FieldLabel } from "@oncobase/ui/field";
+import { NumberInput, NumberInputControl } from "@oncobase/ui/number-input";
+import { SegmentedControl, SegmentedControlItem } from "@oncobase/ui/segmented-control";
+import { Slider, SliderControl, SliderIndicator, SliderThumb, SliderTrack } from "@oncobase/ui/slider";
 
 // ─── Tax engine ───────────────────────────────────────────────────────────────
 
@@ -369,7 +376,7 @@ export function MedicalDeductionCalculator() {
     <div className="space-y-6">
       <Panel>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Slider
+          <AmountSlider
             label="Adjusted Gross Income (AGI)"
             value={agi}
             min={100_000}
@@ -377,7 +384,7 @@ export function MedicalDeductionCalculator() {
             step={10_000}
             onChange={setAgi}
           />
-          <Slider
+          <AmountSlider
             label="Qualified Medical Expenses"
             value={medical}
             min={0}
@@ -492,60 +499,49 @@ function SectionHeader({ children, id }: { children: React.ReactNode; id?: strin
   );
 }
 
-function Slider({ label, value, min, max, step, onChange }: {
+const WHOLE_DOLLARS = { maximumFractionDigits: 0 } satisfies Intl.NumberFormatOptions;
+
+function AmountSlider({ label, value, min, max, step, onChange }: {
   label: string; value: number; min: number; max: number; step: number;
   onChange: (v: number) => void;
 }) {
-  const [text, setText] = useState(() => value.toLocaleString());
-  const [previousValue, setPreviousValue] = useState(value);
-
-  // Adjust the draft during render only when the committed external value
-  // changes. A mount effect can erase a first keystroke before it is committed.
-  if (value !== previousValue) {
-    setPreviousValue(value);
-    setText(value.toLocaleString());
-  }
-
-  function commitText(raw: string) {
-    const n = Number(raw.replace(/[^0-9.-]/g, ""));
-    if (Number.isFinite(n)) {
-      const clamped = Math.max(min, Math.min(max, n));
-      onChange(clamped);
-      setText(clamped.toLocaleString());
-    } else {
-      setText(value.toLocaleString());
-    }
-  }
-
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <span className="text-sm text-[var(--text-muted)]">{label}</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onBlur={(e) => commitText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.currentTarget.blur();
-            }
-          }}
-          aria-label={label}
-          className="w-32 rounded-md border border-transparent bg-transparent px-2 py-0.5 text-right text-lg font-semibold tabular-nums hover:border-[var(--border)] focus:border-[var(--brand)] focus:bg-[var(--background,white)] focus:outline-none"
-        />
+        <NumberInput
+          value={value}
+          min={min}
+          max={max}
+          step={1}
+          largeStep={step}
+          format={WHOLE_DOLLARS}
+          onValueChange={(next) => { if (next !== null) onChange(next); }}
+        >
+          <NumberInputControl
+            aria-label={label}
+            className="w-32 rounded-md border border-transparent bg-transparent px-2 py-0.5 text-right text-lg font-semibold tabular-nums hover:border-[var(--border)] focus:border-[var(--brand)] focus:bg-[var(--background,white)] focus:outline-none"
+          />
+        </NumberInput>
       </div>
-      <input
-        type="range"
-        aria-label={`${label} slider`}
+      <Slider
+        value={value}
         min={min}
         max={max}
         step={step}
-        value={value}
-        onChange={(e) => onChange(+e.target.value)}
-        className="w-full accent-[var(--brand)]"
-      />
+        format={{ style: "currency", currency: "USD", maximumFractionDigits: 0 }}
+        onValueChange={(next) => onChange(next as number)}
+      >
+        <SliderControl className="flex h-6 w-full cursor-pointer touch-none items-center">
+          <SliderTrack className="relative h-1.5 w-full rounded-full bg-[var(--border)]">
+            <SliderIndicator className="absolute h-full rounded-full bg-[var(--brand)]" />
+            <SliderThumb
+              aria-label={`${label} slider`}
+              className="size-4 rounded-full bg-[var(--brand)] shadow has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--brand)]"
+            />
+          </SliderTrack>
+        </SliderControl>
+      </Slider>
     </div>
   );
 }
@@ -748,20 +744,16 @@ function Heatmap({ onSelect }: { onSelect: (agi: number, med: number) => void })
                 return (
                   <td
                     key={j}
-                    className="cursor-pointer px-2 py-2 text-right transition-opacity hover:opacity-70"
+                    className="p-0"
                     style={{ background: `hsla(155, 60%, 50%, ${intensity * 0.5})` }}
-                    onClick={() => onSelect(cell.agi, cell.med)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onSelect(cell.agi, cell.med);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`AGI ${fmtMoneyExact(cell.agi)}, medical ${fmtMoneyExact(cell.med)}, estimated tax savings ${fmtMoneyExact(cell.savings)}${cell.wasted > 1000 ? ", deduction exceeds taxable income" : ""}`}
                   >
-                    {fmtMoney(cell.savings) + flag}
+                    <Button
+                      className="w-full cursor-pointer px-2 py-2 text-right tabular-nums transition-opacity hover:opacity-70"
+                      onClick={() => onSelect(cell.agi, cell.med)}
+                      aria-label={`AGI ${fmtMoneyExact(cell.agi)}, medical ${fmtMoneyExact(cell.med)}, estimated tax savings ${fmtMoneyExact(cell.savings)}${cell.wasted > 1000 ? ", deduction exceeds taxable income" : ""}`}
+                    >
+                      {fmtMoney(cell.savings) + flag}
+                    </Button>
                   </td>
                 );
               })}
@@ -798,13 +790,8 @@ function MultiYearPlanner({
 
   return (
     <div className="space-y-5" data-test-id="medical-deduction-multi-year">
-      <label className="flex cursor-pointer items-start gap-3">
-        <input
-          type="checkbox"
-          checked={spread}
-          onChange={(e) => onSetSpread(e.target.checked)}
-          className="mt-1 size-4 accent-[var(--brand)]"
-        />
+      <label className="relative flex cursor-pointer items-start gap-3">
+        <BrandCheckbox className="mt-1" checked={spread} onCheckedChange={onSetSpread} />
         <div>
           <div className="font-medium">Spread costs across multiple tax years</div>
           <div className="text-sm text-[var(--text-muted)]">
@@ -816,31 +803,26 @@ function MultiYearPlanner({
       {spread ? (
         <>
           <div className="flex flex-wrap items-end gap-6 border-t border-[var(--border)] pt-5">
-            <div>
-              <div className="mb-1 text-sm text-[var(--text-muted)]">Number of tax years</div>
-              <div className="flex gap-1">
-                {[2, 3, 4].map((n) => (
-                  <button
+            <Field>
+              <FieldLabel className="mb-1 block text-sm text-[var(--text-muted)]">Number of tax years</FieldLabel>
+              <SegmentedControl
+                className="relative flex gap-1"
+                value={String(years)}
+                onValueChange={(value) => { if (value) onSetYears(Number(value)); }}
+              >
+                {["2", "3", "4"].map((n) => (
+                  <SegmentedControlItem
                     key={n}
-                    onClick={() => onSetYears(n)}
-                    className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                      years === n
-                        ? "border-[var(--brand)] bg-[var(--brand)] text-white"
-                        : "border-[var(--border)] bg-[var(--muted)] hover:border-[var(--brand)]"
-                    }`}
+                    value={n}
+                    className="cursor-pointer rounded-md border border-[var(--border)] bg-[var(--muted)] px-3 py-1.5 text-sm transition-colors hover:border-[var(--brand)] data-checked:border-[var(--brand)] data-checked:bg-[var(--brand)] data-checked:text-white"
                   >
                     {n}
-                  </button>
+                  </SegmentedControlItem>
                 ))}
-              </div>
-            </div>
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={customize}
-                onChange={(e) => onSetCustomize(e.target.checked)}
-                className="size-4 accent-[var(--brand)]"
-              />
+              </SegmentedControl>
+            </Field>
+            <label className="relative flex cursor-pointer items-center gap-2">
+              <BrandCheckbox checked={customize} onCheckedChange={onSetCustomize} />
               <span className="text-sm">Customize distribution</span>
             </label>
             {customize ? (
@@ -863,14 +845,14 @@ function MultiYearPlanner({
               return (
                 <div key={i} className="grid items-center gap-3 rounded-lg bg-[var(--muted)] p-3 sm:grid-cols-[60px_1fr_1fr_160px]">
                   <div className="text-sm font-semibold text-[var(--text-muted)]">Year {i + 1}</div>
-                  <NumberInput
+                  <YearAmountInput
                     label="AGI"
                     value={y.agi}
                     step={10_000}
                     onChange={(v) => (customize ? onUpdateYear(i, "agi", v) : onUpdateYearAgi(i, v))}
                   />
                   {customize ? (
-                    <NumberInput label="Medical spend" value={y.medical} step={10_000} onChange={(v) => onUpdateYear(i, "medical", v)} />
+                    <YearAmountInput label="Medical spend" value={y.medical} step={10_000} onChange={(v) => onUpdateYear(i, "medical", v)} />
                   ) : (
                     <ReadOnlyField label="Medical spend" value={fmtMoneyExact(y.medical)} />
                   )}
@@ -924,17 +906,32 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function NumberInput({ label, value, step, onChange }: { label: string; value: number; step: number; onChange: (v: number) => void }) {
+function YearAmountInput({ label, value, step, onChange }: { label: string; value: number; step: number; onChange: (v: number) => void }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs uppercase tracking-wider text-[var(--text-muted)]">{label}</span>
-      <input
-        type="number"
+    <Field className="flex flex-col gap-1">
+      <FieldLabel className="text-xs uppercase tracking-wider text-[var(--text-muted)]">{label}</FieldLabel>
+      <NumberInput
         value={value}
-        step={step}
-        onChange={(e) => onChange(+e.target.value)}
-        className="rounded-md border border-[var(--border)] bg-[var(--background,white)] px-3 py-1.5 text-sm tabular-nums"
-      />
-    </label>
+        min={0}
+        step={1}
+        largeStep={step}
+        format={{ useGrouping: false, maximumFractionDigits: 0 }}
+        onValueChange={(next) => onChange(next ?? 0)}
+      >
+        <NumberInputControl className="w-full rounded-md border border-[var(--border)] bg-[var(--background,white)] px-3 py-1.5 text-sm tabular-nums" />
+      </NumberInput>
+    </Field>
+  );
+}
+
+function BrandCheckbox({ className = "", checked, onCheckedChange }: { className?: string; checked: boolean; onCheckedChange: (v: boolean) => void }) {
+  return (
+    <Checkbox
+      checked={checked}
+      onCheckedChange={(next) => onCheckedChange(next === true)}
+      className={`inline-flex size-4 shrink-0 items-center justify-center rounded-[3px] border border-[var(--text-muted)] bg-[var(--background,white)] text-white data-checked:border-[var(--brand)] data-checked:bg-[var(--brand)] ${className}`}
+    >
+      <CheckboxIndicator aria-hidden="true"><Check size={12} strokeWidth={3} /></CheckboxIndicator>
+    </Checkbox>
   );
 }
