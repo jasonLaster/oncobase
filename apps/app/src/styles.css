@@ -2102,3 +2102,132 @@ a {
     display: none;
   }
 }
+
+/* ui-sdk: w1-admin-forms */
+.admin-modal[data-slot$="dialog-content"] {
+  height: fit-content;
+  inset: 0;
+  position: fixed;
+}
+
+.admin-modal [data-slot$="dialog-title"] {
+  font-size: 1rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.admin-modal [data-slot="alert-dialog-description"] {
+  margin: 1em 0 0;
+}
+
+.admin-menu[data-slot="menu-content"] {
+  color: var(--foreground);
+  gap: 4px;
+  right: auto;
+}
+
+.admin-menu [data-slot="menu-item"] {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 34px;
+  outline: none;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+.admin-menu [data-slot="menu-item"][data-highlighted] {
+  background: var(--accent);
+}
+
+.admin-tabs [data-selected],
+.admin-filter-row [data-checked] {
+  background: var(--foreground);
+  border-color: var(--foreground);
+  color: var(--background);
+}
+
+.admin-form-grid[data-slot="tabs-panel"],
+.admin-preview[data-slot="tabs-panel"] {
+  outline: none;
+}
+
+#roles .admin-modal .admin-table-wrap table {
+  min-width: 780px;
+}
+
+.admin-field {
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 4px;
+}
+
+.admin-pages-toolbar .admin-search-field {
+  flex: 1 1 280px;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.admin-select-trigger {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 400 !important;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.admin-select-trigger[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.admin-select-content[data-slot="select-content"] {
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgb(17 24 39 / 0.14);
+  color: var(--foreground);
+  min-width: var(--anchor-width);
+  padding: 4px;
+}
+
+.admin-select-content [data-slot="select-item"] {
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 6px 8px;
+}
+
+.admin-select-content [data-slot="select-item"][data-highlighted] {
+  background: var(--accent);
+}
+
+.admin-select-content [data-slot="select-item"][data-selected] {
+  font-weight: 600;
+}
+
+.admin-shell .admin-checkbox,
+.admin-modal .admin-checkbox {
+  align-items: center;
+  border-radius: 3px;
+  display: inline-flex;
+  height: 16px;
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+  width: 16px;
+}
+
+.admin-shell .admin-checkbox[data-checked] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
+}
+
+.admin-toolbar[data-slot="toolbar"] button[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+/* end ui-sdk: w1-admin-forms */

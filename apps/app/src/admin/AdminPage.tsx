@@ -1,6 +1,32 @@
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router";
+import { Check, ChevronsUpDown } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@oncobase/ui/alert-dialog";
+import { Checkbox, CheckboxIndicator } from "@oncobase/ui/checkbox";
+import {
+  createDialogController,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@oncobase/ui/dialog";
+import { Field, FieldLabel } from "@oncobase/ui/field";
+import { Input } from "@oncobase/ui/input";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@oncobase/ui/menu";
+import { SegmentedControl, SegmentedControlItem } from "@oncobase/ui/segmented-control";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@oncobase/ui/select";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
+import { Textarea } from "@oncobase/ui/textarea";
+import { Toolbar, ToolbarButton } from "@oncobase/ui/toolbar";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
 import {
   classifyPage,
@@ -127,13 +153,47 @@ function AdminHomePage() {
   );
 }
 
+const NO_ROLE = "none";
+
+function RoleSelect({ label, roles, value, defaultValue, disabled, onValueChange, toolbar }: {
+  label: string;
+  roles: AccessRole[];
+  value?: string;
+  defaultValue?: string;
+  disabled?: boolean;
+  onValueChange: (roleId: string) => void;
+  toolbar?: boolean;
+}) {
+  const trigger = (
+    <SelectTrigger aria-label={label} className="admin-select-trigger">
+      <SelectValue />
+      <ChevronsUpDown aria-hidden="true" size={14} />
+    </SelectTrigger>
+  );
+  return (
+    <Select
+      value={value === undefined ? undefined : value || NO_ROLE}
+      defaultValue={defaultValue === undefined ? undefined : defaultValue || NO_ROLE}
+      disabled={toolbar ? undefined : disabled}
+      onValueChange={(next) => onValueChange(!next || next === NO_ROLE ? "" : next)}
+    >
+      {toolbar ? <ToolbarButton disabled={disabled} render={trigger} /> : trigger}
+      <SelectContent className="admin-select-content">
+        <SelectItem value={NO_ROLE}>No role</SelectItem>
+        {roles.map((role) => (
+          <SelectItem key={role._id} value={role._id}>{role.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function AdminUsersPage() {
   const { data, error, reload } = useAccessData("users");
   const users = (data as UsersData | null)?.users ?? [];
   const roles = (data as UsersData | null)?.roles ?? [];
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkRoleId, setBulkRoleId] = useState("");
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [status, setStatus] = useState("");
   const [currentUserId, setCurrentUserId] = useState("");
 
@@ -167,34 +227,46 @@ function AdminUsersPage() {
       body: JSON.stringify({ userIds: selected }),
     });
     setSelected([]);
-    setDeleteOpen(false);
     setStatus("Deleted");
     reload();
   }
 
+  const nothingSelected = selected.length === 0;
   return (
     <AdminLayout>
       <section className="admin-section">
         <h1>Users</h1>
         <p className="admin-muted">{users.length} users, {roles.length} roles</p>
         {error ? <p className="admin-error">{error}</p> : null}
-        <div className="admin-toolbar">
+        <Toolbar aria-label="Selected users" className="admin-toolbar">
           <span aria-live="polite">{selected.length > 0 ? `${selected.length} selected` : status || "No selection"}</span>
-          <label className="sr-only" htmlFor="bulk-role">Role for selected users</label>
-          <select
-            id="bulk-role"
+          <RoleSelect
+            toolbar
+            label="Role for selected users"
+            roles={roles}
             value={bulkRoleId}
-            disabled={selected.length === 0}
-            onChange={(event) => setBulkRoleId(event.currentTarget.value)}
-          >
-            <option value="">No role</option>
-            {roles.map((role) => (
-              <option key={role._id} value={role._id}>{role.name}</option>
-            ))}
-          </select>
-          <button type="button" disabled={selected.length === 0} onClick={() => void saveBulkRole()}>Assign role</button>
-          <button type="button" disabled={selected.length === 0} onClick={() => setDeleteOpen(true)}>Delete</button>
-        </div>
+            disabled={nothingSelected}
+            onValueChange={setBulkRoleId}
+          />
+          <ToolbarButton disabled={nothingSelected} onClick={() => void saveBulkRole()}>Assign role</ToolbarButton>
+          <AlertDialog>
+            <ToolbarButton disabled={nothingSelected} render={<AlertDialogTrigger />}>Delete</ToolbarButton>
+            <AlertDialogContent className="admin-modal">
+              <AlertDialogTitle>Delete selected users</AlertDialogTitle>
+              <AlertDialogDescription>This deletes {selected.length} users and revokes their sessions.</AlertDialogDescription>
+              <div className="admin-dialog-actions">
+                <AlertDialogClose>Cancel</AlertDialogClose>
+                <AlertDialogClose
+                  value="confirm"
+                  action={deleteSelected}
+                  data-agent-confirm="Deletes the selected users and revokes their sessions"
+                >
+                  Delete
+                </AlertDialogClose>
+              </div>
+            </AlertDialogContent>
+          </AlertDialog>
+        </Toolbar>
         <div className="admin-table-wrap">
           <table>
             <thead>
@@ -208,40 +280,34 @@ function AdminUsersPage() {
             <tbody>
               {users.map((user) => {
                 const userLabel = user.name || user.email;
-                const isCurrentUser = user._id === currentUserId;
                 return (
                   <tr key={user._id}>
                     <td>
-                      <label className="sr-only" htmlFor={`select-${user._id}`}>Select {userLabel}</label>
-                      <input
-                        id={`select-${user._id}`}
-                        type="checkbox"
-                        disabled={isCurrentUser}
+                      <Checkbox
+                        aria-label={`Select ${userLabel}`}
+                        className="admin-checkbox"
+                        disabled={user._id === currentUserId}
                         checked={selected.includes(user._id)}
-                        onChange={(event) => {
-                          const checked = event.currentTarget.checked;
+                        onCheckedChange={(checked) => {
                           setSelected((current) =>
-                            checked
+                            checked === true
                               ? [...current, user._id]
                               : current.filter((id) => id !== user._id),
                           );
                         }}
-                      />
+                      >
+                        <CheckboxIndicator aria-hidden="true"><Check size={12} strokeWidth={3} /></CheckboxIndicator>
+                      </Checkbox>
                     </td>
                     <td>{userLabel}</td>
                     <td>{user.email}</td>
                     <td>
-                      <label className="sr-only" htmlFor={`role-${user._id}`}>Role for {userLabel}</label>
-                      <select
-                        id={`role-${user._id}`}
+                      <RoleSelect
+                        label={`Role for ${userLabel}`}
+                        roles={roles}
                         defaultValue={user.roleIds[0] ?? ""}
-                        onChange={(event) => void saveUserRole(user._id, event.currentTarget.value)}
-                      >
-                        <option value="">No role</option>
-                        {roles.map((role) => (
-                          <option key={role._id} value={role._id}>{role.name}</option>
-                        ))}
-                      </select>
+                        onValueChange={(roleId) => void saveUserRole(user._id, roleId)}
+                      />
                     </td>
                   </tr>
                 );
@@ -250,16 +316,6 @@ function AdminUsersPage() {
           </table>
         </div>
       </section>
-      {deleteOpen ? (
-        <AdminModal label="Delete selected users" onClose={() => setDeleteOpen(false)}>
-          <h2>Delete selected users</h2>
-          <p>This deletes {selected.length} users and revokes their sessions.</p>
-          <div className="admin-dialog-actions">
-            <button type="button" onClick={() => setDeleteOpen(false)}>Cancel</button>
-            <button type="button" onClick={() => void deleteSelected()}>Delete</button>
-          </div>
-        </AdminModal>
-      ) : null}
     </AdminLayout>
   );
 }
@@ -292,7 +348,6 @@ function AdminRolesPage() {
   const { data, error, reload } = useAccessData("pages");
   const pages = (data as AccessData | null)?.pages ?? [];
   const roles = (data as AccessData | null)?.roles ?? [];
-  const [createOpen, setCreateOpen] = useState(false);
 
   async function deleteRole(roleId: string) {
     await apiJson<SaveResult>("/api/admin/roles", {
@@ -310,7 +365,21 @@ function AdminRolesPage() {
             <h1>Roles</h1>
             <p className="admin-muted">{roles.length} roles</p>
           </div>
-          <button type="button" onClick={() => setCreateOpen(true)}>Create role</button>
+          <Dialog>
+            <DialogTrigger>Create role</DialogTrigger>
+            <RoleDialogContent
+              title="Create role"
+              pages={pages}
+              initial={emptyRole()}
+              onSave={async (form) => {
+                await apiJson<SaveResult>("/api/admin/roles", {
+                  method: "POST",
+                  body: JSON.stringify({ values: rolePayload(form) }),
+                });
+                reload();
+              }}
+            />
+          </Dialog>
         </header>
         {error ? <p className="admin-error">{error}</p> : null}
         <div className="admin-table-wrap">
@@ -340,22 +409,6 @@ function AdminRolesPage() {
           </table>
         </div>
       </section>
-      {createOpen ? (
-        <RoleDialog
-          title="Create role"
-          pages={pages}
-          initial={emptyRole()}
-          onClose={() => setCreateOpen(false)}
-          onSave={async (form) => {
-            await apiJson<SaveResult>("/api/admin/roles", {
-              method: "POST",
-              body: JSON.stringify({ values: rolePayload(form) }),
-            });
-            setCreateOpen(false);
-            reload();
-          }}
-        />
-      ) : null}
     </AdminLayout>
   );
 }
@@ -371,8 +424,7 @@ function RoleRow({
   onDelete: (roleId: string) => Promise<void>;
   onSaved: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [edit] = useState(() => createDialogController());
   const form = {
     name: role.name,
     description: role.description ?? "",
@@ -383,63 +435,75 @@ function RoleRow({
     emailPatterns: listToText(role.emailPatterns),
   };
   return (
-    <>
-      <tr>
-        <td>{role.name}</td>
-        <td>{role.includePathPatterns.join(", ") || "Any path"}</td>
-        <td>{role.excludePathPatterns.join(", ") || "None"}</td>
-        <td>{role.includeTags.join(", ") || "Any tag"}</td>
-        <td>{role.excludeTags.join(", ") || "None"}</td>
-        <td>{role.emailPatterns.join(", ") || "Manual"}</td>
-        <td className="admin-action-cell">
-          <button type="button" aria-label={`Actions for ${role.name}`} onClick={() => setMenuOpen((open) => !open)}>
-            ...
-          </button>
-          {menuOpen ? (
-            <div role="menu" className="admin-menu">
-              <button role="menuitem" type="button" onClick={() => { setEditOpen(true); setMenuOpen(false); }}>Edit</button>
-              <button role="menuitem" type="button" onClick={() => void onDelete(role._id)}>Delete</button>
-            </div>
-          ) : null}
-        </td>
-      </tr>
-      {editOpen ? (
-        <RoleDialog
-          title="Edit role"
-          pages={pages}
-          initial={form}
-          onClose={() => setEditOpen(false)}
-          onSave={async (nextForm) => {
-            await apiJson<SaveResult>("/api/admin/roles", {
-              method: "POST",
-              body: JSON.stringify({ roleId: role._id, values: rolePayload(nextForm) }),
-            });
-            setEditOpen(false);
-            onSaved();
-          }}
-        />
-      ) : null}
-    </>
+    <tr>
+      <td>{role.name}</td>
+      <td>{role.includePathPatterns.join(", ") || "Any path"}</td>
+      <td>{role.excludePathPatterns.join(", ") || "None"}</td>
+      <td>{role.includeTags.join(", ") || "Any tag"}</td>
+      <td>{role.excludeTags.join(", ") || "None"}</td>
+      <td>{role.emailPatterns.join(", ") || "Manual"}</td>
+      <td className="admin-action-cell">
+        <Menu onAction={(value) => (value === "edit" ? void edit.open() : onDelete(role._id))}>
+          <MenuTrigger aria-label={`Actions for ${role.name}`}>...</MenuTrigger>
+          <MenuContent className="admin-menu" align="end">
+            <MenuItem value="edit">Edit</MenuItem>
+            <MenuItem value="delete" destructive>Delete</MenuItem>
+          </MenuContent>
+        </Menu>
+        <Dialog controller={edit}>
+          <RoleDialogContent
+            title="Edit role"
+            pages={pages}
+            initial={form}
+            onSave={async (nextForm) => {
+              await apiJson<SaveResult>("/api/admin/roles", {
+                method: "POST",
+                body: JSON.stringify({ roleId: role._id, values: rolePayload(nextForm) }),
+              });
+              onSaved();
+            }}
+          />
+        </Dialog>
+      </td>
+    </tr>
   );
 }
 
-function RoleDialog({
-  title,
-  pages,
-  initial,
-  onClose,
-  onSave,
-}: {
+type RoleForm = ReturnType<typeof emptyRole>;
+type PreviewFilter = "all" | "included" | "excluded" | "unmatched";
+
+const ROLE_FIELDS: { key: keyof RoleForm; label: string; multiline?: boolean }[] = [
+  { key: "name", label: "Role name" },
+  { key: "description", label: "Description" },
+  { key: "emailPatterns", label: "Auto-assign emails" },
+  { key: "includePathPatterns", label: "Include paths", multiline: true },
+  { key: "excludePathPatterns", label: "Exclude paths", multiline: true },
+  { key: "includeTags", label: "Include tags" },
+  { key: "excludeTags", label: "Exclude tags" },
+];
+
+function RoleDialogContent({ title, ...props }: {
   title: string;
   pages: PreviewPage[];
-  initial: ReturnType<typeof emptyRole>;
-  onClose: () => void;
-  onSave: (form: ReturnType<typeof emptyRole>) => Promise<void>;
+  initial: RoleForm;
+  onSave: (form: RoleForm) => Promise<void>;
+}) {
+  return (
+    <DialogContent className="admin-modal admin-role-modal">
+      <DialogTitle>{title}</DialogTitle>
+      <RoleEditor {...props} />
+    </DialogContent>
+  );
+}
+
+function RoleEditor({ pages, initial, onSave }: {
+  pages: PreviewPage[];
+  initial: RoleForm;
+  onSave: (form: RoleForm) => Promise<void>;
 }) {
   const [form, setForm] = useState(initial);
-  const [tab, setTab] = useState<"rules" | "preview">("rules");
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "included" | "excluded" | "unmatched">("all");
+  const [filter, setFilter] = useState<PreviewFilter>("all");
   const rules = rolePayload(form);
   const previewRows = pages.map((page) => ({ ...page, preview: classifyPage(page, rules) }));
   const visibleRows = previewRows.filter((row) => {
@@ -453,36 +517,45 @@ function RoleDialog({
     excluded: previewRows.filter((row) => row.preview.status === "excluded").length,
     unmatched: previewRows.filter((row) => row.preview.status === "unmatched").length,
   };
-  const update = (key: keyof ReturnType<typeof emptyRole>, value: string) =>
+  const update = (key: keyof RoleForm, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
 
   return (
-    <AdminModal label={title} className="admin-role-modal" onClose={onClose}>
-      <h2>{title}</h2>
-      <div role="tablist" aria-label="Role editor" className="admin-tabs">
-        <button role="tab" aria-selected={tab === "rules"} type="button" onClick={() => setTab("rules")}>Rules</button>
-        <button role="tab" aria-selected={tab === "preview"} type="button" onClick={() => setTab("preview")}>Preview</button>
-      </div>
-      {tab === "rules" ? (
-        <div className="admin-form-grid">
-          <label>Role name<input value={form.name} onChange={(event) => update("name", event.currentTarget.value)} /></label>
-          <label>Description<input value={form.description} onChange={(event) => update("description", event.currentTarget.value)} /></label>
-          <label>Auto-assign emails<input value={form.emailPatterns} onChange={(event) => update("emailPatterns", event.currentTarget.value)} /></label>
-          <label>Include paths<textarea value={form.includePathPatterns} onChange={(event) => update("includePathPatterns", event.currentTarget.value)} /></label>
-          <label>Exclude paths<textarea value={form.excludePathPatterns} onChange={(event) => update("excludePathPatterns", event.currentTarget.value)} /></label>
-          <label>Include tags<input value={form.includeTags} onChange={(event) => update("includeTags", event.currentTarget.value)} /></label>
-          <label>Exclude tags<input value={form.excludeTags} onChange={(event) => update("excludeTags", event.currentTarget.value)} /></label>
-        </div>
-      ) : (
-        <div className="admin-preview">
-          <label><span className="sr-only">Filter pages</span><input value={query} placeholder="Filter pages or tags" onChange={(event) => setQuery(event.currentTarget.value)} /></label>
-          <div className="admin-filter-row">
+    <>
+      <Tabs defaultValue="rules">
+        <TabsList aria-label="Role editor" className="admin-tabs">
+          <TabsTab value="rules">Rules</TabsTab>
+          <TabsTab value="preview">Preview</TabsTab>
+        </TabsList>
+        <TabsPanel value="rules" className="admin-form-grid">
+          {ROLE_FIELDS.map(({ key, label, multiline }) => (
+            <Field key={key} className="admin-field">
+              <FieldLabel>{label}</FieldLabel>
+              {multiline ? (
+                <Textarea value={form[key]} onValueChange={(value) => update(key, value)} />
+              ) : (
+                <Input value={form[key]} onValueChange={(value) => update(key, value)} />
+              )}
+            </Field>
+          ))}
+        </TabsPanel>
+        <TabsPanel value="preview" className="admin-preview">
+          <Field className="admin-field">
+            <FieldLabel className="sr-only">Filter pages</FieldLabel>
+            <Input type="search" value={query} placeholder="Filter pages or tags" onValueChange={setQuery} />
+          </Field>
+          <SegmentedControl
+            aria-label="Preview filter"
+            className="admin-filter-row"
+            value={filter}
+            onValueChange={(value) => setFilter((value as PreviewFilter | null) ?? "all")}
+          >
             {(["all", "included", "excluded", "unmatched"] as const).map((item) => (
-              <button key={item} type="button" aria-pressed={filter === item} onClick={() => setFilter(item)}>
+              <SegmentedControlItem key={item} value={item}>
                 {item[0].toUpperCase() + item.slice(1)} {counts[item]}
-              </button>
+              </SegmentedControlItem>
             ))}
-          </div>
+          </SegmentedControl>
           <div className="admin-table-wrap admin-preview-table">
             <table>
               <tbody>
@@ -497,49 +570,13 @@ function RoleDialog({
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        </TabsPanel>
+      </Tabs>
       <div className="admin-dialog-actions">
-        <button type="button" onClick={onClose}>Cancel</button>
-        <button type="button" disabled={!form.name.trim()} onClick={() => void onSave(form)}>Save</button>
+        <DialogClose>Cancel</DialogClose>
+        <DialogClose disabled={!form.name.trim()} action={() => onSave(form)}>Save</DialogClose>
       </div>
-    </AdminModal>
-  );
-}
-
-/**
- * A native modal dialog: showModal() traps focus, makes the page behind it
- * inert, and closes on Escape. Focus returns to whatever opened it.
- */
-function AdminModal({ label, className, onClose, children }: {
-  label: string;
-  className?: string;
-  onClose: () => void;
-  children: ReactNode;
-}) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const element = dialog.current!;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    element.showModal();
-    return () => {
-      element.close();
-      previousFocus?.focus();
-    };
-  }, []);
-  return (
-    <dialog
-      ref={dialog}
-      aria-label={label}
-      className={className ? `admin-modal ${className}` : "admin-modal"}
-      onCancel={(event) => {
-        // Escape: let React state own the open flag.
-        event.preventDefault();
-        onClose();
-      }}
-    >
-      {children}
-    </dialog>
+    </>
   );
 }
 
@@ -589,19 +626,33 @@ function AdminPagesPage() {
         <h1>Pages</h1>
         {error ? <p className="admin-error">{error}</p> : null}
         <div className="admin-toolbar admin-pages-toolbar">
-          <label><span className="sr-only">Search pages</span><input value={query} placeholder="Search pages, tags, roles" onChange={(event) => setQuery(event.currentTarget.value)} /></label>
-          <label><span className="sr-only">Role</span><select value={roleId} onChange={(event) => setRoleId(event.currentTarget.value)}>
-            <option value="all">All roles</option>
-            {roles.map((role) => <option key={role._id} value={role._id}>{role.name}</option>)}
-          </select></label>
+          <Field className="admin-field admin-search-field">
+            <FieldLabel className="sr-only">Search pages</FieldLabel>
+            <Input type="search" value={query} placeholder="Search pages, tags, roles" onValueChange={setQuery} />
+          </Field>
+          <Select value={roleId} onValueChange={(value) => setRoleId(value ?? "all")}>
+            <SelectTrigger aria-label="Role" className="admin-select-trigger">
+              <SelectValue />
+              <ChevronsUpDown aria-hidden="true" size={14} />
+            </SelectTrigger>
+            <SelectContent className="admin-select-content">
+              <SelectItem value="all">All roles</SelectItem>
+              {roles.map((role) => <SelectItem key={role._id} value={role._id}>{role.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="admin-filter-row" role="radiogroup" aria-label="Page state">
+        <SegmentedControl
+          aria-label="Page state"
+          className="admin-filter-row"
+          value={state}
+          onValueChange={(value) => setState((value as PageState | null) ?? "all")}
+        >
           {(["all", "sensitive", "restricted", "excluded", "visible", "blocked"] as const).map((item) => (
-            <button key={item} type="button" aria-pressed={state === item} onClick={() => setState(item)}>
+            <SegmentedControlItem key={item} value={item}>
               {item === "excluded" ? "Role-excluded" : item[0].toUpperCase() + item.slice(1)}
-            </button>
+            </SegmentedControlItem>
           ))}
-        </div>
+        </SegmentedControl>
         <div className="admin-table-wrap">
           <table>
             <tbody>
