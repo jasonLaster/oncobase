@@ -15,16 +15,15 @@ import {
   FileText,
   ImageIcon,
   LinkIcon,
-  Move,
   RotateCcw,
   Ruler,
   ScanSearch,
-  SlidersHorizontal,
-  ZoomIn,
 } from "lucide-react";
 import useSWR from "swr";
 
 import { Badge, Button, cn } from "./ui.tsx";
+import { useShortcut } from "@oncobase/ui/shortcuts";
+import { focusAllowsViewerShortcut, RangeSlider, ToolModeGroup, type ToolMode } from "./viewer-controls.tsx";
 import {
   DIAGNOSTIC_COMPARISON_SET_PARAM,
   type DiagnosticComparisonManifest,
@@ -59,7 +58,6 @@ import {
 
 type CornerstoneCore = typeof import("@cornerstonejs/core");
 type StackViewport = InstanceType<CornerstoneCore["StackViewport"]>;
-type ToolMode = "window" | "pan" | "zoom";
 
 interface CornerstoneSynchronizer {
   add(viewportInfo: { renderingEngineId: string; viewportId: string }): void;
@@ -851,36 +849,23 @@ export function DicomCompareClient({
     rightViewportRef.current?.render();
   }
 
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.closest("a, button, input, select, textarea") || target.isContentEditable)
-      ) {
-        return;
-      }
-      if (!hasStacks) return;
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-        event.preventDefault();
-        void showSyncedImage(event.shiftKey ? "right" : "left", sliceIndexesRef.current.left + 1);
-      }
-      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-        event.preventDefault();
-        void showSyncedImage(event.shiftKey ? "right" : "left", sliceIndexesRef.current.left - 1);
-      }
-      if (event.key.toLowerCase() === "r") {
-        event.preventDefault();
-        resetViewports();
-      }
-    },
-    [hasStacks, showSyncedImage],
-  );
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+  // Arrows step the left stack; with Shift they step the right one. R resets both viewports.
+  const compareShortcutsActive = () => hasStacks && focusAllowsViewerShortcut();
+  const stepShortcut = { repeat: true, when: compareShortcutsActive };
+  const step = (side: "left" | "right", delta: number) => () =>
+    void showSyncedImage(side, sliceIndexesRef.current.left + delta);
+  useShortcut("arrowright", step("left", 1), stepShortcut);
+  useShortcut("arrowdown", step("left", 1), stepShortcut);
+  useShortcut("arrowleft", step("left", -1), stepShortcut);
+  useShortcut("arrowup", step("left", -1), stepShortcut);
+  useShortcut("shift+arrowright", step("right", 1), stepShortcut);
+  useShortcut("shift+arrowdown", step("right", 1), stepShortcut);
+  useShortcut("shift+arrowleft", step("right", -1), stepShortcut);
+  useShortcut("shift+arrowup", step("right", -1), stepShortcut);
+  useShortcut("r", resetViewports, {
+    description: "Reset both viewports",
+    when: compareShortcutsActive,
+  });
 
   const matchLabel = matchLabelForState(matchInfo.state);
 
@@ -1009,24 +994,7 @@ export function DicomCompareClient({
             data-test-id="dicom-compare-controls"
           >
             <div className="flex shrink-0 items-center gap-1 overflow-x-auto">
-              <ToolButton
-                active={toolMode === "window"}
-                icon={<SlidersHorizontal className="size-4" />}
-                label="W/L"
-                onClick={() => setToolMode("window")}
-              />
-              <ToolButton
-                active={toolMode === "pan"}
-                icon={<Move className="size-4" />}
-                label="Pan"
-                onClick={() => setToolMode((mode) => (mode === "pan" ? "window" : "pan"))}
-              />
-              <ToolButton
-                active={toolMode === "zoom"}
-                icon={<ZoomIn className="size-4" />}
-                label="Zoom"
-                onClick={() => setToolMode((mode) => (mode === "zoom" ? "window" : "zoom"))}
-              />
+              <ToolModeGroup onToolModeChange={setToolMode} toolMode={toolMode} />
               <Button
                 variant="ghost"
                 size="icon"
@@ -1051,16 +1019,14 @@ export function DicomCompareClient({
                 <ChevronLeft className="size-4" />
               </Button>
               <div className="min-w-28 flex-1 px-1 sm:min-w-44 sm:px-2">
-                <input
-                  className="h-2 w-full accent-emerald-300"
-                  type="range"
-                  min={0}
-                  max={Math.max(0, (leftStack?.images.length ?? 1) - 1)}
-                  aria-label="Matched slice"
-                  aria-valuetext={`Slice ${(loadingIndexes.left ?? sliceIndexes.left) + 1} of ${leftStack?.images.length ?? 0}`}
-                  value={loadingIndexes.left ?? sliceIndexes.left}
+                <RangeSlider
                   disabled={!hasStacks}
-                  onChange={(event) => void showSyncedImage("left", Number(event.currentTarget.value))}
+                  label="Matched slice"
+                  max={Math.max(0, (leftStack?.images.length ?? 1) - 1)}
+                  min={0}
+                  onValueChange={(index) => void showSyncedImage("left", index)}
+                  value={loadingIndexes.left ?? sliceIndexes.left}
+                  valueText={(index) => `Slice ${index + 1} of ${leftStack?.images.length ?? 0}`}
                 />
               </div>
               <Button
@@ -1496,34 +1462,6 @@ function sameTuple(
 ) {
   if (!left || !right) return true;
   return Math.abs(left[0] - right[0]) <= 0.001 && Math.abs(left[1] - right[1]) <= 0.001;
-}
-
-function ToolButton({
-  active,
-  icon,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      className={cn(
-        "border-white/15 bg-white/5 text-zinc-300 hover:bg-white/10",
-        active && "border-emerald-300/50 bg-emerald-300/15 text-emerald-100",
-      )}
-      onClick={onClick}
-      aria-pressed={active}
-    >
-      {icon}
-      <span className="sr-only sm:not-sr-only">{label}</span>
-    </Button>
-  );
 }
 
 function MetaRow({ label, value }: { label: string; value: string | null | undefined }) {

@@ -30,6 +30,17 @@ const buttonSizes = {
   "icon-lg": "size-9",
 } as const;
 
+/** Button classes, for UI SDK parts (toggles, triggers) that should look like a Button. */
+export function buttonClassName(
+  {
+    size = "default",
+    variant = "default",
+  }: { size?: keyof typeof buttonSizes; variant?: keyof typeof buttonVariants },
+  ...extra: ClassValue[]
+) {
+  return cn(buttonBase, buttonVariants[variant], buttonSizes[size], ...extra);
+}
+
 export function Button({
   className,
   size = "default",
@@ -39,12 +50,7 @@ export function Button({
   size?: keyof typeof buttonSizes;
   variant?: keyof typeof buttonVariants;
 }) {
-  return (
-    <button
-      className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], className)}
-      {...props}
-    />
-  );
+  return <button className={buttonClassName({ size, variant }, className)} {...props} />;
 }
 
 const badgeBase =
