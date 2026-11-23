@@ -2319,11 +2319,15 @@ html[data-initial-sidebar-state="collapsed"]
     margin-top: 0.125rem;
   }
 
+  /* The chat owns its own scroller (StickToBottom) and a pinned composer, so
+     it must be bounded by the content shell. With auto height the chat grew
+     to its full content height: the message list never overflowed, the
+     composer scrolled off-screen and the page scrolled instead. */
   .wiki-shell-chat-page {
     display: block;
-    height: auto;
-    min-height: 100%;
-    overflow: visible;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .wiki-shell-chat-sidebar {
@@ -2332,8 +2336,9 @@ html[data-initial-sidebar-state="collapsed"]
 
   .wiki-shell-chat-main {
     background: var(--background);
-    min-height: 100%;
-    overflow: visible;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
     padding-bottom: calc(3rem + env(safe-area-inset-bottom));
   }
 }
