@@ -46,7 +46,7 @@ const isWasm = (r: Request) => /\.wasm(\?|$)/.test(r.path);
 const isCss = (r: Request) => r.type === "Stylesheet" || /\.css(\?|$)/.test(r.path);
 const isApi = (r: Request) => r.path.startsWith("/api/");
 
-async function load(context: BrowserContext, base: string, profile: ProfileName, path: string, signedIn: boolean): Promise<LoadSample> {
+async function load(context: BrowserContext, base: string, profile: ProfileName, path: string, signedIn: boolean, cold: boolean): Promise<LoadSample> {
   const page = await context.newPage();
   try {
     const tools = await instrument(page, profile, base);
@@ -55,12 +55,13 @@ async function load(context: BrowserContext, base: string, profile: ProfileName,
     const ok = await page.waitForSelector(ready, { timeout: TIMEOUT_MS }).then(() => true, () => false);
     // "Tree" is first presence in the DOM: on mobile the sidebar is a closed drawer, never visible.
     if (ok && signedIn) await page.waitForSelector("[data-tree-row]", { state: "attached", timeout: 30_000 }).catch(() => undefined);
-    // Signed-in loads also wait for the full manifest, which arrives after the
-    // first paint, so its cost (and the work after it) falls inside the window.
+    // Cold signed-in loads also wait for the full manifest, which arrives after
+    // the first paint, so its cost (and the work after it) falls inside the
+    // window. A warm load only revalidates it (a small `?known=` answer).
     const fullManifest = async () => (await tools.requests())
       .filter((r) => r.path.startsWith("/api/wiki/manifest") && Number.isFinite(r.end) && r.bytes > 2048)
       .sort((a, b) => b.bytes - a.bytes)[0];
-    if (ok && signedIn) {
+    if (ok && signedIn && cold) {
       const deadline = Date.now() + MANIFEST_WAIT_MS;
       while (!(await fullManifest()) && Date.now() < deadline) await page.waitForTimeout(250);
     }
@@ -113,9 +114,9 @@ export async function runLoadIteration(browser: Browser, base: string, profile: 
     const context = await newContext(browser, base, profile, { signedIn });
     try {
       const path = signedIn ? `/${PAGES.article}` : "/";
-      const cold = await load(context, base, profile, path, signedIn);
+      const cold = await load(context, base, profile, path, signedIn, true);
       await new Promise((resolve) => setTimeout(resolve, 600));
-      const warm = await load(context, base, profile, path, signedIn);
+      const warm = await load(context, base, profile, path, signedIn, false);
       return [cold, warm] as const;
     } finally {
       await context.close();
