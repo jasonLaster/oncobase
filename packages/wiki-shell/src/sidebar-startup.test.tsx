@@ -50,5 +50,7 @@ test("the serialized script names the same key, limit and variable as the layout
 
 test("the layout's markup carries no per-user width", () => {
   const html = renderToStaticMarkup(<ResizableLayout sidebar={<nav />}><main /></ResizableLayout>);
-  expect(html).toContain(`style="width:var(${SIDEBAR_WIDTH_VARIABLE}, 256px)"`);
+  // The default size only: styles.css points the panel's size at the variable until the group attaches.
+  expect(html).toMatch(/data-sidebar-expanded-rail="true"[^>]*style="flex:0 1 var\(--resizable-panel-size, 256px\)/);
+  expect(html).toMatch(/aria-label="Resize sidebar"[^>]*role="separator"/);
 });
