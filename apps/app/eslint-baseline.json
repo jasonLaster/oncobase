@@ -2,7 +2,6 @@
   "@typescript-eslint/no-floating-promises": 19,
   "jsx-a11y/alt-text": 1,
   "jsx-a11y/click-events-have-key-events": 2,
-  "jsx-a11y/label-has-associated-control": 1,
   "jsx-a11y/no-autofocus": 1,
   "jsx-a11y/no-noninteractive-element-interactions": 2,
   "jsx-a11y/no-noninteractive-element-to-interactive-role": 1,

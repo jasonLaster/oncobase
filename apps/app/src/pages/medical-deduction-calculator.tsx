@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@oncobase/ui/button";
 import { Checkbox, CheckboxIndicator } from "@oncobase/ui/checkbox";
-import { Field, FieldLabel } from "@oncobase/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@oncobase/ui/field";
 import { NumberInput, NumberInputControl } from "@oncobase/ui/number-input";
 import { SegmentedControl, SegmentedControlItem } from "@oncobase/ui/segmented-control";
 import { Slider, SliderControl, SliderIndicator, SliderThumb, SliderTrack } from "@oncobase/ui/slider";
@@ -790,15 +790,15 @@ function MultiYearPlanner({
 
   return (
     <div className="space-y-5" data-test-id="medical-deduction-multi-year">
-      <label className="relative flex cursor-pointer items-start gap-3">
+      <Field className="relative flex items-start gap-3">
         <BrandCheckbox className="mt-1" checked={spread} onCheckedChange={onSetSpread} />
         <div>
-          <div className="font-medium">Spread costs across multiple tax years</div>
-          <div className="text-sm text-[var(--text-muted)]">
+          <FieldLabel className="block cursor-pointer font-medium">Spread costs across multiple tax years</FieldLabel>
+          <FieldDescription className="text-sm text-[var(--text-muted)]">
             Medical deductions don&apos;t carry forward. Splitting expenses across years can recover savings if a single year can&apos;t absorb the full deduction — but you pay the 7.5% AGI floor each year.
-          </div>
+          </FieldDescription>
         </div>
-      </label>
+      </Field>
 
       {spread ? (
         <>
@@ -821,10 +821,10 @@ function MultiYearPlanner({
                 ))}
               </SegmentedControl>
             </Field>
-            <label className="relative flex cursor-pointer items-center gap-2">
+            <Field className="relative flex items-center gap-2">
               <BrandCheckbox checked={customize} onCheckedChange={onSetCustomize} />
-              <span className="text-sm">Customize distribution</span>
-            </label>
+              <FieldLabel className="cursor-pointer text-sm">Customize distribution</FieldLabel>
+            </Field>
             {customize ? (
               <button
                 onClick={onReoptimize}
