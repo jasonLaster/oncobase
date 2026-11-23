@@ -1,7 +1,7 @@
 "use client";
 
 import { Move, SlidersHorizontal, ZoomIn } from "lucide-react";
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 
 import { Slider, SliderControl, SliderIndicator, SliderThumb, SliderTrack } from "@oncobase/ui/slider";
 import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
@@ -122,5 +122,18 @@ export function RangeSlider({
         </SliderTrack>
       </SliderControl>
     </Slider>
+  );
+}
+
+/** Whether a media query matches. False on the server and before hydration. */
+export function useMediaQuery(query: string) {
+  return useSyncExternalStore(
+    (onChange) => {
+      const list = window.matchMedia(query);
+      list.addEventListener("change", onChange);
+      return () => list.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
   );
 }
