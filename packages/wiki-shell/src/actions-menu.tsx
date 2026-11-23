@@ -29,6 +29,7 @@ import {
   isValidElement,
   type ReactElement,
   type ReactNode,
+  useId,
   useState,
 } from "react";
 import { cn } from "./utils.ts";
@@ -433,6 +434,7 @@ export function WikiActionsMenu({
 }: WikiActionsMenuProps) {
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authMode, setAuthMode] = useState<WikiActionsMenuAuthMode>("signin");
+  const menuLabelId = useId();
 
   const openAuthDialog = (mode: WikiActionsMenuAuthMode) => {
     setAuthMode(mode);
@@ -445,6 +447,10 @@ export function WikiActionsMenu({
   return (
     <>
       <div className={cn("wiki-shell-actions-menu", className)}>
+        {/* The menu is named "Actions", not after the trigger UI SDK would label it by. */}
+        <span hidden id={menuLabelId}>
+          Actions
+        </span>
         <Menu>
           {isValidElement(trigger) ? (
             <MenuTrigger render={trigger} />
@@ -459,8 +465,7 @@ export function WikiActionsMenu({
           )}
           <MenuContent
             align={align}
-            aria-label="Actions"
-            aria-labelledby=""
+            aria-labelledby={menuLabelId}
             className="wiki-shell-actions-popover"
             side="bottom"
             sideOffset={sideOffset}
