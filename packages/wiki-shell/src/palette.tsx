@@ -131,7 +131,7 @@ export function WikiCommandItem({
         )
       }
       label={label}
-      render={render ?? (href ? <a href={href} rel={rel} target={target} /> : undefined)}
+      render={render ?? (href ? ({ children, ...props }) => <a {...props} href={href} rel={rel} target={target}>{children}</a> : undefined)}
       style={depthStyle || style ? { ...depthStyle, ...(typeof style === "object" ? style : undefined) } : undefined}
       {...props}
     >
