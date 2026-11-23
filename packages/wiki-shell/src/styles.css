@@ -2483,7 +2483,7 @@ html[data-initial-sidebar-state="collapsed"]
   width: min(420px, calc(100% - 16px));
 }
 
-.wiki-shell-command-confirm h2 {
+.wiki-shell-command-confirm [data-slot="alert-dialog-title"] {
   font-size: 1rem;
   font-weight: 600;
   margin: 0;
@@ -2518,5 +2518,8 @@ html[data-initial-sidebar-state="collapsed"]
   background: var(--foreground);
   border-color: var(--foreground);
   color: var(--background);
+}
+[data-slot="command-group"]:not(:first-child) > .wiki-shell-command-group-heading {
+  margin-top: 4px;
 }
 /* end ui-sdk: w3-palettes-search */

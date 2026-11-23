@@ -612,7 +612,7 @@ export function CommandPalette({
         <AlertDialog open={confirmingReset} onOpenChange={setConfirmingReset}>
           <AlertDialogBackdrop className="wiki-shell-command-backdrop" />
           <AlertDialogContent className="wiki-shell-command-palette wiki-shell-command-confirm">
-            <AlertDialogTitle>Reset local cache?</AlertDialogTitle>
+            <AlertDialogTitle render={<div />}>Reset local cache?</AlertDialogTitle>
             <AlertDialogDescription>
               Clear the local LiveStore cache for this reader and reload?
             </AlertDialogDescription>

@@ -42,7 +42,8 @@ export function WikiCommandPanel({ children, className, title, ...props }: WikiC
       className={withClass("wiki-shell-command-palette command-palette", className)}
       {...props}
     >
-      <DialogTitle className="wiki-shell-sr-only">{title}</DialogTitle>
+      {/* Not a heading: the reader's outline collects every heading on the page. */}
+      <DialogTitle className="wiki-shell-sr-only" render={<div />}>{title}</DialogTitle>
       {children}
     </DialogContent>
   );
