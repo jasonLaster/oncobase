@@ -164,3 +164,50 @@ test("the features page passes automated accessibility checks in light and dark"
     expect(violations, `${scheme} theme`).toEqual([]);
   }
 });
+
+test("the demos switch with their toggles, tabs and switch", async ({ page }) => {
+  await openFeatures(page);
+
+  const width = page.getByRole("group", { name: "Container width" });
+  await width.scrollIntoViewIfNeeded();
+  await expect(width.getByRole("button", { name: "Desktop" })).toHaveAttribute("aria-pressed", "true");
+  await width.getByRole("button", { name: "Phone" }).click();
+  await expect(width.getByRole("button", { name: "Phone" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("table-demo-stage")).toHaveCSS("max-width", "360px");
+  await page.keyboard.press("ArrowRight");
+  await expect(width.getByRole("button", { name: "Tablet" })).toBeFocused();
+
+  const diagram = page.getByRole("group", { name: "Sample diagram" });
+  await diagram.getByRole("button", { name: "Treatment timeline" }).click();
+  await expect(diagram.getByRole("button", { name: "Treatment timeline" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".ft-diagram-source")).toContainText("gantt");
+
+  const notes = page.getByRole("tablist", { name: "Note pages" });
+  await expect(notes.getByRole("tab", { name: /Overview/ })).toHaveAttribute("aria-selected", "true");
+  await page.locator(".ft-call").getByRole("button", { name: "04:26" }).click();
+  await expect(notes.getByRole("tab", { name: /Raw/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator('.ft-line[data-moment="04:26"]')).toHaveAttribute("data-active", "true");
+  await notes.getByRole("tab", { name: /Raw/ }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("tabpanel", { name: /Formatted/ })).toContainText("Scan results");
+
+  const roles = page.getByRole("group", { name: "Preview an example user role" });
+  await roles.getByRole("button", { name: "Research partner" }).click();
+  await expect(roles.getByRole("button", { name: "Research partner" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("list", { name: "Page visibility for Research partner" })).toBeVisible();
+
+  const redact = page.getByRole("switch", { name: "Redact example personal information" });
+  await expect(redact).toHaveAttribute("aria-checked", "true");
+  await redact.focus();
+  await page.keyboard.press("Space");
+  await expect(redact).toHaveAttribute("aria-checked", "false");
+  await expect(page.locator(".lp-redaction-demo")).toContainText("Alex Example");
+
+  const mark = page.getByRole("button", { name: "Comment on: Few open trials, and travel may be needed" });
+  await mark.focus();
+  await page.keyboard.press("Enter");
+  await expect(mark).toHaveAttribute("data-active", "true");
+  const react = page.locator(".ft-cm-actions").getByRole("button", { name: "React" }).first();
+  await react.click();
+  await expect(page.locator(".ft-cm-actions").getByRole("button", { pressed: true }).first()).toBeVisible();
+});
