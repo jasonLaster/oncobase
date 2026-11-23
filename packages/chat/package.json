@@ -99,6 +99,11 @@
       "import": "./src/components/tool-call-core.tsx",
       "default": "./src/components/tool-call-core.tsx"
     },
+    "./components/hint-button": {
+      "types": "./src/components/hint-button.tsx",
+      "import": "./src/components/hint-button.tsx",
+      "default": "./src/components/hint-button.tsx"
+    },
     "./components/streaming-markdown": {
       "types": "./src/components/streaming-markdown.tsx",
       "import": "./src/components/streaming-markdown.tsx",

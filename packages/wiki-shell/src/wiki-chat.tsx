@@ -4,13 +4,15 @@ import {
   DefaultToolCallBlock,
   getChatToolInfo,
 } from "@oncobase/chat/components/tool-call-core";
+import { HintButton } from "@oncobase/chat/components/hint-button";
 import { useChatRuntime } from "@oncobase/chat/runtime";
 import type {
   ChatMessageActionProps,
   ChatSourceExtractor,
   ChatToolCallRendererProps,
 } from "@oncobase/chat/types";
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@oncobase/ui/collapsible";
+import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
 import {
   normalizeWikiEditProposal,
   useWikiEditReview,
@@ -167,7 +169,6 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
   done: boolean;
   query: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const results = (Array.isArray(output) ? output : []) as Array<{
     slug?: string;
     title?: string;
@@ -176,46 +177,55 @@ const SearchResultsBlock = memo(function SearchResultsBlock({
 
   if (!query && results.length === 0) return null;
 
-  return (
-    <div className="min-w-0 max-w-full">
-      <button
-        type="button"
-        onClick={() => done && setExpanded(!expanded)}
-        aria-expanded={done && results.length > 0 ? expanded : undefined}
-        className={`inline-flex max-w-full min-w-0 items-center gap-1.5 text-left text-xs transition-colors ${
-          done
-            ? "text-[var(--text-muted)] hover:text-[var(--foreground)]"
-            : "text-[var(--text-muted)]"
-        }`}
-      >
-        {!done ? <Spinner /> : <SearchIcon />}
-        <span className="min-w-0 truncate">
-          {!done
-            ? query
-              ? `Searching "${query}"...`
-              : "Searching..."
-            : `Searched "${query}" - ${results.length} result${results.length === 1 ? "" : "s"}`}
+  const summary = (
+    <>
+      {!done ? <Spinner /> : <SearchIcon />}
+      <span className="min-w-0 truncate">
+        {!done
+          ? query
+            ? `Searching "${query}"...`
+            : "Searching..."
+          : `Searched "${query}" - ${results.length} result${results.length === 1 ? "" : "s"}`}
+      </span>
+    </>
+  );
+
+  if (!done || results.length === 0) {
+    return (
+      <div className="min-w-0 max-w-full">
+        <span className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-left text-xs text-[var(--text-muted)]">
+          {summary}
         </span>
-        {done && results.length > 0 ? <DisclosureIcon expanded={expanded} /> : null}
-      </button>
-      {expanded && results.length > 0 ? (
-        <div className="mt-0.5 ml-4 min-w-0 max-w-[calc(100%-1rem)] space-y-0 border-l border-[var(--sidebar-border)] pl-2">
-          {results.map((result, index) => (
-            <WikiLink
-              key={`${result.slug ?? result.href ?? index}`}
-              href={hrefForPage(result.href, result.slug)}
-              className="flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--brand)]"
-              title={result.title ?? result.slug}
-            >
-              <FolderIcon />
-              <span className="min-w-0 truncate">
-                {result.title || result.slug}
-              </span>
-            </WikiLink>
-          ))}
-        </div>
-      ) : null}
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <Collapsible className="min-w-0 max-w-full">
+      <CollapsibleTrigger className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-left text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--foreground)]">
+        {({ open }) => (
+          <>
+            {summary}
+            <DisclosureIcon expanded={open} />
+          </>
+        )}
+      </CollapsibleTrigger>
+      <CollapsiblePanel className="mt-0.5 ml-4 min-w-0 max-w-[calc(100%-1rem)] space-y-0 border-l border-[var(--sidebar-border)] pl-2">
+        {results.map((result, index) => (
+          <WikiLink
+            key={`${result.slug ?? result.href ?? index}`}
+            href={hrefForPage(result.href, result.slug)}
+            className="flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--brand)]"
+            title={result.title ?? result.slug}
+          >
+            <FolderIcon />
+            <span className="min-w-0 truncate">
+              {result.title || result.slug}
+            </span>
+          </WikiLink>
+        ))}
+      </CollapsiblePanel>
+    </Collapsible>
   );
 });
 
@@ -431,11 +441,10 @@ export function WikiChatMessageAction({ parts }: ChatMessageActionProps) {
   const isOpen = live.some((p) => p.proposalId === review.activeProposalId);
 
   return (
-    <button
-      type="button"
+    <HintButton
+      hint="Review wiki updates"
       onClick={() => review.openProposal(target.proposalId, target)}
       aria-label={`Review updates (${fileCount})`}
-      title="Review wiki updates"
       className={`inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs transition-colors ${
         waiting
           ? "bg-[var(--brand)]/10 font-medium text-[var(--brand)] hover:bg-[var(--brand)]/15"
@@ -449,7 +458,7 @@ export function WikiChatMessageAction({ parts }: ChatMessageActionProps) {
         <path d="M5.5 9l1.5 1.5L10.5 7" />
       </svg>
       <span>Review updates ({fileCount})</span>
-    </button>
+    </HintButton>
   );
 }
 

@@ -17,7 +17,9 @@
  */
 
 import type { UIMessage } from "ai";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@oncobase/ui/collapsible";
 import { memo, useMemo, useState } from "react";
+import { HintButton } from "./hint-button";
 import { StreamingMarkdown } from "./streaming-markdown";
 import { DefaultToolCallBlock, getChatToolInfo } from "./tool-call-core";
 import { useChatRuntime } from "../runtime";
@@ -33,22 +35,20 @@ export interface ChatUIMessage extends UIMessage {
 // ---------------- part renderers (each individually memoized) ----------------
 
 const ReasoningBlock = memo(function ReasoningBlock({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
   return (
-    <div className="my-1">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
-      >
-        <span className="text-[10px]">{open ? "▼" : "▶"}</span>
-        <span className="italic">Reasoning</span>
-      </button>
-      {open && (
-        <div className="mt-1 pl-3 border-l-2 border-[var(--sidebar-border)] text-xs text-[var(--text-muted)] whitespace-pre-wrap">
-          {text}
-        </div>
-      )}
-    </div>
+    <Collapsible className="my-1">
+      <CollapsibleTrigger className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors">
+        {({ open }) => (
+          <>
+            <span className="text-[10px]" aria-hidden="true">{open ? "▼" : "▶"}</span>
+            <span className="italic">Reasoning</span>
+          </>
+        )}
+      </CollapsibleTrigger>
+      <CollapsiblePanel className="mt-1 pl-3 border-l-2 border-[var(--sidebar-border)] text-xs text-[var(--text-muted)] whitespace-pre-wrap">
+        {text}
+      </CollapsiblePanel>
+    </Collapsible>
   );
 });
 
@@ -101,7 +101,6 @@ const SourceLinks = memo(function SourceLinks({
   sources: ChatSource[];
 }) {
   const { copy, LinkComponent } = useChatRuntime();
-  const [open, setOpen] = useState(false);
   if (sources.length === 0) return null;
 
   function anchorLabel(href: string | undefined) {
@@ -111,20 +110,18 @@ const SourceLinks = memo(function SourceLinks({
   }
 
   return (
-    <div className="mt-2 min-w-0 pt-1.5 border-t border-[var(--sidebar-border)]">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
-      >
-        <span className="text-[10px]">{open ? "▼" : "▶"}</span>
-        <span>
-          {copy.sourcesLabel} ({sources.length})
-        </span>
-      </button>
-      {open && (
-        <div className="mt-1 flex min-w-0 flex-wrap gap-1">
+    <Collapsible className="mt-2 min-w-0 pt-1.5 border-t border-[var(--sidebar-border)]">
+      <CollapsibleTrigger className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors">
+        {({ open }) => (
+          <>
+            <span className="text-[10px]" aria-hidden="true">{open ? "▼" : "▶"}</span>
+            <span>
+              {copy.sourcesLabel} ({sources.length})
+            </span>
+          </>
+        )}
+      </CollapsibleTrigger>
+      <CollapsiblePanel className="mt-1 flex min-w-0 flex-wrap gap-1">
           {sources.map((source) => {
             const section = anchorLabel(source.href);
             const content = (
@@ -155,9 +152,8 @@ const SourceLinks = memo(function SourceLinks({
               </span>
             );
           })}
-        </div>
-      )}
-    </div>
+      </CollapsiblePanel>
+    </Collapsible>
   );
 });
 
@@ -409,10 +405,9 @@ const AssistantMessageActions = memo(AssistantMessageActionsImpl);
 
 function EditResponseButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
+    <HintButton
+      hint="Edit response"
       onClick={onClick}
-      title="Edit response"
       aria-label="Edit response"
       className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors"
     >
@@ -420,7 +415,7 @@ function EditResponseButton({ onClick }: { onClick: () => void }) {
         <path d="M11.5 2.5l2 2L5 13H3v-2z" />
       </svg>
       <span>Edit</span>
-    </button>
+    </HintButton>
   );
 }
 
@@ -436,10 +431,10 @@ function CopyButton({ text }: { text: string }) {
     }
   };
   return (
-    <button
-      type="button"
+    <HintButton
+      hint={copied ? "Copied!" : "Copy message"}
+      closeOnPress={false}
       onClick={handleCopy}
-      title={copied ? "Copied!" : "Copy message"}
       aria-label={copied ? "Copied" : "Copy message"}
       className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors"
     >
@@ -454,16 +449,15 @@ function CopyButton({ text }: { text: string }) {
         </svg>
       )}
       <span>{copied ? "Copied" : "Copy"}</span>
-    </button>
+    </HintButton>
   );
 }
 
 function RegenerateButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
+    <HintButton
+      hint="Regenerate this response"
       onClick={onClick}
-      title="Regenerate this response"
       aria-label="Regenerate response"
       className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent-light)] transition-colors"
     >
@@ -472,7 +466,7 @@ function RegenerateButton({ onClick }: { onClick: () => void }) {
         <path d="M13.5 6.5A6 6 0 0 0 4 4M2.5 9.5A6 6 0 0 0 12 12" />
       </svg>
       <span>Regenerate</span>
-    </button>
+    </HintButton>
   );
 }
 
@@ -504,16 +498,16 @@ function UserMessageRowImpl({ message, onEdit }: UserMessageRowProps) {
         >
           {text}
         </div>
-        <button
+        <HintButton
+          hint="Edit message"
           onClick={() => onEdit(text, message)}
-          title="Edit message"
           aria-label="Edit message"
           className="shrink-0 mt-2 p-0.5 rounded opacity-0 group-hover/msg:opacity-100 hover:bg-[var(--accent-light)] text-[var(--text-muted)] hover:text-[var(--foreground)] transition-all"
         >
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M11.5 2.5l2 2L5 13H3v-2z" />
           </svg>
-        </button>
+        </HintButton>
       </div>
     </div>
   );
