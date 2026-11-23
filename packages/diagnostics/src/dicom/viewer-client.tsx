@@ -2,9 +2,6 @@
 
 import { safeLocalStorage } from "@oncobase/safe-storage";
 import {
-  type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -33,9 +30,21 @@ import useSWR from "swr";
 
 import { copyTextToClipboard } from "@oncobase/wiki-shell";
 import { useShortcut } from "@oncobase/ui/shortcuts";
+import {
+  createResizableController,
+  Resizable,
+  ResizableHandle,
+  ResizablePanel,
+} from "@oncobase/ui/resizable";
 import { Toggle } from "@oncobase/ui/toggle";
 import { Badge, Button, buttonClassName, cn } from "./ui.tsx";
-import { focusAllowsViewerShortcut, RangeSlider, ToolModeGroup, type ToolMode } from "./viewer-controls.tsx";
+import {
+  focusAllowsViewerShortcut,
+  RangeSlider,
+  ToolModeGroup,
+  useMediaQuery,
+  type ToolMode,
+} from "./viewer-controls.tsx";
 import {
   DIAGNOSTIC_STUDY_SET_PARAM,
   getPrimaryReportLink,
@@ -63,7 +72,8 @@ const DICOM_STACK_RAIL_MIN_WIDTH = 220;
 const DICOM_STACK_RAIL_MAX_WIDTH = 420;
 const DICOM_STACK_RAIL_DEFAULT_WIDTH = 280;
 const DICOM_STACK_RAIL_COLLAPSED_WIDTH = 44;
-const DICOM_RAIL_WIDTH_STEP = 16;
+const DICOM_SERIES_PANEL_ID = "dicom-series-rail";
+const DICOM_STACK_PANEL_ID = "dicom-stack-rail";
 
 const DICOM_RAIL_STORAGE_KEYS: Record<DicomRail, string> = {
   series: "dicom-viewer-series-rail-width",
@@ -74,12 +84,6 @@ interface DicomRailBounds {
   min: number;
   max: number;
   defaultWidth: number;
-}
-
-interface DicomRailResizeState {
-  rail: DicomRail;
-  startX: number;
-  startWidth: number;
 }
 
 interface DicomCatalog {
@@ -210,12 +214,6 @@ function persistDicomRailWidth(rail: DicomRail, width: number) {
   safeLocalStorage.setItem(DICOM_RAIL_STORAGE_KEYS[rail], String(width));
 }
 
-function nextDicomRailWidth(state: DicomRailResizeState, clientX: number) {
-  const delta = clientX - state.startX;
-  const directedDelta = state.rail === "series" ? delta : -delta;
-  return clampDicomRailWidth(state.rail, state.startWidth + directedDelta);
-}
-
 interface DicomViewerClientProps {
   initialBiopsyId?: string | null;
   initialImageNumber?: number | null;
@@ -246,7 +244,10 @@ export function DicomViewerClient({
       : readInitialImageIndexFromLocation(),
   );
   const toolModeRef = useRef<ToolMode>("window");
-  const railResizeRef = useRef<DicomRailResizeState | null>(null);
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+  const [railLayout] = useState(() => createResizableController());
+  const isLg = useMediaQuery("(min-width: 1024px)");
+  const isXl = useMediaQuery("(min-width: 1280px)");
   const viewportRevisionFrameRef = useRef(0);
 
   const renderingEngineId = useRef(`oncobase-dicom-engine-${crypto.randomUUID()}`);
@@ -785,82 +786,6 @@ export function DicomViewerClient({
     setIsInverted(next);
   }
 
-  const setDicomRailWidth = useCallback(
-    (rail: DicomRail, width: number, options?: { persist?: boolean }) => {
-      const next = clampDicomRailWidth(rail, width);
-      if (rail === "series") {
-        setSeriesRailWidth(next);
-      } else {
-        setStackRailWidth(next);
-      }
-      if (options?.persist ?? true) {
-        persistDicomRailWidth(rail, next);
-      }
-      return next;
-    },
-    [],
-  );
-
-  const beginRailResize = useCallback(
-    (rail: DicomRail, event: PointerEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      railResizeRef.current = {
-        rail,
-        startX: event.clientX,
-        startWidth: rail === "series" ? seriesRailWidth : stackRailWidth,
-      };
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [seriesRailWidth, stackRailWidth],
-  );
-
-  const resizeRail = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const state = railResizeRef.current;
-      if (!state) return;
-      event.preventDefault();
-      setDicomRailWidth(state.rail, nextDicomRailWidth(state, event.clientX), {
-        persist: false,
-      });
-    },
-    [setDicomRailWidth],
-  );
-
-  const endRailResize = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const state = railResizeRef.current;
-      if (!state) return;
-      event.preventDefault();
-      setDicomRailWidth(state.rail, nextDicomRailWidth(state, event.clientX));
-      railResizeRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-    },
-    [setDicomRailWidth],
-  );
-
-  const nudgeRailWidth = useCallback(
-    (rail: DicomRail, event: ReactKeyboardEvent<HTMLDivElement>) => {
-      const bounds = dicomRailBounds(rail);
-      const currentWidth = rail === "series" ? seriesRailWidth : stackRailWidth;
-      const step = event.shiftKey ? DICOM_RAIL_WIDTH_STEP * 2 : DICOM_RAIL_WIDTH_STEP;
-      let nextWidth: number | null = null;
-
-      if (event.key === "ArrowLeft") nextWidth = currentWidth - step;
-      if (event.key === "ArrowRight") nextWidth = currentWidth + step;
-      if (event.key === "Home") nextWidth = bounds.min;
-      if (event.key === "End") nextWidth = bounds.max;
-      if (nextWidth === null) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      setDicomRailWidth(rail, nextWidth);
-    },
-    [seriesRailWidth, setDicomRailWidth, stackRailWidth],
-  );
-
   const imageShortcutsActive = () =>
     Boolean(activeStack?.images.length) && focusAllowsViewerShortcut();
   const nextImage = () => void showImage(sliceIndexRef.current + 1);
@@ -956,27 +881,64 @@ export function DicomViewerClient({
     },
     [viewportRevision],
   );
-  const viewerLayoutStyle = useMemo(
-    () =>
-      ({
-        "--dicom-series-rail-width": `${seriesRailWidth}px`,
-        "--dicom-stack-rail-column-width": `${
-          stackRailOpen ? stackRailWidth : DICOM_STACK_RAIL_COLLAPSED_WIDTH
-        }px`,
-      }) as CSSProperties,
-    [seriesRailWidth, stackRailOpen, stackRailWidth],
+  // Rails hold their pixel widths when the window resizes or a rail opens or
+  // closes, so the image takes the difference, as the old fixed grid did.
+  useEffect(() => {
+    const group = layoutRef.current;
+    if (!group) return;
+    const pinRails = () => {
+      if (isLg) railLayout.resize(DICOM_SERIES_PANEL_ID, `${seriesRailWidth}px`);
+      if (isXl && stackRailOpen) railLayout.resize(DICOM_STACK_PANEL_ID, `${stackRailWidth}px`);
+    };
+    pinRails();
+    const observer = new ResizeObserver(pinRails);
+    observer.observe(group);
+    return () => observer.disconnect();
+  }, [isLg, isXl, railLayout, seriesRailWidth, stackRailOpen, stackRailWidth]);
+
+  // Rails keep their pixel widths across visits; the layout reports percentages.
+  const saveRailWidths = useCallback(
+    (layout: number[]) => {
+      const groupWidth = layoutRef.current?.getBoundingClientRect().width ?? 0;
+      if (groupWidth <= 0) return;
+      const toPixels = (percent: number | undefined) =>
+        percent === undefined ? null : Math.round((percent * groupWidth) / 100);
+      if (isLg) {
+        const width = toPixels(layout[0]);
+        if (width !== null) {
+          setSeriesRailWidth(width);
+          persistDicomRailWidth("series", width);
+        }
+      }
+      if (isXl && stackRailOpen) {
+        const width = toPixels(layout.at(-1));
+        if (width !== null) {
+          setStackRailWidth(width);
+          persistDicomRailWidth("stack", width);
+        }
+      }
+    },
+    [isLg, isXl, stackRailOpen],
   );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0d0f] text-zinc-100">
-      <div
-        className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[var(--dicom-series-rail-width,300px)_minmax(0,1fr)] xl:grid-cols-[var(--dicom-series-rail-width,320px)_minmax(0,1fr)_var(--dicom-stack-rail-column-width,280px)]"
-        style={viewerLayoutStyle}
+      <Resizable
+        className="flex min-h-0 flex-1"
         data-dicom-viewer-layout
+        controller={railLayout}
+        onLayoutCommit={saveRailWidths}
+        ref={layoutRef}
       >
-        <aside
-          className="relative hidden min-h-0 border-r border-white/10 bg-[#11151a] lg:block"
+        {isLg ? (
+        <ResizablePanel
+          className="relative min-h-0 border-r border-white/10 bg-[#11151a]"
           data-test-id="dicom-series-panel"
+          defaultSize={`${seriesRailWidth}px`}
+          id={DICOM_SERIES_PANEL_ID}
+          maxSize={`${DICOM_SERIES_RAIL_MAX_WIDTH}px`}
+          minSize={`${DICOM_SERIES_RAIL_MIN_WIDTH}px`}
+          render={<aside />}
         >
           <div className="h-full min-h-0 overflow-y-auto">
             <div className="space-y-3 p-2.5 sm:p-3">
@@ -1086,20 +1048,16 @@ export function DicomViewerClient({
               ) : null}
             </div>
           </div>
-          <DicomRailResizeHandle
-            rail="series"
-            label="Resize series rail"
-            value={seriesRailWidth}
-            min={DICOM_SERIES_RAIL_MIN_WIDTH}
-            max={DICOM_SERIES_RAIL_MAX_WIDTH}
-            onPointerDown={beginRailResize}
-            onPointerMove={resizeRail}
-            onPointerUp={endRailResize}
-            onKeyDown={nudgeRailWidth}
-          />
-        </aside>
+        </ResizablePanel>
+        ) : null}
+        {isLg ? <DicomRailResizeHandle label="Resize series rail" rail="series" /> : null}
 
-        <main className="flex min-h-0 flex-col bg-black">
+        <ResizablePanel
+          className="flex min-h-0 min-w-0 flex-col bg-black"
+          id="dicom-main-panel"
+          minSize="320px"
+          render={<main />}
+        >
           <div
             className="relative min-h-[260px] flex-1 touch-none outline-none select-none sm:min-h-[420px] max-lg:landscape:min-h-0"
             onContextMenu={(event) => event.preventDefault()}
@@ -1284,12 +1242,19 @@ export function DicomViewerClient({
               </div>
             </div>
           </div>
-        </main>
+        </ResizablePanel>
 
-        {stackRailOpen ? (
-          <aside
-            className="relative hidden min-h-0 border-t border-white/10 bg-[#11151a] xl:block xl:border-t-0 xl:border-l"
+        {isXl ? (stackRailOpen ? (
+          <>
+          <DicomRailResizeHandle label="Resize stack rail" rail="stack" />
+          <ResizablePanel
+            className="relative min-h-0 border-l border-white/10 bg-[#11151a]"
             data-test-id="dicom-stack-panel"
+            defaultSize={`${stackRailWidth}px`}
+            id={DICOM_STACK_PANEL_ID}
+            maxSize={`${DICOM_STACK_RAIL_MAX_WIDTH}px`}
+            minSize={`${DICOM_STACK_RAIL_MIN_WIDTH}px`}
+            render={<aside />}
           >
             <div className="h-full min-h-0 overflow-y-auto">
               <div className="space-y-5 p-4">
@@ -1380,20 +1345,16 @@ export function DicomViewerClient({
                 )}
               </div>
             </div>
-            <DicomRailResizeHandle
-              rail="stack"
-              label="Resize stack rail"
-              value={stackRailWidth}
-              min={DICOM_STACK_RAIL_MIN_WIDTH}
-              max={DICOM_STACK_RAIL_MAX_WIDTH}
-              onPointerDown={beginRailResize}
-              onPointerMove={resizeRail}
-              onPointerUp={endRailResize}
-              onKeyDown={nudgeRailWidth}
-            />
-          </aside>
+          </ResizablePanel>
+          </>
         ) : (
-          <div className="hidden min-h-0 border-l border-white/10 bg-[#11151a] xl:flex xl:items-start xl:justify-center xl:pt-3">
+          <ResizablePanel
+            className="flex min-h-0 items-start justify-center border-l border-white/10 bg-[#11151a] pt-3"
+            defaultSize={`${DICOM_STACK_RAIL_COLLAPSED_WIDTH}px`}
+            id="dicom-stack-rail-collapsed"
+            maxSize={`${DICOM_STACK_RAIL_COLLAPSED_WIDTH}px`}
+            minSize={`${DICOM_STACK_RAIL_COLLAPSED_WIDTH}px`}
+          >
             <Toggle
               aria-label="Open stack rail"
               className={buttonClassName({ size: "icon-sm", variant: "ghost" }, "text-zinc-300 hover:bg-white/10")}
@@ -1404,9 +1365,9 @@ export function DicomViewerClient({
             >
               <PanelRightOpen aria-hidden="true" className="size-4" />
             </Toggle>
-          </div>
-        )}
-      </div>
+          </ResizablePanel>
+        )) : null}
+      </Resizable>
 
       <button
         type="button"
@@ -1603,49 +1564,17 @@ export function DicomViewerClient({
   );
 }
 
-function DicomRailResizeHandle({
-  rail,
-  label,
-  value,
-  min,
-  max,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onKeyDown,
-}: {
-  rail: DicomRail;
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  onPointerDown: (rail: DicomRail, event: PointerEvent<HTMLDivElement>) => void;
-  onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
-  onPointerUp: (event: PointerEvent<HTMLDivElement>) => void;
-  onKeyDown: (rail: DicomRail, event: ReactKeyboardEvent<HTMLDivElement>) => void;
-}) {
+function DicomRailResizeHandle({ label, rail }: { label: string; rail: DicomRail }) {
   return (
-    <div
-      role="separator"
+    <ResizableHandle
       aria-label={label}
-      aria-orientation="vertical"
-      aria-valuemin={min}
-      aria-valuemax={max}
-      aria-valuenow={value}
-      tabIndex={0}
+      className="group relative z-20 w-0 shrink-0 touch-none outline-none"
       data-test-id={`dicom-${rail}-rail-resize-handle`}
-      className={cn(
-        "group absolute top-0 bottom-0 z-20 hidden w-3 cursor-col-resize touch-none justify-center outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70",
-        rail === "series" ? "-right-1.5 lg:flex" : "-left-1.5 xl:flex",
-      )}
-      onPointerDown={(event) => onPointerDown(rail, event)}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onKeyDown={(event) => onKeyDown(rail, event)}
     >
-      <span className="my-3 w-px flex-1 rounded-full bg-white/15 transition-colors group-hover:bg-emerald-300/70 group-focus-visible:bg-emerald-300" />
-    </div>
+      <span className="absolute inset-y-0 -left-1.5 flex w-3 cursor-col-resize justify-center group-focus-visible:ring-2 group-focus-visible:ring-emerald-300/70">
+        <span className="my-3 w-px flex-1 rounded-full bg-white/15 transition-colors group-hover:bg-emerald-300/70 group-focus-visible:bg-emerald-300" />
+      </span>
+    </ResizableHandle>
   );
 }
 
