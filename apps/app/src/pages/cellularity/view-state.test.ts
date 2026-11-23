@@ -32,7 +32,8 @@ test("is empty with nothing selected and ignores unchanged publishes", () => {
 });
 
 test("the 3D model line only shows while the 3D view is active", () => {
-  const model = { camera: "isometric", hidden: ["halo"], spotlight: false, slidesOnly: false, spinning: false };
+  const model = { view: "Overview", question: "Where is the residual tumor?", hidden: ["halo"], laidOut: false, cut: false, separated: 0 };
   expect(describeViewState({ view: "grid", model }, data)).not.toContain("3D model");
   expect(describeViewState({ view: "webgl", model }, data)).toContain("hidden layers: halo");
+  expect(describeViewState({ view: "webgl", model: { ...model, laidOut: true } }, data)).toContain("laid out face-up");
 });
