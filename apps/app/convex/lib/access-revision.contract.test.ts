@@ -542,10 +542,10 @@ test("the access policy code is fingerprinted with ACCESS_POLICY_VERSION", () =>
   };
   const policy = [
     ...["pathAllowed", "cleanList", "cleanTags", "LEGACY_SENSITIVE_INCLUDE_TAGS", "documentTagMatchesRuleTag", "cleanEmailPatterns",
-      "emailMatchesPattern", "EMAIL_PATTERN_GRANTS_BEFORE", "roleMatchesEmail", "ruleMatchesSlug", "createDocumentAccessCheck",
+      "emailMatchesPattern", "EMAIL_PATTERN_GRANTS_BEFORE", "TRUSTED_NEW_ACCOUNT_EMAILS", "roleMatchesEmail", "ruleMatchesSlug", "createDocumentAccessCheck",
       "allowedManifestRows", "canUserAccessSlug", "sessionManifestOverlay"].map(fn),
     source("lib/accessPolicy.ts"), source("lib/assetVisibility.ts"),
   ].join("\n--\n");
   const fingerprint = createHash("sha256").update(policy).digest("hex").slice(0, 16);
-  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 2, fingerprint: "f2dc42c9a2fd73cb" });
+  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 3, fingerprint: "264d2697a2709521" });
 });

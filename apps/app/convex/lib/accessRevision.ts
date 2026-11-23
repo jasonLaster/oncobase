@@ -9,7 +9,7 @@ import { hasActiveScopedWriter, MANIFEST_SNAPSHOT_VERSION } from "./manifestRevi
  * token once. access-revision.contract.test.ts fingerprints those sources and
  * fails until this is reviewed and the fingerprint updated.
  */
-export const ACCESS_POLICY_VERSION = 2;
+export const ACCESS_POLICY_VERSION = 3;
 
 /**
  * Record that what some user can read may have changed. Call it in the same
