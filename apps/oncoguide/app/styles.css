@@ -381,3 +381,9 @@ button { cursor: pointer; }
   .edu-talk-topic-layout[data-has-visual="false"] .edu-talk-context-toggle { display: none; }
   .edu-talk-board-actions button { min-height: 44px; }
 }
+
+/* ui-sdk: oncoguide-scroll-area */
+/* The chat transcript's UI SDK Scroll Area: the viewport fills the conversation, and the scroll-to-end button stays hidden until the view leaves the end. */
+.session-chat-scroll[data-slot="scroll-area-viewport"] { height: 100%; width: 100%; scrollbar-gutter: stable both-edges; }
+.session-chat .session-chat-scroll-button[hidden] { display: none; }
+/* end ui-sdk: oncoguide-scroll-area */

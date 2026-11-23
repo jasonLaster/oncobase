@@ -168,8 +168,7 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, chatId
         <p>Saved only in this browser, so there’s no account to make. Anyone using this browser can see them.</p>
       </section>}</div>}
     <ScrollArea stickToEnd className="session-chat-conversation">
-      {/* OncoGuide's stylesheet has no rule for the viewport's size, so it is set here as the old scroller did. */}
-      <ScrollAreaViewport className="session-chat-scroll" style={{ height: "100%", width: "100%", scrollbarGutter: "stable both-edges" }} role="log" aria-label="Learning conversation" aria-live="polite" aria-relevant="additions">
+      <ScrollAreaViewport className="session-chat-scroll" role="log" aria-label="Learning conversation" aria-live="polite" aria-relevant="additions">
       <ScrollAreaContent className="session-chat-conversation-content">
       {messages.map((message, index) => <article key={message.id} className={`session-chat-message session-chat-${message.role}`} aria-label={message.role === "user" ? "You" : assistantName}>
         <div className="session-chat-speaker">{message.role === "user" ? "You" : assistantName}</div>
@@ -181,8 +180,7 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, chatId
       {status === "submitted" && <p className="session-chat-working" role="status">Finding helpful lessons…</p>}
       </ScrollAreaContent>
       </ScrollAreaViewport>
-      {/* The class only applies while visible: OncoGuide's display rule for it would override the hidden attribute. */}
-      <ScrollAreaScrollToEnd aria-label="Scroll to latest reply" render={(props, { visible }) => <button {...props} className={visible ? "session-chat-scroll-button" : undefined} hidden={!visible}><ArrowDownIcon aria-hidden="true" /></button>} />
+      <ScrollAreaScrollToEnd aria-label="Scroll to latest reply" className="session-chat-scroll-button" render={(props, { visible }) => <button {...props} hidden={!visible}><ArrowDownIcon aria-hidden="true" /></button>} />
     </ScrollArea>
     {error && <div className="session-chat-error" role="alert"><span>{errorMessage}</span><Button type="button" onClick={() => { clearError(); void regenerate(); }}>Retry</Button></div>}
     <form className="session-chat-composer" onSubmit={event => { event.preventDefault(); submit(input); }}>
