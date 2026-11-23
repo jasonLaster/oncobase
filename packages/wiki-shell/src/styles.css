@@ -2623,3 +2623,22 @@ html[data-initial-sidebar-state="collapsed"]
   }
 }
 /* end ui-sdk: w9-shell-overlays */
+
+/* ui-sdk: w8-nav-tree-resizable */
+/* Focus stays on the tree item; draw the ring and hover state on its label,
+   which owns the row's padding (the item also carries the gap above it). */
+.wiki-shell-tree-root [data-slot="tree-item"]:focus-visible {
+  outline: none;
+}
+
+.wiki-shell-tree-root [data-slot="tree-item"]:focus-visible > [data-slot="tree-label"] {
+  background: var(--accent-light);
+  color: var(--foreground);
+  outline: 2px solid var(--ring, var(--brand));
+  outline-offset: 2px;
+}
+
+.wiki-shell-tree-chevron[data-expanded] {
+  transform: rotate(90deg);
+}
+/* end ui-sdk: w8-nav-tree-resizable */

@@ -2331,3 +2331,9 @@ a {
   width: 100%;
 }
 /* end ui-sdk: w9-shell-overlays */
+
+/* ui-sdk: w8-nav-tree-resizable */
+[data-tree-freshness]:not([data-tree-freshness="current"]) .wiki-shell-tree-root [data-slot="tree-item"]:not(:focus-visible):not([data-current]) > [data-slot="tree-label"]:not(:hover) svg {
+  opacity: 0.5;
+}
+/* end ui-sdk: w8-nav-tree-resizable */

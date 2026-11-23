@@ -4,6 +4,7 @@ import {
   gotoWiki,
   installWikiApiMocks,
   openDirectory,
+  treeDirectory,
   viteErrorOverlay,
   waitForPageTitle,
 } from "../fixtures";
@@ -263,14 +264,12 @@ Review morphology and biomarkers together.
     const sidebar = page.getByTestId("wiki-sidebar");
     await expect(sidebar.locator(`a[href="/${slug}"]`)).toBeVisible();
     for (const name of ["sources", "diagnostics", "sample report"]) {
-      await expect(
-        sidebar.getByRole("button", { name: new RegExp(`^(Expand|Collapse) ${name}$`, "i") }).first(),
-      ).toHaveAttribute("aria-expanded", "true");
+      await expect(treeDirectory(sidebar, name)).toHaveAttribute("aria-expanded", "true");
     }
 
     // Collapsing an ancestor of the current page by hand sticks until the
     // next navigation.
-    const diagnostics = sidebar.getByRole("button", { name: /^(Expand|Collapse) diagnostics$/i }).first();
+    const diagnostics = treeDirectory(sidebar, "diagnostics");
     await diagnostics.click();
     await expect(diagnostics).toHaveAttribute("aria-expanded", "false");
     await expect(sidebar.locator(`a[href="/${slug}"]`)).toHaveCount(0);
