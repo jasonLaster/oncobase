@@ -7,7 +7,7 @@
 // These sheets came last in the old merged stylesheet, in the order below.
 // Adopted sheets go after the eager stylesheet and keep that relative order
 // whichever loads first, so the cascade matches the merged file.
-const ORDER = ["education", "page-sharing", "pathology", "pdf-viewer", "marketing"] as const;
+const ORDER = ["education", "page-sharing", "pathology", "pdf-viewer", "cellularity", "marketing"] as const;
 
 export type LazyStylesId = (typeof ORDER)[number];
 

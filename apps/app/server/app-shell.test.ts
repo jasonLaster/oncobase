@@ -941,6 +941,13 @@ describe("wiki Vite app-shell password gate", () => {
         twitterTitle: "TNBC Knowledge Base",
       },
       {
+        path: "/diagnostics/cellularity",
+        title: "Tumor-Bed Cellularity — TNBC Knowledge Base",
+        description: "Breast cancer research and treatment knowledge base",
+        openGraphTitle: "TNBC Knowledge Base",
+        twitterTitle: "TNBC Knowledge Base",
+      },
+      {
         path: "/tools/dicom-viewer",
         title: "DICOM Viewer — TNBC Knowledge Base",
         description: "Breast cancer research and treatment knowledge base",

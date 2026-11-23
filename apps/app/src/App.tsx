@@ -65,6 +65,11 @@ const DiagnosticImagingPage = lazy(() =>
     default: module.DiagnosticImagingPage,
   })),
 );
+const CellularityPage = lazy(() =>
+  import("./pages/cellularity/CellularityPage").then((module) => ({
+    default: module.CellularityPage,
+  })),
+);
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
 );
@@ -177,6 +182,7 @@ export function App({
                   <Route path="/table-examples" element={<TableExamplesPage />} />
                   <Route path="/diagnostics" element={<TimelinePage />} />
                   <Route path="/diagnostics/imaging" element={<DiagnosticImagingPage />} />
+                  <Route path="/diagnostics/cellularity" element={<CellularityPage />} />
                   <Route path="/chat" element={<ChatRoute />} />
                   <Route path="/chat/:id" element={<ChatRoute />} />
                   <Route path="/comments" element={<CommentsPage />} />
