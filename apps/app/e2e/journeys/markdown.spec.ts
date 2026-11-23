@@ -48,7 +48,7 @@ test.describe("markdown rendering (mocked backend)", () => {
     await expect(page).toHaveURL(/#saturday-april-12$/);
 
     await heading.getByRole("link", { name: /Link to/ }).press("Enter");
-    await expect(documentArticle(page).getByRole("status")).toHaveText("Link copied");
+    await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Link copied");
 
     await page.getByRole("link", { name: "the treatment note" }).click();
     await expect(page).toHaveURL(/#treatment-note$/);

@@ -2595,4 +2595,31 @@ html[data-initial-sidebar-state="collapsed"]
   color: var(--foreground);
 }
 
+.wiki-shell-toast-region {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: end;
+  position: fixed;
+  right: 1.125rem;
+  top: 3.875rem;
+  z-index: 70;
+}
+
+.wiki-shell-toast-region .wiki-shell-toast {
+  list-style: none;
+  position: static;
+  transition: opacity 150ms ease, translate 150ms ease;
+  user-select: none;
+}
+
+.wiki-shell-toast-region .wiki-shell-toast:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+  translate: 0 -0.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-shell-toast-region .wiki-shell-toast {
+    transition: none;
+  }
+}
 /* end ui-sdk: w9-shell-overlays */

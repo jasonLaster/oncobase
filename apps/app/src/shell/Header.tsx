@@ -3,6 +3,7 @@ import type { WikiScope } from "@oncobase/wiki-content";
 import {
   WikiActionsMenu,
   WikiAuthDialog,
+  WikiToast,
   WIKI_AUTH_DIALOG_EVENT,
   applyWikiTheme,
   cycleWikiThemePreference,
@@ -93,16 +94,21 @@ export function HeaderCommandPaletteHost() {
   useShortcut("mod+shift+d", () => openPalette("debug"), { description: "Open the debug palette" });
 
   const Palette = PreparedPalette ?? CommandPalette;
-  return paletteOpen ? (
-    <Suspense fallback={null}>
-      <Palette
-        key={paletteMode}
-        open={paletteOpen}
-        initialMode={paletteMode}
-        onOpenChange={setPaletteOpen}
-      />
-    </Suspense>
-  ) : null;
+  return (
+    <>
+      <WikiToast />
+      {paletteOpen ? (
+        <Suspense fallback={null}>
+          <Palette
+            key={paletteMode}
+            open={paletteOpen}
+            initialMode={paletteMode}
+            onOpenChange={setPaletteOpen}
+          />
+        </Suspense>
+      ) : null}
+    </>
+  );
 }
 
 /** A sign-in asked for before the reader mounted: the pre-JS shortcut queue or `?reader-action=signin`. */
