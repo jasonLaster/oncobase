@@ -113,6 +113,10 @@ test.describe("reading the wiki (real backend)", () => {
     expect(await show(path), "unversioned first load").toBeGreaterThan(0);
     await page.reload();
     await expect(article(page)).toBeVisible();
+    // Chrome revalidates subresources requested while a reloaded document is
+    // still loading. The article paints before the load event, so wait for it
+    // to test the HTTP cache rather than the reload's validation mode.
+    await page.waitForLoadState("load");
     expect(await show(versioned), "versioned image after reload").toBe(0);
     expect(await show(path), "unversioned image after reload stays no-store").toBeGreaterThan(0);
   });
