@@ -1,5 +1,6 @@
 import { WikiMarkdown } from "@oncobase/wiki-markdown/browser";
 import { WikiMermaidRenderer } from "@oncobase/wiki-markdown/mermaid";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
 import { useState } from "react";
 
 const samples = [
@@ -36,14 +37,23 @@ export default function DiagramDemo() {
   return (
     <div className="ft-demo">
       <div className="ft-demo-controls">
-        <div className="ft-demo-group" role="group" aria-label="Sample diagram">
+        <ToggleGroup
+          aria-label="Sample diagram"
+          className="ft-demo-group"
+          deselectable={false}
+          onValueChange={(next) => {
+            const sample = samples.find((item) => item.id === next[0]);
+            if (sample) setId(sample.id);
+          }}
+          value={[id]}
+        >
           <span className="ft-demo-label">Sample</span>
           {samples.map((item) => (
-            <button aria-pressed={item.id === id} key={item.id} onClick={() => setId(item.id)} type="button">
+            <Toggle key={item.id} value={item.id}>
               {item.label}
-            </button>
+            </Toggle>
           ))}
-        </div>
+        </ToggleGroup>
       </div>
       <div className="ft-diagram">
         <pre className="ft-diagram-source" tabIndex={0}>

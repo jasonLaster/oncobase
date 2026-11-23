@@ -1,3 +1,5 @@
+import { Switch, SwitchThumb } from "@oncobase/ui/switch";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
 import { useState, type ImgHTMLAttributes, type ReactNode } from "react";
 import {
   ArrowRight,
@@ -195,18 +197,16 @@ export function RedactionDemo() {
       <div className="lp-demo-heading">
         <ShieldCheck size={18} />
         <strong>Hide personal details</strong>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={redacted}
+        <Switch
           aria-label="Redact example personal information"
-          onClick={() => setRedacted(!redacted)}
+          checked={redacted}
+          onCheckedChange={setRedacted}
         >
           <span className="lp-toggle-track" aria-hidden="true">
-            <i />
+            <SwitchThumb render={<i />} />
           </span>
           {redacted ? "Redacted" : "Original"}
-        </button>
+        </Switch>
       </div>
       <div className="lp-redaction-document">
         <p className="lp-document-label">Consultation notes</p>
@@ -275,22 +275,22 @@ export function RoleDemo() {
         <Users size={18} />
         <strong>Who can see which pages?</strong>
       </div>
-      <div
+      <ToggleGroup
         className="lp-role-picker"
-        role="group"
         aria-label="Preview an example user role"
+        deselectable={false}
+        value={[role.name]}
+        onValueChange={(next) => {
+          const index = exampleRoles.findIndex((item) => item.name === next[0]);
+          if (index >= 0) setSelected(index);
+        }}
       >
-        {exampleRoles.map((item, index) => (
-          <button
-            key={item.name}
-            type="button"
-            aria-pressed={selected === index}
-            onClick={() => setSelected(index)}
-          >
+        {exampleRoles.map((item) => (
+          <Toggle key={item.name} value={item.name}>
             {item.name}
-          </button>
+          </Toggle>
         ))}
-      </div>
+      </ToggleGroup>
       <div className="lp-role-person">
         <span className="lp-role-avatar" aria-hidden="true">
           {role.initials}
