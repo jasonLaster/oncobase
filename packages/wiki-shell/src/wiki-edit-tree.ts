@@ -1,3 +1,5 @@
+import { treeFromPaths, type TreeItemData } from "@oncobase/ui/tree";
+
 export type WikiEditFileOperation = "edit" | "create";
 
 export type WikiEditTreeFileInput = {
@@ -9,80 +11,37 @@ export type WikiEditTreeFileInput = {
   stats: { additions: number; deletions: number };
 };
 
-export type WikiEditTreeFolderNode<T extends WikiEditTreeFileInput = WikiEditTreeFileInput> = {
-  kind: "folder";
-  name: string;
-  path: string;
-  children: Array<WikiEditTreeNode<T>>;
+export type WikiEditTree<T extends WikiEditTreeFileInput = WikiEditTreeFileInput> = {
+  items: TreeItemData[];
+  filesByPath: ReadonlyMap<string, T>;
+  folderPaths: string[];
 };
 
-export type WikiEditTreeFileNode<T extends WikiEditTreeFileInput = WikiEditTreeFileInput> = {
-  kind: "file";
-  name: string;
-  path: string;
-  file: T;
-};
+export function wikiEditFilePath(file: WikiEditTreeFileInput): string {
+  return (file.filePath || `${file.slug}.md`).replace(/^\/+/, "");
+}
 
-export type WikiEditTreeNode<T extends WikiEditTreeFileInput = WikiEditTreeFileInput> =
-  | WikiEditTreeFolderNode<T>
-  | WikiEditTreeFileNode<T>;
-
-/**
- * Build a scoped folder/file tree from the changed files in a wiki edit proposal.
- * Folders are sorted before files, alphabetically within each level.
- */
-export function buildWikiEditFileTree<T extends WikiEditTreeFileInput>(
+// treeFromPaths keeps the given order within a level, so sorting the paths
+// puts folders and files in alphabetical order.
+export function buildWikiEditTree<T extends WikiEditTreeFileInput>(
   files: readonly T[],
-): Array<WikiEditTreeNode<T>> {
-  type MutableFolder = {
-    name: string;
-    path: string;
-    folders: Map<string, MutableFolder>;
-    files: Array<WikiEditTreeFileNode<T>>;
-  };
-
-  const root: MutableFolder = { name: "", path: "", folders: new Map(), files: [] };
-
+): WikiEditTree<T> {
+  const filesByPath = new Map<string, T>();
   for (const file of files) {
-    const cleanPath = (file.filePath || `${file.slug}.md`).replace(/^\/+/, "");
-    const parts = cleanPath.split("/").filter(Boolean);
-    if (parts.length === 0) continue;
-
-    let current = root;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const segment = parts[i]!;
-      const folderPath = current.path ? `${current.path}/${segment}` : segment;
-      let next = current.folders.get(segment);
-      if (!next) {
-        next = { name: segment, path: folderPath, folders: new Map(), files: [] };
-        current.folders.set(segment, next);
-      }
-      current = next;
+    const path = wikiEditFilePath(file);
+    if (path) filesByPath.set(path, file);
+  }
+  const items = treeFromPaths([...filesByPath.keys()].sort((a, b) => a.localeCompare(b)));
+  const folderPaths: string[] = [];
+  const collect = (nodes: readonly TreeItemData[]) => {
+    for (const node of nodes) {
+      if (!node.children) continue;
+      folderPaths.push(node.value);
+      collect(node.children);
     }
-
-    const fileName = parts[parts.length - 1]!;
-    current.files.push({
-      kind: "file",
-      name: fileName,
-      path: cleanPath,
-      file,
-    });
-  }
-
-  function finalize(folder: MutableFolder): Array<WikiEditTreeNode<T>> {
-    const folderNodes: Array<WikiEditTreeFolderNode<T>> = Array.from(folder.folders.values())
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((child) => ({
-        kind: "folder",
-        name: child.name,
-        path: child.path,
-        children: finalize(child),
-      }));
-    const fileNodes = [...folder.files].sort((a, b) => a.name.localeCompare(b.name));
-    return [...folderNodes, ...fileNodes];
-  }
-
-  return finalize(root);
+  };
+  collect(items);
+  return { items, filesByPath, folderPaths };
 }
 
 export type ParsedUnifiedDiffRow =
