@@ -74,6 +74,12 @@ export function ImageTheaterModal({
         event.preventDefault();
         onClose();
       }}
+      onClick={(event) => {
+        const target = event.target as Element;
+        if (!target.closest("a, button, .wiki-image-theater__image, .wiki-image-theater__nav")) {
+          onClose();
+        }
+      }}
     >
       <button
         aria-label="Dismiss image preview"
@@ -108,26 +114,6 @@ export function ImageTheaterModal({
           ) : (
             <span />
           )}
-          <div className="wiki-image-theater__actions">
-            <a
-              className="wiki-image-theater__button"
-              download={downloadName}
-              href={image.src}
-              title="Download image"
-            >
-              <span aria-hidden="true">Download</span>
-              <span className="wiki-sr-only">Download image</span>
-            </a>
-            <button
-              aria-label="Close image preview"
-              className="wiki-image-theater__button"
-              onClick={onClose}
-              title="Close"
-              type="button"
-            >
-              <span aria-hidden="true">Close</span>
-            </button>
-          </div>
         </div>
         <div className="wiki-image-theater__stage">
           <ImageComponent
@@ -136,6 +122,17 @@ export function ImageTheaterModal({
             src={image.src}
           />
         </div>
+        <a
+          aria-label="Download image"
+          className="wiki-image-theater__button wiki-image-theater__button--icon wiki-image-theater__download"
+          download={downloadName}
+          href={image.src}
+          title="Download image"
+        >
+          <svg aria-hidden="true" className="wiki-image-theater__icon" viewBox="0 0 24 24">
+            <path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" />
+          </svg>
+        </a>
       </div>
     </dialog>,
     document.body,
