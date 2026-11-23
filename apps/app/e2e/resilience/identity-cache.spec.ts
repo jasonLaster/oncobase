@@ -364,7 +364,7 @@ test("public and session scopes keep separate stores, never leak restricted page
     "href", /\/private\/plan\?scope=public&devtools=1#claims-follow-up$/);
 
   const sessionFooter = page.getByTestId("livestore-devtools-footer");
-  await sessionFooter.locator("summary").click();
+  await sessionFooter.getByRole("button", { name: /LiveStore/ }).click();
   const sessionStoreId = await sessionFooter.locator(".devtools-store").getAttribute("title");
   expect(sessionStoreId).toContain("session");
 
@@ -378,7 +378,7 @@ test("public and session scopes keep separate stores, never leak restricted page
   await expect(page.getByTestId("command-palette")).toBeHidden();
 
   const publicFooter = page.getByTestId("livestore-devtools-footer");
-  await publicFooter.locator("summary").click();
+  await publicFooter.getByRole("button", { name: /LiveStore/ }).click();
   const publicStoreId = await publicFooter.locator(".devtools-store").getAttribute("title");
   expect(publicStoreId).toContain("public");
   expect(publicStoreId).not.toBe(sessionStoreId);

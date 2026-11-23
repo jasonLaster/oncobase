@@ -1,4 +1,5 @@
 import { ActivityIcon, ClockIcon, DatabaseIcon, FileTextIcon, WifiOffIcon } from "lucide-react";
+import { Meter, MeterLabel } from "@oncobase/ui/meter";
 import type { Metrics } from "../types";
 import { formatBytes, formatPercent } from "../wiki-utils";
 
@@ -45,19 +46,23 @@ export function MetricsPanel({ metrics }: { metrics: Metrics }) {
         <span>warm</span>
         <strong>{formatMs(metrics.warmRouteRenderMs)}</strong>
       </div>
-      <div>
-        <DatabaseIcon size={14} aria-hidden="true" />
-        <span>storage</span>
-        <strong
-          title={
-            metrics.storageQuotaBytes == null
-              ? undefined
-              : `${formatBytes(metrics.opfsBytes)} of ${formatBytes(metrics.storageQuotaBytes)}`
-          }
+      {metrics.opfsBytes != null && metrics.storageQuotaBytes != null && metrics.storageQuotaBytes > 0 ? (
+        <Meter
+          getValueLabel={() => `${formatBytes(metrics.opfsBytes)} of ${formatBytes(metrics.storageQuotaBytes)}`}
+          max={metrics.storageQuotaBytes}
+          value={metrics.opfsBytes}
         >
-          {formatBytes(metrics.opfsBytes)}
-        </strong>
-      </div>
+          <DatabaseIcon size={14} aria-hidden="true" />
+          <MeterLabel render={<span />}>storage</MeterLabel>
+          <strong>{formatBytes(metrics.opfsBytes)}</strong>
+        </Meter>
+      ) : (
+        <div>
+          <DatabaseIcon size={14} aria-hidden="true" />
+          <span>storage</span>
+          <strong>{formatBytes(metrics.opfsBytes)}</strong>
+        </div>
+      )}
       {metrics.storagePressure === "warning" || metrics.storagePressure === "critical" ? (
         <div className={`storage-pressure ${metrics.storagePressure}`}>
           <DatabaseIcon size={14} aria-hidden="true" />
