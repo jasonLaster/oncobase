@@ -26,7 +26,7 @@ test.describe("reading the wiki (real backend)", () => {
   test("the sidebar opens a folder, navigates, and remembers its state across reload", async ({ page }) => {
     await openPage(page, "/");
     const sidebar = page.getByTestId("wiki-sidebar");
-    await sidebar.getByRole("treeitem", { name: "biomarkers" }).click();
+    await sidebar.getByRole("button", { name: "Expand biomarkers" }).click();
     await sidebar.getByRole("link", { name: /pd.l1/ }).click();
     await expect(page).toHaveURL(/\/wiki\/biomarkers\/pd-l1$/);
     await expect(article(page)).toHaveAccessibleName("PD-L1");
@@ -111,10 +111,7 @@ test.describe("reading the wiki (real backend)", () => {
     }, url);
     expect(await show(versioned), "first load reaches the network").toBeGreaterThan(0);
     expect(await show(path), "unversioned first load").toBeGreaterThan(0);
-    // Open a new document by navigating, not reloading: Chrome may validate a
-    // reloaded document's subresources (CI saw a 304, 463 B, on this branch's
-    // standalone server), and the contract is reuse in a new document.
-    await page.goto(page.url());
+    await page.reload();
     await expect(article(page)).toBeVisible();
     expect(await show(versioned), "versioned image after reload").toBe(0);
     expect(await show(path), "unversioned image after reload stays no-store").toBeGreaterThan(0);
