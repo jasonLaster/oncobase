@@ -68,6 +68,16 @@ test.describe("comments (mocked Liveblocks)", () => {
     const rail = page.locator("[data-wiki-shell-right-rail]").last();
     await expect(rail.getByText("Sign in to leave a comment")).toBeVisible({ timeout: 20_000 });
 
+    // The pane resizes from the keyboard too, and the pixel width persists.
+    const railWidth = async () => (await rail.boundingBox())?.width ?? 0;
+    const before = await railWidth();
+    await page.getByRole("separator", { name: "Resize comments pane" }).focus();
+    await page.keyboard.press("Shift+ArrowLeft");
+    await expect.poll(railWidth).toBeGreaterThan(before + 40);
+    await expect
+      .poll(() => page.evaluate(() => Number(localStorage.getItem("comments-pane-width"))))
+      .toBeCloseTo(await railWidth(), -1);
+
     await rail.getByRole("button", { name: "Outline" }).click();
     await expect(rail.getByRole("button", { name: "Insurance", exact: true })).toHaveClass(/active/);
   });
