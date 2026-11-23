@@ -2170,6 +2170,23 @@ a {
   font-weight: inherit;
 }
 
+.admin-month-hit {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.admin-tooltip[data-slot="tooltip-content"] {
+  background: var(--foreground);
+  border-radius: 4px;
+  color: var(--background);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+}
+
 .admin-select-trigger {
   align-items: center;
   display: inline-flex;
