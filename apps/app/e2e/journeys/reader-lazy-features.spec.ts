@@ -161,6 +161,37 @@ for (const { name, source, mobile } of [
   });
 }
 
+test("a scenario walkthrough switches between its waterfall and step-by-step tabs", async ({ page }) => {
+  await setup(page, `import { ScenarioWalkthrough } from "@oncobase/wiki-markdown"
+
+<ScenarioWalkthrough
+  label="Plan steps"
+  domain={[50,90]}
+  metrics={[{"label":"Primary","short":"P"},{"label":"Secondary","short":"S"}]}
+  steps={[{"label":"Start","values":["60","55"]},{"label":"Drug","detail":"HR 0.76","values":["66","62.5"]}]}
+>
+
+- **Step 1.** Start from the baseline.
+
+</ScenarioWalkthrough>
+`);
+  await gotoWiki(page, "/" + fixtureSlug);
+  const article = documentArticle(page);
+  const tabs = article.getByRole("tablist", { name: "Show the steps as" });
+  const chart = article.getByRole("table", { name: "Plan steps" });
+  const text = article.getByText("Start from the baseline.");
+  await expect(tabs.getByRole("tab", { name: "Waterfall" })).toHaveAttribute("aria-selected", "true");
+  await expect(chart).toBeVisible();
+  await expect(text).toBeHidden();
+  await tabs.getByRole("tab", { name: "Step by step" }).click();
+  await expect(text).toBeVisible();
+  await expect(chart).toBeHidden();
+  await page.keyboard.press("ArrowLeft");
+  await expect(tabs.getByRole("tab", { name: "Waterfall" })).toBeFocused();
+  await expect(chart).toBeVisible();
+  await expect(text).toBeHidden();
+});
+
 test("native table cells and keyboard scrolling are available while SmartTable downloads", async ({ page }) => {
   const requests = await setup(page, "| Item | Count |\n| --- | --- |\n| Sample | 42 |\n\nText after the table.");
   const release = await holdChunk(page, tableChunk);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type CSSProperties, type ReactNode } from "react";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
 
 type Pair<T> = readonly [T, T];
 type Metric = { label: string; short?: string; timing?: string };
@@ -141,22 +142,34 @@ const ERROR = <p role="note">This waterfall has no valid scenario data.</p>;
 export function ScenarioWalkthrough({ metrics, steps, domain = [0, 100], label = "Modeled steps", children }: ScenarioWalkthroughProps) {
   const [view, setView] = useState<"chart" | "text">("chart");
   const valid = validData(metrics, steps, domain);
+  const style = <style href="scenario-waterfall" precedence="default">{styles}</style>;
+  if (!valid) {
+    return (
+      <div className="scenario-walkthrough" data-view="text">
+        {style}
+        {children ? <div className="scenario-walkthrough-text">{children}</div> : ERROR}
+      </div>
+    );
+  }
   return (
-    <div className="scenario-walkthrough" data-view={valid ? view : "text"}>
-      <style href="scenario-waterfall" precedence="default">{styles}</style>
-      {valid && (
-        <div className="scenario-walkthrough-toggle not-prose" role="group" aria-label="Show the steps as">
-          <button type="button" aria-pressed={view === "chart"} onClick={() => setView("chart")}>Waterfall</button>
-          <button type="button" aria-pressed={view === "text"} onClick={() => setView("text")}>Step by step</button>
-        </div>
+    <Tabs
+      className="scenario-walkthrough"
+      data-view={view}
+      value={view}
+      onValueChange={(next) => { if (next === "chart" || next === "text") setView(next); }}
+    >
+      {style}
+      {children && (
+        <TabsList className="scenario-walkthrough-toggle not-prose" aria-label="Show the steps as">
+          <TabsTab value="chart">Waterfall</TabsTab>
+          <TabsTab value="text">Step by step</TabsTab>
+        </TabsList>
       )}
-      {valid ? (
-        <div className="scenario-walkthrough-chart" hidden={view !== "chart"}>
-          <WaterfallSteps label={label} metrics={metrics} steps={steps} domain={domain} />
-        </div>
-      ) : !children && ERROR}
-      {children && <div className="scenario-walkthrough-text" hidden={valid && view !== "text"}>{children}</div>}
-    </div>
+      <TabsPanel className="scenario-walkthrough-chart" value="chart" keepMounted>
+        <WaterfallSteps label={label} metrics={metrics} steps={steps} domain={domain} />
+      </TabsPanel>
+      {children && <TabsPanel className="scenario-walkthrough-text" value="text" keepMounted>{children}</TabsPanel>}
+    </Tabs>
   );
 }
 
@@ -216,7 +229,7 @@ const styles = `
   cursor: pointer;
   opacity: 0.7;
 }
-.scenario-walkthrough-toggle button[aria-pressed="true"] {
+.scenario-walkthrough-toggle button[data-selected] {
   background: color-mix(in srgb, currentColor 10%, transparent);
   opacity: 1;
 }
