@@ -8,11 +8,11 @@ import { CornerDownLeftIcon, Loader2Icon, SquareIcon, XIcon } from "lucide-react
 import type { FormEvent, KeyboardEvent, Ref } from "react";
 
 const GROUP_CLASS =
-  "relative flex h-auto w-full min-w-0 flex-col items-center overflow-hidden rounded-lg border transition-colors outline-none has-disabled:opacity-50 has-[textarea:focus-visible]:ring-3";
+  "relative flex h-auto w-full min-w-0 flex-col items-center overflow-hidden rounded-lg border transition-colors outline-none has-disabled:opacity-50";
 const GROUP_DEFAULT_CLASS =
-  "border-input has-disabled:bg-input/50 has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-ring/50 dark:bg-input/30 dark:has-disabled:bg-input/80";
+  "border-input has-disabled:bg-input/50 has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-3 has-[textarea:focus-visible]:ring-ring/50 dark:bg-input/30 dark:has-disabled:bg-input/80";
 const GROUP_FLAT_CLASS =
-  "border-[var(--sidebar-border)] bg-white shadow-sm has-[textarea:focus-visible]:border-[var(--brand)] has-[textarea:focus-visible]:ring-0 dark:border-neutral-700 dark:bg-neutral-800";
+  "border-[var(--sidebar-border)] bg-white shadow-sm has-[textarea:focus-visible]:border-[var(--brand)] dark:border-neutral-700 dark:bg-neutral-800";
 const TEXTAREA_CLASS =
   "flex field-sizing-content max-h-48 min-h-16 w-full flex-1 resize-none rounded-none border-0 bg-transparent px-2.5 py-2 text-base shadow-none ring-0 transition-colors outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-50 md:text-sm dark:bg-transparent dark:disabled:bg-transparent";
 const FOOTER_CLASS =
