@@ -36,7 +36,7 @@ import {
 import { ViteActionsMenu, openCommandPalette, useWikiViteAuth } from "./Header";
 import { revealDirectories, toggleDirectory, useExpandedDirectories } from "./tree-expansion";
 import { NavigationStatus } from "./ReaderStatus";
-import { isDocumentRoute, pathnameMatchesRoutePrefix } from "./document-routes";
+import { isDocumentRoute, isTalkRoute, pathnameMatchesRoutePrefix } from "./document-routes";
 import { PhoneIcon } from "../talk/PhoneIcon";
 import { loadTalkPanel, openTalk, useTalkState } from "../talk/talk-store";
 import type { NavigationFreshness } from "../types";
@@ -614,7 +614,7 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
           role="group"
           aria-label="Ask or talk"
         >
-          {isDocumentRoute(pathname) ? (
+          {isTalkRoute(pathname) ? (
             <button
               type="button"
               aria-label="Talk with the page"

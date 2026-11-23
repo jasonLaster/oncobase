@@ -11,6 +11,7 @@ import {
 } from "./BreadloafAndTopDownViews";
 import { ReconcileAndRcbSection } from "./ReconcileAndRcbSection";
 import { adoptStyles } from "../../lazy-styles";
+import { resetCellularityViewState, usePublishViewState } from "./view-state";
 import type { CellularityData } from "./types";
 import { CELLULARITY_DATA_URL, cellularityAssetUrl } from "./utils";
 import cellularityCss from "./cellularity.css?inline";
@@ -29,6 +30,9 @@ export function CellularityPage() {
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [bedMode, setBedMode] = useState<BedMode>("webgl");
   const [allDrawersOpen, setAllDrawersOpen] = useState(false);
+  usePublishViewState("view", bedMode);
+  usePublishViewState("selectedBlock", selectedBlock ?? data?.report.specimen.focus_block);
+  useEffect(() => resetCellularityViewState, []);
 
   useEffect(() => {
     let cancelled = false;

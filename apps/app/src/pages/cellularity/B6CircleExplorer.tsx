@@ -1,3 +1,4 @@
+import { usePublishViewState } from "./view-state";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CellularityData } from "./types";
 import { cellularityAssetUrl, draw2DGrid } from "./utils";
@@ -13,6 +14,8 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
   const [k, setK] = useState(cfg.default_k);
   const [serialTabKey, setSerialTabKey] = useState(cfg.serial_drawer.tabs[0]?.key ?? "");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  usePublishViewState("focusFields", k);
+  usePublishViewState("serialTab", serialTabKey);
 
   const sliderVal = Math.round((1000 * Math.log(Math.max(1, k))) / Math.log(b6C.total));
   const idx = Math.max(0, Math.min(b6C.total - 1, k - 1));
