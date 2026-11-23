@@ -1,3 +1,4 @@
+@layer ui-sdk;
 @import "@oncobase/wiki-shell/theme.css";
 @import "@oncobase/wiki-shell/styles.css";
 @import "@oncobase/education/styles.css";

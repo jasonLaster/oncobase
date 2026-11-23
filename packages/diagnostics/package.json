@@ -75,10 +75,11 @@
     "test:unit": "bun test ./src"
   },
   "dependencies": {
-    "@oncobase/safe-storage": "workspace:*",
     "@cornerstonejs/core": "^4.22.13",
     "@cornerstonejs/dicom-image-loader": "^4.22.13",
     "@cornerstonejs/tools": "^4.22.13",
+    "@oncobase/safe-storage": "workspace:*",
+    "@oncobase/ui": "workspace:*",
     "@oncobase/wiki-shell": "workspace:*",
     "dicom-parser": "^1.8.21",
     "lucide-react": "^1.11.0",

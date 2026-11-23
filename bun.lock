@@ -42,6 +42,7 @@
         "@oncobase/oncobase": "workspace:*",
         "@oncobase/safe-storage": "workspace:*",
         "@oncobase/smart-table": "workspace:*",
+        "@oncobase/ui": "workspace:*",
         "@oncobase/wiki-comments": "workspace:*",
         "@oncobase/wiki-content": "workspace:*",
         "@oncobase/wiki-markdown": "workspace:*",
@@ -113,6 +114,7 @@
         "@oncobase/education": "workspace:*",
         "@oncobase/safe-storage": "workspace:*",
         "@oncobase/smart-table": "workspace:*",
+        "@oncobase/ui": "workspace:*",
         "@oncobase/wiki-content": "workspace:*",
         "@oncobase/wiki-markdown": "workspace:*",
         "@oncobase/wiki-shell": "workspace:*",
@@ -142,6 +144,7 @@
         "@ai-sdk/react": "^3.0.149",
         "@base-ui/react": "^1.3.0",
         "@oncobase/safe-storage": "workspace:*",
+        "@oncobase/ui": "workspace:*",
         "ai": "^6.0.168",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -174,6 +177,7 @@
         "@cornerstonejs/dicom-image-loader": "^4.22.13",
         "@cornerstonejs/tools": "^4.22.13",
         "@oncobase/safe-storage": "workspace:*",
+        "@oncobase/ui": "workspace:*",
         "@oncobase/wiki-shell": "workspace:*",
         "dicom-parser": "^1.8.21",
         "lucide-react": "^1.11.0",
@@ -197,6 +201,7 @@
       "name": "@oncobase/education",
       "version": "0.1.0",
       "dependencies": {
+        "@oncobase/ui": "workspace:*",
         "@oncobase/wiki-shell": "workspace:*",
         "hast-util-from-html": "^2.0.3",
         "hast-util-to-text": "^4.0.2",
@@ -261,11 +266,28 @@
         "react-dom": "^18.2.0 || ^19.0.0",
       },
     },
+    "packages/ui": {
+      "name": "@oncobase/ui",
+      "version": "0.1.0",
+      "dependencies": {
+        "@ui-sdk/core": "0.1.0-beta.16",
+        "@ui-sdk/react": "0.1.0-beta.16",
+      },
+      "devDependencies": {
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+      },
+      "peerDependencies": {
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+      },
+    },
     "packages/wiki-comments": {
       "name": "@oncobase/wiki-comments",
       "version": "0.1.0",
       "dependencies": {
         "@oncobase/safe-storage": "workspace:*",
+        "@oncobase/ui": "workspace:*",
         "@oncobase/wiki-shell": "workspace:*",
       },
       "devDependencies": {
@@ -303,6 +325,7 @@
         "@base-ui/react": "^1.3.0",
         "@oncobase/safe-storage": "workspace:*",
         "@oncobase/smart-table": "workspace:*",
+        "@oncobase/ui": "workspace:*",
         "beautiful-mermaid": "^1.1.3",
         "comma-separated-tokens": "^2.0.3",
         "entities": "6.0.1",
@@ -343,6 +366,7 @@
       "dependencies": {
         "@oncobase/chat": "workspace:*",
         "@oncobase/safe-storage": "workspace:*",
+        "@oncobase/ui": "workspace:*",
         "@tanstack/react-virtual": "3.13.24",
         "fuzzysort": "^3.1.0",
       },
@@ -933,6 +957,8 @@
 
     "@oncobase/smart-table": ["@oncobase/smart-table@workspace:packages/smart-table"],
 
+    "@oncobase/ui": ["@oncobase/ui@workspace:packages/ui"],
+
     "@oncobase/wiki-comments": ["@oncobase/wiki-comments@workspace:packages/wiki-comments"],
 
     "@oncobase/wiki-content": ["@oncobase/wiki-content@workspace:packages/wiki-content"],
@@ -1442,6 +1468,10 @@
     "@typescript-eslint/utils": ["@typescript-eslint/utils@8.58.0", "", { "dependencies": { "@eslint-community/eslint-utils": "^4.9.1", "@typescript-eslint/scope-manager": "8.58.0", "@typescript-eslint/types": "8.58.0", "@typescript-eslint/typescript-estree": "8.58.0" }, "peerDependencies": { "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0", "typescript": ">=4.8.4 <6.1.0" } }, "sha512-RfeSqcFeHMHlAWzt4TBjWOAtoW9lnsAGiP3GbaX9uVgTYYrMbVnGONEfUCiSss+xMHFl+eHZiipmA8WkQ7FuNA=="],
 
     "@typescript-eslint/visitor-keys": ["@typescript-eslint/visitor-keys@8.58.0", "", { "dependencies": { "@typescript-eslint/types": "8.58.0", "eslint-visitor-keys": "^5.0.0" } }, "sha512-XJ9UD9+bbDo4a4epraTwG3TsNPeiB9aShrUneAVXy8q4LuwowN+qu89/6ByLMINqvIMeI9H9hOHQtg/ijrYXzQ=="],
+
+    "@ui-sdk/core": ["@ui-sdk/core@0.1.0-beta.16", "", {}, "sha512-I2GMqOviLS/lYfIj2lTqKLbae0V9uSnysK+bSdbhuw2De8zNvrLZiDTc0qzsPNiZvB/bMmUZJS5UDA5Q2Pq4Ng=="],
+
+    "@ui-sdk/react": ["@ui-sdk/react@0.1.0-beta.16", "", { "peerDependencies": { "@types/react": ">=19.2.10", "@ui-sdk/core": "^0.1.0-beta.16", "react": ">=19", "react-dom": ">=19" }, "optionalPeers": ["@types/react"] }, "sha512-pCM1Vb5Dycj05E63kY1CeX/jab9OlfDCGwhs29QtVenX0YrYzSRgkLYaHWscbew2gxVCBwcr8KBkh5BgH9eV+Q=="],
 
     "@ungap/structured-clone": ["@ungap/structured-clone@1.3.0", "", {}, "sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g=="],
 
