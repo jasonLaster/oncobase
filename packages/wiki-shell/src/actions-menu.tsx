@@ -24,6 +24,7 @@ import {
   PasswordInputToggle,
 } from "@oncobase/ui/password-input";
 import {
+  type ComponentProps,
   type FormEvent,
   isValidElement,
   type ReactElement,
@@ -205,6 +206,11 @@ function ShieldCheckIcon() {
       <path d="m9 12 2 2 4-4" />
     </Icon>
   );
+}
+
+/** A link for a menu item's `render`; the item supplies its children. */
+function Anchor({ children, ...props }: ComponentProps<"a">) {
+  return <a {...props}>{children}</a>;
 }
 
 function EyeIcon({ visible }: { visible: boolean }) {
@@ -434,7 +440,7 @@ export function WikiActionsMenu({
   };
 
   const showAccountGroup = sessionLoading || Boolean(sessionUser) || !hideSignedOutAccountActions;
-  const linkItem = (href: string) => (onNavigate ? undefined : <a href={href} />);
+  const linkItem = (href: string) => (onNavigate ? undefined : <Anchor href={href} />);
 
   return (
     <>
@@ -493,11 +499,11 @@ export function WikiActionsMenu({
               <span className="wiki-shell-actions-shortcut">{commandShortcut}</span>
             </MenuItem>
             <MenuSeparator className="wiki-shell-actions-separator" />
-            <MenuItem className="wiki-shell-actions-item" render={<a href={downloadFullHref} />}>
+            <MenuItem className="wiki-shell-actions-item" render={<Anchor href={downloadFullHref} />}>
               <DownloadIcon />
               <span>Download wiki (full)</span>
             </MenuItem>
-            <MenuItem className="wiki-shell-actions-item" render={<a href={downloadMarkdownHref} />}>
+            <MenuItem className="wiki-shell-actions-item" render={<Anchor href={downloadMarkdownHref} />}>
               <DownloadIcon />
               <span>Download wiki (markdown)</span>
             </MenuItem>
@@ -520,7 +526,7 @@ export function WikiActionsMenu({
                         {sessionUser.name || sessionUser.email}
                       </MenuItem>
                       {sessionUser.isAdmin && adminHref ? (
-                        <MenuItem className="wiki-shell-actions-item" render={<a href={adminHref} />}>
+                        <MenuItem className="wiki-shell-actions-item" render={<Anchor href={adminHref} />}>
                           <ShieldCheckIcon />
                           <span>Admin</span>
                         </MenuItem>
