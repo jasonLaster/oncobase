@@ -1,7 +1,4 @@
 {
-  "actions-menu-tab-trap.reader-article.desktop": {
-    "detail": "Tab #8 moved focus outside to a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\""
-  },
   "admin-create-role-escape.admin-roles.desktop": {
     "detail": "still open after Escape"
   },

@@ -28,6 +28,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { useShortcut } from "@oncobase/ui/shortcuts";
 import { useLocation, useNavigate } from "react-router";
 import { backendHref, returnToHref } from "../wiki-utils";
 import { requestSessionCacheCleanup, shutDownAndWipeReaderStores } from "../livestore/cache-retirement";
@@ -89,17 +90,7 @@ export function HeaderCommandPaletteHost() {
     return shortcuts.dispose;
   }, [openPalette]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey)) return;
-      if (!event.shiftKey || event.code !== "KeyD") return;
-      event.preventDefault();
-      openPalette("debug");
-    };
-
-    document.addEventListener("keydown", onKeyDown, { capture: true });
-    return () => document.removeEventListener("keydown", onKeyDown, { capture: true });
-  }, [openPalette]);
+  useShortcut("mod+shift+d", () => openPalette("debug"), { description: "Open the debug palette" });
 
   const Palette = PreparedPalette ?? CommandPalette;
   return paletteOpen ? (
@@ -291,6 +282,7 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
   return (
     <WikiActionsMenu
       adminHref="/admin"
+      align="start"
       currentTheme={currentTheme}
       downloadFullHref={backendHref("/api/download", { type: "full", scope })}
       downloadMarkdownHref={backendHref("/api/download", { type: "markdown", scope })}
@@ -339,6 +331,7 @@ export function ViteActionsMenu({ trigger }: { trigger?: WikiActionsMenuProps["t
       sessionLoading={sessionLoading}
       sessionUser={sessionUser}
       textSearchHref={backendHref("/search", { returnTo, tab: "text" })}
+      sideOffset={4}
       themeLabel={wikiThemeLabel(preference)}
       trigger={trigger}
     />

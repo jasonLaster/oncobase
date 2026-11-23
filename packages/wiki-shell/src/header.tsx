@@ -1,10 +1,11 @@
 import {
   type AnchorHTMLAttributes,
-  type ButtonHTMLAttributes,
+  type ComponentProps,
   type FormHTMLAttributes,
-  type InputHTMLAttributes,
   type ReactNode,
 } from "react";
+import { Button } from "@oncobase/ui/button";
+import { Input } from "@oncobase/ui/input";
 import { cn } from "./utils.ts";
 
 export type WikiHeaderProps = Omit<React.ComponentProps<"header">, "children"> & {
@@ -59,7 +60,8 @@ export function WikiLogo({ className, dev = false, ...props }: WikiLogoProps) {
   );
 }
 
-export type WikiHeaderButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+export type WikiHeaderButtonProps = Omit<ComponentProps<typeof Button>, "className"> & {
+  className?: string;
   variant?: "default" | "primary" | "icon";
 };
 
@@ -70,7 +72,7 @@ export function WikiHeaderButton({
   ...props
 }: WikiHeaderButtonProps) {
   return (
-    <button
+    <Button
       className={cn("wiki-shell-header-button", `wiki-shell-header-button-${variant}`, className)}
       type={type}
       {...props}
@@ -96,7 +98,7 @@ export function WikiHeaderLink({
 }
 
 export type WikiHeaderSearchFormProps = FormHTMLAttributes<HTMLFormElement> & {
-  inputProps?: InputHTMLAttributes<HTMLInputElement>;
+  inputProps?: Omit<ComponentProps<typeof Input>, "className"> & { className?: string };
 };
 
 export function WikiHeaderSearchForm({
@@ -123,7 +125,7 @@ export function WikiHeaderSearchForm({
       >
         <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
       </svg>
-      <input
+      <Input
         aria-label="Search wiki"
         data-test-id="header-search-input"
         name="q"

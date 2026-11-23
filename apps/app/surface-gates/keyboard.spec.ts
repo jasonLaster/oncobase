@@ -159,12 +159,13 @@ keyboardCheck("back-scroll-restore", "reader-big-tables", "desktop", async (page
 });
 
 // ---------------------------------------------------------------------------
-// Overlays: Tab stays inside, Escape closes, focus returns to the opener.
+// Overlays: Tab stays inside (a menu closes on Tab instead), Escape closes,
+// focus returns to the opener.
 
-type Overlay = { id: string; surface: string; viewport: ViewportName; opener: string; container: string };
+type Overlay = { id: string; surface: string; viewport: ViewportName; opener: string; container: string; tabCloses?: boolean };
 const OVERLAYS: Overlay[] = [
   { id: "command-palette", surface: "reader-article", viewport: "desktop", opener: '[data-test-id="sidebar-search"]', container: '[data-test-id="command-palette"]' },
-  { id: "actions-menu", surface: "reader-article", viewport: "desktop", opener: '[data-test-id="sidebar-workspace-trigger"]', container: '.wiki-shell-actions-popover[role="menu"]' },
+  { id: "actions-menu", surface: "reader-article", viewport: "desktop", opener: '[data-test-id="sidebar-workspace-trigger"]', container: '.wiki-shell-actions-popover[role="menu"]', tabCloses: true },
   { id: "mobile-nav-sheet", surface: "reader-article", viewport: "mobile", opener: '[data-test-id="bottom-nav-trigger"]', container: '[data-test-id="bottom-nav-sheet"][role="dialog"]' },
   { id: "admin-create-role", surface: "admin-roles", viewport: "desktop", opener: 'main button:text-is("Create role")', container: '.admin-modal[role="dialog"]' },
   { id: "expanded-table", surface: "reader-article", viewport: "desktop", opener: 'main button[aria-label="Expand table"]', container: ".table-expansion-layer" },
@@ -184,6 +185,13 @@ for (const overlay of OVERLAYS) {
   keyboardCheck(`${overlay.id}-tab-trap`, overlay.surface, overlay.viewport, async (page) => {
     const { container, opened } = await openOverlay(page, overlay);
     if (!opened) return { ok: false, detail: "did not open with Enter on its control" };
+    if (overlay.tabCloses) {
+      await page.keyboard.press("Tab");
+      const closed = await container.waitFor({ state: "hidden", timeout: 2_000 }).then(() => true, () => false);
+      if (!closed) return { ok: false, detail: "still open after Tab" };
+      const moved = await page.evaluate(() => document.activeElement !== null && document.activeElement !== document.body);
+      return { ok: moved, detail: moved ? "Tab closed it and moved focus on" : "Tab closed it and dropped focus" };
+    }
     for (const [key, presses] of [["Tab", 15], ["Shift+Tab", 5]] as const) {
       for (let press = 1; press <= presses; press++) {
         await page.keyboard.press(key);

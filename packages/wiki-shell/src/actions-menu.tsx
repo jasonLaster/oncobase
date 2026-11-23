@@ -1,13 +1,33 @@
+import { Button } from "@oncobase/ui/button";
 import {
-  cloneElement,
+  createDialogController,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@oncobase/ui/dialog";
+import { Field, FieldLabel } from "@oncobase/ui/field";
+import { Input } from "@oncobase/ui/input";
+import {
+  Menu,
+  MenuContent,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuSeparator,
+  MenuTrigger,
+} from "@oncobase/ui/menu";
+import {
+  PasswordInput,
+  PasswordInputControl,
+  PasswordInputToggle,
+} from "@oncobase/ui/password-input";
+import {
   type FormEvent,
   isValidElement,
-  type MouseEvent,
   type ReactElement,
   type ReactNode,
-  useEffect,
-  useId,
-  useRef,
   useState,
 } from "react";
 import { cn } from "./utils.ts";
@@ -28,6 +48,8 @@ export type WikiActionsMenuAuthInput = {
 };
 
 export type WikiActionsMenuProps = {
+  /** Which edge of the trigger the menu lines up with. */
+  align?: "center" | "end" | "start";
   className?: string;
   commandShortcut?: ReactNode;
   currentTheme?: "dark" | "light";
@@ -44,13 +66,11 @@ export type WikiActionsMenuProps = {
   onThemeToggle?: () => void;
   sessionLoading?: boolean;
   sessionUser?: WikiActionsMenuUser | null;
+  sideOffset?: number;
   themeLabel?: string;
   textSearchHref?: string;
-  trigger?: ReactElement<{
-    "aria-expanded"?: boolean;
-    "aria-haspopup"?: "menu";
-    onClick?: (event: MouseEvent) => void;
-  }>;
+  /** A button element that opens the menu; the menu adds its ARIA and handlers. */
+  trigger?: ReactElement;
 };
 
 function Icon({
@@ -187,36 +207,19 @@ function ShieldCheckIcon() {
   );
 }
 
-function MenuButton({
-  children,
-  disabled,
-  href,
-  onClick,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  href?: string;
-  onClick?: () => void;
-}) {
-  if (href) {
-    return (
-      <a className="wiki-shell-actions-item" href={href} role="menuitem" onClick={onClick}>
-        {children}
-      </a>
-    );
-  }
-
-  return (
-    <button
-      aria-disabled={disabled ? "true" : undefined}
-      className="wiki-shell-actions-item"
-      disabled={disabled}
-      role="menuitem"
-      type="button"
-      onClick={onClick}
-    >
-      {children}
-    </button>
+function EyeIcon({ visible }: { visible: boolean }) {
+  return visible ? (
+    <Icon>
+      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+      <path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+      <path d="m2 2 20 20" />
+    </Icon>
+  ) : (
+    <Icon>
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Icon>
   );
 }
 
@@ -225,43 +228,36 @@ export function WikiAuthDialog({
   onAuthSubmit,
   onClose,
   onSessionChange,
+  controller,
   open,
 }: {
+  /** Connects a `DialogTrigger` outside the dialog, which gets focus back when it closes. */
+  controller?: ReturnType<typeof createDialogController>;
   initialMode: WikiActionsMenuAuthMode;
   onAuthSubmit?: (input: WikiActionsMenuAuthInput) => Promise<WikiActionsMenuUser>;
-  onClose: () => void;
+  onClose?: () => void;
   onSessionChange?: (user: WikiActionsMenuUser | null) => void;
-  open: boolean;
+  /** Leave it out when a `DialogTrigger` on the controller opens the dialog. */
+  open?: boolean;
 }) {
-  const titleId = useId();
-  const descriptionId = useId();
   const [mode, setMode] = useState<WikiActionsMenuAuthMode>(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    return () => previous?.focus();
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
+  const [ownController] = useState(createDialogController);
+  const dialog = controller ?? ownController;
+  const [openedFor, setOpenedFor] = useState({ open, initialMode });
+  const reset = () => {
     setMode(initialMode);
     setError("");
-  }, [initialMode, open]);
+  };
 
-  useEffect(() => {
-    // Switching forms can detach the focused control, especially in Safari.
-    // Keep focus inside the new form without changing the original return target.
-    if (open) dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus();
-  }, [mode, open]);
-
-  if (!open) return null;
+  if (openedFor.open !== open || openedFor.initialMode !== initialMode) {
+    setOpenedFor({ open, initialMode });
+    if (open) reset();
+  }
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -274,7 +270,7 @@ export function WikiAuthDialog({
       const user = await onAuthSubmit({ email, mode, name, password });
       onSessionChange?.(user);
       setPassword("");
-      onClose();
+      dialog.close();
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : "Something went wrong");
     } finally {
@@ -288,39 +284,21 @@ export function WikiAuthDialog({
   };
 
   return (
-    <div
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      aria-modal="true"
-      className="wiki-shell-actions-dialog-backdrop"
-      ref={dialogRef}
-      role="dialog"
-      data-test-id="wiki-auth-dialog"
-      onMouseDown={onClose}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          onClose();
-        } else if (event.key === "Tab") {
-          const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
-            'input:not(:disabled), button:not(:disabled), a[href], [tabindex="0"]',
-          )).filter((element) => element.getClientRects().length > 0);
-          event.preventDefault();
-          const current = controls.indexOf(document.activeElement as HTMLElement);
-          const next = current < 0 ? (event.shiftKey ? controls.length - 1 : 0)
-            : (current + (event.shiftKey ? -1 : 1) + controls.length) % controls.length;
-          controls[next]?.focus();
-        }
+    <Dialog
+      controller={dialog}
+      open={open}
+      onOpenChange={(next) => {
+        if (next) reset();
+        else onClose?.();
       }}
     >
-      <div className="wiki-shell-actions-dialog" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="wiki-shell-sr-only" id={titleId}>
+      <DialogContent className="wiki-shell-actions-dialog" data-test-id="wiki-auth-dialog">
+        <DialogTitle className="wiki-shell-sr-only">
           {mode === "signin" ? "Sign in" : "Sign up"}
-        </div>
-        <div className="wiki-shell-sr-only" id={descriptionId}>
+        </DialogTitle>
+        <DialogDescription className="wiki-shell-sr-only">
           {mode === "signin" ? "Sign in to your account." : "Create an account."}
-        </div>
+        </DialogDescription>
 
         <div className="wiki-shell-actions-auth-layout">
           <div className="wiki-shell-actions-auth-content">
@@ -336,44 +314,50 @@ export function WikiAuthDialog({
 
               <form className="wiki-shell-actions-auth-form" onSubmit={submit}>
                 {mode === "signup" ? (
-                  <label>
-                    <span>Name</span>
-                    <input
+                  <Field className="wiki-shell-actions-auth-field">
+                    <FieldLabel>Name</FieldLabel>
+                    <Input
                       autoComplete="name"
                       id="auth-name"
                       placeholder="Your name"
                       type="text"
                       value={name}
-                      onChange={(event) => setName(event.currentTarget.value)}
+                      onValueChange={setName}
                     />
-                  </label>
+                  </Field>
                 ) : null}
-                <label>
-                  <span>Email</span>
-                  <input
+                <Field className="wiki-shell-actions-auth-field">
+                  <FieldLabel>Email</FieldLabel>
+                  <Input
                     autoComplete="email"
                     id="auth-email"
                     placeholder="you@example.com"
                     required
                     type="email"
                     value={email}
-                    onChange={(event) => setEmail(event.currentTarget.value)}
+                    onValueChange={setEmail}
                   />
-                </label>
-                <label>
-                  <span>Password</span>
-                  <input
+                </Field>
+                <Field className="wiki-shell-actions-auth-field">
+                  <FieldLabel>Password</FieldLabel>
+                  <PasswordInput
                     autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                    id="auth-password"
-                    placeholder="Your password"
+                    className="wiki-shell-actions-auth-password"
                     required
-                    type="password"
                     value={password}
-                    onChange={(event) => setPassword(event.currentTarget.value)}
-                  />
-                </label>
+                    onValueChange={setPassword}
+                  >
+                    <PasswordInputControl id="auth-password" placeholder="Your password" />
+                    <PasswordInputToggle
+                      aria-label="Show password"
+                      className="wiki-shell-actions-auth-password-toggle"
+                    >
+                      {(state) => <EyeIcon visible={state.visible} />}
+                    </PasswordInputToggle>
+                  </PasswordInput>
+                </Field>
                 {error ? <p className="wiki-shell-actions-auth-error">{error}</p> : null}
-                <button className="wiki-shell-actions-auth-submit" disabled={pending} type="submit">
+                <Button className="wiki-shell-actions-auth-submit" disabled={pending} type="submit">
                   {pending
                     ? mode === "signup"
                       ? "Signing up..."
@@ -381,16 +365,15 @@ export function WikiAuthDialog({
                     : mode === "signup"
                       ? "Sign up"
                       : "Sign in"}
-                </button>
-                <button
+                </Button>
+                <Button
                   className="wiki-shell-actions-auth-switch"
-                  type="button"
                   onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
                 >
                   {mode === "signin"
                     ? "Need an account? Sign up"
                     : "Already have an account? Sign in"}
-                </button>
+                </Button>
               </form>
             </div>
           </div>
@@ -414,12 +397,13 @@ export function WikiAuthDialog({
             />
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export function WikiActionsMenu({
+  align = "end",
   className,
   adminHref,
   commandShortcut = "⌘K A",
@@ -436,192 +420,139 @@ export function WikiActionsMenu({
   searchHref,
   sessionLoading = false,
   sessionUser = null,
+  sideOffset = 7,
   themeLabel = "System",
   textSearchHref,
   trigger,
 }: WikiActionsMenuProps) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
-  const [open, setOpen] = useState(false);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authMode, setAuthMode] = useState<WikiActionsMenuAuthMode>("signin");
-
-  useEffect(() => {
-    if (!open) return;
-    previouslyFocusedRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusTimeout = window.setTimeout(() => menuRef.current?.focus(), 0);
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setOpen(false);
-      }
-    };
-
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.clearTimeout(focusTimeout);
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
-      previouslyFocusedRef.current?.focus();
-      previouslyFocusedRef.current = null;
-    };
-  }, [open]);
 
   const openAuthDialog = (mode: WikiActionsMenuAuthMode) => {
     setAuthMode(mode);
     setAuthDialogOpen(true);
-    setOpen(false);
   };
 
-  const signOut = async () => {
-    await onSignOut?.();
-    onSessionChange?.(null);
-    setOpen(false);
-  };
   const showAccountGroup = sessionLoading || Boolean(sessionUser) || !hideSignedOutAccountActions;
-
-  const triggerElement = isValidElement(trigger) ? (
-    cloneElement(trigger, {
-      "aria-expanded": open,
-      "aria-haspopup": "menu",
-      onClick: (event: MouseEvent) => {
-        trigger.props.onClick?.(event);
-        if (!event.defaultPrevented) {
-          (event.currentTarget as HTMLElement).focus();
-          setOpen((value) => !value);
-        }
-      },
-    })
-  ) : (
-    <button
-      aria-expanded={open}
-      aria-haspopup="menu"
-      aria-label="Actions"
-      className="wiki-shell-header-button wiki-shell-header-button-icon wiki-shell-actions-trigger"
-      data-test-id="header-actions-menu"
-      type="button"
-      onClick={(event) => {
-        event.currentTarget.focus();
-        setOpen((value) => !value);
-      }}
-    >
-      <MenuIcon />
-    </button>
-  );
+  const linkItem = (href: string) => (onNavigate ? undefined : <a href={href} />);
 
   return (
     <>
-      <div className={cn("wiki-shell-actions-menu", className)} ref={rootRef}>
-        {triggerElement}
-        {open ? (
-          <div
+      <div className={cn("wiki-shell-actions-menu", className)}>
+        <Menu>
+          {isValidElement(trigger) ? (
+            <MenuTrigger render={trigger} />
+          ) : (
+            <MenuTrigger
+              aria-label="Actions"
+              className="wiki-shell-header-button wiki-shell-header-button-icon wiki-shell-actions-trigger"
+              data-test-id="header-actions-menu"
+            >
+              <MenuIcon />
+            </MenuTrigger>
+          )}
+          <MenuContent
+            align={align}
             aria-label="Actions"
+            aria-labelledby=""
             className="wiki-shell-actions-popover"
-            ref={menuRef}
-            role="menu"
-            tabIndex={-1}
+            side="bottom"
+            sideOffset={sideOffset}
           >
             {searchHref || textSearchHref ? (
               <>
-                <div className="wiki-shell-actions-label">Search</div>
-                {searchHref ? (
-                  <MenuButton
-                    href={onNavigate ? undefined : searchHref}
-                    onClick={() => {
-                      setOpen(false);
-                      onNavigate?.(searchHref);
-                    }}
-                  >
-                    <SparklesIcon />
-                    <span>AI Search</span>
-                  </MenuButton>
-                ) : null}
-                {textSearchHref ? (
-                  <MenuButton
-                    href={onNavigate ? undefined : textSearchHref}
-                    onClick={() => {
-                      setOpen(false);
-                      onNavigate?.(textSearchHref);
-                    }}
-                  >
-                    <FileTextIcon />
-                    <span>Text Search</span>
-                  </MenuButton>
-                ) : null}
-                <div className="wiki-shell-actions-separator" role="separator" />
+                <MenuGroup>
+                  <MenuGroupLabel className="wiki-shell-actions-label">Search</MenuGroupLabel>
+                  {searchHref ? (
+                    <MenuItem
+                      className="wiki-shell-actions-item"
+                      render={linkItem(searchHref)}
+                      onSelect={() => onNavigate?.(searchHref)}
+                    >
+                      <SparklesIcon />
+                      <span>AI Search</span>
+                    </MenuItem>
+                  ) : null}
+                  {textSearchHref ? (
+                    <MenuItem
+                      className="wiki-shell-actions-item"
+                      render={linkItem(textSearchHref)}
+                      onSelect={() => onNavigate?.(textSearchHref)}
+                    >
+                      <FileTextIcon />
+                      <span>Text Search</span>
+                    </MenuItem>
+                  ) : null}
+                </MenuGroup>
+                <MenuSeparator className="wiki-shell-actions-separator" />
               </>
             ) : null}
-            <MenuButton
-              onClick={() => {
-                setOpen(false);
-                onOpenCommandPalette?.();
-              }}
-            >
+            <MenuItem className="wiki-shell-actions-item" onSelect={() => onOpenCommandPalette?.()}>
               <CommandIcon />
               <span>Command palette</span>
               <span className="wiki-shell-actions-shortcut">{commandShortcut}</span>
-            </MenuButton>
-            <div className="wiki-shell-actions-separator" role="separator" />
-            <MenuButton href={downloadFullHref} onClick={() => setOpen(false)}>
+            </MenuItem>
+            <MenuSeparator className="wiki-shell-actions-separator" />
+            <MenuItem className="wiki-shell-actions-item" render={<a href={downloadFullHref} />}>
               <DownloadIcon />
               <span>Download wiki (full)</span>
-            </MenuButton>
-            <MenuButton href={downloadMarkdownHref} onClick={() => setOpen(false)}>
+            </MenuItem>
+            <MenuItem className="wiki-shell-actions-item" render={<a href={downloadMarkdownHref} />}>
               <DownloadIcon />
               <span>Download wiki (markdown)</span>
-            </MenuButton>
-            <MenuButton
-              onClick={() => {
-                onThemeToggle?.();
-                setOpen(false);
-              }}
-            >
+            </MenuItem>
+            <MenuItem className="wiki-shell-actions-item" onSelect={() => onThemeToggle?.()}>
               <ThemeIcon currentTheme={currentTheme} />
               <span>Theme: {themeLabel}</span>
-            </MenuButton>
+            </MenuItem>
             {showAccountGroup ? (
               <>
-                <div className="wiki-shell-actions-separator" role="separator" />
-                <div className="wiki-shell-actions-label">Account</div>
-                {sessionLoading ? (
-                  <MenuButton disabled>Loading account...</MenuButton>
-                ) : sessionUser ? (
-                  <>
-                    <MenuButton disabled>{sessionUser.name || sessionUser.email}</MenuButton>
-                    {sessionUser.isAdmin && adminHref ? (
-                      <MenuButton href={adminHref} onClick={() => setOpen(false)}>
-                        <ShieldCheckIcon />
-                        <span>Admin</span>
-                      </MenuButton>
-                    ) : null}
-                    <MenuButton onClick={signOut}>
-                      <SignOutIcon />
-                      <span>Sign out</span>
-                    </MenuButton>
-                  </>
-                ) : (
-                  <>
-                    <MenuButton onClick={() => openAuthDialog("signin")}>
-                      <SignInIcon />
-                      <span>Sign in</span>
-                    </MenuButton>
-                    <MenuButton onClick={() => openAuthDialog("signup")}>
-                      <UserPlusIcon />
-                      <span>Sign up</span>
-                    </MenuButton>
-                  </>
-                )}
+                <MenuSeparator className="wiki-shell-actions-separator" />
+                <MenuGroup>
+                  <MenuGroupLabel className="wiki-shell-actions-label">Account</MenuGroupLabel>
+                  {sessionLoading ? (
+                    <MenuItem className="wiki-shell-actions-item" disabled>
+                      Loading account...
+                    </MenuItem>
+                  ) : sessionUser ? (
+                    <>
+                      <MenuItem className="wiki-shell-actions-item" disabled>
+                        {sessionUser.name || sessionUser.email}
+                      </MenuItem>
+                      {sessionUser.isAdmin && adminHref ? (
+                        <MenuItem className="wiki-shell-actions-item" render={<a href={adminHref} />}>
+                          <ShieldCheckIcon />
+                          <span>Admin</span>
+                        </MenuItem>
+                      ) : null}
+                      <MenuItem
+                        className="wiki-shell-actions-item"
+                        onSelect={async () => {
+                          await onSignOut?.();
+                          onSessionChange?.(null);
+                        }}
+                      >
+                        <SignOutIcon />
+                        <span>Sign out</span>
+                      </MenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <MenuItem className="wiki-shell-actions-item" onSelect={() => openAuthDialog("signin")}>
+                        <SignInIcon />
+                        <span>Sign in</span>
+                      </MenuItem>
+                      <MenuItem className="wiki-shell-actions-item" onSelect={() => openAuthDialog("signup")}>
+                        <UserPlusIcon />
+                        <span>Sign up</span>
+                      </MenuItem>
+                    </>
+                  )}
+                </MenuGroup>
               </>
             ) : null}
-          </div>
-        ) : null}
+          </MenuContent>
+        </Menu>
       </div>
       <WikiAuthDialog
         initialMode={authMode}
@@ -649,7 +580,7 @@ export function WikiSidebarSignInPrompt({
   sessionLoading = false,
   hideWhileLoading = false,
 }: WikiSidebarSignInPromptProps) {
-  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [controller] = useState(createDialogController);
 
   // Match the initial reader until a signed-in account is confirmed.
   if (sessionUser || (sessionLoading && hideWhileLoading)) return null;
@@ -658,25 +589,16 @@ export function WikiSidebarSignInPrompt({
     <>
       <div className="wiki-shell-sidebar-sign-in">
         <p>Sign in to comment and view additional content</p>
-        <button
-          type="button"
-          data-test-id="sidebar-sign-in"
-          onClick={(event) => {
-            // Safari does not focus buttons on click; preserve the dialog return target.
-            event.currentTarget.focus();
-            setAuthDialogOpen(true);
-          }}
-        >
+        <DialogTrigger controller={controller} data-test-id="sidebar-sign-in">
           <SignInIcon />
           <span>Sign in</span>
-        </button>
+        </DialogTrigger>
       </div>
       <WikiAuthDialog
+        controller={controller}
         initialMode="signin"
         onAuthSubmit={onAuthSubmit}
-        onClose={() => setAuthDialogOpen(false)}
         onSessionChange={onSessionChange}
-        open={authDialogOpen}
       />
     </>
   );
