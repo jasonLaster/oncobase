@@ -7,6 +7,7 @@ import { EMPTY_READER_ROWS, readerQuery, useInitialReaderData, useReaderQuery } 
 import type { PageIndexRow } from "../types";
 import { useWikiScope } from "../wiki-context";
 import { isDocumentRoute } from "../shell/document-routes";
+import { appTalkPage, loadAppTalkText } from "./talk-pages";
 import { contentSlugFromRouteSlug, hrefForSlug, slugFromPath } from "../wiki-utils";
 import { findTalkPage } from "./find-page";
 import { PageConversation, type PageTalkStatus, type TalkPage } from "./page-conversation";
@@ -54,6 +55,8 @@ const readConsent = () => { try { return safeLocalStorage.getItem(CONSENT_KEY) =
 const saveConsent = () => { try { safeLocalStorage.setItem(CONSENT_KEY, "1"); } catch { /* Ask again next time. */ } };
 
 export function talkPageForPath(pathname: string): TalkPage | null {
+  const app = appTalkPage(pathname);
+  if (app) return app;
   if (!isDocumentRoute(pathname)) return null;
   const slug = contentSlugFromRouteSlug(slugFromPath(pathname));
   return { slug, title: formatFileLabel(slug.split("/").at(-1) ?? slug) };
@@ -61,6 +64,8 @@ export function talkPageForPath(pathname: string): TalkPage | null {
 
 /** The page's markdown, through the same access rules and redactions as Copy page. */
 async function loadPageMarkdown(slug: string) {
+  const appText = await loadAppTalkText(slug);
+  if (appText !== undefined) return appText;
   const response = await fetch(`/api/page-copy?${new URLSearchParams({ slug })}`, { credentials: "same-origin" });
   return response.ok ? response.text() : null;
 }
@@ -71,7 +76,7 @@ const normalizeHeading = (text: string) => text.toLowerCase().replace(/[^\p{L}\p
 export function pointAtHeading(heading: string, root: ParentNode = document) {
   const wanted = normalizeHeading(heading);
   if (!wanted) return null;
-  const headings = [...root.querySelectorAll<HTMLElement>('[data-test-id="document-article"] :is(h1, h2, h3, h4)')];
+  const headings = [...root.querySelectorAll<HTMLElement>(':is([data-test-id="document-article"], [data-test-id="cellularity-page"]) :is(h1, h2, h3, h4)')];
   const match = headings.find(element => normalizeHeading(element.textContent ?? "") === wanted)
     ?? headings.find(element => normalizeHeading(element.textContent ?? "").includes(wanted));
   if (!match) return null;

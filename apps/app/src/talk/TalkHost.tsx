@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { useLocation } from "react-router";
-import { isDocumentRoute } from "../shell/document-routes";
+import { isTalkRoute } from "../shell/document-routes";
 import { PhoneIcon } from "./PhoneIcon";
 import { closeTalk, loadTalkPanel, openTalk, useTalkState } from "./talk-store";
 
@@ -22,7 +22,7 @@ export function TalkHost() {
   if (open) {
     return <Suspense fallback={null}><TalkPanel onClose={closeTalk} /></Suspense>;
   }
-  if (!isDocumentRoute(pathname)) return null;
+  if (!isTalkRoute(pathname)) return null;
   return (
     <button
       type="button"
