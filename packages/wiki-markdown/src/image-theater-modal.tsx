@@ -77,12 +77,6 @@ export function ImageTheaterModal({
         event.preventDefault();
         onClose();
       }}
-      onClick={(event) => {
-        const target = event.target as Element;
-        if (!target.closest("a, button, .wiki-image-theater__image, .wiki-image-theater__nav")) {
-          onClose();
-        }
-      }}
     >
       <button
         aria-label="Dismiss image preview"
