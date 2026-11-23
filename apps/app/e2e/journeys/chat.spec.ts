@@ -102,7 +102,7 @@ test.describe("chat (real backend, fake model)", () => {
 
     const item = page.getByTestId("chat-sidebar").locator(`[data-conversation-id="${id}"]`);
     await item.locator("..").getByRole("button", { name: "Conversation actions" }).click();
-    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
 
     await expect(page).toHaveURL(/\/chat$/);
     await expect(chat(page)).toHaveAttribute("data-chat-conversation-id", "new");
