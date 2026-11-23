@@ -1200,6 +1200,39 @@ describe("wiki Vite app-shell password gate", () => {
     expect(response.headers.get("location")).toBe("http://127.0.0.1/wiki/public?view=compact");
   });
 
+  test("app routes skip the canonical page lookup and the site listing", async () => {
+    const client = fakeClient({ passwordGate: false });
+    const query = client.query.bind(client);
+    const calls: string[] = [];
+    client.query = async (ref, args) => {
+      calls.push(getFunctionName(ref));
+      return query(ref, args);
+    };
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    for (const pathname of ["/chat", "/admin", "/diagnostics", "/Search", "/tools/medical-deduction"]) {
+      const response = await handler(request(pathname));
+      expect(response.status).toBe(200);
+      await response.text();
+    }
+    expect(calls).not.toContain("documents:listManifestPage");
+    expect(calls).not.toContain("documents:getBySlug");
+  });
+
+  test("concurrent cold requests share one site listing", async () => {
+    const client = fakeClient({ passwordGate: false });
+    const query = client.query.bind(client);
+    let listings = 0;
+    client.query = async (ref, args) => {
+      if (getFunctionName(ref) === "documents:listManifestPage" && !args.cursor) listings++;
+      if (getFunctionName(ref) === "documents:getBySlug" && String(args.slug).startsWith("WIKI/")) return null;
+      return query(ref, args);
+    };
+    const handler = createWikiViteHandler({ client: client as never, distDir });
+    const responses = await Promise.all(["/WIKI/PUBLIC", "/WIKI/PUBLIC?a=1", "/WIKI/PUBLIC?a=2"].map(pathname => handler(request(pathname))));
+    for (const response of responses) expect(response.status).toBe(307);
+    expect(listings).toBe(1);
+  });
+
   test("permanently removes trailing slashes while preserving query parameters", async () => {
     const handler = createWikiViteHandler({
       client: fakeClient() as never,
