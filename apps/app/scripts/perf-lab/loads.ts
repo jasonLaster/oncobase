@@ -21,6 +21,11 @@ export type LoadSample = {
   cssBytes: number;
   wasmBytes: number;
   apiBytes: number;
+  /** When the full manifest finished arriving (signed-in only; the largest `/api/wiki/manifest` response). */
+  manifestMs: number;
+  manifestBytes: number;
+  /** Total blocking time (sum of long-task time over 50 ms) from navigation to the end of the settle window. */
+  blockingMs: number;
   /** Bytes received before the article first appeared (signed-in) or before LCP (landing), including partial bodies. */
   bytesBeforeArticle: number;
   jsBytesBeforeArticle: number;
@@ -33,6 +38,8 @@ export type LoadSample = {
 // and prefetch keep the network busy). Long enough for LCP and the tree.
 const SETTLE_MS: Record<ProfileName, number> = { desktop: 4000, mobile: 8000 };
 const TIMEOUT_MS = 90_000;
+// A production-scale manifest is about 1 MB: minutes on the mobile link at worst.
+const MANIFEST_WAIT_MS = 180_000;
 
 const isJs = (r: Request) => r.type === "Script" || /\.m?js(\?|$)/.test(r.path);
 const isWasm = (r: Request) => /\.wasm(\?|$)/.test(r.path);
@@ -48,10 +55,20 @@ async function load(context: BrowserContext, base: string, profile: ProfileName,
     const ok = await page.waitForSelector(ready, { timeout: TIMEOUT_MS }).then(() => true, () => false);
     // "Tree" is first presence in the DOM: on mobile the sidebar is a closed drawer, never visible.
     if (ok && signedIn) await page.waitForSelector("[data-tree-row]", { state: "attached", timeout: 30_000 }).catch(() => undefined);
+    // Signed-in loads also wait for the full manifest, which arrives after the
+    // first paint, so its cost (and the work after it) falls inside the window.
+    const fullManifest = async () => (await tools.requests())
+      .filter((r) => r.path.startsWith("/api/wiki/manifest") && Number.isFinite(r.end) && r.bytes > 2048)
+      .sort((a, b) => b.bytes - a.bytes)[0];
+    if (ok && signedIn) {
+      const deadline = Date.now() + MANIFEST_WAIT_MS;
+      while (!(await fullManifest()) && Date.now() < deadline) await page.waitForTimeout(250);
+    }
     await settle(page, SETTLE_MS[profile]);
     const obs = await observations(page);
     const requests = (await tools.requests()).filter((r) => !r.path.startsWith("data:"));
     const articleMs = signedIn ? (obs.first.article ?? Number.NaN) : Number.NaN;
+    const manifest = signedIn ? await fullManifest() : undefined;
     const cutoff = signedIn ? articleMs : obs.lcp || Number.NaN;
     const sum = (rs: Request[], f: (r: Request) => boolean = () => true) => rs.filter(f).reduce((a, r) => a + r.bytes, 0);
     // Bytes received by the cutoff, counting partial bodies of requests still in flight.
@@ -64,6 +81,9 @@ async function load(context: BrowserContext, base: string, profile: ProfileName,
       lcpMs: Math.round(obs.lcp),
       fcpMs: Math.round(obs.fcp),
       longestTaskMs: Math.max(0, ...obs.longTasks.map((t) => t[1])),
+      manifestMs: manifest ? Math.round(manifest.end) : Number.NaN,
+      manifestBytes: manifest ? manifest.bytes : Number.NaN,
+      blockingMs: obs.longTasks.reduce((sum, t) => sum + Math.max(0, t[1] - 50), 0),
       requests: requests.length,
       cachedRequests: requests.filter((r) => r.cached).length,
       bytes: sum(requests),

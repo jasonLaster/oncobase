@@ -13,7 +13,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { APP_DIR, LOCAL_GATE_PASSWORD, LOCAL_SITE_SLUG, PORTS, REPO_DIR, STACK_DIR, requireStackEnv } from "../local-stack-env";
-import { PAGES, writeVault, type VaultStats } from "./vault";
+import { DEFAULT_SEED, PAGES, writeVault, type VaultScale, type VaultStats } from "./vault";
 
 export const LAB_DIR = path.join(STACK_DIR, "perf-lab");
 export const PROXY_PORT = Number(process.env.PERF_LAB_PROXY_PORT ?? PORTS.app + 1);
@@ -106,7 +106,7 @@ function resetVisitHistory(tempDir: string) {
   ], { cwd: project, env });
 }
 
-export async function startStack({ build }: { build: boolean }): Promise<Stack> {
+export async function startStack({ build, scale = "lab" }: { build: boolean; scale?: VaultScale }): Promise<Stack> {
   const appOrigin = `http://127.0.0.1:${PORTS.app}`;
   const base = `http://127.0.0.1:${PROXY_PORT}`;
   const children: { serve?: ChildProcess; proxy?: ChildProcess } = {};
@@ -144,8 +144,8 @@ export async function startStack({ build }: { build: boolean }): Promise<Stack> 
     tempDir = mkdtempSync(path.join(os.tmpdir(), "oncobase-perf-lab-"));
     const vaultDir = path.join(tempDir, "vault");
     const home = path.join(tempDir, "home");
-    const vault = writeVault(vaultDir);
-    log(`generated ${vault.pages} pages (${(vault.bytes / 1e6).toFixed(1)} MB, fingerprint ${vault.fingerprint})`);
+    const vault = writeVault(vaultDir, DEFAULT_SEED, scale);
+    log(`generated ${vault.pages} pages and ${vault.assets} assets (${scale} scale, ${(vault.bytes / 1e6).toFixed(1)} MB, fingerprint ${vault.fingerprint})`);
     mkdirSync(path.join(home, ".config/wiki"), { recursive: true });
     writeFileSync(path.join(home, ".config/wiki", `${LOCAL_SITE_SLUG}.json`), JSON.stringify({ site: LOCAL_SITE_SLUG, vaultPath: vaultDir, publishUrl: `${appOrigin}/api/publish`, openaiApiKey: "" }, null, 2));
     const secrets = JSON.parse(readFileSync(path.join(STACK_DIR, "secrets.json"), "utf8")) as { publishToken: string };
@@ -165,7 +165,7 @@ export async function startStack({ build }: { build: boolean }): Promise<Stack> 
       const pages = ((await response.json()) as { pages?: Array<{ slug: string }> }).pages ?? [];
       seen = pages.length;
       return pages.length === expected && pages.some((p) => p.slug === PAGES.large);
-    }, 120_000).catch((error: Error) => { throw new Error(`${error.message} (last saw ${seen})`); });
+    }, scale === "lab" ? 120_000 : 900_000).catch((error: Error) => { throw new Error(`${error.message} (last saw ${seen})`); });
 
     resetVisitHistory(tempDir);
 
