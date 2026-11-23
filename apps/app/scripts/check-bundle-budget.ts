@@ -255,7 +255,12 @@ const storeGzipBudget = 828_500;
 // diff, WikiMarkdown Preview) loads lazily only when an editor opens a proposal,
 // adding ~5.5 KiB to the lazy pool without changing paint/store/eager limits:
 // 4,292,500 -> 4,302,000.
-const lazyGzipBudget = 4_302_000;
+// The /diagnostics/cellularity explorer (CellularityPage ~24.6 KiB + lazy Three.js
+// TumorModel3D ~144.8 KiB) loads only when visiting that route and keeps its CSS
+// inside the lazy chunk via adoptStyles, adding ~169.4 KiB to the lazy pool with
+// zero impact on paint, store, or eager limits (measured 4,472,627 B):
+// 4,302,000 -> 4,480,000.
+const lazyGzipBudget = 4_480_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

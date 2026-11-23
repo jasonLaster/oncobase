@@ -114,6 +114,9 @@ function routeDefinition(pathname: string): RouteDefinition | null {
   if (pathname === "/diagnostics/imaging") {
     return { routeTitle: "Diagnostic Imaging" };
   }
+  if (pathname === "/diagnostics/cellularity") {
+    return { routeTitle: "Tumor-Bed Cellularity" };
+  }
   if (pathname === "/tools/dicom-viewer") {
     return { routeTitle: "DICOM Viewer" };
   }
