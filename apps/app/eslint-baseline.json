@@ -4,8 +4,7 @@
   "jsx-a11y/click-events-have-key-events": 2,
   "jsx-a11y/no-autofocus": 1,
   "jsx-a11y/no-noninteractive-element-interactions": 2,
-  "jsx-a11y/no-noninteractive-element-to-interactive-role": 1,
-  "jsx-a11y/no-noninteractive-tabindex": 8,
+  "jsx-a11y/no-noninteractive-tabindex": 7,
   "jsx-a11y/no-static-element-interactions": 1,
   "react-hooks/exhaustive-deps": 2,
   "react-hooks/set-state-in-effect": 5
