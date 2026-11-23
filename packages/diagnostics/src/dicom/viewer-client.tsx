@@ -36,6 +36,14 @@ import {
   ResizableHandle,
   ResizablePanel,
 } from "@oncobase/ui/resizable";
+import {
+  Drawer,
+  DrawerBackdrop,
+  DrawerClose,
+  DrawerContent,
+  DrawerTitle,
+} from "@oncobase/ui/drawer";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
 import { Toggle } from "@oncobase/ui/toggle";
 import { Badge, Button, buttonClassName, cn } from "./ui.tsx";
 import {
@@ -1393,86 +1401,64 @@ export function DicomViewerClient({
         </span>
       </button>
 
-      <div
-        className={cn(
-          "fixed inset-0 z-50 transition-opacity duration-300 lg:hidden",
-          mobileStudySheetOpen
-            ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0",
-        )}
-        data-state={mobileStudySheetOpen ? "open" : "closed"}
-        data-test-id="dicom-mobile-study-sheet"
-        // Closed, the sheet is only faded out: keep its controls out of the
-        // tab order and the accessibility tree.
-        inert={!mobileStudySheetOpen}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") setMobileStudySheetOpen(false);
-        }}
+      <Drawer
+        onOpenChange={(open) => setMobileStudySheetOpen(open)}
+        open={mobileStudySheetOpen}
       >
-        {/* Pointer-only scrim; keyboard users have Escape and the close button. */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-          onClick={() => setMobileStudySheetOpen(false)}
-        />
-        <div
-          className={cn(
-            "absolute right-0 bottom-0 left-0 flex h-[min(82dvh,36rem)] flex-col rounded-t-2xl border-t border-white/10 bg-[#11151a] shadow-2xl transition-transform duration-300 ease-out",
-            mobileStudySheetOpen ? "translate-y-0" : "translate-y-full",
-          )}
+        <DrawerBackdrop className="fixed inset-0 m-0 size-full max-h-none max-w-none border-0 bg-black/60 p-0 backdrop-blur-[2px] lg:hidden" />
+        <DrawerContent
+          className="flex h-[min(82dvh,36rem)] w-full flex-col rounded-t-2xl border-t border-white/10 bg-[#11151a] text-zinc-100 shadow-2xl lg:hidden"
+          data-state={mobileStudySheetOpen ? "open" : "closed"}
+          data-test-id="dicom-mobile-study-sheet"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
+          <Tabs
+            className="flex min-h-0 flex-1 flex-col"
+            onValueChange={(tab) => {
+              if (tab) setMobileStudyTab(tab as "series" | "report");
+            }}
+            value={mobileStudyTab}
+          >
           <div className="shrink-0 px-4 pt-2 pb-3">
             <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-zinc-500/50" />
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-zinc-100">
+                <DrawerTitle className="truncate text-sm font-semibold text-zinc-100">
                   {selectedBiopsy?.title ?? activeStack?.title ?? "DICOM study"}
-                </div>
+                </DrawerTitle>
                 <div className="mt-0.5 text-xs text-zinc-500">
                   {displaySeries.length} series
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="shrink-0 text-zinc-300 hover:bg-white/10"
-                onClick={() => setMobileStudySheetOpen(false)}
+              <DrawerClose
                 aria-label="Close study navigation"
-              >
-                <X className="size-4" />
-              </Button>
-            </div>
-            <div className="mt-3 flex rounded-md border border-white/10 bg-black/30 p-0.5">
-              <button
-                type="button"
-                onClick={() => setMobileStudyTab("series")}
-                className={cn(
-                  "flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors",
-                  mobileStudyTab === "series"
-                    ? "bg-emerald-300/15 text-emerald-100"
-                    : "text-zinc-400 hover:text-zinc-100",
+                className={buttonClassName(
+                  { size: "icon-sm", variant: "ghost" },
+                  "shrink-0 text-zinc-300 hover:bg-white/10",
                 )}
               >
-                Series
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileStudyTab("report")}
-                className={cn(
-                  "flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors",
-                  mobileStudyTab === "report"
-                    ? "bg-emerald-300/15 text-emerald-100"
-                    : "text-zinc-400 hover:text-zinc-100",
-                )}
-              >
-                Report
-              </button>
+                <X aria-hidden="true" className="size-4" />
+              </DrawerClose>
             </div>
+            <TabsList
+              aria-label="Study navigation"
+              className="mt-3 flex rounded-md border border-white/10 bg-black/30 p-0.5"
+            >
+              {(["series", "report"] as const).map((tab) => (
+                <TabsTab
+                  className="flex-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-100 aria-selected:bg-emerald-300/15 aria-selected:text-emerald-100"
+                  key={tab}
+                  value={tab}
+                >
+                  {tab === "series" ? "Series" : "Report"}
+                </TabsTab>
+              ))}
+            </TabsList>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
-            {mobileStudyTab === "series" ? (
+            <TabsPanel value="series">
+            {(
               <div
                 className="-mx-3 divide-y divide-white/10"
                 data-test-id="dicom-mobile-series-list"
@@ -1535,7 +1521,10 @@ export function DicomViewerClient({
                   </div>
                 ) : null}
               </div>
-            ) : selectedReportLink && selectedBiopsy ? (
+            )}
+            </TabsPanel>
+            <TabsPanel value="report">
+            {selectedReportLink && selectedBiopsy ? (
               <a
                 href={selectedReportLink.href}
                 className="block rounded-lg border border-emerald-300/35 bg-emerald-300/10 p-3 text-left transition-colors hover:border-emerald-200/60 hover:bg-emerald-300/15"
@@ -1557,9 +1546,11 @@ export function DicomViewerClient({
                 No pathology report is linked to the selected series.
               </div>
             )}
+            </TabsPanel>
           </div>
-        </div>
-      </div>
+          </Tabs>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

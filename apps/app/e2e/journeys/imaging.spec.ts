@@ -445,7 +445,7 @@ test.describe("DICOM imaging journeys", () => {
     await expect(sheet).toHaveAttribute("data-state", "open");
     await expect(sheet.getByTestId("dicom-mobile-series-list")).toBeVisible();
     await expect(sheet.getByText("April 10 biopsy")).toBeVisible();
-    await sheet.getByRole("button", { name: "Report", exact: true }).click();
+    await sheet.getByRole("tab", { name: "Report", exact: true }).click();
     await expect(sheet.getByTestId("dicom-mobile-pathology-report-link")).toHaveAttribute(
       "href",
       "/api/file?path=sources%2Fdiagnostics%2F04-10-kernis-path-report%2F04-10-kernis-path-report.pdf",
