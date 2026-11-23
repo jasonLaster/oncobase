@@ -28,6 +28,7 @@ import {
   MenuRadioItem,
   MenuTrigger,
 } from "@oncobase/ui/menu";
+import { useShortcut } from "@oncobase/ui/shortcuts";
 import { Toggle } from "@oncobase/ui/toggle";
 import { Toolbar, ToolbarButton } from "@oncobase/ui/toolbar";
 
@@ -777,33 +778,18 @@ export function DicomAnnotationLayer({
     selectedAnnotationIds,
   ]);
 
-  useEffect(() => {
-    if (disabled) return;
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.defaultPrevented || isTextInputTarget(event.target)) return;
-
-      const key = event.key.toLowerCase();
-      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && key === "z") {
-        event.preventDefault();
-        undoLast();
-        return;
-      }
-
-      if (
-        selectedAnnotationIds.length > 0 &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        (event.key === "Backspace" || event.key === "Delete")
-      ) {
-        event.preventDefault();
-        deleteSelected();
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deleteSelected, disabled, selectedAnnotationIds.length, undoLast]);
+  // Undo stays native in text fields; Backspace and Delete only reach
+  // shortcuts outside them.
+  useShortcut(disabled ? null : "mod+z", () => undoLast(), {
+    description: "Undo the last annotation",
+    when: () => !isTextInputTarget(document.activeElement),
+  });
+  const deleteShortcut = {
+    description: "Delete the selected annotations",
+    when: () => selectedAnnotationIds.length > 0,
+  };
+  useShortcut(disabled ? null : "backspace", () => deleteSelected(), deleteShortcut);
+  useShortcut(disabled ? null : "delete", () => deleteSelected(), deleteShortcut);
 
   const chooseTool = useCallback((kind: AnnotationKind) => {
     setActiveTool(kind);
