@@ -1,5 +1,5 @@
 import { safeLocalStorage } from "@oncobase/safe-storage";
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 const TREE_EXPANSION_KEY = "wiki-vite-expanded-directories";
 const serverSnapshot = new Map<string, boolean>([["wiki", true]]);
@@ -98,8 +98,20 @@ export function revealDirectories(slugs: Iterable<string>) {
   emit();
 }
 
-export function useExpandedDirectories() {
+/**
+ * The open directories as an explicit list: every stored choice to open, and
+ * the current page's ancestors unless the reader collapsed one by hand.
+ */
+export function expandedDirectorySlugs(choices: ReadonlyMap<string, boolean>, activeAncestorSlugs: Iterable<string>) {
+  const slugs = new Set<string>();
+  for (const [slug, open] of choices) if (open) slugs.add(slug);
+  for (const slug of activeAncestorSlugs) if (choices.get(slug) !== false) slugs.add(slug);
+  return [...slugs];
+}
+
+export function useExpandedDirectories(activeAncestorSlugs: ReadonlySet<string>) {
   // Both navigation surfaces subscribe to the same choices, including when
   // one is hidden by the responsive layout.
-  return useSyncExternalStore(subscribe, getSnapshot, () => serverSnapshot);
+  const choices = useSyncExternalStore(subscribe, getSnapshot, () => serverSnapshot);
+  return useMemo(() => expandedDirectorySlugs(choices, activeAncestorSlugs), [choices, activeAncestorSlugs]);
 }

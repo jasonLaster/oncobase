@@ -2,8 +2,8 @@ import {
   type CSSProperties,
   type ComponentProps,
   type MouseEventHandler,
+  type ReactElement,
   type ReactNode,
-  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
+import { Tree, TreeItem, TreeItemIndicator, TreeItemLabel, type TreeItemData, visibleTreeRows } from "@oncobase/ui/tree";
 import { cn } from "./utils.ts";
 
 export type WikiNavigationNode = {
@@ -33,19 +34,9 @@ export type WikiTreePageLinkRenderArgs = {
 };
 
 export type WikiTreeProps = {
-  activeAncestorSlugs: Set<string>;
   activeSlug: string;
-  defaultDirectoryOpen?: (args: {
-    activeAncestorSlugs: Set<string>;
-    depth: number;
-    node: WikiNavigationNode;
-  }) => boolean;
-  directoryAriaLabel?: (args: {
-    formattedName: string;
-    node: WikiNavigationNode;
-    open: boolean;
-  }) => string;
-  expandedSlugs: Map<string, boolean>;
+  /** Slugs of the open directories. */
+  expandedSlugs: readonly string[];
   formatNodeName?: (name: string, node: WikiNavigationNode) => string;
   getFileHref?: (node: WikiNavigationNode) => string;
   onNavigate?: () => void;
@@ -56,8 +47,10 @@ export type WikiTreeProps = {
     node: WikiNavigationNode;
     open?: boolean;
   }) => ReactNode;
-  renderPageLink: (args: WikiTreePageLinkRenderArgs) => ReactNode;
+  /** Must return one element: the tree renders it as the row's label. */
+  renderPageLink: (args: WikiTreePageLinkRenderArgs) => ReactElement;
   tree: WikiNavigationNode[];
+  treeLabel?: string;
 };
 
 export type WikiSidebarProps = Omit<ComponentProps<"aside">, "children"> &
@@ -102,24 +95,43 @@ export function collectActiveAncestors(tree: WikiNavigationNode[], activeSlug: s
   return new Set(index.get(activeSlug) ?? []);
 }
 
-export type WikiTreeRow = { key: string; node: WikiNavigationNode; depth: number; open: boolean; gap: number };
+export type WikiTreeEntry = { depth: number; gap: number; key: string; node: WikiNavigationNode };
 
-export function flattenVisibleWikiTree({ tree, expandedSlugs, activeAncestorSlugs, defaultDirectoryOpen }: Pick<WikiTreeProps, "tree" | "expandedSlugs" | "activeAncestorSlugs" | "defaultDirectoryOpen">) {
-  const rows: WikiTreeRow[] = [];
-  const visit = (nodes: WikiNavigationNode[], depth: number, parentPath: string) => {
-    nodes.forEach((node, index) => {
-      const occurrence = `${parentPath}.${index}`;
-      const open = node.type === "directory" && (expandedSlugs.get(node.slug) ??
-        defaultDirectoryOpen?.({ activeAncestorSlugs, depth, node }) ??
-        (depth < 1 || activeAncestorSlugs.has(node.slug)));
-      // Flattening puts shortcuts and their source document in one sibling
-      // list. Identity must include the occurrence, not only the target slug.
-      rows.push({ key: `${occurrence}:${treeNodeKey(node)}`, node, depth, open, gap: depth === 0 ? 4 : index === 0 ? 2 : 0 });
-      if (open && node.children) visit(node.children, depth + 1, occurrence);
+export type WikiTreeIndex = {
+  /** Every node, by item value. */
+  entries: Map<string, WikiTreeEntry>;
+  items: TreeItemData[];
+  /** Directory item values by slug: a directory can appear in more than one root. */
+  directoryValues: Map<string, string[]>;
+  /** The first file item for each slug, the one that takes `current`. */
+  fileValues: Map<string, string>;
+};
+
+/**
+ * The tree as UI SDK items. A shortcut and its source document can share a
+ * slug, so an item's value is its occurrence (its index path), not its slug.
+ */
+export function wikiTreeIndex(tree: WikiNavigationNode[], formatNodeName: (name: string, node: WikiNavigationNode) => string = formatTreeNodeName): WikiTreeIndex {
+  const entries = new Map<string, WikiTreeEntry>();
+  const directoryValues = new Map<string, string[]>();
+  const fileValues = new Map<string, string>();
+  const visit = (nodes: WikiNavigationNode[], depth: number, parentPath: string): TreeItemData[] =>
+    nodes.map((node, index) => {
+      const value = `${parentPath}.${index}`;
+      entries.set(value, { depth, gap: depth === 0 ? 4 : index === 0 ? 2 : 0, key: `${value}:${treeNodeKey(node)}`, node });
+      const name = formatNodeName(node.name, node);
+      if (node.type === "directory") {
+        directoryValues.set(node.slug, [...(directoryValues.get(node.slug) ?? []), value]);
+        return { value, label: name, children: visit(node.children ?? [], depth + 1, value) };
+      }
+      if (node.type === "file" && !fileValues.has(node.slug)) fileValues.set(node.slug, value);
+      return { value, label: node.type === "pdf" ? `${name}.pdf` : name };
     });
-  };
-  visit(tree, 0, "");
-  return rows;
+  return { entries, items: visit(tree, 0, ""), directoryValues, fileValues };
+}
+
+export function expandedTreeValues(index: WikiTreeIndex, expandedSlugs: Iterable<string>) {
+  return [...new Set(expandedSlugs)].flatMap(slug => index.directoryValues.get(slug) ?? []);
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -142,12 +154,9 @@ function FileIcon() {
 }
 
 export function WikiSidebar({
-  activeAncestorSlugs,
   activeSlug,
   beforeTree,
   className,
-  defaultDirectoryOpen,
-  directoryAriaLabel,
   expandedSlugs,
   formatNodeName,
   footer,
@@ -158,6 +167,7 @@ export function WikiSidebar({
   renderNodeIcon,
   renderPageLink,
   tree,
+  treeLabel,
   treeTestId,
   ...props
 }: WikiSidebarProps) {
@@ -176,10 +186,7 @@ export function WikiSidebar({
       <nav className="wiki-shell-sidebar-nav" data-test-id={treeTestId}>
         {beforeTree}
         <WikiTree
-          activeAncestorSlugs={activeAncestorSlugs}
           activeSlug={activeSlug}
-          defaultDirectoryOpen={defaultDirectoryOpen}
-          directoryAriaLabel={directoryAriaLabel}
           expandedSlugs={expandedSlugs}
           formatNodeName={formatNodeName}
           getFileHref={getFileHref}
@@ -188,6 +195,7 @@ export function WikiSidebar({
           renderNodeIcon={renderNodeIcon}
           renderPageLink={renderPageLink}
           tree={tree}
+          treeLabel={treeLabel}
         />
       </nav>
       {footer ? <div className="wiki-shell-sidebar-footer">{footer}</div> : null}
@@ -195,34 +203,37 @@ export function WikiSidebar({
   );
 }
 
+const VIRTUALIZE_AFTER_ROWS = 150;
+
 export function WikiTree({
-  activeAncestorSlugs,
   activeSlug,
-  defaultDirectoryOpen,
-  directoryAriaLabel,
   expandedSlugs,
-  formatNodeName,
+  formatNodeName = formatTreeNodeName,
   getFileHref,
   onNavigate,
   onToggleDirectory,
   renderNodeIcon,
   renderPageLink,
   tree,
+  treeLabel = "Pages",
 }: WikiTreeProps) {
-  const rows = useMemo(() => flattenVisibleWikiTree({ tree, expandedSlugs, activeAncestorSlugs, defaultDirectoryOpen }), [tree, expandedSlugs, activeAncestorSlugs, defaultDirectoryOpen]);
+  const index = useMemo(() => wikiTreeIndex(tree, formatNodeName), [tree, formatNodeName]);
+  const expanded = useMemo(() => expandedTreeValues(index, expandedSlugs), [index, expandedSlugs]);
+  const expandedSet = useMemo(() => new Set(expanded), [expanded]);
+  const rows = useMemo(() => visibleTreeRows(index.items, expanded), [index, expanded]);
   const rootRef = useRef<HTMLDivElement>(null);
-  const virtualized = rows.length > 150;
+  const virtualized = rows.length > VIRTUALIZE_AFTER_ROWS;
   const [scrollMargin, setScrollMargin] = useState(0);
-  const [focusedKey, setFocusedKey] = useState<string | null>(null);
-  const pendingFocus = useRef<string | null>(null);
-  const focusedIndex = focusedKey ? rows.findIndex(row => row.key === focusedKey) : -1;
+  const [focusedValue, setFocusedValue] = useState<string | null>(null);
+  const focusedIndex = focusedValue ? rows.findIndex(row => row.item.value === focusedValue) : -1;
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => rootRef.current?.parentElement ?? null,
-    estimateSize: index => 30 + rows[index].gap,
-    getItemKey: useCallback((index: number) => rows[index].key, [rows]),
+    estimateSize: row => 30 + index.entries.get(rows[row].item.value)!.gap,
+    getItemKey: useCallback((row: number) => rows[row].item.value, [rows]),
     overscan: 8,
     scrollMargin,
+    // The focused row stays mounted, so the tree's tab stop never unmounts.
     rangeExtractor: range => [...new Set([...defaultRangeExtractor(range), ...(focusedIndex >= 0 ? [focusedIndex] : [])])].sort((a, b) => a - b),
   });
 
@@ -239,21 +250,12 @@ export function WikiTree({
     return () => observer.disconnect();
   }, [virtualized]);
 
-  useLayoutEffect(() => {
-    if (!pendingFocus.current) return;
-    const row = [...(rootRef.current?.querySelectorAll<HTMLElement>("[data-tree-row]") ?? [])].find(element => element.dataset.treeRow === pendingFocus.current);
-    const target = row?.querySelector<HTMLElement>("button, a[href]");
-    if (target) {
-      pendingFocus.current = null;
-      target.focus({ preventScroll: true });
-    }
-  });
-
   // Reveal the current page's row once per page: after a deep link, a search
   // or an in-article link it can sit far outside the sidebar's viewport (or,
   // virtualized, not be rendered at all). Only the nearest scroll that shows
   // it, and never again for the same page, so it cannot fight the reader.
-  const activeIndex = useMemo(() => activeSlug ? rows.findIndex(row => row.node.slug === activeSlug && row.node.type !== "directory") : -1, [rows, activeSlug]);
+  const currentValue = (activeSlug && index.fileValues.get(activeSlug)) || null;
+  const activeIndex = useMemo(() => currentValue ? rows.findIndex(row => row.item.value === currentValue) : -1, [rows, currentValue]);
   const revealedSlug = useRef<string | null>(null);
   useEffect(() => {
     if (activeIndex < 0 || !activeSlug || revealedSlug.current === activeSlug) return;
@@ -282,145 +284,150 @@ export function WikiTree({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex, activeSlug, virtualized]);
 
+  const onExpandedChange = (next: string[]) => {
+    const open = new Set(next);
+    const changes = new Map<string, boolean>();
+    for (const value of expanded) if (!open.has(value)) changes.set(index.entries.get(value)!.node.slug, false);
+    for (const value of next) if (!expandedSet.has(value)) changes.set(index.entries.get(value)!.node.slug, true);
+    for (const [slug, nextOpen] of changes) onToggleDirectory(slug, nextOpen);
+  };
+
   const visibleRows = virtualized
-    ? virtualizer.getVirtualItems().map(item => ({ row: rows[item.index], index: item.index, start: item.start - scrollMargin }))
-    : rows.map((row, index) => ({ row, index, start: 0 }));
+    ? virtualizer.getVirtualItems().map(item => ({ row: rows[item.index], start: item.start - scrollMargin }))
+    : rows.map(row => ({ row, start: 0 }));
   return (
-    <div
+    <Tree
+      aria-label={treeLabel}
       className="wiki-shell-tree-root wiki-shell-tree-flat"
       ref={rootRef}
+      items={index.items}
+      mode="none"
+      current={currentValue}
+      expanded={expanded}
+      onExpandedChange={onExpandedChange}
+      onHighlight={(value, { index: rowIndex }) => {
+        if (!virtualized) return;
+        setFocusedValue(value);
+        virtualizer.scrollToIndex(rowIndex, { align: "auto" });
+      }}
       data-virtualized={virtualized ? "true" : undefined}
       data-visible-row-count={rows.length}
       style={virtualized ? { height: virtualizer.getTotalSize(), position: "relative" } : undefined}
-      onKeyDown={event => {
-        if (!virtualized || event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey) return;
-        const element = (event.target as HTMLElement).closest<HTMLElement>("[data-tree-index]");
-        if (!element) return;
-        const next = Number(element.dataset.treeIndex) + (event.shiftKey ? -1 : 1);
-        if (next < 0 || next >= rows.length) return;
-        event.preventDefault();
-        const key = rows[next].key;
-        pendingFocus.current = key;
-        setFocusedKey(key);
-        virtualizer.scrollToIndex(next, { align: "auto" });
-      }}
     >
-      {visibleRows.map(({ row, index, start }) => (
-        <div
-          key={row.key}
-          data-tree-row={row.key}
-          data-tree-index={index}
-          onFocusCapture={() => setFocusedKey(row.key)}
-          style={virtualized
-            ? { position: "absolute", top: 0, left: 0, width: "100%", paddingTop: row.gap, transform: `translateY(${start}px)` }
-            : { paddingTop: row.gap }}
-        >
-        <WikiTreeNode
-          active={row.node.slug === activeSlug}
-          depth={row.depth}
-          directoryAriaLabel={directoryAriaLabel}
-          formatNodeName={formatNodeName}
-          getFileHref={getFileHref}
-          node={row.node}
-          open={row.open}
-          onNavigate={onNavigate}
-          onToggleDirectory={onToggleDirectory}
-          renderNodeIcon={renderNodeIcon}
-          renderPageLink={renderPageLink}
-        />
-        </div>
-      ))}
-    </div>
+      {visibleRows.map(({ row, start }) => {
+        const entry = index.entries.get(row.item.value)!;
+        return (
+          <TreeItem
+            key={row.item.value}
+            value={row.item.value}
+            data-tree-row={entry.key}
+            data-tree-index={row.index}
+            onFocus={virtualized ? () => setFocusedValue(row.item.value) : undefined}
+            style={virtualized
+              ? { position: "absolute", top: 0, left: 0, width: "100%", paddingTop: entry.gap, transform: `translateY(${start}px)` }
+              : { paddingTop: entry.gap }}
+          >
+            <WikiTreeLabel
+              active={entry.node.slug === activeSlug}
+              depth={entry.depth}
+              formatNodeName={formatNodeName}
+              getFileHref={getFileHref}
+              node={entry.node}
+              open={row.item.children !== undefined && expandedSet.has(row.item.value)}
+              onNavigate={onNavigate}
+              renderNodeIcon={renderNodeIcon}
+              renderPageLink={renderPageLink}
+            />
+          </TreeItem>
+        );
+      })}
+    </Tree>
   );
 }
 
-type WikiTreeNodeProps = Omit<WikiTreeProps, "tree" | "activeAncestorSlugs" | "activeSlug" | "defaultDirectoryOpen" | "expandedSlugs"> & {
+type WikiTreeLabelProps = Pick<WikiTreeProps, "getFileHref" | "onNavigate" | "renderNodeIcon" | "renderPageLink"> & {
   active: boolean;
-  depth?: number;
+  depth: number;
+  formatNodeName: (name: string, node: WikiNavigationNode) => string;
   node: WikiNavigationNode;
   open: boolean;
 };
 
-const WikiTreeNode = memo(function WikiTreeNode({
+function WikiTreeLabel({
   active,
-  depth = 0,
-  directoryAriaLabel,
-  formatNodeName = formatTreeNodeName,
+  depth,
+  formatNodeName,
   getFileHref,
   node,
   open,
   onNavigate,
-  onToggleDirectory,
   renderNodeIcon,
   renderPageLink,
-}: WikiTreeNodeProps) {
+}: WikiTreeLabelProps) {
   // Match the original reader: children start beneath the parent label.
   const paddingLeft = depth === 0 ? 12 : 38 + (depth - 1) * 18;
   const formattedName = formatNodeName(node.name, node);
 
   if (node.type === "directory") {
-    const accessibleName = node.badge
-      ? `${open ? "Collapse" : "Expand"} ${formattedName} ${node.badge}`
-      : `${open ? "Collapse" : "Expand"} ${formattedName}`;
-
     return (
-      <div>
-        <button
-          aria-label={
-            directoryAriaLabel?.({ formattedName, node, open }) ??
-            accessibleName
-          }
-          aria-expanded={open}
-          className="wiki-shell-tree-directory tree-directory"
-          type="button"
-          title={`${open ? "Collapse" : "Expand"} ${formattedName}`}
-          onClick={() => onToggleDirectory(node.slug, !open)}
-          data-tree-depth={depth}
-          style={{ paddingLeft }}
-        >
-          <span className="wiki-shell-tree-disclosure-text" aria-hidden="true">
-            {open ? "▼" : "▶"}
-          </span>
-          {renderNodeIcon?.({ active: false, depth, node, open }) ?? <ChevronIcon open={open} />}
-          <span className="wiki-shell-tree-label">{formattedName}</span>
-          {node.badge ? <span className="wiki-shell-tree-badge tree-badge">{node.badge}</span> : null}
-          <svg className="wiki-shell-tree-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-        </button>
-      </div>
+      <TreeItemLabel
+        className="wiki-shell-tree-directory tree-directory"
+        data-tree-depth={depth}
+        style={{ paddingLeft }}
+      >
+        <span className="wiki-shell-tree-disclosure-text" aria-hidden="true">
+          {open ? "▼" : "▶"}
+        </span>
+        {renderNodeIcon?.({ active: false, depth, node, open }) ?? <ChevronIcon open={open} />}
+        <span className="wiki-shell-tree-label">{formattedName}</span>
+        {node.badge ? <span className="wiki-shell-tree-badge tree-badge">{node.badge}</span> : null}
+        <TreeItemIndicator
+          className="wiki-shell-tree-chevron"
+          render={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>}
+        />
+      </TreeItemLabel>
     );
   }
 
   if (node.type === "pdf") {
     return (
-      <a
-        className="wiki-shell-tree-link tree-link pdf"
-        href={getFileHref?.(node) ?? `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`}
-        data-tree-depth={depth}
-        style={{ paddingLeft }}
-        target="_blank"
-        rel="noreferrer"
-        onClick={onNavigate}
-      >
-        {renderNodeIcon?.({ active: false, depth, node }) ?? <FileIcon />}
-        <span className="wiki-shell-tree-label">{formattedName}.pdf</span>
-      </a>
+      <TreeItemLabel
+        render={(
+          <a
+            className="wiki-shell-tree-link tree-link pdf"
+            href={getFileHref?.(node) ?? `/api/file?path=${encodeURIComponent(node.pdfPath ?? node.slug)}`}
+            data-tree-depth={depth}
+            style={{ paddingLeft }}
+            target="_blank"
+            rel="noreferrer"
+            onClick={onNavigate}
+          >
+            {renderNodeIcon?.({ active: false, depth, node }) ?? <FileIcon />}
+            <span className="wiki-shell-tree-label">{formattedName}.pdf</span>
+          </a>
+        )}
+      />
     );
   }
 
-  return renderPageLink({
-    active,
-    children: (
-      <>
-        {renderNodeIcon?.({ active, depth, node })}
-        <span className="wiki-shell-tree-label">{formattedName}</span>
-      </>
-    ),
-    className: cn("wiki-shell-tree-link tree-link", active && "active"),
-    node,
-    onNavigate,
-    style: { paddingLeft },
-  });
-});
+  return (
+    <TreeItemLabel
+      render={renderPageLink({
+        active,
+        children: (
+          <>
+            {renderNodeIcon?.({ active, depth, node })}
+            <span className="wiki-shell-tree-label">{formattedName}</span>
+          </>
+        ),
+        className: cn("wiki-shell-tree-link tree-link", active && "active"),
+        node,
+        onNavigate,
+        style: { paddingLeft },
+      })}
+    />
+  );
+}
 
 export type WikiMobileNavigationProps = Omit<ComponentProps<"div">, "children" | "title"> &
   WikiTreeProps & {
@@ -575,12 +582,9 @@ export function WikiMobileNavigationSheet({
 }
 
 export function WikiMobileNavigation({
-  activeAncestorSlugs,
   activeSlug,
   beforeTree,
   className,
-  defaultDirectoryOpen,
-  directoryAriaLabel,
   expandedSlugs,
   formatNodeName,
   getFileHref,
@@ -592,6 +596,7 @@ export function WikiMobileNavigation({
   renderPageLink,
   title,
   tree,
+  treeLabel,
   ...props
 }: WikiMobileNavigationProps) {
   const close = () => {
@@ -608,23 +613,21 @@ export function WikiMobileNavigation({
       title={title}
       {...props}
     >
-          <nav>
-            {beforeTree}
-            <WikiTree
-              activeAncestorSlugs={activeAncestorSlugs}
-              activeSlug={activeSlug}
-              defaultDirectoryOpen={defaultDirectoryOpen}
-              directoryAriaLabel={directoryAriaLabel}
-              expandedSlugs={expandedSlugs}
-              formatNodeName={formatNodeName}
-              getFileHref={getFileHref}
-              onNavigate={close}
-              onToggleDirectory={onToggleDirectory}
-              renderNodeIcon={renderNodeIcon}
-              renderPageLink={renderPageLink}
-              tree={tree}
-            />
-          </nav>
+      <nav>
+        {beforeTree}
+        <WikiTree
+          activeSlug={activeSlug}
+          expandedSlugs={expandedSlugs}
+          formatNodeName={formatNodeName}
+          getFileHref={getFileHref}
+          onNavigate={close}
+          onToggleDirectory={onToggleDirectory}
+          renderNodeIcon={renderNodeIcon}
+          renderPageLink={renderPageLink}
+          tree={tree}
+          treeLabel={treeLabel}
+        />
+      </nav>
     </WikiMobileNavigationSheet>
   );
 }

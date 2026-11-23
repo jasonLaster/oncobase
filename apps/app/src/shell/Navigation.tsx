@@ -93,18 +93,6 @@ function navigationActiveSlug(pathname: string) {
   return pathname === "/" ? "" : slugFromPath(pathname);
 }
 
-function defaultDirectoryOpen({
-  activeAncestorSlugs,
-  depth,
-  node,
-}: {
-  activeAncestorSlugs: Set<string>;
-  depth: number;
-  node: WikiNavigationNode;
-}) {
-  return activeAncestorSlugs.has(node.slug) || (depth === 0 && node.slug === "wiki");
-}
-
 
 function DiagnosticsTreeLink({
   activePathname,
@@ -208,18 +196,18 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
   const location = useLocation();
   const locationSlug = slugFromPath(location.pathname);
   const activeSlug = useNavigationSlug(locationSlug);
-  const expandedSlugs = useExpandedDirectories();
   const activeAncestorSlugs = useMemo(
     () => collectActiveAncestors(tree, activeSlug),
     [activeSlug, tree],
   );
+  const expandedSlugs = useExpandedDirectories(activeAncestorSlugs);
   // Reveal only when the location changes, so collapsing an ancestor of the
   // current page by hand still sticks until the next navigation.
   useEffect(() => {
     revealDirectories(activeAncestorSlugs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationSlug, tree]);
-  return { activeAncestorSlugs, expandedSlugs, toggleDirectory };
+  return { expandedSlugs, toggleDirectory };
 }
 
 export const Sidebar = memo(function Sidebar({ freshness }: { freshness: NavigationFreshness }) {
@@ -254,12 +242,11 @@ function WikiNavigationSidebar({ freshness }: { freshness: NavigationFreshness }
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const activeSlug = navigationActiveSlug(pathname);
-  const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
+  const { expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const renderPageLink = usePageLinkRenderer();
 
   return (
     <WikiSidebar
-      activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
       beforeTree={
         <>
@@ -270,7 +257,6 @@ function WikiNavigationSidebar({ freshness }: { freshness: NavigationFreshness }
       }
       data-test-id="wiki-sidebar"
       data-tree-freshness={freshness}
-      defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
       footer={<SidebarFooter />}
       formatNodeName={formatTreeLabel}
@@ -383,7 +369,6 @@ function usePageLinkRenderer() {
       return (
         <Link
           className={className}
-          aria-current={active ? "page" : undefined}
           data-selected-file-tree-item={active ? "true" : undefined}
           style={style}
           to={href}
@@ -415,7 +400,7 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
   const store = useReaderStore();
   const isChatRoute = !!store && pathname.startsWith("/chat");
   const activeSlug = navigationActiveSlug(pathname);
-  const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
+  const { expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const [navState, setNavState] = useState({ open: false, pathname });
   const [activeTab, setActiveTab] = useState<MobileNavTab>("pages");
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
@@ -590,9 +575,7 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
               />
               <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
               <WikiTree
-                activeAncestorSlugs={activeAncestorSlugs}
                 activeSlug={activeSlug}
-                defaultDirectoryOpen={defaultDirectoryOpen}
                 expandedSlugs={expandedSlugs}
                 formatNodeName={formatTreeLabel}
                 getFileHref={fileHrefForNode}

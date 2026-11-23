@@ -482,7 +482,7 @@ test.describe("education guests (deployed gate)", () => {
     );
     await page.goto(route);
     await expect(page.getByRole("heading", { name: /Oncology 101/, level: 1 })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Collapse education", exact: true })).toBeVisible();
+    await expect(page.getByRole("treeitem", { name: "education", exact: true })).toHaveAttribute("aria-expanded", "true");
     expect(await page.evaluate(() => (window as unknown as Leak).educationCacheLeak)).toBe(false);
   });
 });
