@@ -15,6 +15,7 @@ import {
 } from "@oncobase/wiki-shell";
 import { ChevronDown, ClipboardCheck, MessageSquareText, Search, WandSparkles } from "lucide-react";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
 import { MobileChatIcon, nodeIcon } from "./navigation-icons";
 import {
   lazy,
@@ -26,6 +27,7 @@ import {
   useState,
   type CSSProperties,
   type MouseEvent,
+  type ReactElement,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { bootstrappedNavigation } from "../bootstrap/seed-state";
@@ -90,6 +92,16 @@ function AdminNavigation({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/** Names an icon-only control from the first HTML, and shows the name on hover and focus. */
+function IconTooltip({ children, label }: { children: ReactElement; label: string }) {
+  return (
+    <Tooltip type="label">
+      <TooltipTrigger render={children} />
+      <TooltipContent className="wiki-vite-icon-tooltip" sideOffset={6}>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function navigationActiveSlug(pathname: string) {
   return pathname === "/" ? "" : slugFromPath(pathname);
 }
@@ -114,7 +126,6 @@ function DiagnosticsTreeLink({
       to="/diagnostics"
       onClick={onNavigate}
       style={{ paddingLeft: 12 }}
-      title="Diagnostics"
     >
       <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />
       <span className="wiki-shell-tree-label">Diagnostics</span>
@@ -593,28 +604,28 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
           aria-label="Ask or talk"
         >
           {isDocumentRoute(pathname) ? (
-            <button
-              type="button"
-              aria-label="Talk with the page"
-              title="Talk with the page"
-              className="wiki-vite-mobile-talk"
-              data-test-id="mobile-talk"
-              onClick={openTalk}
-              onFocus={() => void loadTalkPanel()}
-              onPointerDown={() => void loadTalkPanel()}
-            >
-              <PhoneIcon size={20} />
-            </button>
+            <IconTooltip label="Talk with the page">
+              <button
+                type="button"
+                className="wiki-vite-mobile-talk"
+                data-test-id="mobile-talk"
+                onClick={openTalk}
+                onFocus={() => void loadTalkPanel()}
+                onPointerDown={() => void loadTalkPanel()}
+              >
+                <PhoneIcon size={20} />
+              </button>
+            </IconTooltip>
           ) : null}
-          <Link
-            to="/chat"
-            aria-label="Ask wiki"
-            title="Ask wiki"
-            className="wiki-vite-mobile-ask"
-            data-test-id="mobile-ask-wiki"
-          >
-            <MobileChatIcon />
-          </Link>
+          <IconTooltip label="Ask wiki">
+            <Link
+              to="/chat"
+              className="wiki-vite-mobile-ask"
+              data-test-id="mobile-ask-wiki"
+            >
+              <MobileChatIcon />
+            </Link>
+          </IconTooltip>
         </div>
       ) : null}
     </>
@@ -635,38 +646,11 @@ function MobilePageHeader({
       <div className="wiki-vite-mobile-title">
         <MarkdownTitle title={title} />
       </div>
-      <button
-        type="button"
-        aria-label="Search files"
-        title="Search files"
-        data-test-id="mobile-header-search"
-        onClick={(event) => { event.currentTarget.focus(); openCommandPalette("pages"); }}
-      >
-        <svg
-          aria-hidden="true"
-          fill="none"
-          height="18"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.5"
-          viewBox="0 0 16 16"
-          width="18"
-        >
-          <circle cx="7" cy="7" r="4.25" />
-          <path d="m10.25 10.25 3.5 3.5" />
-        </svg>
-      </button>
-      {showComments ? (
+      <IconTooltip label="Search files">
         <button
           type="button"
-          aria-label="Open comments"
-          title="Open comments"
-          data-test-id="mobile-header-comments"
-          onClick={() => {
-            document.documentElement.dataset.mobileCommentsPanelRequested = "true";
-            window.dispatchEvent(new CustomEvent("mobile-comments-panel-open"));
-          }}
+          data-test-id="mobile-header-search"
+          onClick={(event) => { event.currentTarget.focus(); openCommandPalette("pages"); }}
         >
           <svg
             aria-hidden="true"
@@ -679,36 +663,63 @@ function MobilePageHeader({
             viewBox="0 0 16 16"
             width="18"
           >
-            <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+            <circle cx="7" cy="7" r="4.25" />
+            <path d="m10.25 10.25 3.5 3.5" />
           </svg>
         </button>
+      </IconTooltip>
+      {showComments ? (
+        <IconTooltip label="Open comments">
+          <button
+            type="button"
+            data-test-id="mobile-header-comments"
+            onClick={() => {
+              document.documentElement.dataset.mobileCommentsPanelRequested = "true";
+              window.dispatchEvent(new CustomEvent("mobile-comments-panel-open"));
+            }}
+          >
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              viewBox="0 0 16 16"
+              width="18"
+            >
+              <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+            </svg>
+          </button>
+        </IconTooltip>
       ) : null}
-      <button
-        type="button"
-        aria-label="Open page navigation"
-        title="Open page navigation"
-        data-test-id="bottom-nav-trigger"
-        onClick={(event) => {
-          // WebKit pointer activation does not focus buttons automatically.
-          // Give the sheet a concrete focus target to restore on dismissal.
-          event.currentTarget.focus();
-          onOpenNavigation();
-        }}
-      >
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      <IconTooltip label="Open page navigation">
+        <button
+          type="button"
+          data-test-id="bottom-nav-trigger"
+          onClick={(event) => {
+            // WebKit pointer activation does not focus buttons automatically.
+            // Give the sheet a concrete focus target to restore on dismissal.
+            event.currentTarget.focus();
+            onOpenNavigation();
+          }}
         >
-          <path d="M3 4h10M3 8h10M3 12h7" />
-        </svg>
-      </button>
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 4h10M3 8h10M3 12h7" />
+          </svg>
+        </button>
+      </IconTooltip>
     </header>
   );
 }

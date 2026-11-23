@@ -2348,4 +2348,14 @@ a {
     color: var(--brand);
   }
 }
+.wiki-vite-icon-tooltip {
+  background: var(--foreground);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 0.16);
+  color: var(--background);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+  padding: 4px 8px;
+}
 /* end ui-sdk: w8-nav-tree-resizable */
