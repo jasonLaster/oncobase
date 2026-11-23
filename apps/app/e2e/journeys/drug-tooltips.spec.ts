@@ -17,6 +17,10 @@ test.beforeEach(async ({ page }) => {
 
 test("drug tooltip supports hover, keyboard dismissal, and expanded tables", async ({ page }) => {
   const drug = page.getByRole("button", { name: "About Atezolizumab (Tecentriq)" });
+  // The badge is a plain button until the tooltip chunk loads and replaces it. A
+  // hover that lands during that swap reaches neither element's handlers (the new
+  // button gets no pointerenter until the mouse moves), so wait for the real one.
+  await expect(drug).toHaveAttribute("data-slot", "tooltip-trigger");
   await drug.hover();
   await expect(page.getByRole("tooltip")).toContainText("PD-L1");
   await expect(page.getByRole("tooltip")).toContainText("Blocks PD-L1, helping T cells attack cancer.");
