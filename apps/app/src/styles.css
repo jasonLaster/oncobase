@@ -2287,3 +2287,26 @@ a {
   }
 }
 /* end ui-sdk: w4-chat */
+
+/* ui-sdk: w9-shell-overlays */
+.reader-tooltip {
+  background: var(--foreground);
+  border-radius: 0.375rem;
+  box-shadow: 0 6px 16px rgb(17 24 39 / 0.18);
+  color: var(--background);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+  padding: 0.25rem 0.5rem;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.reader-tooltip:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+}
+
+.reader-tooltip[data-instant] {
+  transition: none;
+}
+/* end ui-sdk: w9-shell-overlays */
