@@ -43,6 +43,10 @@ const server = Bun.spawn(["bun", "server/standalone.ts"], {
       process.env.DIANA_WIKI_PASSWORD_HASH || localGatePasswordHash,
     WIKI_GATE_SESSION_SECRET:
       process.env.WIKI_GATE_SESSION_SECRET || localGateSessionSecret,
+    // No AI Gateway credentials here, so page recommendations would answer 503
+    // and fail the browser smoke's same-origin 5xx check. Empty turns them off
+    // (404), which the palette treats as "no recommendations".
+    PALETTE_JEV_MODELS: process.env.PALETTE_JEV_MODELS ?? "",
   },
   stdout: "inherit",
   stderr: "inherit",
