@@ -374,6 +374,9 @@ test("public and session scopes keep separate stores, never leak restricted page
   await page.getByTestId("sidebar-search").click();
   await page.getByTestId("command-palette-input").fill("private plan");
   await expect(page.getByText("No pages found")).toBeVisible();
+  // UI SDK Command: the first Escape clears the query, the second closes.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("command-palette-input")).toHaveValue("");
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("command-palette")).toBeHidden();
 

@@ -115,7 +115,7 @@ test.describe("comments (mocked Liveblocks)", () => {
     const dialog = page.getByRole("dialog", { name: "Sign in" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Email")).toBeVisible();
-    await expect(dialog.getByLabel("Password")).toBeVisible();
+    await expect(dialog.getByLabel("Password", { exact: true })).toBeVisible();
     await expect(dialog).toContainText("Sign in to comment and view additional content.");
   });
 

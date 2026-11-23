@@ -1790,6 +1790,15 @@ a {
     transform: translateY(1rem);
   }
 
+  /* A keyboard user tabbing past the article scrolls it down; the button
+     they land on must show at once, not fade in behind its focus ring. */
+  .wiki-vite-mobile-fab-group[data-hidden="true"]:focus-within {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    transition: none;
+  }
+
   .wiki-vite-talk-launcher {
     display: none;
   }
