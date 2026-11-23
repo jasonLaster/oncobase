@@ -104,7 +104,8 @@ keyboardCheck("skip-link", "reader-article", "desktop", async (page) => {
 // Client-side navigation: focus target, announcement, scroll restoration.
 
 async function navigateWithTreeLink(page: Page, slug: string, title: string) {
-  const link = page.locator(`[data-tree-row*=":file:${slug}:"] a`).first();
+  // The tree item takes focus; Enter follows its link.
+  const link = page.locator(`[data-tree-row*=":file:${slug}:"]`).first();
   await link.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`/${slug}$`));
