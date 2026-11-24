@@ -49,7 +49,10 @@ export const API_SERVER_BUDGET_BYTES = 256 * KiB;
 // pipeline, fully bundled) measured 1,021.0 KiB in 31 modules on 2026-11-17.
 // It is never a static import of the HTML handler, which keeps its own 200 KiB
 // budget; a response loads it lazily, so this is cold-start cost only.
-export const READER_SSR_BUDGET_BYTES = 1_080 * KiB;
+// The UI SDK migration server-renders the shell's Tree, Resizable, Drawer,
+// Menu, Dialog and Tooltip parts: 932.1 KiB in 43 modules on main -> 1,277.3
+// KiB in 92 modules (UI SDK ships one small module per part). Cold start only.
+export const READER_SSR_BUDGET_BYTES = 1_320 * KiB;
 
 export function serverBudgetFailures(directory: string) {
   const reader = readerServerModules(directory);

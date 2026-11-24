@@ -67,6 +67,7 @@
   },
   "dependencies": {
     "@oncobase/safe-storage": "workspace:*",
+    "@oncobase/ui": "workspace:*",
     "@oncobase/wiki-shell": "workspace:*"
   },
   "peerDependencies": {

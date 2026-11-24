@@ -1,15 +1,17 @@
 "use client";
 
 import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
   type ButtonHTMLAttributes,
   type ComponentProps,
   type HTMLAttributes,
   type ReactNode,
 } from "react";
+import {
+  Dialog as UiDialog,
+  DialogClose as UiDialogClose,
+  DialogContent as UiDialogContent,
+  DialogTitle as UiDialogTitle,
+} from "@oncobase/ui/dialog";
 import { XIcon } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 
@@ -80,13 +82,6 @@ export function Button({
   );
 }
 
-const DialogCloseContext = createContext<(() => void) | null>(null);
-
-/**
- * A native modal <dialog>: showModal() traps focus, makes the page behind it
- * inert, and handles Escape. The element itself is a transparent full-screen
- * layer, so a click outside DialogContent lands on it and closes.
- */
 export function Dialog({
   children,
   onOpenChange,
@@ -96,37 +91,10 @@ export function Dialog({
   onOpenChange?: (open: boolean) => void;
   open: boolean;
 }) {
-  if (!open || typeof document === "undefined") return null;
-  return <OpenDialog onClose={() => onOpenChange?.(false)}>{children}</OpenDialog>;
-}
-
-function OpenDialog({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const element = dialog.current!;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    element.showModal();
-    return () => {
-      element.close();
-      previousFocus?.focus();
-    };
-  }, []);
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Backdrop click on a native modal; Escape and the Close button cover keyboards.
-    <dialog
-      className="m-0 h-full max-h-none w-full max-w-none border-0 bg-transparent p-0 backdrop:bg-black/10"
-      data-slot="dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      ref={dialog}
-    >
-      <DialogCloseContext.Provider value={onClose}>{children}</DialogCloseContext.Provider>
-    </dialog>
+    <UiDialog open={open} onOpenChange={(next) => onOpenChange?.(next)}>
+      {children}
+    </UiDialog>
   );
 }
 
@@ -135,26 +103,24 @@ export function DialogContent({
   className,
   ...props
 }: ComponentProps<"div">) {
-  const close = useContext(DialogCloseContext);
   return (
-    <div
+    <UiDialogContent
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none sm:max-w-sm",
+        "fixed left-1/2 top-1/2 m-0 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none backdrop:bg-black/10 sm:max-w-sm",
         className,
       )}
       {...props}
     >
       {children}
-      <Button
+      <UiDialogClose
         aria-label="Close"
-        className="absolute right-2 top-2"
-        onClick={() => close?.()}
-        size="icon-sm"
-        variant="ghost"
+        render={
+          <Button className="absolute right-2 top-2" size="icon-sm" variant="ghost" />
+        }
       >
-        <XIcon className="size-4" />
-      </Button>
-    </div>
+        <XIcon aria-hidden="true" className="size-4" />
+      </UiDialogClose>
+    </UiDialogContent>
   );
 }
 
@@ -164,7 +130,7 @@ export function DialogHeader({ className, ...props }: ComponentProps<"div">) {
 
 export function DialogTitle({ className, ...props }: ComponentProps<"h2">) {
   return (
-    <h2
+    <UiDialogTitle
       className={cn("font-heading text-base font-medium leading-none", className)}
       {...props}
     />

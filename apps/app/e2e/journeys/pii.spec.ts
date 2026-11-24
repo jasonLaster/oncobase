@@ -43,7 +43,7 @@ test("a rendered page redacts identifiers, and showPII does not reveal them", as
 test("text search finds the redacted line and never matches a raw identifier", async ({ page }) => {
   const search = async (query: string) => {
     await page.goto(`/search?q=${encodeURIComponent(query)}`);
-    await page.getByRole("button", { name: "Text Search" }).click();
+    await page.getByRole("radio", { name: "Text Search" }).click();
     await expect(page.getByTestId("search-text-summary").or(page.getByTestId("search-text-empty"))).toBeVisible();
   };
 

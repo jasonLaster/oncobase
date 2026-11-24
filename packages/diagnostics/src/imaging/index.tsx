@@ -1,7 +1,9 @@
 "use client";
 
 import { Columns2, Download, FileText, ImageIcon } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
+
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@oncobase/ui/menu";
 
 import {
   getDicomCompareHref,
@@ -146,7 +148,6 @@ function DiagnosticStudyRow({
           buttonLabel="Reports"
           icon={<FileText className="size-4" />}
           items={study.reportLinks}
-          menuId={`reports-${study.id}`}
         /> : <span className="diagnostics-empty-cell">—</span>}
       </td>
       <td>
@@ -164,7 +165,6 @@ function DiagnosticStudyRow({
             buttonLabel="Comparisons"
             icon={<Columns2 className="size-4" />}
             items={study.comparisonLinks}
-            menuId={`comparisons-${study.id}`}
           />
         ) : (
           <span className="diagnostics-empty-cell">—</span>
@@ -216,35 +216,28 @@ function DiagnosticsMenu({
   buttonLabel,
   icon,
   items,
-  menuId,
 }: {
   buttonLabel: string;
   icon: ReactNode;
   items: DiagnosticReportLink[];
-  menuId: string;
 }) {
-  const [open, setOpen] = useState(false);
   return (
     <span className="diagnostics-menu">
-      <button
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label={buttonLabel}
-        title={buttonLabel}
-        onClick={() => setOpen((value) => !value)}
-        type="button"
-      >
-        {icon}
-      </button>
-      {open ? (
-        <span className="diagnostics-menu-popover" id={menuId} role="menu">
+      <Menu>
+        <MenuTrigger aria-label={buttonLabel} title={buttonLabel}>
+          {icon}
+        </MenuTrigger>
+        <MenuContent align="start" className="diagnostics-menu-popover" sideOffset={4}>
           {items.map((item) => (
-            <a href={item.href} key={`${item.label}:${item.href}`} role="menuitem">
+            <MenuItem
+              key={`${item.label}:${item.href}`}
+              render={<a href={item.href} />}
+            >
               {item.label}
-            </a>
+            </MenuItem>
           ))}
-        </span>
-      ) : null}
+        </MenuContent>
+      </Menu>
     </span>
   );
 }

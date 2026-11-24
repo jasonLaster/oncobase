@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, Columns2, Copy, Expand, Hand, Home, Minus, Plus, RotateCw, Ruler, Save, Square, Trash2, Undo2, X } from "lucide-react";
 import useSWR from "swr";
+import { Listbox, ListboxItem } from "@oncobase/ui/listbox";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
+import { Toolbar, ToolbarButton } from "@oncobase/ui/toolbar";
 import { formatLength, readCamera, regionLengthMicrons, type PathologyRegion, type PathologySlide, type SlideCamera } from "./model";
 import { SlideCanvas, type SlideControls, type SlideTool } from "./slide-canvas";
 import { normalizePathologyCollectionId, pathologyCollectionId, pathologyCollections, slideScanDate } from "./collection";
@@ -135,8 +139,12 @@ export function PathologyViewer() {
     try { await navigator.clipboard.writeText(url.href); setShareStatus("View link copied"); }
     catch { setShareStatus("Copy this view’s URL from the address bar"); }
   }
-  const button = (label: string, action: () => void, icon: React.ReactNode, active = false, disabled = false) =>
-    <button type="button" title={label} aria-label={label} aria-pressed={["Pan", "Draw region", "Measure"].includes(label) ? active : undefined} onClick={action} disabled={disabled}>{icon}</button>;
+  const button = (label: string, action: () => void, icon: React.ReactNode) =>
+    <button type="button" title={label} aria-label={label} onClick={action}>{icon}</button>;
+  const toolButton = (label: string, action: () => void, icon: React.ReactNode, disabled = false) =>
+    <ToolbarButton title={label} aria-label={label} onClick={action} disabled={disabled}>{icon}</ToolbarButton>;
+  const toolToggle = (value: SlideTool, label: string, icon: React.ReactNode, disabled = false) =>
+    <Toggle value={value} title={label} aria-label={label} disabled={disabled}>{icon}</Toggle>;
   const index = slides.findIndex(s => s.slideId === slide?.slideId);
 
   return <div className="pathology-workspace" ref={workspace} data-test-id="pathology-workspace">
@@ -154,34 +162,30 @@ export function PathologyViewer() {
       : missingSlide ? <div className="pathology-empty" role="alert"><h2>This slide is unavailable</h2><p>The shared slide is not in this collection.</p>{slides[0] && <button onClick={() => navigate(slides[0].slideId)}>Open slide collection</button>}</div>
       : !slide ? <div className="pathology-empty"><h2>No slides available</h2><p>Prepared pathology slides will appear here.</p></div>
       : <div className="pathology-layout">
-        <aside className="pathology-slide-rail" aria-label="Slide collection">
+        <Tabs aria-label="Slide collection" className="pathology-slide-rail" render={<aside />}
+          value={activeStain ?? null} onValueChange={next => { if (next) chooseStain(next); }}>
           <div className="pathology-rail-navigation">
             <div className="pathology-rail-title"><h2>Slides</h2><span>{collectionSlides.length}</span></div>
             <p className="pathology-collection-date">{collection?.dateLabel}</p>
-            <div className="pathology-stain-tabs" role="tablist" aria-label="Stains" onKeyDown={event => {
-              const stains = collection?.stains ?? [];
-              const index = stains.indexOf(activeStain ?? "");
-              const next = event.key === "ArrowRight" ? (index + 1) % stains.length
-                : event.key === "ArrowLeft" ? (index - 1 + stains.length) % stains.length
-                : event.key === "Home" ? 0 : event.key === "End" ? stains.length - 1 : -1;
-              if (next < 0) return;
-              event.preventDefault();
-              event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
-              chooseStain(stains[next]);
-            }}>
-              {collection?.stains.map(s => <button key={s} id={`pathology-stain-${encodeURIComponent(s)}`} role="tab" type="button"
-                aria-controls="pathology-stain-panel" aria-selected={s === activeStain} tabIndex={s === activeStain ? 0 : -1}
-                aria-label={`${s} (${collectionSlides.filter(slide => slide.stain === s).length})`} onClick={() => chooseStain(s)}>
+            <TabsList className="pathology-stain-tabs" aria-label="Stains">
+              {collection?.stains.map(s => <TabsTab key={s} value={s}
+                aria-label={`${s} (${collectionSlides.filter(slide => slide.stain === s).length})`}>
                 {s}<span>{collectionSlides.filter(slide => slide.stain === s).length}</span>
-              </button>)}
-            </div>
+              </TabsTab>)}
+            </TabsList>
           </div>
           <div className="pathology-rail-body">
-          <div className="pathology-slide-list" id="pathology-stain-panel" role="tabpanel" aria-labelledby={`pathology-stain-${encodeURIComponent(activeStain ?? "")}`}>{slides.map((s, i) => <button key={s.slideId} className={`pathology-slide-card ${slide.slideId === s.slideId ? "is-selected" : ""}`}
-            onClick={() => navigate(s.slideId)} aria-pressed={slide.slideId === s.slideId} data-test-id="pathology-slide-card" data-slide-card-id={s.slideId}>
-            <img src={`/api/pathology/slides/${s.slideId}/thumbnail`} alt={`Tissue overview for ${s.label}`} loading="lazy" />
-            <span><strong>{s.label}</strong><small>{s.stain} · {s.objectivePower ? `${s.objectivePower}× scan` : "Whole slide"}{drafts[s.slideId]?.dirty ? " · unsaved notes" : ""}</small><small>{slideScanDate(s.scanDate).label}</small></span><b>{i + 1}</b>
-          </button>)}</div>
+          {collection?.stains.map(s => <TabsPanel key={s} value={s}>
+            <Listbox activation="manual" aria-label={`${s} slides`} className="pathology-slide-list"
+              value={s === activeStain ? slide.slideId : null} onValueChange={next => { if (next) navigate(next); }}>
+              {slides.map((item, i) => <ListboxItem key={item.slideId} value={item.slideId} render={<button type="button" />}
+                className={`pathology-slide-card ${slide.slideId === item.slideId ? "is-selected" : ""}`}
+                data-test-id="pathology-slide-card" data-slide-card-id={item.slideId}>
+                <img src={`/api/pathology/slides/${item.slideId}/thumbnail`} alt={`Tissue overview for ${item.label}`} loading="lazy" />
+                <span><strong>{item.label}</strong><small>{item.stain} · {item.objectivePower ? `${item.objectivePower}× scan` : "Whole slide"}{drafts[item.slideId]?.dirty ? " · unsaved notes" : ""}</small><small>{slideScanDate(item.scanDate).label}</small></span><b>{i + 1}</b>
+              </ListboxItem>)}
+            </Listbox>
+          </TabsPanel>)}
           <details className="pathology-details"><summary>Slide information</summary><dl>
             <dt>Accession</dt><dd>{slide.accession ?? "Not supplied"}</dd><dt>Stain</dt><dd>{slide.stain}</dd>
             <dt>Scanned</dt><dd>{slide.scanDate ?? "Not supplied"}</dd><dt>Scanner</dt><dd>{slide.scanner}</dd>
@@ -192,26 +196,30 @@ export function PathologyViewer() {
           </dl><p>Specimen site and collection date have not been supplied.</p></details>
           <details className="pathology-help"><summary>Navigation help</summary><p>Drag to pan. Scroll or pinch to zoom. Double-click to zoom in. Click the overview navigator to move through the tissue.</p><p>With the slide focused: + / − zoom, 0 fits tissue, R rotates, arrow keys pan. Regions and measurements are saved in original image coordinates.</p></details>
           </div>
-        </aside>
+        </Tabs>
         <section className="pathology-review" aria-label="Slide review">
-          <div className="pathology-toolbar" role="toolbar" aria-label="Slide tools">
+          <Toolbar className="pathology-toolbar" aria-label="Slide tools">
             <div className="pathology-tool-group">
-              {button("Previous slide", () => navigate(slides[index - 1].slideId), <ChevronLeft size={18} />, false, index <= 0)}
+              {toolButton("Previous slide", () => navigate(slides[index - 1].slideId), <ChevronLeft size={18} />, index <= 0)}
               <span className="pathology-slide-counter">{index + 1} / {slides.length}</span>
-              {button("Next slide", () => navigate(slides[index + 1].slideId), <ChevronRight size={18} />, false, index >= slides.length - 1)}
+              {toolButton("Next slide", () => navigate(slides[index + 1].slideId), <ChevronRight size={18} />, index >= slides.length - 1)}
             </div>
             <div className="pathology-tool-group">
-              {button("Pan", () => setTool("pan"), <Hand size={18} />, tool === "pan")}
-              {button("Draw region", () => setTool(tool === "region" ? "pan" : "region"), <Square size={18} />, tool === "region", !notes && !draft || Boolean(notesError))}
-              {button("Measure", () => setTool(tool === "ruler" ? "pan" : "ruler"), <Ruler size={18} />, tool === "ruler", !slide.mppX || !slide.mppY || !notes && !draft || Boolean(notesError))}
-              {button("Undo annotation edit", undo, <Undo2 size={18} />, false, !draft?.history.length)}
-              {button("Rotate 90 degrees", () => primary.current?.rotate(), <RotateCw size={18} />)}
+              {/* Pressing the pressed tool again clears the group, which returns to Pan. */}
+              <ToggleGroup aria-label="Pointer tool" className="pathology-tool-toggles" value={[tool]}
+                onValueChange={next => setTool((next[0] as SlideTool | undefined) ?? "pan")}>
+                {toolToggle("pan", "Pan", <Hand size={18} />)}
+                {toolToggle("region", "Draw region", <Square size={18} />, !notes && !draft || Boolean(notesError))}
+                {toolToggle("ruler", "Measure", <Ruler size={18} />, !slide.mppX || !slide.mppY || !notes && !draft || Boolean(notesError))}
+              </ToggleGroup>
+              {toolButton("Undo annotation edit", undo, <Undo2 size={18} />, !draft?.history.length)}
+              {toolButton("Rotate 90 degrees", () => primary.current?.rotate(), <RotateCw size={18} />)}
             </div>
             <div className="pathology-tool-group">
-              {button("Fit tissue", () => primary.current?.home(), <Home size={18} />)}
-              {button("Zoom out", () => primary.current?.zoom(1 / 1.5), <Minus size={18} />)}
-              {button("Zoom in", () => primary.current?.zoom(1.5), <Plus size={18} />)}
-              {[2, 5, 10, 20, 40].filter(power => slide.objectivePower && power <= slide.objectivePower).map(power => <button key={power} onClick={() => primary.current?.magnify(power)} aria-label={`${power}× magnification`}>{power}×</button>)}
+              {toolButton("Fit tissue", () => primary.current?.home(), <Home size={18} />)}
+              {toolButton("Zoom out", () => primary.current?.zoom(1 / 1.5), <Minus size={18} />)}
+              {toolButton("Zoom in", () => primary.current?.zoom(1.5), <Plus size={18} />)}
+              {[2, 5, 10, 20, 40].filter(power => slide.objectivePower && power <= slide.objectivePower).map(power => <ToolbarButton key={power} onClick={() => primary.current?.magnify(power)} aria-label={`${power}× magnification`}>{power}×</ToolbarButton>)}
             </div>
             <label className="pathology-compare-label"><Columns2 size={16} /><span>Compare</span><select aria-label="Compare with slide" value={compare?.slideId ?? ""}
               onChange={event => { setCompareId(event.target.value || null); const url = new URL(window.location.href); if (event.target.value) url.searchParams.set("compare", event.target.value); else url.searchParams.delete("compare"); window.history.replaceState(null, "", url); }}>
@@ -219,7 +227,7 @@ export function PathologyViewer() {
                 {c.slides.filter(s => s.slideId !== slide.slideId).map(s => <option key={s.slideId} value={s.slideId}>{s.label}</option>)}
               </optgroup>)}
             </select></label>
-          </div>
+          </Toolbar>
           {tool !== "pan" && <div className="pathology-tool-hint" role="status">{tool === "region" ? "Drag a box around a region of interest." : "Drag between two points to measure distance."} <button onClick={() => setTool("pan")}>Return to pan</button></div>}
           {compare && <div className="pathology-comparison-tools"><span>{slide.label} ↔ {compare.label}</span><label><input type="checkbox" checked={linked} onChange={event => setLinked(event.target.checked)} /> Link magnification</label><span>Pan independently; slides are not registered.</span>
             <button onClick={() => navigate(compare.slideId, slide.slideId)}>Swap slides</button>{button("Close comparison", () => navigate(slide.slideId, null), <X size={16} />)}</div>}

@@ -2,6 +2,7 @@ import { ArchivedChatsCore } from "@oncobase/chat/components/archived-chats-core
 import { ChatInterface } from "@oncobase/chat/components/chat-interface";
 import { useChatRuntime } from "@oncobase/chat/runtime";
 import { safeSessionStorage } from "@oncobase/safe-storage";
+import { Resizable, ResizableHandle, ResizablePanel } from "@oncobase/ui/resizable";
 import {
   WikiChatMain,
   WikiChatLoadingSkeleton,
@@ -13,16 +14,7 @@ import {
   useWikiEditReview,
 } from "@oncobase/wiki-shell/wiki-edit-review";
 import { useMutation, useQuery } from "convex/react";
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api.js";
 import type { Id } from "../../convex/_generated/dataModel.js";
@@ -121,9 +113,7 @@ function ChatWorkspace() {
   const { id } = useParams();
   const review = useWikiEditReview();
   const isPanelOpen = Boolean(review?.activeProposalId && review?.activeProposal);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const [panelWidthPct, setPanelWidthPct] = useState<number>(readStoredPanelWidthPct);
-  const [dragging, setDragging] = useState(false);
 
   // Close the review panel when switching conversations.
   const closePanel = review?.closePanel;
@@ -131,57 +121,37 @@ function ChatWorkspace() {
     closePanel?.();
   }, [closePanel, id]);
 
-  const handleResizeStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const container = containerRef.current;
-    if (!container) return;
-    event.preventDefault();
-    setDragging(true);
-    const rect = container.getBoundingClientRect();
-
-    const onMove = (moveEvent: PointerEvent) => {
-      if (rect.width <= 0) return;
-      const rightPx = rect.right - moveEvent.clientX;
-      const pct = Math.min(
-        MAX_PANEL_WIDTH_PCT,
-        Math.max(MIN_PANEL_WIDTH_PCT, (rightPx / rect.width) * 100),
-      );
-      setPanelWidthPct(pct);
-      safeSessionStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(Math.round(pct)));
-    };
-    const onUp = () => {
-      setDragging(false);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }, []);
-
-  const layoutStyle = isPanelOpen
-    ? ({ "--wiki-edit-panel-width": `${panelWidthPct}%` } as CSSProperties)
-    : undefined;
-
   return (
-    <div
-      ref={containerRef}
-      className={`wiki-vite-chat-workspace${isPanelOpen ? " has-review-panel" : ""}${dragging ? " is-resizing" : ""}`}
-      style={layoutStyle}
+    <Resizable
+      className={`wiki-vite-chat-workspace${isPanelOpen ? " has-review-panel" : ""}`}
+      onLayoutCommit={(layout) => {
+        const reviewPct = layout[1];
+        if (reviewPct === undefined) return;
+        setPanelWidthPct(reviewPct);
+        safeSessionStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(Math.round(reviewPct)));
+      }}
     >
-      <WikiChatPage className="wiki-vite-chat-page" data-test-id="chat-page">
+      <ResizablePanel
+        id="chat-workspace-conversation"
+        render={<WikiChatPage className="wiki-vite-chat-page" data-test-id="chat-page" />}
+      >
         <WikiChatMain>
           <ChatRouteContent />
         </WikiChatMain>
-      </WikiChatPage>
+      </ResizablePanel>
       {isPanelOpen ? (
         <>
-          <div
-            role="separator"
-            aria-orientation="vertical"
+          <ResizableHandle
             aria-label="Resize wiki edit review panel"
             className="wiki-edit-review-resizer"
-            onPointerDown={handleResizeStart}
           />
-          <div className="wiki-edit-review-pane">
+          <ResizablePanel
+            id="chat-workspace-review"
+            className="wiki-edit-review-pane"
+            defaultSize={panelWidthPct}
+            minSize={MIN_PANEL_WIDTH_PCT}
+            maxSize={MAX_PANEL_WIDTH_PCT}
+          >
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center border-l border-[var(--sidebar-border)] bg-[var(--background)] text-xs text-[var(--text-muted)]">
@@ -191,10 +161,10 @@ function ChatWorkspace() {
             >
               <LazyWikiEditReviewPanel />
             </Suspense>
-          </div>
+          </ResizablePanel>
         </>
       ) : null}
-    </div>
+    </Resizable>
   );
 }
 

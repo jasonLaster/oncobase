@@ -165,8 +165,8 @@ test("a wrapping component keeps its markdown as children, in copy and in static
   expect(html).not.toContain("Component error");
   expect(html).toContain('aria-label="Primary: 66%, +6 pp"');
   expect(html).toContain('aria-label="Secondary: 62.5%, +7.5 pp"');
-  expect(html).toMatch(/aria-pressed="true"[^>]*>Waterfall</);
-  expect(html).toMatch(/class="scenario-walkthrough-text" hidden="">\s*<ul>\s*<li><strong>Step 1\.<\/strong>/);
+  expect(html).toMatch(/role="tab"[^>]*aria-selected="true"[^>]*>Waterfall</);
+  expect(html).toMatch(/class="scenario-walkthrough-text"[^>]*role="tabpanel"[^>]* hidden=""[^>]*>\s*<ul>\s*<li><strong>Step 1\.<\/strong>/);
   expect(html).not.toContain("wiki-component-fallback");
 
   const staticHtml = renderWikiMarkdownHtml(walkthrough, slug);

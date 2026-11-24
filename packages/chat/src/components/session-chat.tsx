@@ -1,14 +1,18 @@
 "use client";
 
 import { resolveWebStorage, safeSessionStorage } from "@oncobase/safe-storage";
+import { Button } from "@oncobase/ui/button";
+import { Field, FieldLabel } from "@oncobase/ui/field";
+import { ScrollArea, ScrollAreaContent, ScrollAreaScrollToEnd, ScrollAreaViewport } from "@oncobase/ui/scroll-area";
+import { Textarea } from "@oncobase/ui/textarea";
 import { DefaultChatTransport, type UIMessage } from "ai";
+import { ArrowDownIcon } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { StreamingMarkdown } from "./streaming-markdown";
 import type { ChatMarkdownRenderer } from "../types";
 import { sessionModelMessages } from "../session-messages";
 import { deleteSavedChat, isChatMessages, isSavedChatId, listSavedChats, loadSavedChat, newSavedChatId, saveChat, type SavedChatSummary } from "../saved-chats";
-import { Conversation, ConversationContent, ConversationScrollButton } from "./ai-elements/conversation";
 
 /** What a host's cards can do: ask a question for the reader, optionally with
  * extra request fields for that one message, and fields to send with whatever
@@ -151,20 +155,21 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, chatId
   const recent = savedChats.filter(chat => chat.id !== chatId.current);
   return <div className="session-chat" data-started={messages.length > 0 ? "" : undefined}>
     <div className="session-chat-heading"><div><h1>{title}</h1><p>{description}</p></div>
-      {messages.length > 0 && <button type="button" className="session-chat-reset" onClick={() => { open(null, []); inputRef.current?.focus(); }}>New chat</button>}
+      {messages.length > 0 && <Button type="button" className="session-chat-reset" onClick={() => { open(null, []); inputRef.current?.focus(); }}>New chat</Button>}
     </div>
-    {/* Outside the stick-to-bottom scroller, so the welcome opens at its top. */}
-    {messages.length === 0 && <div className="session-chat-welcome">{welcomeAction}<p>Start with something you’re curious about.</p><div className="session-chat-suggestions">{suggestions.map(question => <button type="button" key={question} onClick={() => submit(question)}>{question}<span aria-hidden="true">↗</span></button>)}</div>
+    {/* Outside the sticky scroller, so the welcome opens at its top. */}
+    {messages.length === 0 && <div className="session-chat-welcome">{welcomeAction}<p>Start with something you’re curious about.</p><div className="session-chat-suggestions">{suggestions.map(question => <Button type="button" key={question} onClick={() => submit(question)}>{question}<span aria-hidden="true">↗</span></Button>)}</div>
       {recent.length > 0 && <section className="session-chat-saved" aria-labelledby="session-chat-saved-heading">
         <h2 id="session-chat-saved-heading">Pick up where you left off</h2>
         <ul>{recent.map(chat => <li key={chat.id}>
-          <button type="button" className="session-chat-saved-open" onClick={() => openSaved(chat.id)}><span>{chat.title}</span><time dateTime={new Date(chat.updatedAt).toISOString()}>{savedDate(chat.updatedAt)}</time></button>
-          <button type="button" className="session-chat-saved-remove" aria-label={`Remove “${chat.title}”`} title="Remove from this browser" onClick={() => removeSaved(chat.id)}><span aria-hidden="true">×</span></button>
+          <Button type="button" className="session-chat-saved-open" onClick={() => openSaved(chat.id)}><span>{chat.title}</span><time dateTime={new Date(chat.updatedAt).toISOString()}>{savedDate(chat.updatedAt)}</time></Button>
+          <Button type="button" className="session-chat-saved-remove" aria-label={`Remove “${chat.title}”`} title="Remove from this browser" onClick={() => removeSaved(chat.id)}><span aria-hidden="true">×</span></Button>
         </li>)}</ul>
         <p>Saved only in this browser, so there’s no account to make. Anyone using this browser can see them.</p>
       </section>}</div>}
-    <Conversation className="session-chat-conversation" aria-label="Learning conversation" aria-live="polite" aria-relevant="additions">
-      <ConversationContent className="session-chat-conversation-content" scrollClassName="session-chat-scroll">
+    <ScrollArea stickToEnd className="session-chat-conversation">
+      <ScrollAreaViewport className="session-chat-scroll" role="log" aria-label="Learning conversation" aria-live="polite" aria-relevant="additions">
+      <ScrollAreaContent className="session-chat-conversation-content">
       {messages.map((message, index) => <article key={message.id} className={`session-chat-message session-chat-${message.role}`} aria-label={message.role === "user" ? "You" : assistantName}>
         <div className="session-chat-speaker">{message.role === "user" ? "You" : assistantName}</div>
         {message.parts.filter(part => part.type === "text").map((part, i) => part.type === "text" && (message.role === "user" ? <p key={i}>{part.text}</p> : renderText
@@ -173,17 +178,18 @@ export function SessionChat({ apiPath, body, initialQuestion, storageKey, chatId
         {renderData?.(message, actions(index))}
       </article>)}
       {status === "submitted" && <p className="session-chat-working" role="status">Finding helpful lessons…</p>}
-      </ConversationContent>
-      <ConversationScrollButton className="session-chat-scroll-button" aria-label="Scroll to latest reply" />
-    </Conversation>
-    {error && <div className="session-chat-error" role="alert"><span>{errorMessage}</span><button type="button" onClick={() => { clearError(); void regenerate(); }}>Retry</button></div>}
+      </ScrollAreaContent>
+      </ScrollAreaViewport>
+      <ScrollAreaScrollToEnd aria-label="Scroll to latest reply" className="session-chat-scroll-button" render={(props, { visible }) => <button {...props} hidden={!visible}><ArrowDownIcon aria-hidden="true" /></button>} />
+    </ScrollArea>
+    {error && <div className="session-chat-error" role="alert"><span>{errorMessage}</span><Button type="button" onClick={() => { clearError(); void regenerate(); }}>Retry</Button></div>}
     <form className="session-chat-composer" onSubmit={event => { event.preventDefault(); submit(input); }}>
-      <label className="session-chat-label" htmlFor="learning-question">Your question</label>
-      <div className="session-chat-input-row"><textarea ref={inputRef} id="learning-question" value={input} maxLength={4000} rows={2} placeholder="What would you like to understand?" onChange={event => setInput(event.target.value)} onKeyDown={event => {
-        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(input); }
-      }} />
-      {composerAction}
-      {busy ? <button type="button" onClick={() => void stop()}>Stop</button> : <button type="submit" disabled={!input.trim()} aria-label="Ask"><span className="session-chat-send-label">Ask </span><span aria-hidden="true">↑</span></button>}</div>
+      <Field>
+        <FieldLabel className="session-chat-label">Your question</FieldLabel>
+        <div className="session-chat-input-row"><Textarea ref={inputRef} id="learning-question" value={input} maxLength={4000} rows={2} placeholder="What would you like to understand?" onValueChange={setInput} submitShortcut="enter" />
+        {composerAction}
+        {busy ? <Button type="button" onClick={() => void stop()}>Stop</Button> : <Button type="submit" disabled={!input.trim()} aria-label="Ask"><span className="session-chat-send-label">Ask </span><span aria-hidden="true">↑</span></Button>}</div>
+      </Field>
       {footnote && <p className="session-chat-note">{footnote}</p>}
     </form>
   </div>;

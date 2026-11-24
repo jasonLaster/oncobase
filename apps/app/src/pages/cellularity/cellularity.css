@@ -253,7 +253,7 @@
   flex-wrap: wrap;
 }
 
-.cel-seg button {
+.cel-seg [data-slot="tabs-tab"] {
   border: 0;
   background: transparent;
   color: var(--text-muted);
@@ -264,7 +264,7 @@
   cursor: pointer;
 }
 
-.cel-seg button.active {
+.cel-seg [data-slot="tabs-tab"][data-selected] {
   background: var(--panel);
   color: var(--foreground);
   font-weight: 600;
@@ -310,9 +310,31 @@
   cursor: pointer;
 }
 
-.cel-controls input[type="range"] {
-  accent-color: var(--cel-keratin);
+.cel-check {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: 1px solid #767676;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
+}
+
+.cel-check[data-checked] {
+  border-color: #0075ff;
+  background: #0075ff;
+}
+
+.cel-check:focus-visible {
+  outline: 2px solid #0075ff;
+  outline-offset: 2px;
 }
 
 .cel-canvas-wrap {
@@ -378,7 +400,7 @@
   color: var(--text-muted);
 }
 
-.cel-slice-btn.active {
+.cel-slice-btn[data-pressed] {
   background: var(--foreground);
   color: var(--background);
   border-color: var(--foreground);
@@ -502,7 +524,7 @@
   cursor: pointer;
 }
 
-.cel-mini-card.selected {
+.cel-mini-card[data-pressed] {
   border-color: #161614;
   box-shadow: 0 0 0 1px #161614;
 }
@@ -512,7 +534,7 @@
   border-color: #93b4f5;
 }
 
-.cel-mini-card.virtual.selected {
+.cel-mini-card.virtual[data-pressed] {
   border-style: solid;
   border-color: #2563eb;
   box-shadow: 0 0 0 1px #2563eb;
@@ -554,7 +576,7 @@
   cursor: pointer;
 }
 
-.cel-preset-btn.active {
+.cel-preset-btn[data-pressed] {
   background: var(--foreground);
   color: var(--background);
   border-color: var(--foreground);
@@ -567,11 +589,58 @@
   margin-bottom: 12px;
 }
 
-.cel-slider-panel input[type="range"] {
+.cel-range {
+  display: inline-block;
   width: 100%;
-  accent-color: var(--cel-keratin);
-  margin: 6px 0;
+  vertical-align: middle;
   cursor: pointer;
+  touch-action: none;
+}
+
+.cel-slider-panel .cel-range {
+  margin: 6px 0;
+}
+
+.cel-range-control {
+  display: flex;
+  align-items: center;
+  height: 16px;
+}
+
+.cel-range-track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: #d8d4c8;
+}
+
+.cel-range-indicator {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cel-keratin);
+}
+
+.cel-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cel-keratin);
+}
+
+.cel-range-thumb:has(:focus-visible) {
+  outline: 2px solid var(--cel-keratin);
+  outline-offset: 2px;
+}
+
+.cel-tooltip {
+  max-width: 260px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #161614;
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .cel-slider-labels {
@@ -628,8 +697,13 @@
   overflow: hidden;
 }
 
-.cel-drawer summary {
-  list-style: none;
+.cel-drawer-trigger {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   padding: 13px 16px;
   cursor: pointer;
   display: flex;
@@ -641,11 +715,7 @@
   user-select: none;
 }
 
-.cel-drawer summary::-webkit-details-marker {
-  display: none;
-}
-
-.cel-drawer summary:hover {
+.cel-drawer-trigger:hover {
   background: var(--panel-alt);
 }
 
@@ -662,7 +732,7 @@
   transition: transform 0.16s;
 }
 
-.cel-drawer[open] .cel-chev {
+.cel-drawer[data-open] .cel-chev {
   transform: rotate(90deg);
   background: var(--foreground);
   color: var(--background);
@@ -1277,3 +1347,24 @@
     display: none;
   }
 }
+
+/* ui-sdk: cellularity-3d-model */
+/* The 3D model's slide thumbnails are a Toggle Group between the step buttons. */
+.cel-m3d-thumbs {
+  align-items: stretch;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+/* "Separate slabs" is a Slider in a row, no longer an <input> in a <label>. */
+.cel-m3d-range {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.cel-m3d-range .cel-range {
+  flex: 1;
+}
+/* end ui-sdk: cellularity-3d-model */

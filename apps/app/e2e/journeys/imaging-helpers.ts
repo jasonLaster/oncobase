@@ -510,8 +510,11 @@ export async function installAnnotationApiMock(page: Page) {
 }
 
 export async function setRangeValue(page: Page, testId: string, value: string) {
+  // A UI SDK Slider keeps its range input inside the test id's element.
   await page.getByTestId(testId).evaluate((element, nextValue) => {
-    const input = element as HTMLInputElement;
+    const input = (
+      element instanceof HTMLInputElement ? element : element.querySelector('input[type="range"]')
+    ) as HTMLInputElement;
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       "value",
@@ -537,7 +540,7 @@ export async function drawAnnotation(
   end: { x: number; y: number },
 ) {
   await page.getByRole("button", { name: "Draw" }).click();
-  await page.getByRole("button", { name: kind }).click();
+  await page.getByRole("menuitemradio", { name: kind }).click();
   await expect(
     page.getByTestId(`dicom-annotation-tool-${kind.toLowerCase()}`),
   ).toHaveAttribute("aria-pressed", "true");

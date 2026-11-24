@@ -150,8 +150,9 @@ test.describe("talk with the page (mocked backend, fake Realtime)", () => {
     await gotoWiki(page, "/wiki/logistics/insurance");
     await page.getByTestId("talk-launcher").click();
     await page.getByRole("button", { name: "Start talking" }).click();
-    const alert = page.getByRole("alert");
-    await expect(alert).toContainText("Talk isn’t available right now.");
+    // UI SDK keeps an empty role=alert announcer on the page; pick the card.
+    const alert = page.getByRole("alert").filter({ hasText: "Talk isn’t available right now." });
+    await expect(alert).toBeVisible();
     await expect(alert.getByRole("button", { name: "Talk again" })).toHaveCount(0);
     await alert.getByRole("button", { name: "Close" }).click();
     await expect(page.getByTestId("talk-launcher")).toBeVisible();

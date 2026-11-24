@@ -8,6 +8,8 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { Field, FieldLabel } from "@oncobase/ui/field";
+import { Input } from "@oncobase/ui/input";
 import { getCommentPlainText } from "./threads.ts";
 import { formatLiveblocksUserId } from "./user-format.ts";
 
@@ -157,15 +159,16 @@ function ReplyComposer({
 
   return (
     <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
-      <input
-        type="text"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        aria-label="Reply"
-        placeholder="Write a reply..."
-        className="flex-1 rounded-lg border border-[var(--sidebar-border)] bg-[var(--background)] px-3 py-1.5 text-sm outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)]"
-        disabled={sending}
-      />
+      <Field className="flex min-w-0 flex-1">
+        <FieldLabel className="sr-only">Reply</FieldLabel>
+        <Input
+          value={text}
+          onValueChange={setText}
+          placeholder="Write a reply..."
+          className="min-w-0 flex-1 rounded-lg border border-[var(--sidebar-border)] bg-[var(--background)] px-3 py-1.5 text-sm outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)]"
+          disabled={sending}
+        />
+      </Field>
       <button
         type="submit"
         disabled={sending || !text.trim()}

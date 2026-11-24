@@ -1,16 +1,4 @@
 {
-  "actions-menu-tab-trap.reader-article.desktop": {
-    "detail": "Tab #8 moved focus outside to a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\""
-  },
-  "admin-create-role-escape.admin-roles.desktop": {
-    "detail": "still open after Escape"
-  },
-  "admin-create-role-focus-return.admin-roles.desktop": {
-    "detail": "still open after Escape"
-  },
-  "admin-create-role-tab-trap.admin-roles.desktop": {
-    "detail": "Tab #1 moved focus outside to button \"Actions for care-team\""
-  },
   "expanded-table-escape.reader-article.desktop": {
     "detail": "still open after Escape"
   },
@@ -20,28 +8,24 @@
   "expanded-table-tab-trap.reader-article.desktop": {
     "detail": "Tab #1 moved focus outside to a \"sample trial\""
   },
-  "focus-visible.reader-article.mobile": {
-    "detail": "1 invisible focus stops: a.wiki-vite-mobile-ask \"Ask wiki\" (opacity 0)",
-    "value": 1
-  },
   "tabs-to-main.not-found.desktop": {
-    "detail": "18 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
-    "value": 18
+    "detail": "10 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
+    "value": 10
   },
   "tabs-to-main.reader-article.desktop": {
-    "detail": "18 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
-    "value": 18
+    "detail": "10 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
+    "value": 10
   },
   "tabs-to-main.reader-big-tables.desktop": {
-    "detail": "18 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
-    "value": 18
+    "detail": "10 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
+    "value": 10
   },
   "tabs-to-main.reader-private-denied.desktop": {
-    "detail": "18 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
-    "value": 18
+    "detail": "11 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
+    "value": 11
   },
   "tabs-to-main.tag.desktop": {
-    "detail": "18 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
-    "value": 18
+    "detail": "10 Tab presses to reach <main>: a[data-test-id=skip-link].skip-link \"Skip to content\" -> button.sidebar-collapse-button \"Collapse sidebar\" -> button[data-test-id=sidebar-workspace-trigger].wiki-vite-sidebar-workspace \"Workspace menu\" -> a[data-test-id=sidebar-view-comments].wiki-shell-tree-link \"Comments\" -> ...",
+    "value": 10
   }
 }

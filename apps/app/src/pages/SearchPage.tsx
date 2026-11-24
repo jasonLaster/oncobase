@@ -1,5 +1,9 @@
-import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { Input, InputClear, InputGroup } from "@oncobase/ui/input";
+import { Listbox, ListboxItem } from "@oncobase/ui/listbox";
+import { SegmentedControl, SegmentedControlItem } from "@oncobase/ui/segmented-control";
+import { Tree, TreeGroup, TreeItem, TreeItemIndicator, TreeItemLabel } from "@oncobase/ui/tree";
 import ReactMarkdown from "react-markdown";
 import {
   markdownRehypePlugins,
@@ -285,27 +289,37 @@ function SearchInput({
       }}
       role="search"
     >
-      <svg
-        aria-hidden="true"
-        className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 opacity-40"
-        fill="currentColor"
-        height="16"
-        viewBox="0 0 16 16"
-        width="16"
-      >
-        <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
-      </svg>
-      <input
-        aria-label="Search the wiki"
-        autoFocus={!query}
-        className="w-full rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] py-2 pl-10 pr-3 text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]"
-        data-test-id="search-form-input"
-        name="q"
-        onChange={(event) => setDraft(event.currentTarget.value)}
-        placeholder="Search the wiki…"
-        type="text"
-        value={draft}
-      />
+      <InputGroup className="relative">
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-40"
+          fill="currentColor"
+          height="16"
+          viewBox="0 0 16 16"
+          width="16"
+        >
+          <path d="M15.25 14.19l-4.06-4.06a5.5 5.5 0 1 0-1.06 1.06l4.06 4.06a.75.75 0 1 0 1.06-1.06zM2 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z" />
+        </svg>
+        <Input
+          aria-label="Search the wiki"
+          autoFocus={!query}
+          className="w-full rounded-md border border-[var(--sidebar-border)] bg-[var(--background)] py-2 pl-10 pr-9 text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]"
+          data-test-id="search-form-input"
+          name="q"
+          onValueChange={setDraft}
+          placeholder="Search the wiki…"
+          type="text"
+          value={draft}
+        />
+        <InputClear
+          aria-label="Clear search"
+          className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--sidebar-bg)] hover:text-[var(--foreground)]"
+        >
+          <svg aria-hidden="true" fill="none" height="12" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" viewBox="0 0 12 12" width="12">
+            <path d="M3 3l6 6M9 3l-6 6" />
+          </svg>
+        </InputClear>
+      </InputGroup>
     </form>
   );
 }
@@ -317,21 +331,29 @@ function SearchModeToggle({
   mode: SearchMode;
   onModeChange: (mode: SearchMode) => void;
 }) {
+  const itemClass = (checked: boolean) =>
+    `flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+      checked
+        ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
+        : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+    }`;
   return (
     <div className="mb-4 flex items-center gap-1 px-2">
-      <div className="inline-flex rounded-md border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] p-0.5">
-        <button
-          aria-pressed={mode === "ai"}
-          className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
-            mode === "ai"
-              ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
-              : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
-          }`}
+      <SegmentedControl
+        aria-label="Search mode"
+        className="inline-flex rounded-md border border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] p-0.5"
+        onValueChange={(next) => {
+          if (next === "ai" || next === "text") onModeChange(next);
+        }}
+        value={mode}
+      >
+        <SegmentedControlItem
+          className={(state) => itemClass(state.checked)}
           data-test-id="search-tab-ai"
-          onClick={() => onModeChange("ai")}
-          type="button"
+          value="ai"
         >
           <svg
+            aria-hidden="true"
             fill="none"
             height="12"
             stroke="currentColor"
@@ -344,21 +366,15 @@ function SearchModeToggle({
             <path d="M8 2l1.5 4.5H14l-3.5 2.5L12 14 8 11l-4 3 1.5-5L2 6.5h4.5z" />
           </svg>
           AI Mode
-        </button>
-        <button
-          aria-pressed={mode === "text"}
-          className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-            mode === "text"
-              ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
-              : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
-          }`}
+        </SegmentedControlItem>
+        <SegmentedControlItem
+          className={(state) => itemClass(state.checked)}
           data-test-id="search-tab-text"
-          onClick={() => onModeChange("text")}
-          type="button"
+          value="text"
         >
           Text Search
-        </button>
-      </div>
+        </SegmentedControlItem>
+      </SegmentedControl>
     </div>
   );
 }
@@ -374,36 +390,40 @@ function EmptySearch() {
   );
 }
 
-function FileMatches({
-  active,
-  collapsed,
-  onFocus,
-  onToggle,
-  query,
-  result,
-}: {
-  active: boolean;
-  collapsed: boolean;
-  onFocus: () => void;
-  onToggle: () => void;
-  query: string;
-  result: TextSearchTreeResult;
-}) {
+const directoryValue = (path: string) => `d:${path}`;
+const fileValue = (result: TextSearchTreeResult) => `f:${result.resultIndex}`;
+
+function treeBranchValues(node: SearchDirectory, values: string[] = []) {
+  for (const directory of node.dirs.values()) {
+    values.push(directoryValue(directory.path));
+    treeBranchValues(directory, values);
+  }
+  for (const file of node.files) values.push(fileValue(file));
+  return values;
+}
+
+function TreeExpandIcon() {
   return (
-    <div
-      className={`search-page-result mb-0.5 rounded ${
-        active ? "active bg-[var(--accent-light)]" : ""
-      }`}
+    <TreeItemIndicator className="w-4 text-center text-xs opacity-50">
+      {(state) => (state.expanded ? "▼" : "▶")}
+    </TreeItemIndicator>
+  );
+}
+
+function FileMatches({ query, result }: { query: string; result: TextSearchTreeResult }) {
+  return (
+    <TreeItem
+      className="search-page-result mb-0.5 rounded"
       data-slug={result.slug}
+      label={result.title}
+      style={{ paddingLeft: 8 }}
+      value={fileValue(result)}
     >
-      <button
-        aria-expanded={!collapsed}
-        className="flex w-full items-center gap-2 rounded px-2 py-1 text-left transition-colors hover:bg-[var(--sidebar-bg)]"
+      <TreeItemLabel
+        className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1 text-left transition-colors hover:bg-[var(--sidebar-bg)]"
         data-test-id="search-text-file"
-        onClick={onToggle}
-        type="button"
       >
-        <span className="w-4 text-center text-xs opacity-50">{collapsed ? "▶" : "▼"}</span>
+        <TreeExpandIcon />
         <svg
           aria-hidden="true"
           className="shrink-0 opacity-50"
@@ -418,16 +438,18 @@ function FileMatches({
         <span className="ml-auto rounded-full bg-[var(--sidebar-bg)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
           {result.matches.length}
         </span>
-      </button>
-      {!collapsed ? (
-        <div className="ml-6 border-l border-[var(--sidebar-border)]">
-          {result.matches.map((match, index) => (
-            <Link
+      </TreeItemLabel>
+      <TreeGroup className="ml-6 border-l border-[var(--sidebar-border)]">
+        {result.matches.map((match, index) => (
+          <TreeItem
+            key={`${result.slug}-${match.lineNumber}-${index}`}
+            label={match.lineContent}
+            value={`m:${result.resultIndex}:${index}`}
+          >
+            <TreeItemLabel
               className="flex items-start gap-3 px-3 py-0.5 text-sm transition-colors hover:bg-[var(--sidebar-bg)]"
               data-test-id="search-text-result"
-              key={`${result.slug}-${match.lineNumber}-${index}`}
-              onFocus={onFocus}
-              to={hrefForSlug(result.slug)}
+              render={<Link to={hrefForSlug(result.slug)} />}
             >
               <span className="w-8 shrink-0 select-none pt-1 text-right font-mono text-xs text-[var(--text-muted)]">
                 {match.lineNumber}
@@ -443,122 +465,79 @@ function FileMatches({
                   )}
                 </ReactMarkdown>
               </div>
-            </Link>
-          ))}
-        </div>
-      ) : null}
-    </div>
+            </TreeItemLabel>
+          </TreeItem>
+        ))}
+      </TreeGroup>
+    </TreeItem>
   );
 }
 
-function DirectoryTree({
-  activeIndex,
-  collapsedDirectories,
-  collapsedFiles,
-  depth,
-  node,
-  onFocusResult,
-  onToggleDirectory,
-  onToggleFile,
-  query,
-}: {
-  activeIndex: number;
-  collapsedDirectories: Set<string>;
-  collapsedFiles: Set<string>;
-  depth: number;
-  node: SearchDirectory;
-  onFocusResult: (index: number) => void;
-  onToggleDirectory: (path: string) => void;
-  onToggleFile: (slug: string) => void;
-  query: string;
-}) {
-  const collapsed = collapsedDirectories.has(node.path);
+function DirectoryItems({ node, query }: { node: SearchDirectory; query: string }) {
   const directories = [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name));
   const files = [...node.files].sort((a, b) => b.matches.length - a.matches.length);
 
   return (
-    <div style={{ paddingLeft: depth > 0 ? 8 : 0 }}>
-      {depth > 0 ? (
-        <button
-          aria-expanded={!collapsed}
-          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-[var(--sidebar-bg)]"
-          data-path={node.path}
-          data-test-id="search-text-directory"
-          onClick={() => onToggleDirectory(node.path)}
-          type="button"
+    <>
+      {directories.map((directory) => (
+        <TreeItem
+          key={directory.path}
+          label={directory.name}
+          style={{ paddingLeft: 8 }}
+          value={directoryValue(directory.path)}
         >
-          <span className="w-4 text-center text-xs opacity-50">{collapsed ? "▶" : "▼"}</span>
-          <svg
-            aria-hidden="true"
-            className="shrink-0 opacity-70"
-            fill="currentColor"
-            height="14"
-            viewBox="0 0 16 16"
-            width="14"
+          <TreeItemLabel
+            className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-[var(--sidebar-bg)]"
+            data-path={directory.path}
+            data-test-id="search-text-directory"
           >
-            <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
-          </svg>
-          <span className="text-sm font-medium text-[var(--foreground)]">{node.name}</span>
-          <span className="ml-auto rounded-full bg-[var(--sidebar-bg)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
-            {node.totalMatches}
-          </span>
-        </button>
-      ) : null}
-      {!collapsed ? (
-        <div>
-          {directories.map((directory) => (
-            <DirectoryTree
-              activeIndex={activeIndex}
-              collapsedDirectories={collapsedDirectories}
-              collapsedFiles={collapsedFiles}
-              depth={depth + 1}
-              key={directory.path}
-              node={directory}
-              onFocusResult={onFocusResult}
-              onToggleDirectory={onToggleDirectory}
-              onToggleFile={onToggleFile}
-              query={query}
-            />
-          ))}
-          {files.map((result) => (
-            <div key={result.slug} style={{ paddingLeft: 8 }}>
-              <FileMatches
-                active={result.resultIndex === activeIndex}
-                collapsed={collapsedFiles.has(result.slug)}
-                onFocus={() => onFocusResult(result.resultIndex)}
-                onToggle={() => onToggleFile(result.slug)}
-                query={query}
-                result={result}
-              />
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
+            <TreeExpandIcon />
+            <svg
+              aria-hidden="true"
+              className="shrink-0 opacity-70"
+              fill="currentColor"
+              height="14"
+              viewBox="0 0 16 16"
+              width="14"
+            >
+              <path d="M13.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h12l.5-.5v-10L13.5 3zm-.51 8.49V13h-11V3h4.29l.85.85.36.15H13v7.49z" />
+            </svg>
+            <span className="text-sm font-medium text-[var(--foreground)]">{directory.name}</span>
+            <span className="ml-auto rounded-full bg-[var(--sidebar-bg)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
+              {directory.totalMatches}
+            </span>
+          </TreeItemLabel>
+          <TreeGroup>
+            <DirectoryItems node={directory} query={query} />
+          </TreeGroup>
+        </TreeItem>
+      ))}
+      {files.map((result) => (
+        <FileMatches key={result.resultIndex} query={query} result={result} />
+      ))}
+    </>
   );
 }
 
 function TextSearch({
-  activeIndex,
   error,
   incomplete,
-  onFocusResult,
   query,
   results,
   status,
 }: {
-  activeIndex: number;
   error: string | null;
   incomplete: boolean;
-  onFocusResult: (index: number) => void;
   query: string;
   results: TextSearchResult[];
   status: SearchStatus;
 }) {
-  const [collapsedDirectories, setCollapsedDirectories] = useState<Set<string>>(new Set());
-  const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
+  // Branches start expanded, including ones a background retry adds later.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const normalizedResults = useMemo(() => normalizeTextResults(results), [results]);
   const tree = useMemo(() => buildSearchTree(normalizedResults), [normalizedResults]);
+  const branches = useMemo(() => treeBranchValues(tree), [tree]);
+  const expanded = useMemo(() => branches.filter((value) => !collapsed.has(value)), [branches, collapsed]);
 
   if (!query) return <EmptySearch />;
 
@@ -599,24 +578,6 @@ function TextSearch({
     0,
   );
 
-  function toggleDirectory(path: string) {
-    setCollapsedDirectories((current) => {
-      const next = new Set(current);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }
-
-  function toggleFile(slug: string) {
-    setCollapsedFiles((current) => {
-      const next = new Set(current);
-      if (next.has(slug)) next.delete(slug);
-      else next.add(slug);
-      return next;
-    });
-  }
-
   return (
     <div>
       <div
@@ -627,32 +588,30 @@ function TextSearch({
         {normalizedResults.length} file{normalizedResults.length !== 1 ? "s" : ""}
         {incomplete ? <output aria-live="polite"> (full results loading…)</output> : null}
       </div>
-      <DirectoryTree
-        activeIndex={activeIndex}
-        collapsedDirectories={collapsedDirectories}
-        collapsedFiles={collapsedFiles}
-        depth={0}
-        node={tree}
-        onFocusResult={onFocusResult}
-        onToggleDirectory={toggleDirectory}
-        onToggleFile={toggleFile}
-        query={query}
-      />
+      <Tree
+        aria-label="Text search results"
+        className="search-text-tree"
+        expandOnPress
+        expanded={expanded}
+        mode="none"
+        onExpandedChange={(next) => {
+          const open = new Set(next);
+          setCollapsed(new Set(branches.filter((value) => !open.has(value))));
+        }}
+      >
+        <DirectoryItems node={tree} query={query} />
+      </Tree>
     </div>
   );
 }
 
 function AISearch({
-  activeIndex,
   error,
-  onFocusResult,
   query,
   results,
   status,
 }: {
-  activeIndex: number;
   error: string | null;
-  onFocusResult: (index: number) => void;
   query: string;
   results: AISearchResult[];
   status: SearchStatus;
@@ -714,16 +673,19 @@ function AISearch({
       >
         {results.length} result{results.length !== 1 ? "s" : ""} ranked by relevance
       </div>
-      {results.map((result, index) => (
-        <Link
-          className={`search-page-result block rounded-lg border border-[var(--sidebar-border)] p-3 no-underline transition-colors hover:border-[var(--brand)] hover:bg-[var(--accent-light)] ${
-            index === activeIndex ? "active border-[var(--brand)] bg-[var(--accent-light)]" : ""
-          }`}
+      <Listbox activation="manual" aria-label="AI search results" className="space-y-2">
+      {results.map((result) => (
+        <ListboxItem
+          className={(state) =>
+            `search-page-result block rounded-lg border border-[var(--sidebar-border)] p-3 no-underline transition-colors hover:border-[var(--brand)] hover:bg-[var(--accent-light)] ${
+              state.highlighted ? "active border-[var(--brand)] bg-[var(--accent-light)]" : ""
+            }`
+          }
           data-test-id="search-ai-result"
-          id={`search-result-${index}`}
           key={result.slug}
-          onFocus={() => onFocusResult(index)}
-          to={hrefForSlug(result.slug)}
+          label={result.title}
+          render={<Link to={hrefForSlug(result.slug)} />}
+          value={result.slug}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -755,8 +717,9 @@ function AISearch({
               ))}
             </div>
           ) : null}
-        </Link>
+        </ListboxItem>
       ))}
+      </Listbox>
     </div>
   );
 }
@@ -784,7 +747,6 @@ export function SearchPage() {
   const [aiResults, setAiResults] = useState<AISearchResult[]>([]);
   const [aiStatus, setAiStatus] = useState<SearchStatus>(query ? "loading" : "idle");
   const [aiError, setAiError] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     const description = "Search across all wiki pages";
@@ -823,7 +785,6 @@ export function SearchPage() {
     const generation = ++textRequestGeneration.current;
     const normalized = nextQuery.trim();
     setTextResultsQuery(normalized);
-    if (!background) setActiveIndex(0);
 
     if (normalized.length < 2) {
       setTextResults([]);
@@ -963,23 +924,6 @@ export function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, query, scope]);
 
-  function onResultsKeyDown(event: KeyboardEvent<HTMLElement>) {
-    const activeResults = mode === "ai" ? aiResults : textResults;
-    if (activeResults.length === 0) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setActiveIndex((index) => Math.min(activeResults.length - 1, index + 1));
-    }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiveIndex((index) => Math.max(0, index - 1));
-    }
-    if (event.key === "Enter") {
-      event.preventDefault();
-      navigate(hrefForSlug(activeResults[activeIndex]?.slug ?? activeResults[0].slug));
-    }
-  }
-
   return (
     <div
       className="h-full overflow-y-auto"
@@ -993,38 +937,23 @@ export function SearchPage() {
           query={query}
         />
         {query ? (
-          <SearchModeToggle
-            mode={mode}
-            onModeChange={(nextMode) => {
-              setMode(nextMode);
-              setActiveIndex(0);
-            }}
-          />
+          <SearchModeToggle mode={mode} onModeChange={setMode} />
         ) : null}
-        <section
-          aria-label="Search results"
-          data-test-id="search-results"
-          onKeyDown={onResultsKeyDown}
-          tabIndex={(mode === "ai" ? aiResults : textResults).length > 0 ? 0 : -1}
-        >
+        <section aria-label="Search results" data-test-id="search-results">
           {mode === "ai" ? (
             <AISearch
-              activeIndex={activeIndex}
               error={aiError}
-              onFocusResult={setActiveIndex}
               query={query}
               results={aiResults}
               status={aiStatus}
             />
           ) : (
             <TextSearch
-              activeIndex={activeIndex}
               error={textError}
               // After the last retry, keep the indexed results without
               // promising more.
               incomplete={textIncomplete && textRetries < MAX_TEXT_SEARCH_RETRIES}
               key={query}
-              onFocusResult={setActiveIndex}
               query={query}
               results={textResults}
               status={textStatus}

@@ -6,6 +6,7 @@ import {
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
 import { WikiPageFrame, WikiPageHeader } from "@oncobase/wiki-shell/page-chrome";
 import { WikiPageLoading } from "@oncobase/wiki-shell/page-states";
+import { Tree, TreeGroup, TreeItem, TreeItemIndicator, TreeItemLabel } from "@oncobase/ui/tree";
 import { ChevronRight } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router";
@@ -24,32 +25,50 @@ function pageHasTag(page: PageIndexRow, tag: string) {
   );
 }
 
-function TaggedPageTree({
-  node,
-  level = 0,
-}: {
-  node: TaggedPageTreeNode;
-  level?: number;
-}) {
+function folderPaths(node: TaggedPageTreeNode): string[] {
+  return node.children.flatMap((child) => [`folder:${child.path}`, ...folderPaths(child)]);
+}
+
+function TaggedPageItems({ node }: { node: TaggedPageTreeNode }) {
   return (
-    <ul className={level === 0 ? "tag-tree-root" : "tag-tree-branch"}>
+    <>
       {node.pages.map((page) => (
-        <li key={page.slug}>
-          <Link to={hrefForSlug(page.slug)}>{page.title}</Link>
-        </li>
+        <TreeItem key={page.slug} label={page.title} value={`page:${page.slug}`}>
+          <TreeItemLabel className="tag-tree-link" render={<Link to={hrefForSlug(page.slug)} />}>
+            {page.title}
+          </TreeItemLabel>
+        </TreeItem>
       ))}
       {node.children.map((child) => (
-        <li key={child.path}>
-          <details open className="tag-tree-folder">
-            <summary>
+        <TreeItem key={child.path} value={`folder:${child.path}`}>
+          <TreeItemLabel className="tag-tree-folder">
+            <TreeItemIndicator className="tag-tree-indicator">
               <ChevronRight size={14} aria-hidden="true" />
-              {formatFileLabel(child.name)}
-            </summary>
-            <TaggedPageTree node={child} level={level + 1} />
-          </details>
-        </li>
+            </TreeItemIndicator>
+            {formatFileLabel(child.name)}
+          </TreeItemLabel>
+          <TreeGroup className="tag-tree-branch">
+            <TaggedPageItems node={child} />
+          </TreeGroup>
+        </TreeItem>
       ))}
-    </ul>
+    </>
+  );
+}
+
+function TaggedPageTree({ node, tag }: { node: TaggedPageTreeNode; tag: string }) {
+  const expanded = useMemo(() => folderPaths(node), [node]);
+  return (
+    <Tree
+      aria-label={`Pages tagged ${tag}`}
+      className="tag-tree-root"
+      defaultExpanded={expanded}
+      expandOnPress
+      hiddenUntilFound
+      mode="none"
+    >
+      <TaggedPageItems node={node} />
+    </Tree>
   );
 }
 
@@ -104,7 +123,7 @@ export function TagPage() {
       {taggedPages.length === 0 ? (
         <p className="muted">No pages found with this tag.</p>
       ) : (
-        <TaggedPageTree node={pageTree} />
+        <TaggedPageTree node={pageTree} tag={decodedTag} />
       )}
     </WikiPageFrame>
   );

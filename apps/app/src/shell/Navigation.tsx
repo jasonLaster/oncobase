@@ -14,6 +14,8 @@ import {
   type WikiTreePageLinkRenderArgs,
 } from "@oncobase/wiki-shell";
 import { ChevronDown, ClipboardCheck, MessageSquareText, Search, WandSparkles } from "lucide-react";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
 import { MobileChatIcon, nodeIcon } from "./navigation-icons";
 import {
   lazy,
@@ -25,6 +27,7 @@ import {
   useState,
   type CSSProperties,
   type MouseEvent,
+  type ReactElement,
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { bootstrappedNavigation } from "../bootstrap/seed-state";
@@ -89,20 +92,18 @@ function AdminNavigation({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function navigationActiveSlug(pathname: string) {
-  return pathname === "/" ? "" : slugFromPath(pathname);
+/** Names an icon-only control from the first HTML, and shows the name on hover and focus. */
+function IconTooltip({ children, label }: { children: ReactElement; label: string }) {
+  return (
+    <Tooltip type="label">
+      <TooltipTrigger render={children} />
+      <TooltipContent className="wiki-vite-icon-tooltip" sideOffset={6}>{label}</TooltipContent>
+    </Tooltip>
+  );
 }
 
-function defaultDirectoryOpen({
-  activeAncestorSlugs,
-  depth,
-  node,
-}: {
-  activeAncestorSlugs: Set<string>;
-  depth: number;
-  node: WikiNavigationNode;
-}) {
-  return activeAncestorSlugs.has(node.slug) || (depth === 0 && node.slug === "wiki");
+function navigationActiveSlug(pathname: string) {
+  return pathname === "/" ? "" : slugFromPath(pathname);
 }
 
 
@@ -125,7 +126,6 @@ function DiagnosticsTreeLink({
       to="/diagnostics"
       onClick={onNavigate}
       style={{ paddingLeft: 12 }}
-      title="Diagnostics"
     >
       <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />
       <span className="wiki-shell-tree-label">Diagnostics</span>
@@ -208,18 +208,18 @@ function useTreeExpansion(tree: WikiNavigationNode[]) {
   const location = useLocation();
   const locationSlug = slugFromPath(location.pathname);
   const activeSlug = useNavigationSlug(locationSlug);
-  const expandedSlugs = useExpandedDirectories();
   const activeAncestorSlugs = useMemo(
     () => collectActiveAncestors(tree, activeSlug),
     [activeSlug, tree],
   );
+  const expandedSlugs = useExpandedDirectories(activeAncestorSlugs);
   // Reveal only when the location changes, so collapsing an ancestor of the
   // current page by hand still sticks until the next navigation.
   useEffect(() => {
     revealDirectories(activeAncestorSlugs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationSlug, tree]);
-  return { activeAncestorSlugs, expandedSlugs, toggleDirectory };
+  return { expandedSlugs, toggleDirectory };
 }
 
 export const Sidebar = memo(function Sidebar({ freshness }: { freshness: NavigationFreshness }) {
@@ -254,12 +254,11 @@ function WikiNavigationSidebar({ freshness }: { freshness: NavigationFreshness }
   const tree = useWikiTree();
   const { pathname } = useLocation();
   const activeSlug = navigationActiveSlug(pathname);
-  const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
+  const { expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const renderPageLink = usePageLinkRenderer();
 
   return (
     <WikiSidebar
-      activeAncestorSlugs={activeAncestorSlugs}
       activeSlug={activeSlug}
       beforeTree={
         <>
@@ -270,7 +269,6 @@ function WikiNavigationSidebar({ freshness }: { freshness: NavigationFreshness }
       }
       data-test-id="wiki-sidebar"
       data-tree-freshness={freshness}
-      defaultDirectoryOpen={defaultDirectoryOpen}
       expandedSlugs={expandedSlugs}
       footer={<SidebarFooter />}
       formatNodeName={formatTreeLabel}
@@ -383,7 +381,6 @@ function usePageLinkRenderer() {
       return (
         <Link
           className={className}
-          aria-current={active ? "page" : undefined}
           data-selected-file-tree-item={active ? "true" : undefined}
           style={style}
           to={href}
@@ -415,7 +412,7 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
   const store = useReaderStore();
   const isChatRoute = !!store && pathname.startsWith("/chat");
   const activeSlug = navigationActiveSlug(pathname);
-  const { activeAncestorSlugs, expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
+  const { expandedSlugs, toggleDirectory } = useTreeExpansion(tree);
   const [navState, setNavState] = useState({ open: false, pathname });
   const [activeTab, setActiveTab] = useState<MobileNavTab>("pages");
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([]);
@@ -530,25 +527,20 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
         title={<MarkdownTitle title={pageTitle} />}
         trigger={false}
       >
-        <div className="wiki-vite-mobile-sheet-tabs">
-          <button
-            type="button"
-            className={activeTab === "pages" ? "active" : undefined}
-            onClick={() => setActiveTab("pages")}
-          >
-            Page nav
-          </button>
-          <button
-            type="button"
-            className={activeTab === "outline" ? "active" : undefined}
-            onClick={showOutlineTab}
-          >
-            Outline
-          </button>
-        </div>
-        <nav data-test-id={activeTab === "outline" ? "bottom-nav-outline" : "bottom-nav-page-tree"} data-tree-freshness={freshness}>
-          {activeTab === "outline" ? (
-            outlineItems.length > 0 ? (
+        <Tabs
+          className="wiki-vite-mobile-sheet-tabs-root"
+          value={activeTab}
+          onValueChange={(tab) => {
+            if (tab === "outline") showOutlineTab();
+            else setActiveTab("pages");
+          }}
+        >
+          <TabsList className="wiki-vite-mobile-sheet-tabs" aria-label="Navigation view">
+            <TabsTab value="pages">Page nav</TabsTab>
+            <TabsTab value="outline">Outline</TabsTab>
+          </TabsList>
+          <TabsPanel value="outline" render={<nav data-test-id="bottom-nav-outline" data-tree-freshness={freshness} />}>
+            {outlineItems.length > 0 ? (
               <div className="wiki-vite-mobile-outline-list">
                 {outlineItems.map((item) => {
                   const active = item.id === activeHeadingId;
@@ -568,43 +560,40 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
               </div>
             ) : (
               <p className="wiki-vite-mobile-outline-empty">No headings found on this page.</p>
-            )
-          ) : (
-            <>
-              <CommentsTreeLink
-                activePathname={pathname}
-                onNavigate={() => setOpen(false)}
-                testId="mobile-view-comments"
-              />
-              <DiagnosticsTreeLink
-                activePathname={pathname}
-                onNavigate={() => setOpen(false)}
-                testId="mobile-view-diagnostics"
-              />
-              <WikiSidebarSignInPrompt
-                onAuthSubmit={submitAuth}
-                onSessionChange={setSessionUser}
-                sessionLoading={sessionLoading}
-                hideWhileLoading={accountPending}
-                sessionUser={sessionUser}
-              />
-              <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
-              <WikiTree
-                activeAncestorSlugs={activeAncestorSlugs}
-                activeSlug={activeSlug}
-                defaultDirectoryOpen={defaultDirectoryOpen}
-                expandedSlugs={expandedSlugs}
-                formatNodeName={formatTreeLabel}
-                getFileHref={fileHrefForNode}
-                onNavigate={() => setOpen(false)}
-                onToggleDirectory={toggleDirectory}
-                renderNodeIcon={nodeIcon}
-                renderPageLink={renderPageLink}
-                tree={tree}
-              />
-            </>
-          )}
-        </nav>
+            )}
+          </TabsPanel>
+          <TabsPanel value="pages" render={<nav data-test-id="bottom-nav-page-tree" data-tree-freshness={freshness} />}>
+            <CommentsTreeLink
+              activePathname={pathname}
+              onNavigate={() => setOpen(false)}
+              testId="mobile-view-comments"
+            />
+            <DiagnosticsTreeLink
+              activePathname={pathname}
+              onNavigate={() => setOpen(false)}
+              testId="mobile-view-diagnostics"
+            />
+            <WikiSidebarSignInPrompt
+              onAuthSubmit={submitAuth}
+              onSessionChange={setSessionUser}
+              sessionLoading={sessionLoading}
+              hideWhileLoading={accountPending}
+              sessionUser={sessionUser}
+            />
+            <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
+            <WikiTree
+              activeSlug={activeSlug}
+              expandedSlugs={expandedSlugs}
+              formatNodeName={formatTreeLabel}
+              getFileHref={fileHrefForNode}
+              onNavigate={() => setOpen(false)}
+              onToggleDirectory={toggleDirectory}
+              renderNodeIcon={nodeIcon}
+              renderPageLink={renderPageLink}
+              tree={tree}
+            />
+          </TabsPanel>
+        </Tabs>
       </WikiMobileNavigationSheet>
       {!open && !talkOpen ? (
         <div
@@ -615,28 +604,28 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
           aria-label="Ask or talk"
         >
           {isTalkRoute(pathname) ? (
-            <button
-              type="button"
-              aria-label="Talk with the page"
-              title="Talk with the page"
-              className="wiki-vite-mobile-talk"
-              data-test-id="mobile-talk"
-              onClick={openTalk}
-              onFocus={() => void loadTalkPanel()}
-              onPointerDown={() => void loadTalkPanel()}
-            >
-              <PhoneIcon size={20} />
-            </button>
+            <IconTooltip label="Talk with the page">
+              <button
+                type="button"
+                className="wiki-vite-mobile-talk"
+                data-test-id="mobile-talk"
+                onClick={openTalk}
+                onFocus={() => void loadTalkPanel()}
+                onPointerDown={() => void loadTalkPanel()}
+              >
+                <PhoneIcon size={20} />
+              </button>
+            </IconTooltip>
           ) : null}
-          <Link
-            to="/chat"
-            aria-label="Ask wiki"
-            title="Ask wiki"
-            className="wiki-vite-mobile-ask"
-            data-test-id="mobile-ask-wiki"
-          >
-            <MobileChatIcon />
-          </Link>
+          <IconTooltip label="Ask wiki">
+            <Link
+              to="/chat"
+              className="wiki-vite-mobile-ask"
+              data-test-id="mobile-ask-wiki"
+            >
+              <MobileChatIcon />
+            </Link>
+          </IconTooltip>
         </div>
       ) : null}
     </>
@@ -657,38 +646,11 @@ function MobilePageHeader({
       <div className="wiki-vite-mobile-title">
         <MarkdownTitle title={title} />
       </div>
-      <button
-        type="button"
-        aria-label="Search files"
-        title="Search files"
-        data-test-id="mobile-header-search"
-        onClick={(event) => { event.currentTarget.focus(); openCommandPalette("pages"); }}
-      >
-        <svg
-          aria-hidden="true"
-          fill="none"
-          height="18"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.5"
-          viewBox="0 0 16 16"
-          width="18"
-        >
-          <circle cx="7" cy="7" r="4.25" />
-          <path d="m10.25 10.25 3.5 3.5" />
-        </svg>
-      </button>
-      {showComments ? (
+      <IconTooltip label="Search files">
         <button
           type="button"
-          aria-label="Open comments"
-          title="Open comments"
-          data-test-id="mobile-header-comments"
-          onClick={() => {
-            document.documentElement.dataset.mobileCommentsPanelRequested = "true";
-            window.dispatchEvent(new CustomEvent("mobile-comments-panel-open"));
-          }}
+          data-test-id="mobile-header-search"
+          onClick={(event) => { event.currentTarget.focus(); openCommandPalette("pages"); }}
         >
           <svg
             aria-hidden="true"
@@ -701,36 +663,63 @@ function MobilePageHeader({
             viewBox="0 0 16 16"
             width="18"
           >
-            <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+            <circle cx="7" cy="7" r="4.25" />
+            <path d="m10.25 10.25 3.5 3.5" />
           </svg>
         </button>
+      </IconTooltip>
+      {showComments ? (
+        <IconTooltip label="Open comments">
+          <button
+            type="button"
+            data-test-id="mobile-header-comments"
+            onClick={() => {
+              document.documentElement.dataset.mobileCommentsPanelRequested = "true";
+              window.dispatchEvent(new CustomEvent("mobile-comments-panel-open"));
+            }}
+          >
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              viewBox="0 0 16 16"
+              width="18"
+            >
+              <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+            </svg>
+          </button>
+        </IconTooltip>
       ) : null}
-      <button
-        type="button"
-        aria-label="Open page navigation"
-        title="Open page navigation"
-        data-test-id="bottom-nav-trigger"
-        onClick={(event) => {
-          // WebKit pointer activation does not focus buttons automatically.
-          // Give the sheet a concrete focus target to restore on dismissal.
-          event.currentTarget.focus();
-          onOpenNavigation();
-        }}
-      >
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      <IconTooltip label="Open page navigation">
+        <button
+          type="button"
+          data-test-id="bottom-nav-trigger"
+          onClick={(event) => {
+            // WebKit pointer activation does not focus buttons automatically.
+            // Give the sheet a concrete focus target to restore on dismissal.
+            event.currentTarget.focus();
+            onOpenNavigation();
+          }}
         >
-          <path d="M3 4h10M3 8h10M3 12h7" />
-        </svg>
-      </button>
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 4h10M3 8h10M3 12h7" />
+          </svg>
+        </button>
+      </IconTooltip>
     </header>
   );
 }

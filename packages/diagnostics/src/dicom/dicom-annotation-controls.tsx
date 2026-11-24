@@ -1,8 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-
-import { Button, cn } from "./ui.tsx";
+import { buttonClassName, cn } from "./ui.tsx";
+import { RangeSlider } from "./viewer-controls.tsx";
 
 import {
   annotationColors,
@@ -10,64 +9,14 @@ import {
   type AnnotationKind,
 } from "./dicom-annotation-model.ts";
 
-export function AnnotationToolbarButton({
-  active,
-  children,
-  compact,
-  disabled,
-  icon,
-  label,
-  onClick,
-}: {
-  active?: boolean;
-  children?: ReactNode;
-  compact?: boolean;
-  disabled?: boolean;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      aria-pressed={active}
-      className={cn(
-        "h-8 rounded-md border-white/15 bg-white/5 text-xs text-zinc-300 hover:bg-white/10",
-        compact ? (children ? "w-10 px-0" : "w-8 px-0") : "gap-1 px-2",
-        active && "border-sky-300/60 bg-sky-300/20 text-sky-50",
-      )}
-      data-test-id={`dicom-annotation-tool-${label.toLowerCase()}`}
-      disabled={disabled}
-      onClick={onClick}
-      size={compact ? "icon-sm" : "sm"}
-      title={label}
-      type="button"
-      variant="outline"
-    >
-      {icon}
-      {compact ? (
-        <span className="sr-only">{label}</span>
-      ) : (
-        <span className="max-w-16 truncate">{label}</span>
-      )}
-      {children}
-    </Button>
-  );
-}
-
-export function AnnotationPanelFrame({
-  children,
-  testId,
-}: {
-  children: ReactNode;
-  testId: string;
-}) {
-  return (
-    <div
-      className="mt-2 w-64 rounded-md border border-white/15 bg-black/85 p-2 shadow-xl backdrop-blur"
-      data-test-id={testId}
-    >
-      {children}
-    </div>
+/** Classes for the annotation toolbar's Select toggle and Draw menu trigger. */
+export function annotationToolbarButtonClassName({ withMenu = false } = {}) {
+  return buttonClassName(
+    { size: "icon-sm", variant: "outline" },
+    "h-8 rounded-md border-white/15 bg-white/5 px-0 text-xs text-zinc-300 hover:bg-white/10",
+    withMenu ? "w-10" : "w-8",
+    "aria-pressed:border-sky-300/60 aria-pressed:bg-sky-300/20 aria-pressed:text-sky-50",
+    "aria-disabled:pointer-events-none aria-disabled:opacity-50",
   );
 }
 
@@ -235,18 +184,15 @@ function AnnotationStyleControls({
 
       <label className={cn("grid gap-2", rail ? "text-xs text-zinc-300" : "")}>
         {rail ? <span className="font-medium">Thickness</span> : null}
-        <input
-          aria-label="Annotation thickness"
-          className="w-full accent-sky-300"
-          data-test-id="dicom-annotation-thickness"
+        <RangeSlider
+          accent="sky"
           disabled={disabled}
+          label="Annotation thickness"
           max={12}
           min={1}
-          onChange={(event) =>
-            onChooseThickness(Number(event.currentTarget.value))
-          }
+          onValueChange={onChooseThickness}
+          testId="dicom-annotation-thickness"
           title="Thickness"
-          type="range"
           value={activeThickness}
         />
       </label>
@@ -254,18 +200,15 @@ function AnnotationStyleControls({
       {showFontSize ? (
         <label className={cn("grid gap-2", rail ? "text-xs text-zinc-300" : "")}>
           {rail ? <span className="font-medium">Font size</span> : null}
-          <input
-            aria-label="Annotation font size"
-            className="w-full accent-sky-300"
-            data-test-id="dicom-annotation-font-size"
+          <RangeSlider
+            accent="sky"
             disabled={disabled}
+            label="Annotation font size"
             max={48}
             min={12}
-            onChange={(event) =>
-              onChooseFontSize(Number(event.currentTarget.value))
-            }
+            onValueChange={onChooseFontSize}
+            testId="dicom-annotation-font-size"
             title="Font size"
-            type="range"
             value={activeFontSize}
           />
         </label>

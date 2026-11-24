@@ -67,7 +67,11 @@ test.describe("admin (real backend)", () => {
 
   test.beforeEach(async ({ page }) => passGate(page));
 
-  const roleSelect = (page: Page, name: string) => page.getByLabel(`Role for ${name}`, { exact: true });
+  const roleSelect = (page: Page, name: string) => page.getByRole("combobox", { name: `Role for ${name}`, exact: true });
+  async function chooseRole(page: Page, label: string) {
+    await page.getByRole("combobox", { name: label, exact: true }).click();
+    await page.getByRole("option", { name: ROLE_NAME, exact: true }).click();
+  }
 
   test("an admin changes a user's role in the users table and it persists after reload", async ({ page }) => {
     await signIn(page, ADMIN);
@@ -76,8 +80,8 @@ test.describe("admin (real backend)", () => {
 
     const select = roleSelect(page, targets[0].name);
     await expect(select).toBeVisible();
-    await expect(select).not.toHaveValue(roleId);
-    await select.selectOption(roleId);
+    await expect(select).not.toHaveText(ROLE_NAME);
+    await chooseRole(page, `Role for ${targets[0].name}`);
 
     // Autosave: wait for the write to land on the server before reloading.
     await expect.poll(async () => {
@@ -86,7 +90,7 @@ test.describe("admin (real backend)", () => {
     }).toEqual([roleId]);
 
     await page.reload();
-    await expect(roleSelect(page, targets[0].name)).toHaveValue(roleId);
+    await expect(roleSelect(page, targets[0].name)).toHaveText(ROLE_NAME);
   });
 
   test("an admin bulk-assigns a role to several users and deletes them", async ({ page }) => {
@@ -98,17 +102,17 @@ test.describe("admin (real backend)", () => {
     await page.getByLabel(`Select ${second.name}`, { exact: true }).check();
     await page.getByLabel(`Select ${third.name}`, { exact: true }).check();
     await expect(page.getByText("2 selected")).toBeVisible();
-    await page.getByLabel("Role for selected users").selectOption(roleId);
+    await chooseRole(page, "Role for selected users");
     await page.getByRole("button", { name: "Assign role" }).click();
 
     await page.reload();
-    await expect(roleSelect(page, second.name)).toHaveValue(roleId);
-    await expect(roleSelect(page, third.name)).toHaveValue(roleId);
+    await expect(roleSelect(page, second.name)).toHaveText(ROLE_NAME);
+    await expect(roleSelect(page, third.name)).toHaveText(ROLE_NAME);
 
     await page.getByLabel(`Select ${second.name}`, { exact: true }).check();
     await page.getByLabel(`Select ${third.name}`, { exact: true }).check();
     await page.getByRole("button", { name: "Delete" }).click();
-    const dialog = page.getByRole("dialog", { name: "Delete selected users" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete selected users" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Delete" }).click();
 
@@ -127,7 +131,7 @@ test.describe("admin (real backend)", () => {
     // The admin page bounces non-admins to the reader home; the API refuses them too.
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("complementary", { name: "Admin" })).toHaveCount(0);
-    await expect(page.getByLabel(/^Role for /)).toHaveCount(0);
+    await expect(page.getByRole("combobox", { name: /^Role for / })).toHaveCount(0);
     const api = await page.request.get("/api/admin/access?view=users");
     expect(api.ok(), "admin API for a non-admin").toBeFalsy();
   });

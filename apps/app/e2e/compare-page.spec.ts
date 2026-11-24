@@ -105,11 +105,12 @@ test("the table covers every product and keeps the Oncobase column in view", asy
 
 test("every product and reusable piece is listed, with options collapsed until opened", async ({ page }) => {
   await openCompare(page);
-  const options = page.locator("#options details");
+  const options = page.locator("#options .ft-acc");
+  const triggers = page.locator("#options").getByRole("button", { expanded: false });
   await expect(options).toHaveCount(products.length);
-  expect(await options.evaluateAll((items) => items.some((item) => (item as HTMLDetailsElement).open))).toBe(false);
-  await options.first().locator("summary").click();
-  await expect(options.first()).toHaveJSProperty("open", true);
+  await expect(triggers).toHaveCount(products.length);
+  await triggers.first().click();
+  await expect(page.locator("#options").getByRole("button", { expanded: true })).toHaveCount(1);
   await expect(options.first()).toContainText("Great at");
   for (const piece of [...oncobasePieces, ...otherOpenSource]) {
     await expect(page.locator("#build").getByRole("link", { name: piece.name })).toBeVisible();

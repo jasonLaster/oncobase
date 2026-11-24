@@ -1,4 +1,6 @@
 import { Check, MessageSquare, SmilePlus } from "lucide-react";
+import { Button } from "@oncobase/ui/button";
+import { Toggle } from "@oncobase/ui/toggle";
 import { useState } from "react";
 
 type Reply = { id: string; author: string; initials: string; when: string; text: string; guest?: boolean };
@@ -56,7 +58,7 @@ export function CommentsDemo() {
   const highlight = (id: string, text: string) => {
     const thread = anchored(id);
     return (
-      <mark
+      <Button
         aria-label={`Comment on: ${text}`}
         className="ft-cm-mark"
         data-active={active === id || undefined}
@@ -65,18 +67,10 @@ export function CommentsDemo() {
           setActive(id);
           if (thread.resolved) setShowAll(true);
         }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            setActive(id);
-            if (thread.resolved) setShowAll(true);
-          }
-        }}
-        role="button"
-        tabIndex={0}
+        render={<mark />}
       >
         {text}
-      </mark>
+      </Button>
     );
   };
 
@@ -138,14 +132,13 @@ export function CommentsDemo() {
                   </div>
                 ))}
                 <div className="ft-cm-actions">
-                  <button
-                    aria-pressed={thread.liked}
-                    onClick={() => update(thread.id, (value) => ({ ...value, liked: !value.liked, likes: value.likes + (value.liked ? -1 : 1) }))}
-                    type="button"
+                  <Toggle
+                    onPressedChange={(liked) => update(thread.id, (value) => ({ ...value, liked, likes: value.likes + (liked ? 1 : -1) }))}
+                    pressed={thread.liked}
                   >
                     {thread.likes > 0 ? <span aria-hidden="true">👍</span> : <SmilePlus aria-hidden="true" size={15} />}
                     {thread.likes > 0 ? thread.likes : "React"}
-                  </button>
+                  </Toggle>
                   <button onClick={() => update(thread.id, (value) => ({ ...value, resolved: !value.resolved }))} type="button">
                     <Check aria-hidden="true" size={15} /> {thread.resolved ? "Reopen" : "Resolve"}
                   </button>

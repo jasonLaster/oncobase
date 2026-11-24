@@ -2442,3 +2442,288 @@ html[data-initial-sidebar-state="collapsed"]
   }
 }
 /* ==== end page-states ==== */
+
+/* ui-sdk: w3-palettes-search */
+.wiki-shell-command-palette[data-slot="dialog-content"],
+.wiki-shell-command-palette[data-slot="alert-dialog-content"] {
+  inset: max(10dvh, 8px) 0 auto;
+  margin: 0 auto;
+  padding: 0;
+  position: fixed;
+  width: min(576px, calc(100% - 16px));
+}
+
+@media (min-width: 640px) {
+  .wiki-shell-command-palette[data-slot="dialog-content"],
+  .wiki-shell-command-palette[data-slot="alert-dialog-content"] {
+    top: 25dvh;
+  }
+}
+
+.wiki-shell-command-palette:focus {
+  outline: none;
+}
+
+.wiki-shell-command-backdrop[data-slot$="dialog-backdrop"] {
+  margin: 0;
+  padding: 0;
+  width: auto;
+  height: auto;
+  border: 0;
+}
+
+.wiki-shell-command-empty:empty {
+  display: none;
+}
+
+.wiki-shell-command-palette.wiki-shell-command-confirm {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  width: min(420px, calc(100% - 16px));
+}
+
+.wiki-shell-command-confirm [data-slot="alert-dialog-title"] {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.wiki-shell-command-confirm p {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.wiki-shell-command-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.wiki-shell-command-confirm-actions button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.wiki-shell-command-confirm-actions .wiki-shell-command-confirm-primary {
+  background: var(--foreground);
+  border-color: var(--foreground);
+  color: var(--background);
+}
+.wiki-shell-search-mode-toggle [data-slot="segmented-control-item"][data-checked] {
+  background: var(--background);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 12%, transparent);
+  color: var(--foreground);
+}
+[data-slot="command-group"]:not(:first-child) > .wiki-shell-command-group-heading {
+  margin-top: 4px;
+}
+/* end ui-sdk: w3-palettes-search */
+
+/* ui-sdk: w9-shell-overlays */
+.wiki-shell-actions-item[data-highlighted]:not([data-disabled]) {
+  background: var(--accent-light);
+}
+
+.wiki-shell-actions-item[data-disabled] {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.wiki-shell-actions-dialog[data-slot="dialog-content"] {
+  height: fit-content;
+  inset: 0;
+  margin: auto;
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  position: fixed;
+}
+
+.wiki-shell-actions-dialog::backdrop {
+  background: rgb(0 0 0 / 0.1);
+}
+
+.wiki-shell-actions-auth-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.wiki-shell-actions-auth-field [data-slot="field-label"] {
+  color: var(--muted-foreground, var(--text-muted));
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+}
+
+.wiki-shell-actions-auth-password {
+  display: grid;
+  position: relative;
+}
+
+.wiki-shell-actions-auth-form .wiki-shell-actions-auth-password input {
+  padding-right: 2.25rem;
+}
+
+.wiki-shell-actions-auth-password-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem;
+  color: var(--muted-foreground, var(--text-muted));
+  cursor: pointer;
+  display: inline-flex;
+  height: 1.75rem;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 0.125rem;
+  top: 50%;
+  translate: 0 -50%;
+  width: 1.75rem;
+}
+
+.wiki-shell-actions-auth-password-toggle:hover {
+  color: var(--foreground);
+}
+
+.wiki-shell-toast-region {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: end;
+  position: fixed;
+  right: 1.125rem;
+  top: 3.875rem;
+  z-index: 70;
+}
+
+.wiki-shell-toast-region .wiki-shell-toast {
+  list-style: none;
+  position: static;
+  transition: opacity 150ms ease, translate 150ms ease;
+  user-select: none;
+}
+
+.wiki-shell-toast-region .wiki-shell-toast:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+  translate: 0 -0.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-shell-toast-region .wiki-shell-toast {
+    transition: none;
+  }
+}
+/* end ui-sdk: w9-shell-overlays */
+
+/* ui-sdk: w8-nav-tree-resizable */
+/* Focus stays on the tree item; draw the ring and hover state on its label,
+   which owns the row's padding (the item also carries the gap above it). */
+.wiki-shell-tree-root [data-slot="tree-item"]:focus-visible {
+  outline: none;
+}
+
+.wiki-shell-tree-root [data-slot="tree-item"]:focus-visible > [data-slot="tree-label"] {
+  background: var(--accent-light);
+  color: var(--foreground);
+  outline: 2px solid var(--ring, var(--brand));
+  outline-offset: 2px;
+}
+
+.wiki-shell-tree-chevron[data-expanded] {
+  transform: rotate(90deg);
+}
+/* The drawer places and slides the sheet itself (translate), inside its own
+   full-screen viewport: drop the old absolute placement and transform. */
+.wiki-shell-bottom-nav-panel[data-slot="drawer-content"] {
+  inset: auto;
+  position: relative;
+  transform: none;
+  transition: none;
+  width: 100%;
+}
+
+.wiki-shell-bottom-nav-backdrop[data-slot="drawer-backdrop"] {
+  position: fixed;
+}
+/* Until the layout has applied the saved width to the resizable group, the
+   width written to <html> before paint (sidebar-startup.ts) sizes the panel. */
+[data-sidebar-expanded-rail]:not([data-width-applied]) {
+  flex: 0 0 var(--wiki-sidebar-width, 256px) !important;
+}
+@media (min-width: 768px) {
+  .wiki-shell-resizable-layout > .sidebar-resize-handle {
+    width: 3px;
+  }
+
+  .wiki-shell-resizable-layout > .sidebar-resize-handle:is([data-hovering], [data-dragging], :focus-visible) {
+    background: var(--brand);
+  }
+}
+/* The expanded outline pane is the last panel of a resizable group fixed
+   over the page; the spacer panel before it lets presses through. */
+@media (min-width: 768px) {
+  .wiki-shell-right-rail-group {
+    inset: 0;
+    pointer-events: none;
+    position: fixed;
+    z-index: 30;
+  }
+
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail,
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail-resize {
+    pointer-events: auto;
+  }
+
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail {
+    inset: auto;
+    position: relative;
+  }
+
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail:not([data-width-applied]) {
+    flex: 0 0 var(--comments-pane-width, 24rem) !important;
+  }
+
+  /* Drawn over the pane's left edge, where the old handle sat. */
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail-resize {
+    inset: auto;
+    left: 3px;
+    position: relative;
+  }
+
+  .wiki-shell-right-rail-group > .wiki-shell-right-rail-resize:is([data-hovering], [data-dragging], :focus-visible) {
+    background: var(--brand);
+  }
+}
+
+@media (max-width: 767px) {
+  .wiki-shell-right-rail-group {
+    display: none !important;
+  }
+}
+
+.wiki-shell-outline-tabs [data-slot="segmented-control-item"][data-checked] {
+  background: var(--accent-light);
+  color: var(--brand);
+}
+/* end ui-sdk: w8-nav-tree-resizable */
+/* ui-sdk: hidden-form-inputs */
+/* Checkbox, Radio, Segmented Control and Select keep a native input next to
+   the control for forms. UI SDK styles it inline as an offset-less
+   position:absolute 1px box, so inside an inner scroll container with no
+   positioned ancestor it lands at its static position and stretches the
+   document's scroll height. Fixed positioning takes it out of every scroll
+   container; it stays clipped, transparent and inert. */
+[data-slot$="-input"][aria-hidden="true"][tabindex="-1"] {
+  inset: 0 auto auto 0 !important;
+  position: fixed !important;
+}
+/* end ui-sdk: hidden-form-inputs */

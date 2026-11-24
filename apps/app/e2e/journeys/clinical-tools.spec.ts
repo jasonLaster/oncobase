@@ -258,10 +258,10 @@ test.describe("clinical tools", () => {
 
     const planner = page.getByTestId("medical-deduction-multi-year");
     await planner.getByLabel("Spread costs across multiple tax years").check();
-    await planner.getByRole("button", { name: "4", exact: true }).click();
+    await planner.getByRole("radio", { name: "4", exact: true }).click();
     await planner.getByLabel("Customize distribution").check();
-    await planner.getByRole("spinbutton", { name: "AGI" }).first().fill("800000");
-    await planner.getByRole("spinbutton", { name: "Medical spend" }).first().fill("400000");
+    await planner.getByRole("textbox", { name: "AGI" }).first().fill("800000");
+    await planner.getByRole("textbox", { name: "Medical spend" }).first().fill("400000");
 
     await expect
       .poll(() => Object.fromEntries(new URL(page.url()).searchParams))
@@ -282,8 +282,8 @@ test.describe("clinical tools", () => {
     await expect(restored.getByLabel("Spread costs across multiple tax years")).toBeChecked();
     await expect(restored.getByLabel("Customize distribution")).toBeChecked();
     await expect(restored.getByText("Year 4", { exact: true })).toBeVisible();
-    await expect(restored.getByRole("spinbutton", { name: "AGI" }).first()).toHaveValue("800000");
-    await expect(restored.getByRole("spinbutton", { name: "Medical spend" }).first()).toHaveValue(
+    await expect(restored.getByRole("textbox", { name: "AGI" }).first()).toHaveValue("800000");
+    await expect(restored.getByRole("textbox", { name: "Medical spend" }).first()).toHaveValue(
       "400000",
     );
   });
@@ -297,7 +297,10 @@ test.describe("clinical tools", () => {
     const medical = page.getByRole("textbox", { name: medicalInputName });
     await expect(summary).toContainText("Net cost after savings: $116,015");
 
+    // The number input refuses a minus sign when its minimum is 0.
     await medical.fill("-1");
+    await expect(medical).toHaveValue("150,000");
+    await medical.fill("0");
     await medical.press("Enter");
     await expect(medical).toHaveValue("0");
     await expect(summary).toContainText("Estimated Tax Savings$0");

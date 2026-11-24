@@ -29,3 +29,11 @@ describe("revealDirectories", () => {
     });
   });
 });
+
+describe("expandedDirectorySlugs", () => {
+  test("lists opened choices and the active ancestors the reader did not collapse", async () => {
+    const { expandedDirectorySlugs } = await import(`./tree-expansion?${Math.random()}`);
+    const choices = new Map([["wiki", true], ["sources", false], ["notes", true], ["archive", false]]);
+    expect(expandedDirectorySlugs(choices, ["sources", "sources/diagnostics", "wiki"])).toEqual(["wiki", "notes", "sources/diagnostics"]);
+  });
+});

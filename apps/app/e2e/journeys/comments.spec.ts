@@ -68,7 +68,17 @@ test.describe("comments (mocked Liveblocks)", () => {
     const rail = page.locator("[data-wiki-shell-right-rail]").last();
     await expect(rail.getByText("Sign in to leave a comment")).toBeVisible({ timeout: 20_000 });
 
-    await rail.getByRole("button", { name: "Outline" }).click();
+    // The pane resizes from the keyboard too, and the pixel width persists.
+    const railWidth = async () => (await rail.boundingBox())?.width ?? 0;
+    const before = await railWidth();
+    await page.getByRole("separator", { name: "Resize comments pane" }).focus();
+    await page.keyboard.press("Shift+ArrowLeft");
+    await expect.poll(railWidth).toBeGreaterThan(before + 40);
+    await expect
+      .poll(() => page.evaluate(() => Number(localStorage.getItem("comments-pane-width"))))
+      .toBeCloseTo(await railWidth(), -1);
+
+    await rail.getByRole("tab", { name: "Outline" }).click();
     await expect(rail.getByRole("button", { name: "Insurance", exact: true })).toHaveClass(/active/);
   });
 
@@ -86,13 +96,26 @@ test.describe("comments (mocked Liveblocks)", () => {
     await expect(panel).toHaveAttribute("aria-label", "Document comments");
     await expect(panel).toContainText("0 unresolved threads");
     await expect(panel.getByText("Sign in to leave a comment")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Comments" })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Resize comments panel" })).toBeVisible();
+
+    // The actions menu opens above the sheet and its choice stays in the sheet.
+    await panel.getByRole("button", { name: "Comment actions" }).click();
+    await page.getByRole("menuitem", { name: "View all threads" }).click();
+    await expect(panel).toContainText("0 total threads");
+
+    // Escape closes the sheet and returns focus to the page.
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await page.getByTestId("mobile-header-comments").click();
+    await expect(panel).toBeVisible();
 
     await panel.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/wiki\/logistics\/insurance$/);
     const dialog = page.getByRole("dialog", { name: "Sign in" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Email")).toBeVisible();
-    await expect(dialog.getByLabel("Password")).toBeVisible();
+    await expect(dialog.getByLabel("Password", { exact: true })).toBeVisible();
     await expect(dialog).toContainText("Sign in to comment and view additional content.");
   });
 

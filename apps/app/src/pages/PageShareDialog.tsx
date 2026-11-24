@@ -1,22 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { copyTextToClipboard } from "@oncobase/wiki-shell";
+import { Button } from "@oncobase/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@oncobase/ui/dialog";
+import { Input } from "@oncobase/ui/input";
+import { toast } from "@oncobase/ui/toast";
 import { X } from "lucide-react";
 import { backendHref } from "../wiki-utils";
 import "./page-sharing-styles";
 
 export function PageShareDialog({ slug, title, onClose }: { slug: string; title: string; onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const [active, setActive] = useState(false);
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const element = dialog.current!;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    element.showModal();
     const controller = new AbortController();
     void fetch(backendHref("/api/page-shares", { slug }), { cache: "no-store", signal: controller.signal })
       .then(async response => {
@@ -29,11 +28,11 @@ export function PageShareDialog({ slug, title, onClose }: { slug: string; title:
         setActive(data.active);
       }).catch(error => { if (!controller.signal.aborted) setError(error.message); })
       .finally(() => { if (!controller.signal.aborted) setBusy(false); });
-    return () => { controller.abort(); element.close(); previousFocus?.focus(); };
+    return () => controller.abort();
   }, [slug]);
 
   const update = async (method: "POST" | "DELETE") => {
-    setBusy(true); setError(""); setCopied(false);
+    setBusy(true); setError("");
     try {
       const response = await fetch(backendHref("/api/page-shares"), { method,
         headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug }) });
@@ -45,31 +44,31 @@ export function PageShareDialog({ slug, title, onClose }: { slug: string; title:
   };
 
   const copy = async () => {
-    try { await copyTextToClipboard(link); setCopied(true); }
+    try { await copyTextToClipboard(link); toast.success("Link copied"); }
     catch { setError("Copy failed. Select the link and copy it manually."); }
   };
 
   return (
-    <dialog ref={dialog} className="page-share-dialog" aria-labelledby="page-share-title"
-      aria-describedby="page-share-description" onCancel={onClose}
-      onClick={event => { if (event.target === dialog.current) onClose(); }}>
-      <div className="page-share-heading">
-        <h2 id="page-share-title">Share private page</h2>
-        <button className="page-share-close" aria-label="Close sharing" onClick={onClose}><X size={18} /></button>
-      </div>
-      <p className="page-share-page-title">{title}</p>
-      <p id="page-share-description">Anyone with the link can view this page.</p>
-      {error ? <p role="alert" className="page-share-error">{error}</p> : null}
-      {!forbidden ? <>
-        {link ? <div className="page-share-link">
-          <input aria-label="Secure link" value={link} readOnly onFocus={event => event.target.select()} />
-          <button className="page-share-primary" onClick={copy}>{copied ? "Copied" : "Copy link"}</button>
-        </div> : <p className="page-share-status" role="status">{busy ? "Loading…" : active ? "Link active. Replace it to copy a new link." : "No active link."}</p>}
-        <div className="page-share-actions">
-          <button className={link ? "" : "page-share-primary"} disabled={busy} onClick={() => void update("POST")}>{active ? "Replace link" : "Create link"}</button>
-          {active ? <button disabled={busy} onClick={() => void update("DELETE")}>Revoke link</button> : null}
+    <Dialog defaultOpen onOpenChangeComplete={open => { if (!open) onClose(); }}>
+      <DialogContent className="page-share-dialog" finalFocus='[data-test-id="sensitive-page-lock"]'>
+        <div className="page-share-heading">
+          <DialogTitle>Share private page</DialogTitle>
+          <DialogClose className="page-share-close" aria-label="Close sharing"><X size={18} /></DialogClose>
         </div>
-      </> : null}
-    </dialog>
+        <p className="page-share-page-title">{title}</p>
+        <DialogDescription>Anyone with the link can view this page.</DialogDescription>
+        {error ? <p role="alert" className="page-share-error">{error}</p> : null}
+        {!forbidden ? <>
+          {link ? <div className="page-share-link">
+            <Input aria-label="Secure link" value={link} readOnly onFocus={event => event.currentTarget.select()} />
+            <Button className="page-share-primary" onClick={copy}>Copy link</Button>
+          </div> : <p className="page-share-status" role="status">{busy ? "Loading…" : active ? "Link active. Replace it to copy a new link." : "No active link."}</p>}
+          <div className="page-share-actions">
+            <Button className={link ? "" : "page-share-primary"} disabled={busy} focusableWhenDisabled onClick={() => void update("POST")}>{active ? "Replace link" : "Create link"}</Button>
+            {active ? <Button disabled={busy} focusableWhenDisabled onClick={() => void update("DELETE")}>Revoke link</Button> : null}
+          </div>
+        </> : null}
+      </DialogContent>
+    </Dialog>
   );
 }

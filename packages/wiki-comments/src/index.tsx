@@ -2,7 +2,7 @@
 
 import { safeLocalStorage } from "@oncobase/safe-storage";
 import {
-  type ButtonHTMLAttributes,
+  type ComponentProps,
   type ReactNode,
   useCallback,
   useEffect,
@@ -17,14 +17,20 @@ import { useRoom, useThreads } from "@liveblocks/react";
 import { Comment, Composer, Thread } from "@liveblocks/react-ui";
 import "./liveblocks-styles.ts";
 import { cn } from "./utils.ts";
+import { ResizableRail } from "./resizable-rail.tsx";
 import { LiveblocksRoom } from "./room.tsx";
 import { commentsEnabled } from "./feature.ts";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./menu.tsx";
+  Drawer,
+  DrawerBackdrop,
+  DrawerClose,
+  DrawerContent,
+  DrawerHandle,
+  DrawerTitle,
+} from "@oncobase/ui/drawer";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@oncobase/ui/menu";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
 import type { LiveblocksProviderShellProps } from "./provider.tsx";
 import {
   buildCommentListItems,
@@ -59,7 +65,10 @@ type OutlineItem = {
   level: number;
 };
 
-type SidebarButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+const SIDEBAR_TAB_CLASS =
+  "flex-1 cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] active:bg-[var(--accent-light)] active:text-[var(--brand)] data-[selected]:bg-[var(--accent-light)] data-[selected]:text-[var(--brand)]";
+
+type SidebarButtonProps = ComponentProps<"button"> & {
   active?: boolean;
   variant?: "tab" | "icon" | "list";
 };
@@ -90,6 +99,40 @@ function SidebarButton({
   );
 }
 
+function OutlineEntry({
+  item,
+  active,
+  onSelect,
+}: {
+  item: OutlineItem;
+  active?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <Tooltip type="label" delay={600}>
+      <TooltipTrigger
+        render={
+          <SidebarButton
+            active={active}
+            variant="list"
+            onClick={onSelect}
+            style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
+          />
+        }
+      >
+        <span className="line-clamp-2">{item.text}</span>
+      </TooltipTrigger>
+      <TooltipContent
+        side="left"
+        sideOffset={8}
+        className="max-w-xs rounded-md bg-[var(--foreground)] px-2 py-1 text-xs text-[var(--background)] shadow-lg"
+      >
+        {item.text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function RailToggleIcon({ direction }: { direction: "up" | "down" | "right" }) {
   const points =
     direction === "up"
@@ -112,6 +155,50 @@ function RailToggleIcon({ direction }: { direction: "up" | "down" | "right" }) {
     >
       <polyline points={points} />
     </svg>
+  );
+}
+
+function CommentActionsMenu({
+  showResolvedThreads,
+  onToggleResolved,
+}: {
+  showResolvedThreads: boolean;
+  onToggleResolved: () => void;
+}) {
+  return (
+    <Menu>
+      <MenuTrigger className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] data-[open]:bg-[var(--accent-light)] data-[open]:text-[var(--foreground)]">
+        <span className="sr-only">Comment actions</span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="3.5" cy="8" r="1" />
+          <circle cx="8" cy="8" r="1" />
+          <circle cx="12.5" cy="8" r="1" />
+        </svg>
+      </MenuTrigger>
+      <MenuContent
+        align="end"
+        sideOffset={4}
+        className="m-0 w-40 rounded-md border border-[var(--sidebar-border)] bg-[var(--card)] p-1 text-sm text-[var(--foreground)] shadow-lg"
+      >
+        <MenuItem
+          value="toggle-resolved"
+          onSelect={onToggleResolved}
+          className="block w-full cursor-pointer rounded px-2 py-1.5 text-left text-[var(--foreground)] outline-none hover:bg-[var(--accent-light)] data-[highlighted]:bg-[var(--accent-light)]"
+        >
+          {showResolvedThreads ? "Show unresolved only" : "View all threads"}
+        </MenuItem>
+      </MenuContent>
+    </Menu>
   );
 }
 
@@ -139,6 +226,7 @@ const COMMENTS_COLLAPSED_WIDTH = 64; // w-16
 const DESKTOP_SIDEBAR_TOP_OFFSET = 24;
 const COMMENTS_PANE_EVENT = "comments-pane-state-change";
 const MOBILE_COMMENTS_PANEL_EVENT = "mobile-comments-panel-open";
+const MOBILE_PANEL_SNAP_POINTS = [0.5, 1];
 
 type PaneStateSnapshot = {
   open: boolean;
@@ -550,9 +638,6 @@ function CommentsShell({
     width: commentsWidth,
     setWidth: setCommentsWidth,
   } = usePersistedPaneState(true);
-  const commentsDragging = useRef(false);
-  const commentsStartX = useRef(0);
-  const commentsStartWidth = useRef(0);
   const canComment = Boolean(sessionUser);
   const signInHref =
     typeof window === "undefined"
@@ -589,40 +674,6 @@ function CommentsShell({
       window.removeEventListener("wiki-auth-session-change", loadSession);
     };
   }, []);
-
-  const onCommentsPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
-      commentsDragging.current = true;
-      commentsStartX.current = e.clientX;
-      commentsStartWidth.current = commentsWidth;
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    },
-    [commentsWidth]
-  );
-
-  const onCommentsPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!commentsDragging.current) return;
-    // Dragging left increases width (right sidebar)
-    const delta = commentsStartX.current - e.clientX;
-    const next = Math.min(
-      COMMENTS_MAX_WIDTH,
-      Math.max(COMMENTS_MIN_WIDTH, commentsStartWidth.current + delta)
-    );
-    setCommentsWidth(next);
-  }, [setCommentsWidth]);
-
-  const onCommentsPointerUp = useCallback((e: React.PointerEvent) => {
-    if (!commentsDragging.current) return;
-    commentsDragging.current = false;
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    const delta = commentsStartX.current - e.clientX;
-    const next = Math.min(
-      COMMENTS_MAX_WIDTH,
-      Math.max(COMMENTS_MIN_WIDTH, commentsStartWidth.current + delta)
-    );
-    setCommentsWidth(next, { persist: true });
-  }, [setCommentsWidth]);
 
   useEffect(() => {
     const threadId = new URL(window.location.href).searchParams.get("thread");
@@ -711,15 +762,6 @@ function CommentsShell({
       window.removeEventListener(MOBILE_COMMENTS_PANEL_EVENT, openMobileCommentsPanel);
     };
   }, [openMobileCommentsPanel]);
-
-  useEffect(() => {
-    if (!mobilePanelOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [mobilePanelOpen]);
 
   useEffect(() => {
     const root = articleRef.current;
@@ -962,22 +1004,17 @@ function CommentsShell({
     <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-            <SidebarButton
-              variant="tab"
-              active={sidebarMode === "comments"}
-              onClick={() => toggleSidebarMode("comments")}
-            >
+          <TabsList
+            aria-label="Sidebar view"
+            className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5"
+          >
+            <TabsTab value="comments" className={SIDEBAR_TAB_CLASS}>
               Comments
-            </SidebarButton>
-            <SidebarButton
-              variant="tab"
-              active={sidebarMode === "outline"}
-              onClick={() => toggleSidebarMode("outline")}
-            >
+            </TabsTab>
+            <TabsTab value="outline" className={SIDEBAR_TAB_CLASS}>
               Outline
-            </SidebarButton>
-          </div>
+            </TabsTab>
+          </TabsList>
           <SidebarButton
             onClick={toggleCommentsPane}
             aria-label="Collapse comments pane"
@@ -999,35 +1036,10 @@ function CommentsShell({
             </p>
           </div>
           {sidebarMode === "comments" ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]">
-                <span className="sr-only">Comment actions</span>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="3.5" cy="8" r="1" />
-                  <circle cx="8" cy="8" r="1" />
-                  <circle cx="12.5" cy="8" r="1" />
-                </svg>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem
-                  onClick={() =>
-                    setShowResolvedThreads((current) => !current)
-                  }
-                >
-                  {showResolvedThreads ? "Show unresolved only" : "View all threads"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <CommentActionsMenu
+              showResolvedThreads={showResolvedThreads}
+              onToggleResolved={() => setShowResolvedThreads((current) => !current)}
+            />
           ) : null}
         </div>
       </div>
@@ -1106,16 +1118,12 @@ function CommentsShell({
           ) : (
             <div className="space-y-0.5">
               {outlineItems.map((item) => (
-                <SidebarButton
+                <OutlineEntry
                   key={item.id}
+                  item={item}
                   active={item.id === activeHeadingId}
-                  variant="list"
-                  onClick={() => jumpToHeading(item.id)}
-                  style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                  title={item.text}
-                >
-                  <span className="line-clamp-2">{item.text}</span>
-                </SidebarButton>
+                  onSelect={() => jumpToHeading(item.id)}
+                />
               ))}
             </div>
           )
@@ -1401,128 +1409,112 @@ function CommentsShell({
         </div>
       </div>
 
-      {mobilePanelOpen ? (
-        <div
-          className="fixed inset-0 z-50 md:hidden"
-          data-test-id="mobile-comments-panel"
-          data-state="open"
-        >
-          <button
-            type="button"
-            aria-label="Close comments panel backdrop"
-            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-            onClick={() => setMobilePanelOpen(false)}
-          />
-          <aside
-            data-comments-bottom-rail
-            aria-label="Document comments"
-            className="absolute inset-x-0 bottom-0 flex h-[88dvh] flex-col rounded-t-[1.125rem] bg-[var(--sidebar-bg)] shadow-2xl"
-            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-          >
-            <div className="shrink-0 pt-2">
-              <div
-                role="separator"
-                aria-label="Resize comments panel"
-                aria-orientation="horizontal"
-                className="flex h-6 w-full items-center justify-center"
-              >
-                <div className="h-1 w-10 rounded-full bg-[var(--text-muted)]/30" />
-              </div>
-              <div className="border-b border-[var(--sidebar-border)] px-3 py-2">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
-                    Comments
-                  </span>
-                  <SidebarButton
-                    onClick={() => setMobilePanelOpen(false)}
-                    aria-label="Close comments panel"
-                    className="h-auto w-auto px-2 py-1"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <line x1="4" y1="4" x2="12" y2="12" />
-                      <line x1="12" y1="4" x2="4" y2="12" />
-                    </svg>
-                  </SidebarButton>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {visibleThreads.length} {showResolvedThreads ? "total" : "unresolved"} thread{visibleThreads.length === 1 ? "" : "s"}
-                  </p>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)]">
-                      <span className="sr-only">Comment actions</span>
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <circle cx="3.5" cy="8" r="1" />
-                        <circle cx="8" cy="8" r="1" />
-                        <circle cx="12.5" cy="8" r="1" />
-                      </svg>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40">
-                      <DropdownMenuItem
-                        onClick={() => setShowResolvedThreads((current) => !current)}
-                      >
-                        {showResolvedThreads ? "Show unresolved only" : "View all threads"}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              {sidebarContent}
-            </div>
-          </aside>
-        </div>
-      ) : null}
-
-      <aside
-        className={cn(
-          "hidden md:flex fixed right-0 top-0 bottom-0 z-30 bg-[var(--background)]",
-          commentsOpen
-            ? "flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.12)]"
-            : "w-16 flex-col items-center py-3"
-        )}
-        data-wiki-shell-right-rail
-        style={commentsOpen ? { width: commentsWidth } : undefined}
+      <Drawer
+        open={mobilePanelOpen}
+        onOpenChange={setMobilePanelOpen}
+        snapPoints={MOBILE_PANEL_SNAP_POINTS}
+        defaultSnapPoint={1}
       >
-        {commentsOpen ? (
-          <>
-            <div
-              onPointerDown={onCommentsPointerDown}
-              onPointerMove={onCommentsPointerMove}
-              onPointerUp={onCommentsPointerUp}
-              role="separator"
-              aria-label="Resize comments pane"
-              aria-orientation="vertical"
-              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
-            />
+        <DrawerBackdrop className="fixed inset-0 m-0 size-full max-h-none max-w-none border-0 bg-black/50 p-0 backdrop-blur-[2px] md:hidden" />
+        <DrawerContent
+          data-comments-bottom-rail
+          data-test-id="mobile-comments-panel"
+          aria-label="Document comments"
+          className="flex h-[88dvh] w-full flex-col rounded-t-[1.125rem] bg-[var(--sidebar-bg)] shadow-2xl md:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <div className="shrink-0 pt-2">
+            <DrawerHandle
+              aria-label="Resize comments panel"
+              className="flex h-6 w-full items-center justify-center"
+            >
+              <span className="h-1 w-10 rounded-full bg-[var(--text-muted)]/30" />
+            </DrawerHandle>
+            <div className="border-b border-[var(--sidebar-border)] px-3 py-2">
+              <div className="mb-2 flex items-center gap-2">
+                <DrawerTitle className="m-0 min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
+                  Comments
+                </DrawerTitle>
+                <DrawerClose
+                  aria-label="Close comments panel"
+                  className="flex h-auto w-auto cursor-pointer items-center justify-center rounded-lg px-2 py-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-light)] hover:text-[var(--foreground)] active:bg-[var(--accent-light)] active:text-[var(--brand)]"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                    <line x1="4" y1="4" x2="12" y2="12" />
+                    <line x1="12" y1="4" x2="4" y2="12" />
+                  </svg>
+                </DrawerClose>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-[var(--text-muted)]">
+                  {visibleThreads.length} {showResolvedThreads ? "total" : "unresolved"} thread{visibleThreads.length === 1 ? "" : "s"}
+                </p>
+                <CommentActionsMenu
+                  showResolvedThreads={showResolvedThreads}
+                  onToggleResolved={() => setShowResolvedThreads((current) => !current)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {sidebarContent}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {commentsOpen ? (
+        <ResizableRail
+          width={commentsWidth}
+          minWidth={COMMENTS_MIN_WIDTH}
+          maxWidth={COMMENTS_MAX_WIDTH}
+          onWidthChange={setCommentsWidth}
+          handleLabel="Resize comments pane"
+          className="inset-0 hidden md:flex"
+          railClassName="bg-[var(--background)] shadow-[-4px_0_12px_rgba(0,0,0,0.12)]"
+          railProps={{ "data-wiki-shell-right-rail": true }}
+        >
+          <Tabs
+            value={sidebarMode}
+            onValueChange={(mode) => {
+              if (mode) setSidebarMode(mode as SidebarMode);
+            }}
+            className="flex min-h-0 flex-1 flex-col"
+          >
             {sidebarHeader}
-            <div className="min-h-0 flex-1 overflow-y-auto">{sidebarContent}</div>
-          </>
-        ) : (
-          <>
-            <SidebarButton
-              active={sidebarMode === "comments"}
-              onClick={() => toggleSidebarMode("comments")}
-              aria-label="Open comments"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
-              </svg>
-            </SidebarButton>
-            <SidebarButton
-              active={sidebarMode === "outline"}
-              onClick={() => toggleSidebarMode("outline")}
-              aria-label="Open outline"
-              className="mt-2"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 4h10M3 8h10M3 12h6" />
-              </svg>
-            </SidebarButton>
-          </>
-        )}
-      </aside>
+            <TabsPanel value="comments" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              {sidebarContent}
+            </TabsPanel>
+            <TabsPanel value="outline" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              {sidebarContent}
+            </TabsPanel>
+          </Tabs>
+        </ResizableRail>
+      ) : (
+        <aside
+          className="hidden md:flex fixed right-0 top-0 bottom-0 z-30 w-16 flex-col items-center bg-[var(--background)] py-3"
+          data-wiki-shell-right-rail
+        >
+          <SidebarButton
+            active={sidebarMode === "comments"}
+            onClick={() => toggleSidebarMode("comments")}
+            aria-label="Open comments"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
+            </svg>
+          </SidebarButton>
+          <SidebarButton
+            active={sidebarMode === "outline"}
+            onClick={() => toggleSidebarMode("outline")}
+            aria-label="Open outline"
+            className="mt-2"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 4h10M3 8h10M3 12h6" />
+            </svg>
+          </SidebarButton>
+        </aside>
+      )}
     </div>
   );
 }
@@ -1554,43 +1546,6 @@ export function OutlineShell({
     width: sidebarWidth,
     setWidth: setSidebarWidth,
   } = usePersistedPaneState(false);
-  const dragging = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
-
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
-      dragging.current = true;
-      startX.current = e.clientX;
-      startWidth.current = sidebarWidth;
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    },
-    [sidebarWidth]
-  );
-
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragging.current) return;
-    const delta = startX.current - e.clientX;
-    const next = Math.min(
-      COMMENTS_MAX_WIDTH,
-      Math.max(COMMENTS_MIN_WIDTH, startWidth.current + delta)
-    );
-    setSidebarWidth(next);
-  }, [setSidebarWidth]);
-
-  const onPointerUp = useCallback((e: React.PointerEvent) => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    const delta = startX.current - e.clientX;
-    const next = Math.min(
-      COMMENTS_MAX_WIDTH,
-      Math.max(COMMENTS_MIN_WIDTH, startWidth.current + delta)
-    );
-    setSidebarWidth(next, { persist: true });
-  }, [setSidebarWidth]);
-
   const toggleSidebar = () => {
     setSidebarOpen((current) => !current);
   };
@@ -1717,15 +1672,11 @@ export function OutlineShell({
               ) : (
                 <div className="space-y-0.5">
                   {outlineItems.map((item) => (
-                    <SidebarButton
+                    <OutlineEntry
                       key={item.id}
-                      variant="list"
-                      onClick={() => jumpToHeading(item.id)}
-                      style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                      title={item.text}
-                    >
-                      <span className="line-clamp-2">{item.text}</span>
-                    </SidebarButton>
+                      item={item}
+                      onSelect={() => jumpToHeading(item.id)}
+                    />
                   ))}
                 </div>
               )}
@@ -1765,60 +1716,35 @@ export function OutlineShell({
         )}
       </aside>
 
-      <aside
-        className={cn(
-          "hidden lg:flex fixed right-0 top-12 bottom-0 z-30 bg-[var(--sidebar-bg)]",
-          sidebarOpen ? "flex-col" : "w-16 flex-col items-center py-3 border-l border-[var(--sidebar-border)]"
-        )}
-        style={sidebarOpen ? { width: sidebarWidth } : undefined}
-      >
-        {sidebarOpen ? (
-          <>
-            <div
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              role="separator"
-              aria-label="Resize outline pane"
-              aria-orientation="vertical"
-              className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0 bg-[var(--sidebar-border)] hover:bg-[var(--brand)] active:bg-[var(--brand)] transition-colors cursor-col-resize z-40"
-            />
-            <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
-              {onActivate ? (
-                <div className="min-w-0 flex-1">
-                  <div className="mb-2 flex items-center gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
-                      <SidebarButton
-                        variant="tab"
-                        onClick={onActivate}
-                      >
-                        Comments
-                      </SidebarButton>
-                      <SidebarButton
-                        variant="tab"
-                        active
-                        onClick={toggleSidebar}
-                      >
-                        Outline
-                      </SidebarButton>
-                    </div>
+      {sidebarOpen ? (
+        <ResizableRail
+          width={sidebarWidth}
+          minWidth={COMMENTS_MIN_WIDTH}
+          maxWidth={COMMENTS_MAX_WIDTH}
+          onWidthChange={setSidebarWidth}
+          handleLabel="Resize outline pane"
+          className="inset-x-0 top-12 bottom-0 hidden lg:flex"
+          railClassName="bg-[var(--sidebar-bg)]"
+        >
+          <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-2">
+            {onActivate ? (
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center rounded-md border border-[var(--sidebar-border)] bg-[var(--background)]/70 p-0.5">
                     <SidebarButton
-                      onClick={toggleSidebar}
-                      aria-label="Collapse outline pane"
-                      className="h-auto w-auto px-2 py-1"
+                      variant="tab"
+                      onClick={onActivate}
                     >
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <polyline points="6 4 10 8 6 12" />
-                      </svg>
+                      Comments
+                    </SidebarButton>
+                    <SidebarButton
+                      variant="tab"
+                      active
+                      onClick={toggleSidebar}
+                    >
+                      Outline
                     </SidebarButton>
                   </div>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {outlineItems.length} heading{outlineItems.length === 1 ? "" : "s"}
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <span className="flex-1 text-xs font-medium text-[var(--foreground)]">Outline</span>
                   <SidebarButton
                     onClick={toggleSidebar}
                     aria-label="Collapse outline pane"
@@ -1828,61 +1754,73 @@ export function OutlineShell({
                       <polyline points="6 4 10 8 6 12" />
                     </svg>
                   </SidebarButton>
-                </>
+                </div>
+                <p className="text-xs text-[var(--text-muted)]">
+                  {outlineItems.length} heading{outlineItems.length === 1 ? "" : "s"}
+                </p>
+              </div>
+            ) : (
+              <>
+                <span className="flex-1 text-xs font-medium text-[var(--foreground)]">Outline</span>
+                <SidebarButton
+                  onClick={toggleSidebar}
+                  aria-label="Collapse outline pane"
+                  className="h-auto w-auto px-2 py-1"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="6 4 10 8 6 12" />
+                  </svg>
+                </SidebarButton>
+              </>
+            )}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="bg-[var(--background)]/40 p-3">
+              {outlineItems.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[var(--sidebar-border)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                  No headings found on this page.
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {outlineItems.map((item) => (
+                    <OutlineEntry
+                      key={item.id}
+                      item={item}
+                      onSelect={() => jumpToHeading(item.id)}
+                    />
+                  ))}
+                </div>
               )}
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="bg-[var(--background)]/40 p-3">
-                {outlineItems.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[var(--sidebar-border)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                    No headings found on this page.
-                  </div>
-                ) : (
-                  <div className="space-y-0.5">
-                    {outlineItems.map((item) => (
-                      <SidebarButton
-                        key={item.id}
-                        variant="list"
-                        onClick={() => jumpToHeading(item.id)}
-                        style={{ paddingLeft: `${(item.level - 1) * 14 + 8}px` }}
-                        title={item.text}
-                      >
-                        <span className="line-clamp-2">{item.text}</span>
-                      </SidebarButton>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            {onActivate ? (
-              <SidebarButton
-                onClick={onActivate}
-                aria-label="Open comments"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
-                </svg>
-              </SidebarButton>
-            ) : null}
+          </div>
+        </ResizableRail>
+      ) : (
+        <aside className="hidden lg:flex fixed right-0 top-12 bottom-0 z-30 w-16 flex-col items-center border-l border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] py-3">
+          {onActivate ? (
             <SidebarButton
-              active
-              onClick={() => {
-                setSidebarOpen(true);
-                safeLocalStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
-              }}
-              aria-label="Open outline"
-              className={cn(onActivate && "mt-2")}
+              onClick={onActivate}
+              aria-label="Open comments"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 4h10M3 8h10M3 12h6" />
+                <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
               </svg>
             </SidebarButton>
-          </>
-        )}
-      </aside>
+          ) : null}
+          <SidebarButton
+            active
+            onClick={() => {
+              setSidebarOpen(true);
+              safeLocalStorage.setItem(COMMENTS_PANE_STORAGE_KEY, "1");
+            }}
+            aria-label="Open outline"
+            className={cn(onActivate && "mt-2")}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 4h10M3 8h10M3 12h6" />
+            </svg>
+          </SidebarButton>
+        </aside>
+      )}
     </div>
   );
 }

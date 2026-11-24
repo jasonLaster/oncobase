@@ -698,16 +698,21 @@ export async function waitForPageTitle(page: Page, title: string | RegExp) {
   });
 }
 
-export async function openDirectory(page: Page, name: string) {
+/** A sidebar folder: a tree item named by its label (and badge, if any). */
+export function treeDirectory(scope: Page | Locator, name: string) {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const directoryButton = page
-    .getByRole("button", { name: new RegExp(`^(Expand|Collapse) ${escapedName}$`, "i") })
-    .first();
-  await expect(directoryButton).toBeVisible();
-  if (await directoryButton.getAttribute("aria-expanded") !== "true") {
-    await directoryButton.click();
+  // Only branches carry aria-expanded: a folder and a page can share a name.
+  return scope.getByRole("treeitem", { name: new RegExp(`^${escapedName}(\\s|$)`, "i") })
+    .and(scope.locator("[aria-expanded]")).first();
+}
+
+export async function openDirectory(page: Page, name: string) {
+  const directory = treeDirectory(page, name);
+  await expect(directory).toBeVisible();
+  if (await directory.getAttribute("aria-expanded") !== "true") {
+    await directory.click();
   }
-  await expect(directoryButton).toHaveAttribute("aria-expanded", "true");
+  await expect(directory).toHaveAttribute("aria-expanded", "true");
 }
 
 export function firstSmartTableShell(page: Page): Locator {

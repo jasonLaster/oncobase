@@ -1,6 +1,15 @@
 "use client";
 
 import { safeSessionStorage } from "@oncobase/safe-storage";
+import { Button } from "@oncobase/ui/button";
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaScrollToEnd,
+  ScrollAreaViewport,
+} from "@oncobase/ui/scroll-area";
+import { useShortcut } from "@oncobase/ui/shortcuts";
+import { ArrowDownIcon } from "lucide-react";
 import {
   DefaultChatTransport,
   type UIMessage,
@@ -10,19 +19,7 @@ import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { nowMs, recordChatPerf, trackStream } from "../perf";
 import { useChatRuntime } from "../runtime";
-import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from "./ai-elements/conversation";
-import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputTextarea,
-  PromptInputSubmit,
-  PromptInputFooter,
-  type PromptInputMessage,
-} from "./ai-elements/prompt-input";
+import { ChatComposer } from "./chat-composer";
 import {
   AssistantMessage,
   PriorMessages,
@@ -503,10 +500,9 @@ export function ChatInterface({
   // tab is driving; a submit during either is queued instead of dropped.
   const isBusy = isStreaming || isPreparing || showCrossTabStream;
 
-  // <PromptInput> hands us its own message + event shape on submit.
   const handlePromptSubmit = useCallback(
-    async (message: PromptInputMessage) => {
-      const trimmed = message.text.trim();
+    async (text: string) => {
+      const trimmed = text.trim();
       if (!trimmed) return;
       if (isBusy || preparingRef.current || queuedMessages.length > 0) {
         enqueueMessage(trimmed);
@@ -637,7 +633,7 @@ export function ChatInterface({
   // - Up arrow on empty composer pulls the last queued message back for edit,
   //   or else focuses the last user message for edit (terminal-style recall).
   // - Esc aborts an active stream.
-  // ai-elements <PromptInputTextarea> handles Enter (IME-safe) internally.
+  // The composer's Textarea handles Enter (IME-safe) itself.
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const handleComposerKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -668,18 +664,9 @@ export function ChatInterface({
     [messages, queuedMessages, isStreaming, handleEditUser, handleStop, removeQueuedMessage]
   );
 
-  // Global keyboard shortcuts:
-  // - Cmd/Ctrl+/ focuses the composer from anywhere on the chat page.
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
-        e.preventDefault();
-        textareaRef.current?.focus();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  useShortcut("mod+/", () => textareaRef.current?.focus(), {
+    description: "Focus the message box",
+  });
 
   const showEmptyState = messages.length === 0 && !isStreaming;
 
@@ -706,23 +693,23 @@ export function ChatInterface({
       </div>
       <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
         {messages.length > 0 ? (
-          <button
+          <Button
             type="button"
             onClick={handleRetryAfterError}
             className="rounded border border-current px-2 py-1 text-xs font-medium transition-colors hover:bg-red-100 dark:hover:bg-red-900/40"
             data-test-id="chat-error-retry"
           >
             Retry
-          </button>
+          </Button>
         ) : null}
-        <button
+        <Button
           type="button"
           onClick={clearError}
           className="rounded px-2 py-1 text-xs font-medium transition-colors hover:bg-red-100 dark:hover:bg-red-900/40"
           data-test-id="chat-error-dismiss"
         >
           Dismiss
-        </button>
+        </Button>
       </div>
     </div>
   ) : null;
@@ -745,7 +732,7 @@ export function ChatInterface({
           <span className="min-w-0 flex-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[var(--foreground)]">
             {queued.text}
           </span>
-          <button
+          <Button
             type="button"
             onClick={() => removeQueuedMessage(queued.id)}
             aria-label="Remove queued message"
@@ -755,44 +742,24 @@ export function ChatInterface({
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z" />
             </svg>
-          </button>
+          </Button>
         </li>
       ))}
     </ul>
   ) : null;
 
   const renderComposer = (flat = false) => (
-    <PromptInput
+    <ChatComposer
+      flat={flat}
+      value={input}
+      onValueChange={setInput}
       onSubmit={handlePromptSubmit}
-      data-test-id="chat-composer"
-      className={
-        flat
-          ? "[&_[data-slot=input-group]]:bg-white [&_[data-slot=input-group]]:border-[var(--sidebar-border)] dark:[&_[data-slot=input-group]]:bg-neutral-800 dark:[&_[data-slot=input-group]]:border-neutral-700 [&_[data-slot=input-group]]:shadow-sm [&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-0 [&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-[var(--brand)]"
-          : undefined
-      }
-    >
-      <PromptInputBody>
-        <PromptInputTextarea
-          autoFocus
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleComposerKeyDown}
-          placeholder={copy.promptPlaceholder}
-          data-test-id="chat-composer-textarea"
-        />
-      </PromptInputBody>
-      <PromptInputFooter>
-        <span className="flex-1" />
-        <PromptInputSubmit
-          status={status}
-          disabled={!isStreaming && !input.trim()}
-          onStop={handleStop}
-          data-test-id="chat-submit-button"
-          className="bg-[var(--brand)] text-white hover:bg-[var(--brand)]/90 disabled:bg-[var(--brand)] disabled:text-white disabled:opacity-100"
-        />
-      </PromptInputFooter>
-    </PromptInput>
+      onStop={handleStop}
+      onKeyDown={handleComposerKeyDown}
+      status={status}
+      placeholder={copy.promptPlaceholder}
+      textareaRef={textareaRef}
+    />
   );
 
   const suggestedPills = copy.suggestedPrompts.length > 0 && (
@@ -809,7 +776,7 @@ export function ChatInterface({
             const prompt = typeof p === "string" ? { label: p } : p;
             return (
               <li key={prompt.label}>
-                <button
+                <Button
                   type="button"
                   aria-label={prompt.label}
                   onClick={() => void submitMessage(prompt.label)}
@@ -825,7 +792,7 @@ export function ChatInterface({
                     </span>
                   )}
                   <span>{prompt.label}</span>
-                </button>
+                </Button>
               </li>
             );
           })}
@@ -868,11 +835,16 @@ export function ChatInterface({
         </div>
       ) : (
         <>
-      <Conversation className="flex-1 min-h-0" data-test-id="chat-message-log">
-        <ConversationContent
-          className="px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4"
+      <ScrollArea stickToEnd className="relative min-h-0 min-w-0 flex-1 overflow-y-hidden">
+        <ScrollAreaViewport
+          className="size-full [scrollbar-gutter:stable_both-edges]"
+          role="log"
+          aria-label="Conversation"
           aria-live="polite"
+          aria-relevant="additions"
+          data-test-id="chat-message-log"
         >
+        <ScrollAreaContent className="flex min-w-0 flex-col gap-8 p-4 px-2 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4">
 
           {/* Memoized list. Re-renders only when length or trailing id change. */}
           <PriorMessages
@@ -908,9 +880,15 @@ export function ChatInterface({
             )}
 
           {errorBanner}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+        </ScrollAreaContent>
+        </ScrollAreaViewport>
+        <ScrollAreaScrollToEnd
+          aria-label="Scroll to latest reply"
+          className="absolute bottom-4 left-[50%] hidden size-8 translate-x-[-50%] cursor-pointer items-center justify-center rounded-full border border-border bg-background bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none hover:border-primary/40 hover:bg-accent hover:text-primary focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px data-visible:inline-flex dark:border-input dark:bg-background dark:hover:border-primary/50 dark:hover:bg-muted [&_svg]:pointer-events-none [&_svg]:shrink-0"
+        >
+          <ArrowDownIcon className="size-4" aria-hidden="true" />
+        </ScrollAreaScrollToEnd>
+      </ScrollArea>
 
       <div className="shrink-0 border-t border-[var(--sidebar-border)] px-2 sm:px-4 py-2 sm:py-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:pb-3">
         {queuedList}

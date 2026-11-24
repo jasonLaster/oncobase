@@ -6,13 +6,17 @@ import {
   type SetStateAction,
   useCallback,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
+import { createResizableController, Resizable, ResizableHandle, ResizablePanel } from "@oncobase/ui/resizable";
+import { SegmentedControl, SegmentedControlItem } from "@oncobase/ui/segmented-control";
 import {
   scrollElementIntoContainerView,
   useDocumentOutline,
   type OutlineItem,
 } from "./outline.ts";
+import { usePanelPixelWidth } from "./resizable-layout.tsx";
 import { cn } from "./utils.ts";
 
 export const COMMENTS_PANE_STORAGE_KEY = "comments-pane-open";
@@ -237,6 +241,31 @@ export function RailToggleIcon({
   );
 }
 
+type RailView = "comments" | "outline";
+
+/** Switches the rail between the comments and this outline. */
+function RailViewSwitch({ onActivateComments }: { onActivateComments: () => void }) {
+  return (
+    <SegmentedControl
+      aria-label="Rail view"
+      className="wiki-shell-outline-tabs"
+      value={"outline" as RailView}
+      onValueChange={(value) => {
+        if (value === "comments") onActivateComments();
+      }}
+    >
+      <SegmentedControlItem value="comments" className="wiki-shell-rail-button wiki-shell-rail-button-tab">
+        Comments
+      </SegmentedControlItem>
+      <SegmentedControlItem value="outline" className="wiki-shell-rail-button wiki-shell-rail-button-tab">
+        Outline
+      </SegmentedControlItem>
+    </SegmentedControl>
+  );
+}
+
+const OUTLINE_PANEL_ID = "wiki-outline-pane";
+
 export type DocumentOutlineShellProps = {
   articleClassName?: string;
   children: ReactNode;
@@ -309,10 +338,6 @@ export function DocumentOutlineShell({
     width: sidebarWidth,
     setWidth: setSidebarWidth,
   } = usePersistedPaneState(defaultOpen);
-  const dragging = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
-  const lastWidth = useRef(0);
   const paneWidth = sidebarOpen ? sidebarWidth : COMMENTS_COLLAPSED_WIDTH;
 
   const toggleSidebar = () => setSidebarOpen((current) => !current);
@@ -330,54 +355,16 @@ export function DocumentOutlineShell({
     scrollElementIntoContainerView(target, 24);
   };
 
-  const onPointerDown = useCallback(
-    (event: React.PointerEvent) => {
-      event.preventDefault();
-      dragging.current = true;
-      startX.current = event.clientX;
-      startWidth.current = sidebarWidth;
-      lastWidth.current = sidebarWidth;
-      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    },
-    [sidebarWidth],
-  );
-
-  const onPointerMove = useCallback(
-    (event: React.PointerEvent) => {
-      if (!dragging.current) return;
-      const delta = startX.current - event.clientX;
-      const next = Math.min(
-        COMMENTS_MAX_WIDTH,
-        Math.max(COMMENTS_MIN_WIDTH, startWidth.current + delta),
-      );
-      lastWidth.current = next;
-      setSidebarWidth(next);
-    },
-    [setSidebarWidth],
-  );
-
-  // A cancelled drag (touch scroll, alt-tab) never sends pointer-up: keep the
-  // width reached so far and stop tracking.
-  const onPointerCancel = useCallback(() => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    setSidebarWidth(lastWidth.current, { persist: true });
-  }, [setSidebarWidth]);
-
-  const onPointerUp = useCallback(
-    (event: React.PointerEvent) => {
-      if (!dragging.current) return;
-      dragging.current = false;
-      (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
-      const delta = startX.current - event.clientX;
-      const next = Math.min(
-        COMMENTS_MAX_WIDTH,
-        Math.max(COMMENTS_MIN_WIDTH, startWidth.current + delta),
-      );
-      setSidebarWidth(next, { persist: true });
-    },
-    [setSidebarWidth],
-  );
+  const [paneController] = useState(createResizableController);
+  const paneGroupRef = useRef<HTMLDivElement>(null);
+  // Until the saved width is applied, styles.css sizes the pane from --comments-pane-width.
+  const paneWidthApplied = usePanelPixelWidth(paneController, paneGroupRef, OUTLINE_PANEL_ID, sidebarOpen ? sidebarWidth : null);
+  const paneWidthFrom = (layout: number[]) => {
+    const group = paneGroupRef.current;
+    const handle = group?.querySelector<HTMLElement>('[data-slot="resizable-handle"]');
+    if (!group || !handle) return null;
+    return Math.round((layout[1]! / 100) * (group.clientWidth - handle.offsetWidth));
+  };
 
   return (
     <div
@@ -423,14 +410,7 @@ export function DocumentOutlineShell({
                 <div className="wiki-shell-mobile-outline-grip" aria-hidden="true" />
                 <div className="wiki-shell-mobile-outline-title-row">
                   {onActivateComments ? (
-                    <div className="wiki-shell-outline-tabs">
-                      <OutlineRailButton variant="tab" onClick={onActivateComments}>
-                        Comments
-                      </OutlineRailButton>
-                      <OutlineRailButton variant="tab" active onClick={toggleSidebar}>
-                        Outline
-                      </OutlineRailButton>
-                    </div>
+                    <RailViewSwitch onActivateComments={onActivateComments} />
                   ) : (
                     <span className="wiki-shell-outline-title">Outline</span>
                   )}
@@ -453,14 +433,7 @@ export function DocumentOutlineShell({
           ) : (
             <div className="wiki-shell-mobile-outline-collapsed">
               {onActivateComments ? (
-                <div className="wiki-shell-outline-tabs">
-                  <OutlineRailButton variant="tab" onClick={onActivateComments}>
-                    Comments
-                  </OutlineRailButton>
-                  <OutlineRailButton variant="tab" active onClick={openSidebar}>
-                    Outline
-                  </OutlineRailButton>
-                </div>
+                <RailViewSwitch onActivateComments={onActivateComments} />
               ) : (
                 <span className="wiki-shell-outline-title">Outline</span>
               )}
@@ -479,41 +452,41 @@ export function DocumentOutlineShell({
         </aside>
       ) : null}
 
-      <aside
-        className={cn(
-          "wiki-shell-right-rail",
-          sidebarOpen ? "expanded" : "collapsed",
-        )}
-        data-outline-state={sidebarOpen ? "expanded" : "collapsed"}
-        data-test-id="page-outline"
-        data-wiki-shell-right-rail
-        aria-label="Document outline"
-        style={sidebarOpen ? { width: sidebarWidth } : undefined}
-      >
-        {sidebarOpen ? (
-          <>
-            <div
-              className="wiki-shell-right-rail-resize"
-              role="separator"
-              aria-label="Resize outline pane"
-              aria-orientation="vertical"
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerCancel}
-              onLostPointerCapture={onPointerCancel}
-            />
+      {sidebarOpen ? (
+        <Resizable
+          ref={paneGroupRef}
+          className="wiki-shell-right-rail-group"
+          controller={paneController}
+          onLayoutChange={(layout, details) => {
+            if (details.reason === "imperative" || details.reason === "resize") return;
+            const next = paneWidthFrom(layout);
+            if (next !== null) setSidebarWidth(next);
+          }}
+          onLayoutCommit={(layout, details) => {
+            if (details.reason === "imperative" || details.reason === "resize") return;
+            const next = paneWidthFrom(layout);
+            if (next !== null) setSidebarWidth(next, { persist: true });
+          }}
+        >
+          <ResizablePanel className="wiki-shell-right-rail-spacer" />
+          <ResizableHandle className="wiki-shell-right-rail-resize" aria-label="Resize outline pane" />
+          <ResizablePanel
+            id={OUTLINE_PANEL_ID}
+            render={<aside />}
+            className="wiki-shell-right-rail expanded"
+            data-outline-state="expanded"
+            data-test-id="page-outline"
+            data-wiki-shell-right-rail
+            data-width-applied={paneWidthApplied || undefined}
+            aria-label="Document outline"
+            defaultSize={`${COMMENTS_DEFAULT_WIDTH}px`}
+            minSize={`${COMMENTS_MIN_WIDTH}px`}
+            maxSize={`${COMMENTS_MAX_WIDTH}px`}
+          >
             <div className="wiki-shell-right-rail-header">
               {onActivateComments ? (
                 <div className="wiki-shell-right-rail-header-main">
-                  <div className="wiki-shell-outline-tabs">
-                    <OutlineRailButton variant="tab" onClick={onActivateComments}>
-                      Comments
-                    </OutlineRailButton>
-                    <OutlineRailButton variant="tab" active onClick={toggleSidebar}>
-                      Outline
-                    </OutlineRailButton>
-                  </div>
+                  <RailViewSwitch onActivateComments={onActivateComments} />
                   <p className="wiki-shell-outline-count">
                     {items.length} heading{items.length === 1 ? "" : "s"}
                   </p>
@@ -532,34 +505,20 @@ export function DocumentOutlineShell({
             <div className="wiki-shell-right-rail-body">
               <OutlineList activeId={activeId} items={items} onJump={jumpToHeading} />
             </div>
-          </>
-        ) : (
-          <>
-            {onActivateComments ? (
-              <OutlineRailButton
-                onClick={onActivateComments}
-                aria-label="Open comments"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  aria-hidden="true"
-                >
-                  <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
-                </svg>
-              </OutlineRailButton>
-            ) : null}
+          </ResizablePanel>
+        </Resizable>
+      ) : (
+        <aside
+          className="wiki-shell-right-rail collapsed"
+          data-outline-state="collapsed"
+          data-test-id="page-outline"
+          data-wiki-shell-right-rail
+          aria-label="Document outline"
+        >
+          {onActivateComments ? (
             <OutlineRailButton
-              active
-              className={onActivateComments ? "wiki-shell-outline-stacked-button" : undefined}
-              onClick={openSidebar}
-              aria-label="Open outline"
+              onClick={onActivateComments}
+              aria-label="Open comments"
             >
               <svg
                 width="16"
@@ -572,12 +531,32 @@ export function DocumentOutlineShell({
                 strokeWidth="1.5"
                 aria-hidden="true"
               >
-                <path d="M3 4h10M3 8h10M3 12h6" />
+                <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-3.5 3v-10Z" />
               </svg>
             </OutlineRailButton>
-          </>
-        )}
-      </aside>
+          ) : null}
+          <OutlineRailButton
+            active
+            className={onActivateComments ? "wiki-shell-outline-stacked-button" : undefined}
+            onClick={openSidebar}
+            aria-label="Open outline"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <path d="M3 4h10M3 8h10M3 12h6" />
+            </svg>
+          </OutlineRailButton>
+        </aside>
+      )}
     </div>
   );
 }

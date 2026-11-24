@@ -54,7 +54,9 @@ async function askInOpenChat(question: string, signal?: AbortSignal) {
   const input = await waitForElement(() => document.querySelector<HTMLTextAreaElement>("textarea#learning-question"), { timeoutMs: 5000, signal });
   if (!input || input.closest("[hidden]")) return webMcpError("The chat is not available while a voice call is on screen.");
   const form = input.closest("form");
-  if (form?.querySelector('button[type="button"]')?.textContent?.trim() === "Stop") return webMcpError("The tutor is still answering. Try again when it finishes.");
+  // The composer has other type=button controls (Talk comes first), so look for Stop by its text.
+  const stop = [...(form?.querySelectorAll<HTMLButtonElement>('button[type="button"]') ?? [])].some(button => button.textContent?.trim() === "Stop" || button.getAttribute("aria-label") === "Stop");
+  if (stop) return webMcpError("The tutor is still answering. Try again when it finishes.");
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(input, question);
   input.dispatchEvent(new Event("input", { bubbles: true }));
   const send = await waitForElement(() => {

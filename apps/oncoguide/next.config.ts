@@ -3,6 +3,6 @@ const config: NextConfig = {
   output: "export",
   trailingSlash: true,
   images: { unoptimized: true },
-  transpilePackages: ["@oncobase/chat", "@oncobase/safe-storage", "@oncobase/wiki-markdown", "@oncobase/wiki-content", "@oncobase/wiki-shell", "@oncobase/education"],
+  transpilePackages: ["@oncobase/chat", "@oncobase/ui", "@oncobase/safe-storage", "@oncobase/wiki-markdown", "@oncobase/wiki-content", "@oncobase/wiki-shell", "@oncobase/education"],
 };
 export default config;

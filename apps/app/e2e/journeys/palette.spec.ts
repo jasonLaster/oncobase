@@ -26,6 +26,9 @@ test.describe("command palette (mocked backend)", () => {
     await input.fill("insurance");
     await page.clock.runFor(1000);
     await expect(input).toHaveValue("insurance");
+    // Escape clears the query first, then closes the palette.
+    await input.press("Escape");
+    await expect(input).toHaveValue("");
     await input.press("Escape");
     await page.clock.runFor(1000);
     await expect(input).toHaveCount(0);
@@ -101,6 +104,8 @@ test.describe("command palette (mocked backend)", () => {
   });
 
   test("the palette is a modal combobox with active-descendant semantics, resets scroll, and restores its trigger", async ({ page }) => {
+    // The page scroll lock sits on <html>.
+    const scrollLock = () => page.evaluate(() => document.documentElement.style.overflow);
     await gotoWiki(page, "/");
     await page.evaluate(() => localStorage.removeItem("cmd-palette-recent"));
 
@@ -111,12 +116,13 @@ test.describe("command palette (mocked backend)", () => {
     await expect(input).toBeFocused();
     await expect(input).toHaveAttribute("role", "combobox");
     await expect(input).toHaveAttribute("aria-controls", "page-palette-list");
-    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+    await expect.poll(scrollLock).toBe("hidden");
 
     await page.keyboard.press("ArrowDown");
     const activeId = await input.getAttribute("aria-activedescendant");
     expect(activeId).toBeTruthy();
-    await expect(page.locator(`#${activeId}`)).toHaveAttribute("aria-selected", "true");
+    // Option ids carry the page slug, so they are not CSS-safe as #id selectors.
+    await expect(page.locator(`[id="${activeId}"]`)).toHaveAttribute("aria-selected", "true");
 
     const listbox = page.locator("#page-palette-list");
     await expect.poll(() => listbox.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
@@ -126,12 +132,13 @@ test.describe("command palette (mocked backend)", () => {
     });
     await expect.poll(() => listbox.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
 
+    // Options are not tab stops: focus stays in the search field, inside the dialog.
     await page.keyboard.press("Shift+Tab");
-    await expect(page.getByRole("option").last()).toBeFocused();
+    await expect(input).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("command-palette")).toHaveCount(0);
     await expect(trigger).toBeFocused();
-    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("");
+    await expect.poll(scrollLock).toBe("");
 
     await trigger.click();
     await expect.poll(() => page.locator("#page-palette-list").evaluate((el) => el.scrollTop)).toBe(0);

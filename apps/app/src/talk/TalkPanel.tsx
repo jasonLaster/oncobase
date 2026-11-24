@@ -1,6 +1,10 @@
 import { safeLocalStorage } from "@oncobase/safe-storage";
 import { connectTalk, TalkStartError, type TalkEvent, type TalkFailure, type TalkTransport } from "@oncobase/education/talk-transport";
 import { formatFileLabel } from "@oncobase/wiki-content/file-labels";
+import { Button } from "@oncobase/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@oncobase/ui/dialog";
+import { Toggle } from "@oncobase/ui/toggle";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { EMPTY_READER_ROWS, readerQuery, useInitialReaderData, useReaderQuery } from "../bootstrap/reader-queries";
@@ -134,7 +138,6 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
   const transport = useRef<TalkTransport | null>(null);
   const conversation = useRef<PageConversation | null>(null);
   const live = consented && !ended;
-  const start = useRef<HTMLButtonElement>(null);
   // open_page reads these when the voice asks, so they live in a ref.
   const navigate = useNavigate();
   const scope = useWikiScope();
@@ -142,15 +145,6 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
   const pages = useReaderQuery(readerQuery.pageIndex, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
   const reader = useRef({ navigate, scope, pages });
   useEffect(() => { reader.current = { navigate, scope, pages }; }, [navigate, scope, pages]);
-
-  // The consent card takes focus, and Escape dismisses it.
-  useEffect(() => {
-    if (consented) return;
-    start.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [consented, onClose]);
 
   useEffect(() => {
     if (!live) return;
@@ -239,33 +233,34 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { void conversation.current?.notePage(talkPageForPath(pathname)); }, [pathname]);
 
-  const toggleMute = useCallback(() => setMuted(value => {
-    transport.current?.setMuted(!value);
-    return !value;
-  }), []);
+  const setMicrophoneMuted = useCallback((next: boolean) => {
+    transport.current?.setMuted(next);
+    setMuted(next);
+  }, []);
 
+  // The launcher is gone while the panel is open; TalkHost hands focus back to it.
   if (!consented) return (
-    <div className="wiki-vite-talk">
-      <section className="wiki-vite-talk-card" role="dialog" aria-label="Talk with the page">
-        <h2>Talk with the page</h2>
+    <Dialog defaultOpen modal={false} onOpenChangeComplete={open => { if (!open) onClose(); }}>
+      <DialogContent className="wiki-vite-talk-card wiki-vite-talk-consent" finalFocus="none">
+        <DialogTitle>Talk with the page</DialogTitle>
         <p>Have a spoken conversation with an AI voice about the page you’re reading. It can scroll to the part it’s talking about.</p>
         <p>Your microphone audio and the text of the pages you open during the call go to OpenAI to generate replies. The conversation isn’t saved. This isn’t medical advice.</p>
         <div className="wiki-vite-talk-actions">
-          <button ref={start} type="button" className="wiki-vite-talk-primary" onClick={() => { saveConsent(); setConsented(true); }}><Mic size={15} />Start talking</button>
-          <button type="button" onClick={onClose}>Not now</button>
+          <Button className="wiki-vite-talk-primary" onClick={() => { saveConsent(); setConsented(true); }}><Mic size={15} />Start talking</Button>
+          <DialogClose>Not now</DialogClose>
         </div>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 
   if (ended) return (
     <div className="wiki-vite-talk">
       <section className="wiki-vite-talk-card" role="alert">
-        <button type="button" className="wiki-vite-talk-icon wiki-vite-talk-close" aria-label="Close" onClick={onClose}><X size={16} /></button>
+        <Button className="wiki-vite-talk-icon wiki-vite-talk-close" aria-label="Close" onClick={onClose}><X size={16} /></Button>
         <p>{ended.message}</p>
         {ended.retry ? (
           <div className="wiki-vite-talk-actions">
-            <button type="button" className="wiki-vite-talk-primary" onClick={() => { setEnded(null); setStatus("connecting"); setMuted(false); setAttempt(value => value + 1); }}><Mic size={15} />Talk again</button>
+            <Button className="wiki-vite-talk-primary" onClick={() => { setEnded(null); setStatus("connecting"); setMuted(false); setAttempt(value => value + 1); }}><Mic size={15} />Talk again</Button>
           </div>
         ) : null}
       </section>
@@ -284,18 +279,26 @@ export function TalkPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="wiki-vite-talk wiki-vite-talk-live" data-talk-status={status} data-leaving={leaving} role="group" aria-label="Talk with the page" data-test-id="talk-call">
       <div className="wiki-vite-talk-stage">
-        <button
-          type="button"
-          className="wiki-vite-talk-orb"
-          aria-label={muted ? "Unmute microphone" : "Mute microphone"}
-          aria-pressed={muted}
-          title={label}
-          onClick={toggleMute}
-        >
-          <TalkAvatar ref={avatar} state={muted ? "muted" : status} />
-          <span className="wiki-vite-talk-badge" aria-hidden="true">{muted ? <MicOff size={12} /> : <Mic size={12} />}</span>
-        </button>
-        <button type="button" className="wiki-vite-talk-icon wiki-vite-talk-end" aria-label="End talk" title="End talk" onClick={hangUp}><PhoneOff size={14} /></button>
+        <Tooltip>
+          <TooltipTrigger
+            render={<Toggle
+              className="wiki-vite-talk-orb"
+              aria-label={muted ? "Unmute microphone" : "Mute microphone"}
+              pressed={muted}
+              onPressedChange={setMicrophoneMuted}
+            />}
+          >
+            <TalkAvatar ref={avatar} state={muted ? "muted" : status} />
+            <span className="wiki-vite-talk-badge" aria-hidden="true">{muted ? <MicOff size={12} /> : <Mic size={12} />}</span>
+          </TooltipTrigger>
+          <TooltipContent className="reader-tooltip" side="left">{label}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger render={<Button className="wiki-vite-talk-icon wiki-vite-talk-end" aria-label="End talk" onClick={hangUp} />}>
+            <PhoneOff size={14} />
+          </TooltipTrigger>
+          <TooltipContent className="reader-tooltip">End talk</TooltipContent>
+        </Tooltip>
       </div>
       <span className="wiki-vite-talk-status" role="status">{label}</span>
     </div>

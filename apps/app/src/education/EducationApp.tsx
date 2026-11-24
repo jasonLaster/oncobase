@@ -9,6 +9,22 @@ import {
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
+  Accordion,
+  AccordionHeader,
+  AccordionItem,
+  AccordionPanel,
+  AccordionTrigger,
+} from "@oncobase/ui/accordion";
+import {
+  Drawer,
+  DrawerBackdrop,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@oncobase/ui/drawer";
+import { Input } from "@oncobase/ui/input";
+import { useShortcut } from "@oncobase/ui/shortcuts";
+import {
   ArrowRight,
   BookOpen,
   ChevronDown,
@@ -141,6 +157,10 @@ type Topic = {
   entry: WikiManifestPage;
   pages: WikiManifestPage[];
 };
+function defaultOpenTopics(currentTopic: string | undefined) {
+  return currentTopic && currentTopic !== "overview" ? [currentTopic, "overview"] : ["overview"];
+}
+
 function educationTopics(pages: WikiManifestPage[]): Topic[] {
   const grouped = new Map<string, WikiManifestPage[]>();
   for (const page of pages) {
@@ -430,6 +450,10 @@ export function EducationApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   const searchInput = useRef<HTMLInputElement>(null);
   const main = useRef<HTMLElement>(null);
+  const header = useRef<HTMLElement>(null);
+  // The phone menu opens below the header, as the off-canvas aside did, so
+  // the brand, search and the toggle's close icon stay in view above it.
+  const [menuTop, setMenuTop] = useState(0);
   const start =
     pages.find(
       (page) => page.slug === `${EDUCATION_PREFIX}oncology-101/index`,
@@ -461,25 +485,73 @@ export function EducationApp() {
   useEffect(() => {
     if (!location.hash) main.current?.scrollTo({ top: 0, behavior: "instant" });
   }, [location.pathname, location.search, location.hash]);
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        searchInput.current?.focus();
-      }
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  useShortcut("mod+k", () => searchInput.current?.focus(), { description: "Search education" });
+  const currentTopic = slug?.split("/")[2];
+  const [openTopics, setOpenTopics] = useState(() => defaultOpenTopics(currentTopic));
+  const [openedFor, setOpenedFor] = useState(currentTopic);
+  // A page in another topic opens that topic and closes the one it left.
+  if (openedFor !== currentTopic) {
+    setOpenedFor(currentTopic);
+    setOpenTopics(open => [
+      ...new Set([...open.filter(key => key !== openedFor || key === "overview"), ...defaultOpenTopics(currentTopic)]),
+    ]);
+  }
   const closeMenu = () => setMenuOpen(false);
+  const navigation = (
+    <nav aria-label="Education navigation">
+      <Link
+        to="/education"
+        className="edu-all-topics"
+        aria-current={!slug && !isSearch ? "page" : undefined}
+        onClick={closeMenu}
+      >
+        <BookOpen size={17} /> All topics
+      </Link>
+      <div className="edu-sidebar-label">EXPLORE THE CURRICULUM</div>
+      <Feedback {...manifest} />
+      <Accordion className="edu-topics" multiple value={openTopics} onValueChange={setOpenTopics}>
+        {topics.map((topic) => (
+          <AccordionItem className="edu-topic" key={topic.key} value={topic.key}>
+            <AccordionHeader render={<div />}>
+              <AccordionTrigger className="edu-topic-trigger">
+                <span className="edu-topic-label">
+                  <TopicLogo topic={topic.key} size={14.4} />
+                  <span>{topic.title}</span>
+                </span>
+                <ChevronDown size={14} />
+              </AccordionTrigger>
+            </AccordionHeader>
+            <AccordionPanel className="edu-nav-lessons">
+              {topic.pages.map((page) => (
+                <Link
+                  key={page.slug}
+                  to={educationHref(page.slug)}
+                  aria-current={slug === page.slug ? "page" : undefined}
+                  onClick={closeMenu}
+                >
+                  {markdownTitleToText(page.title)}
+                </Link>
+              ))}
+            </AccordionPanel>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </nav>
+  );
+  const sidebarFooter = (
+    <div className="edu-sidebar-footer">
+      Open knowledge.
+      <br />
+      Learn at your own pace.
+    </div>
+  );
   return (
     <div className="education-app" data-test-id="education-app">
       {webMcpAvailable() ? <Suspense fallback={null}><EducationWebMcp pages={pages} helpers={EDUCATION_WEBMCP_HELPERS} /></Suspense> : null}
       <a className="edu-skip" href="#education-main">
         Skip to content
       </a>
-      <header className="edu-header">
+      <header className="edu-header" ref={header}>
         <Link to="/education" className="edu-brand" onClick={closeMenu}>
           <span className="edu-brand-icon">
             <Network size={22} />
@@ -501,7 +573,7 @@ export function EducationApp() {
           }}
         >
           <Search size={17} aria-hidden="true" />
-          <input
+          <Input
             key={query}
             ref={searchInput}
             defaultValue={query}
@@ -517,72 +589,39 @@ export function EducationApp() {
         <a className="edu-wiki-link" href="/">
           Care wiki <ArrowRight size={14} />
         </a>
-        <button
-          className="edu-menu-toggle"
-          aria-label={
-            menuOpen
-              ? "Close education navigation"
-              : "Open education navigation"
-          }
-          aria-expanded={menuOpen}
-          aria-controls="education-navigation"
-          onClick={() => setMenuOpen(!menuOpen)}
+        <Drawer
+          open={menuOpen}
+          side="left"
+          onOpenChange={(open) => {
+            if (open) setMenuTop(Math.max(0, header.current?.getBoundingClientRect().bottom ?? 0));
+            setMenuOpen(open);
+          }}
         >
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+          <DrawerTrigger
+            className="edu-menu-toggle"
+            aria-label={
+              menuOpen
+                ? "Close education navigation"
+                : "Open education navigation"
+            }
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </DrawerTrigger>
+          <DrawerBackdrop className="edu-drawer-backdrop" />
+          <DrawerContent
+            className="edu-sidebar edu-drawer"
+            style={{ height: `calc(100% - ${menuTop}px)`, marginTop: menuTop }}
+          >
+            <DrawerTitle className="edu-sr-only">Education navigation</DrawerTitle>
+            {navigation}
+            {sidebarFooter}
+          </DrawerContent>
+        </Drawer>
       </header>
       <div className="edu-layout">
-        <aside
-          className={`edu-sidebar${menuOpen ? " edu-sidebar-open" : ""}`}
-          id="education-navigation"
-        >
-          <nav aria-label="Education navigation">
-            <Link
-              to="/education"
-              className="edu-all-topics"
-              aria-current={!slug && !isSearch ? "page" : undefined}
-              onClick={closeMenu}
-            >
-              <BookOpen size={17} /> All topics
-            </Link>
-            <div className="edu-sidebar-label">EXPLORE THE CURRICULUM</div>
-            <Feedback {...manifest} />
-            {topics.map((topic) => (
-              <details
-                key={`${topic.key}:${slug?.split("/")[2] === topic.key}`}
-                open={
-                  slug?.split("/")[2] === topic.key ||
-                  topic.key === "overview" ||
-                  undefined
-                }
-              >
-                <summary>
-                  <span className="edu-topic-label">
-                    <TopicLogo topic={topic.key} size={14.4} />
-                    <span>{topic.title}</span>
-                  </span>
-                  <ChevronDown size={14} />
-                </summary>
-                <div className="edu-nav-lessons">
-                  {topic.pages.map((page) => (
-                    <Link
-                      key={page.slug}
-                      to={educationHref(page.slug)}
-                      aria-current={slug === page.slug ? "page" : undefined}
-                      onClick={closeMenu}
-                    >
-                      {markdownTitleToText(page.title)}
-                    </Link>
-                  ))}
-                </div>
-              </details>
-            ))}
-          </nav>
-          <div className="edu-sidebar-footer">
-            Open knowledge.
-            <br />
-            Learn at your own pace.
-          </div>
+        <aside className="edu-sidebar" id="education-navigation">
+          {navigation}
+          {sidebarFooter}
         </aside>
         <main className="edu-main" id="education-main" ref={main} tabIndex={-1}>
           {isSearch ? (

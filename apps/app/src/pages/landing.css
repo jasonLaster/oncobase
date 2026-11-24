@@ -650,7 +650,7 @@
   background: #fff;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
 }
-.lp-demo-heading button[aria-checked="true"] .lp-toggle-track {
+.lp-demo-heading [data-slot="switch"][data-checked] .lp-toggle-track {
   justify-content: flex-end;
   background: var(--lp-accent);
 }

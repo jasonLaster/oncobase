@@ -147,7 +147,7 @@ export function ConversationListCore({
                 children: conversation.title,
               })}
               {renderActions ? (
-                <div className="shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity pr-1">
+                <div className="shrink-0 opacity-0 group-hover/item:opacity-100 focus-within:opacity-100 has-[[data-open]]:opacity-100 transition-opacity pr-1">
                   {renderActions(conversation)}
                 </div>
               ) : null}

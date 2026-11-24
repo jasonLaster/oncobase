@@ -1,0 +1,62 @@
+/* ui-sdk: w9-shell-overlays. UI SDK parts in the education shell, adopted after
+ * @oncobase/education/styles.css so these rules win at equal specificity. */
+.edu-sr-only {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+.edu-topic {
+  margin: 4px 0;
+}
+/* .edu-sidebar scope: .education-app button's `font: inherit` would win otherwise. */
+.edu-sidebar .edu-topic-trigger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+}
+.edu-sidebar .edu-topic-trigger:hover {
+  background: var(--edu-soft);
+}
+.edu-sidebar .edu-topic-trigger > svg {
+  color: var(--edu-muted);
+  flex-shrink: 0;
+  transform: rotate(-90deg);
+}
+.edu-sidebar .edu-topic-trigger[data-open] > svg {
+  transform: none;
+}
+/* Like the off-canvas aside it replaces: no dimming, a shadow on the panel,
+ * and the panel starts below the header (its margin and height are set inline
+ * on open). A press on the header, close icon included, lands outside the
+ * panel and closes it. */
+.edu-drawer-backdrop {
+  background: transparent;
+}
+.edu-sidebar.edu-drawer {
+  box-shadow: 16px 0 30px #0002;
+  display: flex;
+  height: 100%;
+  width: min(320px, 85vw);
+}
+@media (max-width: 700px) {
+  .edu-sidebar .edu-topic-trigger {
+    min-height: 44px;
+  }
+}
+/* end ui-sdk: w9-shell-overlays */

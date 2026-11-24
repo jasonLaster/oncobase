@@ -21,13 +21,23 @@ import {
   Type,
 } from "lucide-react";
 
+import {
+  Menu,
+  MenuContent,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuTrigger,
+} from "@oncobase/ui/menu";
+import { useShortcut } from "@oncobase/ui/shortcuts";
+import { Toggle } from "@oncobase/ui/toggle";
+import { Toolbar, ToolbarButton } from "@oncobase/ui/toolbar";
+
 import { cn } from "./ui.tsx";
 
 import {
   AnnotationEditorRail,
-  AnnotationPanelFrame,
   AnnotationSelectionRail,
-  AnnotationToolbarButton,
+  annotationToolbarButtonClassName,
 } from "./dicom-annotation-controls.tsx";
 import {
   annotationsForImage,
@@ -172,6 +182,7 @@ export function DicomAnnotationLayer({
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [layerSize, setLayerSize] = useState<LayerSize>({ height: 0, width: 0 });
   const [openPanel, setOpenPanel] = useState<AnnotationPanel>(null);
+  const [toolbarElement, setToolbarElement] = useState<HTMLDivElement | null>(null);
   const [selectionMarquee, setSelectionMarquee] =
     useState<SelectionMarquee | null>(null);
   const [, setSaveStatus] = useState<SaveStatus>("idle");
@@ -767,33 +778,18 @@ export function DicomAnnotationLayer({
     selectedAnnotationIds,
   ]);
 
-  useEffect(() => {
-    if (disabled) return;
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.defaultPrevented || isTextInputTarget(event.target)) return;
-
-      const key = event.key.toLowerCase();
-      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && key === "z") {
-        event.preventDefault();
-        undoLast();
-        return;
-      }
-
-      if (
-        selectedAnnotationIds.length > 0 &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        (event.key === "Backspace" || event.key === "Delete")
-      ) {
-        event.preventDefault();
-        deleteSelected();
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deleteSelected, disabled, selectedAnnotationIds.length, undoLast]);
+  // Undo stays native in text fields; Backspace and Delete only reach
+  // shortcuts outside them.
+  useShortcut(disabled ? null : "mod+z", () => undoLast(), {
+    description: "Undo the last annotation",
+    when: () => !isTextInputTarget(document.activeElement),
+  });
+  const deleteShortcut = {
+    description: "Delete the selected annotations",
+    when: () => selectedAnnotationIds.length > 0,
+  };
+  useShortcut(disabled ? null : "backspace", () => deleteSelected(), deleteShortcut);
+  useShortcut(disabled ? null : "delete", () => deleteSelected(), deleteShortcut);
 
   const chooseTool = useCallback((kind: AnnotationKind) => {
     setActiveTool(kind);
@@ -964,57 +960,71 @@ export function DicomAnnotationLayer({
         className="pointer-events-auto absolute top-3 left-3 z-20 w-fit max-w-[calc(100%-1.5rem)]"
         data-test-id="dicom-annotation-toolbar"
       >
-        <div className="flex items-center gap-1 rounded-md border border-white/15 bg-black/80 p-1 shadow-lg backdrop-blur">
-          <AnnotationToolbarButton
-            active={editMode && !activeTool}
-            compact
+        <Toolbar
+          aria-label="Annotation tools"
+          className="flex items-center gap-1 rounded-md border border-white/15 bg-black/80 p-1 shadow-lg backdrop-blur"
+          ref={setToolbarElement}
+        >
+          <Toggle
+            aria-label="Select"
+            className={annotationToolbarButtonClassName()}
+            data-test-id="dicom-annotation-tool-select"
             disabled={disabled}
-            icon={<MousePointer2 className="size-4" />}
-            label="Select"
-            onClick={() => {
+            onPressedChange={() => {
               setActiveTool(null);
               setEditMode((current) => !current);
               setOpenPanel(null);
             }}
-          />
-
-          <AnnotationToolbarButton
-            active={Boolean(activeTool) || openPanel === "draw"}
-            compact
-            disabled={disabled}
-            icon={<PencilLine className="size-4" />}
-            label={activeTool ? annotationKindLabel(activeTool) : "Draw"}
-            onClick={() =>
-              setOpenPanel((current) => (current === "draw" ? null : "draw"))
-            }
+            pressed={editMode && !activeTool}
+            title="Select"
           >
-            <ChevronDown className="size-3.5" />
-          </AnnotationToolbarButton>
+            <MousePointer2 aria-hidden="true" className="size-4" />
+          </Toggle>
 
-        </div>
-
-        {openPanel === "draw" ? (
-          <AnnotationPanelFrame testId="dicom-annotation-draw-panel">
-            <div className="grid gap-1">
-              {toolOptions.map((tool) => (
-                <button
-                  className={cn(
-                    "flex h-8 items-center gap-2 rounded-md px-2 text-left text-sm text-zinc-200 hover:bg-white/10",
-                    activeTool === tool.kind && "bg-sky-300/20 text-sky-50",
-                  )}
-                  data-test-id={`dicom-annotation-draw-${tool.kind}`}
-                  disabled={disabled}
-                  key={tool.kind}
-                  onClick={() => chooseTool(tool.kind)}
-                  type="button"
-                >
-                  {tool.icon}
-                  <span>{tool.label}</span>
-                </button>
-              ))}
-            </div>
-          </AnnotationPanelFrame>
-        ) : null}
+          <Menu
+            onOpenChange={(open) => setOpenPanel(open ? "draw" : null)}
+            open={openPanel === "draw"}
+          >
+            <ToolbarButton
+              aria-label={(activeTool ? annotationKindLabel(activeTool) : "Draw")}
+              aria-pressed={Boolean(activeTool) || openPanel === "draw"}
+              className={annotationToolbarButtonClassName({ withMenu: true })}
+              data-test-id={`dicom-annotation-tool-${(activeTool ? annotationKindLabel(activeTool) : "Draw").toLowerCase()}`}
+              disabled={disabled}
+              render={<MenuTrigger />}
+              title={(activeTool ? annotationKindLabel(activeTool) : "Draw")}
+            >
+              <PencilLine aria-hidden="true" className="size-4" />
+              <ChevronDown aria-hidden="true" className="size-3.5" />
+            </ToolbarButton>
+            <MenuContent
+              align="start"
+              anchor={toolbarElement}
+              className="w-64 rounded-md border border-white/15 bg-black/85 p-2 text-zinc-200 shadow-xl backdrop-blur"
+              data-test-id="dicom-annotation-draw-panel"
+              sideOffset={8}
+            >
+              <MenuRadioGroup
+                className="grid gap-1"
+                onValueChange={(kind) => chooseTool(kind as AnnotationKind)}
+                value={activeTool ?? ""}
+              >
+                {toolOptions.map((tool) => (
+                  <MenuRadioItem
+                    className="flex h-8 cursor-default items-center gap-2 rounded-md px-2 text-left text-base text-zinc-200 outline-none data-checked:bg-sky-300/20 data-checked:text-sky-50 data-highlighted:bg-white/10"
+                    data-test-id={`dicom-annotation-draw-${tool.kind}`}
+                    disabled={disabled}
+                    key={tool.kind}
+                    value={tool.kind}
+                  >
+                    {tool.icon}
+                    <span>{tool.label}</span>
+                  </MenuRadioItem>
+                ))}
+              </MenuRadioGroup>
+            </MenuContent>
+          </Menu>
+        </Toolbar>
 
       </div>
       ) : null}

@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
+import { CelSlider } from "./controls";
 import { usePublishViewState } from "./view-state";
 import type { CellularityData } from "./types";
 import { calcRCB, calcRcbNodalTerm, rcbClass } from "./utils";
@@ -139,18 +141,25 @@ export function ReconcileAndRcbSection({ data }: Props) {
             <h3 style={{ margin: 0, fontSize: 18 }}>Interactive RCB sensitivity calculator</h3>
             <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{rcbCfg.subtitle}</div>
           </div>
-          <div className="cel-preset-row" style={{ margin: 0 }}>
+          <ToggleGroup
+            className="cel-preset-row"
+            style={{ margin: 0 }}
+            aria-label="Cellularity presets"
+            value={rcbCfg.presets
+              .filter((p) => Math.abs(Math.log10(p.ca) - Math.log10(activeCa)) < 0.04)
+              .slice(0, 1)
+              .map((p) => p.label)}
+            onValueChange={(next) => {
+              const preset = rcbCfg.presets.find((p) => p.label === next[0]);
+              if (preset) setActiveCa(preset.ca);
+            }}
+          >
             {rcbCfg.presets.map((p) => (
-              <button
-                key={p.label}
-                type="button"
-                className={`cel-preset-btn${Math.abs(Math.log10(p.ca) - Math.log10(activeCa)) < 0.04 ? " active" : ""}`}
-                onClick={() => setActiveCa(p.ca)}
-              >
+              <Toggle key={p.label} value={p.label} className="cel-preset-btn">
                 {p.label}
-              </button>
+              </Toggle>
             ))}
-          </div>
+          </ToggleGroup>
         </div>
 
         <div className="cel-slider-panel">
@@ -168,12 +177,16 @@ export function ReconcileAndRcbSection({ data }: Props) {
               <span className={`cel-badge ${clsNow.tone}`}>{clsNow.label}</span>
             </div>
           </div>
-          <input
-            type="range"
+          <CelSlider
+            label="Tumor-bed cellularity"
             min={0}
             max={1000}
             value={caToRcbSlider(activeCa)}
-            onChange={(e) => setActiveCa(rcbSliderToCa(Number(e.target.value)))}
+            format={(v) => {
+              const ca = rcbSliderToCa(v);
+              return ca < 1 ? `${ca.toFixed(2)}%` : `${ca.toFixed(1)}%`;
+            }}
+            onValueChange={(v) => setActiveCa(rcbSliderToCa(v))}
           />
           <div className="cel-slider-labels cel-num">
             <span>0.01%</span><span>0.1%</span><span>0.3%</span><span>1%</span><span>3%</span><span>10%</span><span>30%</span><span>50%</span>

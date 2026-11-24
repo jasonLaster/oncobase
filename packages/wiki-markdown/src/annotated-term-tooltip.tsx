@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Tooltip, TooltipArrow, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
 import type { AnnotatedTermProps } from "./annotated-term.tsx";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 /** The drug badge with its tooltip. Loaded on demand by AnnotatedTerm: the tooltip library is not needed to paint an article. */
 export function DrugTermTooltip({ children, title, initialOpen = false, keepFocus = false, ...props }: AnnotatedTermProps & {
@@ -17,35 +17,31 @@ export function DrugTermTooltip({ children, title, initialOpen = false, keepFocu
   // Once, on arrival: the placeholder this replaced was focused.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (keepFocus) trigger.current?.focus({ preventScroll: true }); }, []);
-  const tooltipId = useId();
 
   return (
-    <TooltipProvider delay={250}>
-      <Tooltip open={open} onOpenChange={setOpen}>
-        <TooltipTrigger
-          className="wiki-drug-badge"
-          type="button"
-          closeOnClick={false}
-          ref={trigger}
-          onClick={() => setOpen(true)}
-          aria-label={`About ${props["data-name"] || String(children)}`}
-          aria-describedby={open ? tooltipId : undefined}
-        >
-          {children}
-        </TooltipTrigger>
-        <TooltipContent id={tooltipId} role="tooltip" className="wiki-drug-tooltip" side="top" sideOffset={8}>
-          {props["data-category"] && <div className="wiki-drug-tooltip__category">{props["data-category"]}</div>}
-          <div className="wiki-drug-tooltip__name">{props["data-name"] || children}</div>
-          {props["data-target"] && props["data-effect"] && (
-            <div className="wiki-drug-tooltip__pathway">
-              <span>{props["data-target"]}</span>
-              <span aria-hidden="true">→</span>
-              <span>{props["data-effect"]}</span>
-            </div>
-          )}
-          <p className="wiki-drug-tooltip__description">{title}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip open={open} onOpenChange={setOpen} delay={250} closeOnPress={false} toggleable>
+      <TooltipTrigger
+        className="wiki-drug-badge"
+        type="button"
+        ref={trigger}
+        aria-label={`About ${props["data-name"] || String(children)}`}
+      >
+        {children}
+      </TooltipTrigger>
+      {/* Spans: the content renders in place, and a drug term often sits inside a <p>. */}
+      <TooltipContent className="wiki-drug-tooltip" render={<span />} side="top" sideOffset={8} collisionPadding={8}>
+        <TooltipArrow className="wiki-drug-tooltip__arrow" render={<span />} />
+        {props["data-category"] && <span className="wiki-drug-tooltip__category">{props["data-category"]}</span>}
+        <span className="wiki-drug-tooltip__name">{props["data-name"] || children}</span>
+        {props["data-target"] && props["data-effect"] && (
+          <span className="wiki-drug-tooltip__pathway">
+            <span>{props["data-target"]}</span>
+            <span aria-hidden="true">→</span>
+            <span>{props["data-effect"]}</span>
+          </span>
+        )}
+        <span className="wiki-drug-tooltip__description">{title}</span>
+      </TooltipContent>
+    </Tooltip>
   );
 }

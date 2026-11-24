@@ -27,7 +27,11 @@ test("drug tooltip supports hover, keyboard dismissal, and expanded tables", asy
   await drug.press("Escape");
   await expect(page.getByRole("tooltip")).toBeHidden();
   await page.getByRole("heading", { name: "Drug tooltip fixture", exact: true }).first().click();
+  // Only keyboard focus opens the tooltip, so reach the badge with Tab, not a scripted focus.
   await drug.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(drug).toBeFocused();
   await expect(page.getByRole("tooltip")).toBeVisible();
   await drug.press("Escape");
   await page.getByRole("button", { name: "Expand table", exact: true }).click();

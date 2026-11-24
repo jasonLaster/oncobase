@@ -26,7 +26,7 @@ test.describe("reading the wiki (real backend)", () => {
   test("the sidebar opens a folder, navigates, and remembers its state across reload", async ({ page }) => {
     await openPage(page, "/");
     const sidebar = page.getByTestId("wiki-sidebar");
-    await sidebar.getByRole("button", { name: "Expand biomarkers" }).click();
+    await sidebar.getByRole("treeitem", { name: "biomarkers" }).click();
     await sidebar.getByRole("link", { name: /pd.l1/ }).click();
     await expect(page).toHaveURL(/\/wiki\/biomarkers\/pd-l1$/);
     await expect(article(page)).toHaveAccessibleName("PD-L1");

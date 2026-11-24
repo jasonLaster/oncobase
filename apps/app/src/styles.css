@@ -1,3 +1,4 @@
+@layer ui-sdk;
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -659,11 +660,6 @@ a {
   min-width: 0;
 }
 
-.wiki-vite-chat-workspace.is-resizing {
-  cursor: col-resize;
-  user-select: none;
-}
-
 .wiki-edit-review-resizer {
   display: none;
 }
@@ -678,7 +674,6 @@ a {
 
 @media (min-width: 1024px) {
   .wiki-vite-chat-workspace.has-review-panel > .wiki-vite-chat-page {
-    flex: 1 1 calc(100% - var(--wiki-edit-panel-width, 58%));
     min-width: 340px;
   }
 
@@ -686,23 +681,13 @@ a {
     background: transparent;
     cursor: col-resize;
     display: block;
-    flex: 0 0 5px;
     margin-inline: -2px;
     position: relative;
+    width: 5px;
     z-index: 10;
   }
 
-  .wiki-edit-review-resizer:hover::after,
-  .wiki-vite-chat-workspace.is-resizing .wiki-edit-review-resizer::after {
-    background: var(--brand);
-    content: "";
-    inset: 0 2px;
-    opacity: 0.45;
-    position: absolute;
-  }
-
   .wiki-edit-review-pane {
-    flex: 0 0 var(--wiki-edit-panel-width, 58%);
     inset: auto;
     max-width: 72%;
     min-width: 480px;
@@ -885,20 +870,6 @@ a {
 .tag-tree-root a:hover,
 .tag-tree-branch a:hover {
   text-decoration: underline;
-}
-
-.tag-tree-folder summary {
-  align-items: center;
-  cursor: pointer;
-  display: inline-flex;
-  gap: 4px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  list-style: none;
-}
-
-.tag-tree-folder[open] > summary svg {
-  transform: rotate(90deg);
 }
 
 .app-error {
@@ -1819,6 +1790,15 @@ a {
     transform: translateY(1rem);
   }
 
+  /* A keyboard user tabbing past the article scrolls it down; the button
+     they land on must show at once, not fade in behind its focus ring. */
+  .wiki-vite-mobile-fab-group[data-hidden="true"]:focus-within {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    transition: none;
+  }
+
   .wiki-vite-talk-launcher {
     display: none;
   }
@@ -2101,3 +2081,271 @@ a {
     display: none;
   }
 }
+
+/* ui-sdk: w1-admin-forms */
+.admin-modal[data-slot$="dialog-content"] {
+  height: fit-content;
+  inset: 0;
+  position: fixed;
+}
+
+.admin-modal [data-slot$="dialog-title"] {
+  font-size: 1rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.admin-modal [data-slot="alert-dialog-description"] {
+  margin: 1em 0 0;
+}
+
+.admin-menu[data-slot="menu-content"] {
+  color: var(--foreground);
+  gap: 4px;
+  right: auto;
+}
+
+.admin-menu [data-slot="menu-item"] {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 34px;
+  outline: none;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+.admin-menu [data-slot="menu-item"][data-highlighted] {
+  background: var(--accent);
+}
+
+.admin-tabs [data-selected],
+.admin-filter-row [data-checked] {
+  background: var(--foreground);
+  border-color: var(--foreground);
+  color: var(--background);
+}
+
+.admin-form-grid[data-slot="tabs-panel"],
+.admin-preview[data-slot="tabs-panel"] {
+  outline: none;
+}
+
+#roles .admin-modal .admin-table-wrap table {
+  min-width: 780px;
+}
+
+.admin-field {
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 4px;
+}
+
+.admin-pages-toolbar .admin-search-field {
+  flex: 1 1 280px;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.admin-month-hit {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.admin-tooltip[data-slot="tooltip-content"] {
+  background: var(--foreground);
+  border-radius: 4px;
+  color: var(--background);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+}
+
+.admin-select-trigger {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 400 !important;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.admin-select-trigger[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.admin-select-content[data-slot="select-content"] {
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgb(17 24 39 / 0.14);
+  color: var(--foreground);
+  min-width: var(--anchor-width);
+  padding: 4px;
+}
+
+.admin-select-content [data-slot="select-item"] {
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 6px 8px;
+}
+
+.admin-select-content [data-slot="select-item"][data-highlighted] {
+  background: var(--accent);
+}
+
+.admin-select-content [data-slot="select-item"][data-selected] {
+  font-weight: 600;
+}
+
+.admin-shell .admin-checkbox,
+.admin-modal .admin-checkbox {
+  align-items: center;
+  border-radius: 3px;
+  display: inline-flex;
+  height: 16px;
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+  width: 16px;
+}
+
+.admin-shell .admin-checkbox[data-checked] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
+}
+
+.admin-toolbar[data-slot="toolbar"] button[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+/* end ui-sdk: w1-admin-forms */
+/* ui-sdk: w2-cellularity-marketing */
+.tag-tree-folder {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.tag-tree-indicator {
+  display: inline-flex;
+}
+
+.tag-tree-folder[data-expanded] svg {
+  transform: rotate(90deg);
+}
+
+.tag-tree-root [data-slot="tree-item"] {
+  outline: none;
+}
+
+.tag-tree-root [data-slot="tree-item"]:focus-visible > [data-slot="tree-label"] {
+  border-radius: 4px;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+/* end ui-sdk: w2-cellularity-marketing */
+/* ui-sdk: w3-palettes-search */
+/* The tree focuses the whole item, children included; ring only its own row. */
+.search-text-tree [data-slot="tree-item"]:focus-visible {
+  outline: none;
+}
+
+.search-text-tree [data-slot="tree-item"]:focus-visible > [data-slot="tree-label"] {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+/* end ui-sdk: w3-palettes-search */
+/* ui-sdk: w4-chat */
+@media (min-width: 1024px) {
+  .wiki-edit-review-resizer:is([data-hovering], [data-dragging], :focus-visible)::after {
+    background: var(--brand);
+    content: "";
+    inset: 0 2px;
+    opacity: 0.45;
+    position: absolute;
+  }
+}
+/* end ui-sdk: w4-chat */
+
+/* ui-sdk: w9-shell-overlays */
+.reader-tooltip {
+  background: var(--foreground);
+  border-radius: 0.375rem;
+  box-shadow: 0 6px 16px rgb(17 24 39 / 0.18);
+  color: var(--background);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+  padding: 0.25rem 0.5rem;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.reader-tooltip:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+}
+
+.reader-tooltip[data-instant] {
+  transition: none;
+}
+
+.livestore-devtools-collapsible {
+  margin-left: auto;
+  max-width: min(760px, 100%);
+}
+
+.livestore-devtools-summary {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 6px;
+  justify-content: flex-end;
+  min-height: 24px;
+  padding: 0;
+  user-select: none;
+  width: 100%;
+}
+/* end ui-sdk: w9-shell-overlays */
+
+/* ui-sdk: w8-nav-tree-resizable */
+[data-tree-freshness]:not([data-tree-freshness="current"]) .wiki-shell-tree-root [data-slot="tree-item"]:not(:focus-visible):not([data-current]) > [data-slot="tree-label"]:not(:hover) svg {
+  opacity: 0.5;
+}
+.wiki-vite-mobile-sheet-tabs-root {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+@media (max-width: 767px) {
+  .wiki-vite-mobile-sheet-tabs button[data-selected] {
+    background: var(--accent-light);
+    color: var(--brand);
+  }
+}
+.wiki-vite-icon-tooltip {
+  background: var(--foreground);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 0.16);
+  color: var(--background);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+  padding: 4px 8px;
+}
+/* end ui-sdk: w8-nav-tree-resizable */

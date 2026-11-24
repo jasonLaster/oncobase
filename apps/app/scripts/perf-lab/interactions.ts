@@ -57,16 +57,19 @@ export async function timed(page: Page, action: () => Promise<void>, done: strin
   return { ms, longestTaskMs: Math.max(0, ...window_.longTasks), eventMs: Math.max(0, ...window_.events) };
 }
 
-const clickRow = (page: Page, selector: string) => async () => { await page.locator(selector).first().locator("a,button").first().click(); };
+// UI SDK Tree: a row is the treeitem; a file's label is its link, and a
+// directory's label toggles it.
+const LABEL = 'a,[data-slot="tree-label"]';
+const clickRow = (page: Page, selector: string) => async () => { await page.locator(selector).first().locator(LABEL).first().click(); };
 
 export async function navigate(page: Page, slug: string): Promise<Timed> {
   const before = await page.evaluate(() => document.querySelector("main h1, h1")?.textContent ?? "");
   // The tree collapses non-ancestor folders after navigation: expand each ancestor first.
   const parts = slug.split("/");
   for (let i = 1; i < parts.length; i++) {
-    const button = page.locator(row("directory", parts.slice(0, i).join("/"))).first().locator("button").first();
-    if (await button.count() && (await button.getAttribute("aria-expanded")) === "false") {
-      await button.click();
+    const item = page.locator(row("directory", parts.slice(0, i).join("/"))).first();
+    if (await item.count() && (await item.getAttribute("aria-expanded")) === "false") {
+      await item.locator(LABEL).first().click();
       await page.waitForTimeout(150);
     }
   }

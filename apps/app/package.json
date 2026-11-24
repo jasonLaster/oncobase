@@ -70,6 +70,7 @@
     "@oncobase/oncobase": "workspace:*",
     "@oncobase/safe-storage": "workspace:*",
     "@oncobase/smart-table": "workspace:*",
+    "@oncobase/ui": "workspace:*",
     "@oncobase/wiki-comments": "workspace:*",
     "@oncobase/wiki-content": "workspace:*",
     "@oncobase/wiki-markdown": "workspace:*",

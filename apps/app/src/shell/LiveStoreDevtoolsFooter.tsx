@@ -7,6 +7,8 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { useStore } from "@livestore/react";
+import { Button } from "@oncobase/ui/button";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@oncobase/ui/collapsible";
 import type { WikiScope } from "@oncobase/wiki-content";
 import { reloadWithLiveStoreDevtools } from "../livestore/devtools";
 import { events } from "../livestore/schema";
@@ -53,8 +55,8 @@ export function LiveStoreDevtoolsFooter({
       data-store-id={storeId}
       data-test-id="livestore-devtools-footer"
     >
-      <details open>
-        <summary>
+      <Collapsible className="livestore-devtools-collapsible" defaultOpen>
+        <CollapsibleTrigger className="livestore-devtools-summary">
           <BugIcon size={14} aria-hidden="true" />
           <span>LiveStore</span>
           <span className={`devtools-state ${enabled ? "enabled" : ""}`}>
@@ -62,8 +64,8 @@ export function LiveStoreDevtoolsFooter({
           </span>
           <span className={`sync-dot ${metrics.status}`} />
           <span className="devtools-status">{metrics.message}</span>
-        </summary>
-        <div className="devtools-footer-panel">
+        </CollapsibleTrigger>
+        <CollapsiblePanel className="devtools-footer-panel" keepMounted>
           <ScopeSwitcher
             hash={window.location.hash}
             pathname={window.location.pathname}
@@ -74,23 +76,14 @@ export function LiveStoreDevtoolsFooter({
           <span className="devtools-store" title={storeId}>
             Store {shortenStoreId(storeId)}
           </span>
-          <button
-            className="devtools-action danger"
-            type="button"
-            onClick={resetCache}
-          >
+          <Button className="devtools-action danger" onClick={resetCache}>
             <Trash2Icon size={14} aria-hidden="true" />
             <span>Reset cache</span>
-          </button>
-          <button
-            className="devtools-action"
-            data-test-id="warm-cache"
-            type="button"
-            onClick={warmCache}
-          >
+          </Button>
+          <Button className="devtools-action" data-test-id="warm-cache" onClick={warmCache}>
             <ZapIcon size={14} aria-hidden="true" />
             <span>Warm cache</span>
-          </button>
+          </Button>
           {enabled ? (
             <a
               className="devtools-action"
@@ -104,20 +97,16 @@ export function LiveStoreDevtoolsFooter({
           ) : (
             <span className="devtools-note">Enable to attach the local cache session.</span>
           )}
-          <button
-            className="devtools-action"
-            type="button"
-            onClick={() => reloadWithLiveStoreDevtools(!enabled)}
-          >
+          <Button className="devtools-action" onClick={() => reloadWithLiveStoreDevtools(!enabled)}>
             {enabled ? (
               <PowerOffIcon size={14} aria-hidden="true" />
             ) : (
               <PowerIcon size={14} aria-hidden="true" />
             )}
             <span>{enabled ? "Disable" : "Enable"}</span>
-          </button>
-        </div>
-      </details>
+          </Button>
+        </CollapsiblePanel>
+      </Collapsible>
     </footer>
   );
 }

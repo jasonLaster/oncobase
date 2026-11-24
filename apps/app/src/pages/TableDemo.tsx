@@ -1,6 +1,7 @@
 import { defaultSmartTableLayoutAdapter } from "@oncobase/smart-table/layout-adapter";
 import { renderMarkdownTable, type ExampleTableDefinition } from "@oncobase/smart-table/examples";
 import { WikiMarkdown } from "@oncobase/wiki-markdown/browser";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
 import { useMemo, useState } from "react";
 
 type Sample = { id: string; label: string; note: string; headers: string[]; rows: string[][] };
@@ -87,32 +88,39 @@ export default function TableDemo() {
   return (
     <div className="ft-demo">
       <div className="ft-demo-controls">
-        <div className="ft-demo-group" role="group" aria-label="Sample data">
+        <ToggleGroup
+          aria-label="Sample data"
+          className="ft-demo-group"
+          deselectable={false}
+          onValueChange={(next) => {
+            if (next[0]) setSampleId(next[0]);
+          }}
+          value={[sampleId]}
+        >
           <span className="ft-demo-label">Sample data</span>
           {samples.map((item) => (
-            <button
-              aria-pressed={item.id === sampleId}
-              key={item.id}
-              onClick={() => setSampleId(item.id)}
-              type="button"
-            >
+            <Toggle key={item.id} value={item.id}>
               {item.label}
-            </button>
+            </Toggle>
           ))}
-        </div>
-        <div className="ft-demo-group" role="group" aria-label="Container width">
+        </ToggleGroup>
+        <ToggleGroup
+          aria-label="Container width"
+          className="ft-demo-group"
+          deselectable={false}
+          onValueChange={(next) => {
+            const width = widths.find((item) => item.id === next[0]);
+            if (width) setWidthId(width.id);
+          }}
+          value={[widthId]}
+        >
           <span className="ft-demo-label">Width</span>
           {widths.map((item) => (
-            <button
-              aria-pressed={item.id === widthId}
-              key={item.id}
-              onClick={() => setWidthId(item.id)}
-              type="button"
-            >
+            <Toggle key={item.id} value={item.id}>
               {item.label}
-            </button>
+            </Toggle>
           ))}
-        </div>
+        </ToggleGroup>
       </div>
       <div className="ft-demo-stage" data-test-id="table-demo-stage" style={{ maxWidth: width.css }}>
         <WikiMarkdown

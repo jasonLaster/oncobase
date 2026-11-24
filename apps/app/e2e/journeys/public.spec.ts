@@ -405,7 +405,11 @@ test.describe("education guests (deployed gate)", () => {
     // The public library opens without the care reader.
     const readerRequests: string[] = [];
     page.on("request", (req) => {
-      if (/\/api\/(?:wiki|auth|timeline|diagnostic-studies|chat)\b/.test(new URL(req.url()).pathname))
+      const pathname = new URL(req.url()).pathname;
+      // Boot telemetry beacons from every route (main.tsx); they flush on a
+      // timer or pagehide, so whether one lands mid-test is timing, not reader.
+      if (pathname === "/api/wiki/telemetry") return;
+      if (/\/api\/(?:wiki|auth|timeline|diagnostic-studies|chat)\b/.test(pathname))
         readerRequests.push(req.url());
     });
     await page.goto("/education");
@@ -482,7 +486,7 @@ test.describe("education guests (deployed gate)", () => {
     );
     await page.goto(route);
     await expect(page.getByRole("heading", { name: /Oncology 101/, level: 1 })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Collapse education", exact: true })).toBeVisible();
+    await expect(page.getByRole("treeitem", { name: "education", exact: true })).toHaveAttribute("aria-expanded", "true");
     expect(await page.evaluate(() => (window as unknown as Leak).educationCacheLeak)).toBe(false);
   });
 });

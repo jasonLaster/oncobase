@@ -2,6 +2,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePublishViewState } from "./view-state";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
+import { CelCheckbox, CelSlider } from "./controls";
 import {
   explodeOffset,
   fieldToPlaneYZ,
@@ -1273,28 +1275,35 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
   return (
     <div className="cel-m3d" data-tray={deal > 0.5 ? "1" : "0"}>
       <div className="cel-m3d-bar">
-        <div className="cel-seg cel-m3d-views" role="group" aria-label="Guided 3D views">
+        <ToggleGroup
+          className="cel-seg cel-m3d-views"
+          aria-label="Guided 3D views"
+          value={[view]}
+          onValueChange={(next) => {
+            if (next[0]) applyView(next[0] as ViewId);
+          }}
+        >
           {VIEW_PRESETS.map((p) => (
-            <button key={p.id} type="button" className={view === p.id ? "active" : ""} aria-pressed={view === p.id} onClick={() => applyView(p.id)}>
+            <Toggle key={p.id} value={p.id} className={view === p.id ? "active" : ""}>
               {p.label}
-            </button>
+            </Toggle>
           ))}
-        </div>
+        </ToggleGroup>
         <details className="cel-m3d-layers">
           <summary>Layers</summary>
           <div className="cel-m3d-layers-pop">
-            <label><input type="checkbox" checked={layers.shells} onChange={() => toggleLayer("shells")} /> Interpolated core (≥5%, ≥12%)</label>
-            <label><input type="checkbox" checked={layers.halo} onChange={() => toggleLayer("halo")} /> Interpolated scatter (≥1.2%)</label>
-            <label><input type="checkbox" checked={layers.cavity} onChange={() => toggleLayer("cavity")} /> {spec.model3d.cavity_toggle_label}</label>
-            <label><input type="checkbox" checked={layers.inks} onChange={() => toggleLayer("inks")} /> Margin inks on surface</label>
-            <label><input type="checkbox" checked={layers.shaves} onChange={() => toggleLayer("shaves")} /> Extra margin shaves</label>
-            <label><input type="checkbox" checked={layers.ruler} onChange={() => toggleLayer("ruler")} /> Focus-to-edge ruler</label>
-            <label><input type="checkbox" checked={deal > 0.5} onChange={() => relayout({ deal: deal > 0.5 ? 0 : 1 })} /> Lay slabs out face-up</label>
-            <label><input type="checkbox" checked={cut} onChange={() => setCut((c) => !c)} /> Cut away slabs lateral to the selected slide</label>
-            <label className="cel-m3d-range">
+            <CelCheckbox checked={layers.shells} onCheckedChange={() => toggleLayer("shells")}>Interpolated core (≥5%, ≥12%)</CelCheckbox>
+            <CelCheckbox checked={layers.halo} onCheckedChange={() => toggleLayer("halo")}>Interpolated scatter (≥1.2%)</CelCheckbox>
+            <CelCheckbox checked={layers.cavity} onCheckedChange={() => toggleLayer("cavity")}>{spec.model3d.cavity_toggle_label}</CelCheckbox>
+            <CelCheckbox checked={layers.inks} onCheckedChange={() => toggleLayer("inks")}>Margin inks on surface</CelCheckbox>
+            <CelCheckbox checked={layers.shaves} onCheckedChange={() => toggleLayer("shaves")}>Extra margin shaves</CelCheckbox>
+            <CelCheckbox checked={layers.ruler} onCheckedChange={() => toggleLayer("ruler")}>Focus-to-edge ruler</CelCheckbox>
+            <CelCheckbox checked={deal > 0.5} onCheckedChange={(on) => relayout({ deal: on ? 1 : 0 })}>Lay slabs out face-up</CelCheckbox>
+            <CelCheckbox checked={cut} onCheckedChange={setCut}>Cut away slabs lateral to the selected slide</CelCheckbox>
+            <div className="cel-m3d-range">
               Separate slabs
-              <input type="range" min={0} max={100} value={Math.round(explode * 100)} onChange={(e) => relayout({ explode: Number(e.target.value) / 100 })} aria-label="Separate slabs" />
-            </label>
+              <CelSlider label="Separate slabs" min={0} max={100} value={Math.round(explode * 100)} onValueChange={(v) => relayout({ explode: v / 100 })} />
+            </div>
           </div>
         </details>
       </div>
@@ -1336,29 +1345,27 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
         </div>
       </div>
 
-      <div className="cel-m3d-strip" ref={stripRef} role="group" aria-label="Slides, lateral to medial">
+      <div className="cel-m3d-strip" ref={stripRef}>
         <button type="button" className="cel-m3d-step" onClick={() => stepSlide(-1)} aria-label="Previous slide">‹</button>
+        <ToggleGroup
+          className="cel-m3d-thumbs"
+          aria-label="Slides, lateral to medial"
+          value={[selectedBlock]}
+          onValueChange={(next) => {
+            if (next[0]) onSelectBlock(next[0]);
+          }}
+        >
         {slabs.map((s) => {
           const g = data.grids[s.id];
           const row = rowsById.get(s.id);
           const max = row ? (row.method.startsWith("virtual") ? row.virtual_max1 ?? row.max1 : row.max1) : null;
           return (
-            <button
+            <Toggle
               key={s.id}
-              type="button"
+              value={s.id}
               data-block={s.id}
               className={`cel-m3d-thumb${s.id === selectedBlock ? " active" : ""}${s.id === hovered ? " hover" : ""}${s.kind === "virtual" ? " virtual" : ""}${s.scanned ? "" : " unscanned"}`}
-              aria-pressed={s.id === selectedBlock}
               aria-label={`${s.label}${max != null ? `, highest 1 mm field ${max.toFixed(1)}%` : ", not scanned"}`}
-              onClick={() => onSelectBlock(s.id)}
-              onKeyDown={(e) => {
-                if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-                e.preventDefault();
-                const next = stepScanned(slabs, s.id, e.key === "ArrowRight" ? 1 : -1);
-                onSelectBlock(next);
-                const strip = e.currentTarget.parentElement;
-                strip?.querySelector<HTMLButtonElement>(`[data-block="${next}"]`)?.focus();
-              }}
               onPointerEnter={() => setHovered(s.id)}
               onPointerLeave={() => setHovered(null)}
             >
@@ -1367,9 +1374,10 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
                 <b>{s.label}</b>
                 {max != null ? <em>{max.toFixed(max >= 10 ? 0 : 1)}%</em> : null}
               </span>
-            </button>
+            </Toggle>
           );
         })}
+        </ToggleGroup>
         <button type="button" className="cel-m3d-step" onClick={() => stepSlide(1)} aria-label="Next slide">›</button>
       </div>
       <div className="cel-m3d-legend">

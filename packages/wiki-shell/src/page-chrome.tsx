@@ -1,10 +1,17 @@
 import {
   type AnchorHTMLAttributes,
-  type ButtonHTMLAttributes,
   type ComponentProps,
   type Key,
   type ReactNode,
 } from "react";
+import { Button } from "@oncobase/ui/button";
+import {
+  Toast,
+  ToastDescription,
+  ToastRegion,
+  type ToastRegionProps,
+  ToastTitle,
+} from "@oncobase/ui/toast";
 import { cn } from "./utils.ts";
 
 export type WikiBreadcrumbItem = {
@@ -175,7 +182,7 @@ export function WikiPageActions({ className, ...props }: WikiPageActionsProps) {
   return <div className={cn("wiki-shell-page-actions page-actions", className)} {...props} />;
 }
 
-export type WikiPageActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;
+export type WikiPageActionButtonProps = Omit<ComponentProps<typeof Button>, "className"> & { className?: string };
 
 export function WikiPageActionButton({
   className,
@@ -183,7 +190,7 @@ export function WikiPageActionButton({
   ...props
 }: WikiPageActionButtonProps) {
   return (
-    <button
+    <Button
       className={cn("wiki-shell-page-action page-action", className)}
       type={type}
       {...props}
@@ -296,10 +303,20 @@ export function WikiPageFooter({ className, items, ...props }: WikiPageFooterPro
   );
 }
 
-export type WikiToastProps = ComponentProps<"div">;
+export type WikiToastProps = Omit<ToastRegionProps, "children" | "className"> & { className?: string };
 
+/** The reader's one toast region; show a message with `toast()` from `@oncobase/ui/toast`. */
 export function WikiToast({ className, ...props }: WikiToastProps) {
-  return <div className={cn("wiki-shell-toast toast", className)} role="status" {...props} />;
+  return (
+    <ToastRegion align="end" className={cn("wiki-shell-toast-region", className)} side="top" {...props}>
+      {() => (
+        <Toast className="wiki-shell-toast toast">
+          <ToastTitle />
+          <ToastDescription />
+        </Toast>
+      )}
+    </ToastRegion>
+  );
 }
 
 export async function copyTextToClipboard(text: string) {

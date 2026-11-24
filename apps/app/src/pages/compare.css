@@ -173,7 +173,7 @@
 }
 
 /* Each option */
-.cp-prod summary {
+.cp-prod .ft-acc-trigger {
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.8fr) 20px;
 }
 .cp-prod-body {
@@ -309,7 +309,7 @@
   .ft-root .cp-goal h3 {
     font-size: 17px;
   }
-  .cp-prod summary {
+  .cp-prod .ft-acc-trigger {
     grid-template-columns: minmax(0, 1fr) 20px;
   }
   .cp-prod .ft-acc-preview {

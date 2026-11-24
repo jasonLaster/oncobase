@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
 import type { AdminStats as Stats, FolderCount, MonthCount } from "../../server/admin-stats";
 
 type StatsResponse = Stats & { people: { users: number; roles: number } };
@@ -44,10 +45,15 @@ function MonthBars({ title, unit, months }: { title: string; unit: string; month
         {months.map(({ month, count }) => {
           const label = `${MONTHS[Number(month) - 1]}: ${number.format(count)} ${unit}`;
           return (
-            <li key={month} title={label} aria-label={label}>
-              <span className="admin-month-value" aria-hidden="true">{count}</span>
-              <span className="admin-month-bar" style={{ height: `${Math.max(4, (count / max) * 100)}%` }} />
-              <span className="admin-month-label" aria-hidden="true">{MONTHS[Number(month) - 1]}</span>
+            <li key={month} aria-label={label}>
+              <Tooltip type="description">
+                <TooltipTrigger render={<span className="admin-month-hit" />}>
+                  <span className="admin-month-value" aria-hidden="true">{count}</span>
+                  <span className="admin-month-bar" style={{ height: `${Math.max(4, (count / max) * 100)}%` }} />
+                  <span className="admin-month-label" aria-hidden="true">{MONTHS[Number(month) - 1]}</span>
+                </TooltipTrigger>
+                <TooltipContent className="admin-tooltip">{label}</TooltipContent>
+              </Tooltip>
             </li>
           );
         })}

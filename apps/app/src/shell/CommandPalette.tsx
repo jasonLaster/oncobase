@@ -20,18 +20,23 @@ import {
   ZapIcon,
 } from "lucide-react";
 import {
-  Fragment,
-  type KeyboardEvent,
   type ReactNode,
   useCallback,
-  useEffect,
-  useEffectEvent,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import {
+  AlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "@oncobase/ui/alert-dialog";
+import { Command, CommandGroup, CommandInput } from "@oncobase/ui/command";
+import { Dialog, DialogClose } from "@oncobase/ui/dialog";
+import { useLocation, useNavigate } from "react-router";
 // Subpaths, not the package index: a module the index re-exports is evaluated
 // with the index, which the paint-critical shell imports, so palette-only code
 // imported through the index would download before the article paints.
@@ -40,8 +45,7 @@ import {
   WikiCommandEmpty,
   WikiCommandFooter,
   WikiCommandGroupHeading,
-  WikiCommandItemButton,
-  WikiCommandItemLink,
+  WikiCommandItem,
   WikiCommandList,
   WikiCommandPanel,
   WikiCommandSearch,
@@ -132,13 +136,12 @@ export function CommandPalette({
   const assets = useMemo(() => assetRows.filter(isListedManifestAsset), [assetRows]);
   const scope = useWikiScope();
   const [mode, setPaletteMode] = useState<PaletteMode>(initialMode);
-  const [query, setPaletteQuery] = useState("");
+  const [query, setQuery] = useState("");
   const [pageInitialQuery, setPageInitialQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const [outline, setOutline] = useState<OutlineItem[]>(() => collectOutline());
   const [recentSlugs] = useState<string[]>(() => readRecentSlugs());
   const [liveStoreDevtoolsEnabled] = useState(() => readLiveStoreDevtoolsEnabled());
-  const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const currentSlug = slugFromPath(location.pathname);
@@ -148,30 +151,7 @@ export function CommandPalette({
     () => window.matchMedia("(prefers-color-scheme: dark)").matches, () => false);
   const isDark = themePreference === "dark" || (themePreference === null && systemDark);
 
-  const setMode = useCallback((nextMode: PaletteMode) => {
-    setPaletteMode(nextMode);
-    setActiveIndex(0);
-  }, []);
-  const setQuery = useCallback((nextQuery: string) => {
-    setPaletteQuery(nextQuery);
-    setActiveIndex(0);
-  }, []);
-  const closeFromEscape = useEffectEvent(() => onOpenChange(false));
-
-  useEffect(() => {
-    if (!open) return;
-    const timeout = window.setTimeout(() => inputRef.current?.focus(), 0);
-    return () => window.clearTimeout(timeout);
-  }, [open, mode]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") closeFromEscape();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  const setMode = setPaletteMode;
 
   const filePalettePages = useMemo<WikiFilePalettePage[]>(
     () => {
@@ -377,7 +357,7 @@ export function CommandPalette({
         },
       },
     ],
-    [agentPrivateAccess, agentToolsAvailable, jevEnabled, currentPageTitle, currentSlug, isDark, onOpenChange, relatedAssets, returnTo, scope, setMode, setQuery],
+    [agentPrivateAccess, agentToolsAvailable, jevEnabled, currentPageTitle, currentSlug, isDark, onOpenChange, relatedAssets, returnTo, scope, setMode],
   );
 
   const actionResults = useMemo(() => {
@@ -404,13 +384,7 @@ export function CommandPalette({
         description: "Clear this LiveStore cache and reload the reader",
         icon: <RotateCcwIcon size={15} aria-hidden="true" />,
         run: () => {
-          if (!kit) return;
-          const confirmed = window.confirm(
-            "Clear the local LiveStore cache for this reader and reload?",
-          );
-          if (!confirmed) return;
-          kit.store.commit(kit.events.cacheResetRequested({ requestedAt: Date.now() }));
-          window.location.reload();
+          if (kit) setConfirmingReset(true);
         },
       },
       {
@@ -463,23 +437,11 @@ export function CommandPalette({
       .slice(0, 14);
   }, [tags, query]);
 
-  const activeCount =
-    mode === "outline"
-        ? outlineResults.length
-        : mode === "assets"
-          ? assetResults.length
-          : mode === "tags"
-            ? tagResults.length
-            : mode === "actions"
-              ? actionResults.length
-              : debugResults.length;
-
-  useEffect(() => {
-    if (!open) return;
-    document
-      .getElementById(`command-${mode}-${activeIndex}`)
-      ?.scrollIntoView({ block: "nearest" });
-  }, [activeIndex, mode, open]);
+  const resetLocalCache = () => {
+    if (!kit) return;
+    kit.store.commit(kit.events.cacheResetRequested({ requestedAt: Date.now() }));
+    window.location.reload();
+  };
 
   const openPage = (page: { slug: string }) => {
     rememberSlug(page.slug);
@@ -491,47 +453,6 @@ export function CommandPalette({
   const openOutline = (item: OutlineItem) => {
     scrollToOutlineItem(item, location.pathname);
     onOpenChange(false);
-  };
-
-  const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setActiveIndex((index) => Math.min(Math.max(0, activeCount - 1), index + 1));
-      return;
-    }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiveIndex((index) => Math.max(0, index - 1));
-      return;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onOpenChange(false);
-      return;
-    }
-
-    if (event.key !== "Enter") return;
-
-    if (mode === "outline" && outlineResults[activeIndex]) openOutline(outlineResults[activeIndex]);
-    if (mode === "assets" && assetResults[activeIndex]) {
-      window.open(
-        assetHref(assetResults[activeIndex].path, assetResults[activeIndex].contentHash),
-        "_blank",
-        "noreferrer",
-      );
-    }
-    if (mode === "tags" && tagResults[activeIndex]) {
-      setPageInitialQuery(tagResults[activeIndex].tag);
-      setMode("pages");
-    }
-    if (mode === "actions" && actionResults[activeIndex]) {
-      const action = actionResults[activeIndex];
-      if (action.run) action.run();
-      if (action.href) window.location.assign(action.href);
-    }
-    if (mode === "debug" && debugResults[activeIndex]) {
-      debugResults[activeIndex].run();
-    }
   };
 
   if (!open) return null;
@@ -558,87 +479,70 @@ export function CommandPalette({
     );
   }
 
+  // Actions come in runs of one group; a group can appear again further down.
+  const actionGroups: Array<{ group: ActionItem["group"]; start: number; items: ActionItem[] }> = [];
+  actionResults.forEach((action, index) => {
+    const last = actionGroups.at(-1);
+    if (last?.group === action.group) last.items.push(action);
+    else actionGroups.push({ group: action.group, start: index, items: [action] });
+  });
+
   return (
-    <WikiCommandBackdrop role="presentation" onMouseDown={() => onOpenChange(false)}>
-      <WikiCommandPanel
-        aria-label="Command palette"
-        aria-modal="true"
-        data-test-id="command-palette"
-        role="dialog"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <WikiCommandSearch>
-          <input
-            ref={inputRef}
-            aria-activedescendant={activeCount > 0 ? `command-${mode}-${activeIndex}` : undefined}
-            aria-controls={`command-${mode}-results`}
-            aria-expanded="true"
-            aria-labelledby="command-palette-title"
-            data-test-id="command-palette-input"
-            role="combobox"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={onInputKeyDown}
-            placeholder={
-              mode === "outline"
-                ? "Find a heading"
-                : mode === "assets"
-                  ? "Find a source PDF"
-                  : mode === "tags"
-                    ? "Filter local tags"
-                    : mode === "actions"
-                      ? "Search commands..."
-                      : "Run a cache tool"
-            }
-          />
-          <SearchIcon size={16} aria-hidden="true" />
-          <button
-            type="button"
-            aria-label="Close command palette"
-            onClick={() => onOpenChange(false)}
-          >
-            <XIcon size={16} aria-hidden="true" />
-          </button>
-        </WikiCommandSearch>
-        <span id="command-palette-title" className="wiki-shell-sr-only">
-          Command palette
-        </span>
-        <span aria-live="polite" className="wiki-shell-sr-only">
-          {activeCount} {mode} result{activeCount === 1 ? "" : "s"}
-        </span>
-        <WikiCommandList
-          aria-label={`${mode} results`}
-          id={`command-${mode}-results`}
-          role="listbox"
-        >
-          {mode === "outline" ? (
-            outlineResults.length === 0 ? (
-              <WikiCommandEmpty>No headings on this page</WikiCommandEmpty>
-            ) : (
-              outlineResults.map((item, index) => (
-                <WikiCommandItemButton
-                  active={index === activeIndex}
+    <Dialog open onOpenChange={(next) => { if (!next) onOpenChange(false); }}>
+      <WikiCommandBackdrop />
+      <WikiCommandPanel data-test-id="command-palette" title="Command palette">
+        <Command filter={false} onQueryChange={setQuery} query={query}>
+          <WikiCommandSearch>
+            <CommandInput
+              aria-label="Command palette"
+              data-test-id="command-palette-input"
+              placeholder={
+                mode === "outline"
+                  ? "Find a heading"
+                  : mode === "assets"
+                    ? "Find a source PDF"
+                    : mode === "tags"
+                      ? "Filter local tags"
+                      : mode === "actions"
+                        ? "Search commands..."
+                        : "Run a cache tool"
+              }
+            />
+            <SearchIcon size={16} aria-hidden="true" />
+            <DialogClose aria-label="Close command palette">
+              <XIcon size={16} aria-hidden="true" />
+            </DialogClose>
+          </WikiCommandSearch>
+          <WikiCommandEmpty>
+            {mode === "outline"
+              ? "No headings on this page"
+              : mode === "assets"
+                ? "No source PDFs found"
+                : mode === "tags"
+                  ? "No tags found"
+                  : mode === "actions"
+                    ? "No actions found"
+                    : "No cache tools found"}
+          </WikiCommandEmpty>
+          <WikiCommandList aria-label={`${mode} results`}>
+            {mode === "outline"
+              ? outlineResults.map((item) => (
+                <WikiCommandItem
                   depth={Math.max(0, item.level - 1)}
                   description={`Heading ${item.level}`}
-                  id={`command-outline-${index}`}
                   icon={<ListIcon size={15} aria-hidden="true" />}
                   key={item.id}
                   label={item.text}
-                  onClick={() => openOutline(item)}
+                  onSelect={() => openOutline(item)}
+                  value={`outline:${item.id}`}
                 />
               ))
-            )
-          ) : null}
-          {mode === "assets" ? (
-            assetResults.length === 0 ? (
-              <WikiCommandEmpty>No source PDFs found</WikiCommandEmpty>
-            ) : (
-              assetResults.map((asset, index) => (
-                <WikiCommandItemLink
-                  active={index === activeIndex}
+              : null}
+            {mode === "assets"
+              ? assetResults.map((asset) => (
+                <WikiCommandItem
                   description={asset.path}
                   href={assetHref(asset.path, asset.contentHash)}
-                  id={`command-assets-${index}`}
                   icon={
                     asset.kind === "pdf" ? (
                       <FileTextIcon size={15} aria-hidden="true" />
@@ -650,96 +554,77 @@ export function CommandPalette({
                   label={asset.path.split("/").at(-1) ?? asset.path}
                   rel="noreferrer"
                   target="_blank"
+                  value={`asset:${asset.path}`}
                 />
               ))
-            )
-          ) : null}
-          {mode === "tags" ? (
-            tagResults.length === 0 ? (
-              <WikiCommandEmpty>No tags found</WikiCommandEmpty>
-            ) : (
-              tagResults.map((result, index) => (
-                <WikiCommandItemButton
-                  active={index === activeIndex}
+              : null}
+            {mode === "tags"
+              ? tagResults.map((result) => (
+                <WikiCommandItem
                   description={`${result.count} pages`}
-                  id={`command-tags-${index}`}
                   icon={<TagIcon size={15} aria-hidden="true" />}
                   key={result.tag}
                   label={result.tag}
-                  onClick={() => {
+                  onSelect={() => {
                     setPageInitialQuery(result.tag);
                     setMode("pages");
                   }}
+                  value={`tag:${result.tag}`}
                 />
               ))
-            )
-          ) : null}
-          {mode === "actions" ? (
-            actionResults.length === 0 ? (
-              <WikiCommandEmpty>No actions found</WikiCommandEmpty>
-            ) : (
-              actionResults.map((action, index) => {
-                const prev = index > 0 ? actionResults[index - 1] : null;
-                const groupChanged = !prev || prev.group !== action.group;
-                const heading = groupChanged ? (
-                  <WikiCommandGroupHeading
-                    heading={action.group}
-                    key={`heading-${action.group}-${index}`}
-                  />
-                ) : null;
-                const row = action.href ? (
-                  <WikiCommandItemLink
-                    active={index === activeIndex}
-                    description={action.description}
-                    href={action.href}
-                    id={`command-actions-${index}`}
-                    icon={action.icon}
-                    key={action.label}
-                    label={action.label}
-                  />
-                ) : (
-                  <WikiCommandItemButton
-                    active={index === activeIndex}
-                    description={action.description}
-                    id={`command-actions-${index}`}
-                    icon={action.icon}
-                    key={action.label}
-                    label={action.label}
-                    onClick={action.run}
-                  />
-                );
-                return (
-                  <Fragment key={`${action.group}-${action.label}`}>
-                    {heading}
-                    {row}
-                  </Fragment>
-                );
-              })
-            )
-          ) : null}
-          {mode === "debug" ? (
-            debugResults.length === 0 ? (
-              <WikiCommandEmpty>No cache tools found</WikiCommandEmpty>
-            ) : (
-              debugResults.map((action, index) => (
-                <WikiCommandItemButton
-                  active={index === activeIndex}
+              : null}
+            {mode === "actions"
+              ? actionGroups.map(({ group, items, start }) => (
+                <CommandGroup key={`${group}-${start}`}>
+                  <WikiCommandGroupHeading>{group}</WikiCommandGroupHeading>
+                  {items.map((action) => (
+                    <WikiCommandItem
+                      description={action.description}
+                      href={action.href}
+                      icon={action.icon}
+                      key={action.label}
+                      label={action.label}
+                      onSelect={action.run}
+                      value={`action:${action.label}`}
+                    />
+                  ))}
+                </CommandGroup>
+              ))
+              : null}
+            {mode === "debug"
+              ? debugResults.map((action) => (
+                <WikiCommandItem
                   description={action.description}
-                  id={`command-debug-${index}`}
                   icon={action.icon}
                   key={action.label}
                   label={action.label}
-                  onClick={action.run}
+                  onSelect={action.run}
+                  value={`debug:${action.label}`}
                 />
               ))
-            )
-          ) : null}
-        </WikiCommandList>
+              : null}
+          </WikiCommandList>
+        </Command>
         <WikiCommandFooter>
           <span>{commandLabel()} opens pages</span>
           <span>Enter runs the first result</span>
         </WikiCommandFooter>
+        <AlertDialog open={confirmingReset} onOpenChange={setConfirmingReset}>
+          <AlertDialogBackdrop className="wiki-shell-command-backdrop" />
+          <AlertDialogContent className="wiki-shell-command-palette wiki-shell-command-confirm">
+            <AlertDialogTitle render={<div />}>Reset local cache?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Clear the local LiveStore cache for this reader and reload?
+            </AlertDialogDescription>
+            <div className="wiki-shell-command-confirm-actions">
+              <AlertDialogClose>Cancel</AlertDialogClose>
+              <AlertDialogClose action={resetLocalCache} className="wiki-shell-command-confirm-primary" value="confirm">
+                Reset and reload
+              </AlertDialogClose>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
       </WikiCommandPanel>
-    </WikiCommandBackdrop>
+    </Dialog>
   );
 }
