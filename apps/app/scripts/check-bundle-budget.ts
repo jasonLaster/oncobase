@@ -260,7 +260,11 @@ const storeGzipBudget = 828_500;
 // inside the lazy chunk via adoptStyles, adding ~169.4 KiB to the lazy pool with
 // zero impact on paint, store, or eager limits (measured 4,472,627 B):
 // 4,302,000 -> 4,480,000.
-const lazyGzipBudget = 4_480_000;
+// Its second review round (linked 2D/3D field hover, render-on-demand loop,
+// reported-margin list, provenance captions) adds ~3.8 KiB to that same lazy
+// route chunk, still with no paint, store, or eager impact (measured 4,481,434 B):
+// 4,480,000 -> 4,492,000.
+const lazyGzipBudget = 4_492_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

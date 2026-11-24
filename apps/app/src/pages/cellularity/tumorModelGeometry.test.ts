@@ -14,6 +14,8 @@ import {
   slabsFromSlices,
   stepScanned,
   trayLayout,
+  assayLabel,
+  reportedMarginFindings,
   VIEW_PRESETS,
 } from "./tumorModelGeometry";
 
@@ -223,5 +225,28 @@ describe("tray layout", () => {
     const t = trayLayout(4, 10);
     expect(t.rows).toBe(1);
     expect(t.pos.reduce((a, p) => a + p[0], 0)).toBeCloseTo(0);
+  });
+});
+
+describe("provenance and reported findings", () => {
+  test("names the stain behind each block", () => {
+    expect(assayLabel("keratin, measured")).toBe("lab PanKeratin stain");
+    expect(assayLabel("virtual PanCK (Strand)")).toBe("AI virtual PanCK from H&E");
+    expect(assayLabel(undefined)).toBe("not scanned");
+  });
+
+  test("keeps margin findings and drops extent, cavity and focus notes", () => {
+    const mk = (id: string, margins: string[]) => ({ ...slice(id, 0, 1), margins });
+    const out = reportedMarginFindings([
+      mk("B3", ["Invasive at inferior margin", "Biopsy clip + Magseed cavity"]),
+      mk("B6", ["20 mm S–I extent · 1 mm superior", "Peninsula ~20% focus"]),
+      mk("B5", ["DCIS <1 mm inferior"]),
+      mk("B4", []),
+    ]);
+    expect(out).toEqual([
+      { id: "B3", label: "B3", findings: ["Invasive at inferior margin"] },
+      { id: "B6", label: "B6", findings: ["1 mm from superior margin"] },
+      { id: "B5", label: "B5", findings: ["DCIS <1 mm inferior"] },
+    ]);
   });
 });

@@ -370,3 +370,33 @@ export function trayLayout(n: number, aspect: number, cell = TRAY_CELL): { cols:
   }
   return { cols, rows, pos };
 }
+
+// ---------------------------------------------------------------- provenance & reported findings
+
+/** Plain-language name of the stain behind a block's numbers. */
+export function assayLabel(method: string | undefined | null): string {
+  if (!method) return "not scanned";
+  return method.startsWith("virtual") ? "AI virtual PanCK from H&E" : "lab PanKeratin stain";
+}
+
+const MARGIN_RE = /margin|\b\d+(\.\d+)?\s*mm\s+(superior|inferior|anterior|posterior|lateral|medial)\b|<\s*\d/i;
+
+/**
+ * Margin findings as the pathology report states them, per slice: each entry of
+ * slice.margins (split on " · ") that names a margin or a distance to one.
+ * Extent notes, cavity notes and the Peninsula focus are not margin findings.
+ */
+export function reportedMarginFindings(slices: SliceMeta[]): { id: string; label: string; findings: string[] }[] {
+  return slices
+    .map((s) => ({
+      id: s.id,
+      label: s.label,
+      findings: s.margins
+        .flatMap((m) => m.split(" · "))
+        .map((m) => m.trim())
+        .filter((m) => MARGIN_RE.test(m) && !/extent/i.test(m))
+        // A bare distance ("1 mm superior") reads as a size; say what it is measured to.
+        .map((m) => m.replace(/^(\d+(?:\.\d+)?\s*mm)\s+(superior|inferior|anterior|posterior|lateral|medial)$/i, "$1 from $2 margin")),
+    }))
+    .filter((s) => s.findings.length > 0);
+}
