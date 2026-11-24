@@ -261,6 +261,40 @@ test("regions and notes save, reload, and stay tied to their own slide, and a fa
   await expect(page.getByLabel("Region note", { exact: true })).toHaveValue("Keep this draft");
 });
 
+test("downloads the current view, a selected region, and the whole slide as stitched JPEGs", async ({ page }) => {
+  await fixture(page); await open(page);
+  const jpegSize = async (path: string) => page.evaluate(async bytes => {
+    const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: "image/jpeg" }));
+    return [bitmap.width, bitmap.height];
+  }, [...(await import("node:fs")).readFileSync(path)]);
+
+  await page.getByRole("button", { name: "Download image" }).click();
+  const menu = page.getByRole("menu", { name: "Download image" });
+  await expect(menu.getByRole("menuitem")).toHaveCount(2);
+  const whole = menu.getByRole("menuitem", { name: /Whole slide/ });
+  await expect(whole).toContainText("5,000 × 2,500 px JPEG · 1/4 scale");
+  const slideDownload = page.waitForEvent("download");
+  await whole.click();
+  const file = await slideDownload;
+  expect(file.suggestedFilename()).toBe("synthetic-slide-1_he_slide_5000x2500.jpg");
+  expect(await jpegSize((await file.path())!)).toEqual([5000, 2500]);
+  await expect(page.getByRole("status").filter({ hasText: "Downloaded synthetic-slide-1_he_slide_5000x2500.jpg" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Download image" }).click();
+  await expect(menu.getByRole("menuitem", { name: /Current view/ })).toContainText(/px JPEG/);
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+
+  await draw(page);
+  await page.getByLabel("Region label", { exact: true }).fill("Tumor edge");
+  await page.getByRole("button", { name: "Download image" }).click();
+  const regionItem = menu.getByRole("menuitem", { name: /Region: Tumor edge/ });
+  await expect(regionItem).toContainText("full resolution");
+  const regionDownload = page.waitForEvent("download");
+  await regionItem.click();
+  expect((await regionDownload).suggestedFilename()).toMatch(/^synthetic-slide-1_he_region-tumor-edge_\d+x\d+\.jpg$/);
+});
+
 test("missing shared sources and failed tiles show explicit errors", async ({ page }) => {
   const { behavior } = await fixture(page);
   await page.goto("/tools/pathology-viewer?slide=he-cccccccccccccccccccc");

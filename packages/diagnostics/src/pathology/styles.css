@@ -102,3 +102,11 @@
   .pathology-viewports.is-comparing { grid-template-columns: 1fr; grid-template-rows: repeat(2, 360px); }.pathology-canvas { min-height: 360px; }.pathology-region-editor { max-width: 520px; }
 }
 @media (prefers-reduced-motion: reduce) { .pathology-workspace * { scroll-behavior: auto !important; } }
+.pathology-download { position: relative; }
+.pathology-download-menu { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; width: 280px; padding: 6px; display: grid; gap: 2px; border: 1px solid var(--p-border); border-radius: 7px; background: #fff; box-shadow: 0 8px 24px #0002; }
+.pathology-download-menu button { display: grid; justify-content: stretch; justify-items: start; gap: 2px; width: 100%; padding: 8px 10px; border: 0; border-radius: 5px; background: none; text-align: left; cursor: pointer; }
+.pathology-download-menu button:hover:not(:disabled), .pathology-download-menu button:focus-visible { background: #eff6ff; }
+.pathology-download-menu button:disabled { cursor: default; opacity: .55; }
+.pathology-download-menu strong { font-size: 13px; font-weight: 600; }
+.pathology-download-menu small, .pathology-download-menu p { font-size: 11.5px; color: var(--p-muted); }
+.pathology-download-menu p { margin: 4px 10px 6px; line-height: 1.4; }

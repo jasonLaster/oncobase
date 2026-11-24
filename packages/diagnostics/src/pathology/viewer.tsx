@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Columns2, Copy, Expand, Hand, Home, Minus, Plus, RotateCw, Ruler, Save, Square, Trash2, Undo2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Columns2, Copy, Download, Expand, Hand, Home, Minus, Plus, RotateCw, Ruler, Save, Square, Trash2, Undo2, X } from "lucide-react";
 import useSWR from "swr";
 import { Listbox, ListboxItem } from "@oncobase/ui/listbox";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
 import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
 import { Toolbar, ToolbarButton } from "@oncobase/ui/toolbar";
 import { formatLength, readCamera, regionLengthMicrons, type PathologyRegion, type PathologySlide, type SlideCamera } from "./model";
+import { exportFileName, planExport, renderExport, saveBlob, type ExportPlan, type ImageRect } from "./export";
 import { SlideCanvas, type SlideControls, type SlideTool } from "./slide-canvas";
 import { normalizePathologyCollectionId, pathologyCollectionId, pathologyCollections, slideScanDate } from "./collection";
 
@@ -14,6 +15,8 @@ async function json<T>(url: string): Promise<T> {
   if (!response.ok) throw new Error(`Slide request failed (${response.status})`);
   return response.json();
 }
+type DownloadKind = "view" | "region" | "slide";
+const downloadLabels: Record<DownloadKind, string> = { view: "Current view", region: "Selected region", slide: "Whole slide" };
 interface Draft { regions: PathologyRegion[]; version: number; dirty: boolean; history: PathologyRegion[][] }
 
 export function PathologyViewer() {
@@ -31,6 +34,10 @@ export function PathologyViewer() {
   const [shareStatus, setShareStatus] = useState("");
   const [regionsVisible, setRegionsVisible] = useState(true);
   const [linked, setLinked] = useState(false);
+  const [downloads, setDownloads] = useState<Partial<Record<DownloadKind, ExportPlan>> | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const downloadAbort = useRef<AbortController | null>(null);
+  const downloadMenu = useRef<HTMLDivElement>(null);
   const primary = useRef<SlideControls | null>(null), comparison = useRef<SlideControls | null>(null);
   const workspace = useRef<HTMLDivElement>(null);
   const lastSlideByStain = useRef<Record<string, string>>({});
@@ -77,6 +84,49 @@ export function PathologyViewer() {
     const card = workspace.current?.querySelector(`[data-slide-card-id="${activeSlideId}"]`);
     card?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [activeSlideId]);
+
+  useEffect(() => {
+    if (!downloads) return;
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent ? event.key === "Escape" : !downloadMenu.current?.contains(event.target as Node)) setDownloads(null);
+    };
+    document.addEventListener("pointerdown", close); document.addEventListener("keydown", close);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", close); };
+  }, [downloads]);
+  useEffect(() => () => downloadAbort.current?.abort(), []);
+
+  function openDownloads() {
+    if (!slide) return;
+    if (downloads) { setDownloads(null); return; }
+    const rects: Partial<Record<DownloadKind, ImageRect | null>> = {
+      view: primary.current?.visibleRect() ?? null,
+      region: region ? { x: Math.min(region.x, region.endX), y: Math.min(region.y, region.endY), width: Math.abs(region.endX - region.x), height: Math.abs(region.endY - region.y) } : null,
+      slide: { x: 0, y: 0, width: slide.width, height: slide.height },
+    };
+    const plans: Partial<Record<DownloadKind, ExportPlan>> = {};
+    for (const [kind, rect] of Object.entries(rects) as [DownloadKind, ImageRect | null][]) {
+      const plan = rect && planExport(slide, rect);
+      if (plan) plans[kind] = plan;
+    }
+    setDownloads(plans);
+  }
+  async function download(kind: DownloadKind, plan: ExportPlan) {
+    if (!slide) return;
+    setDownloads(null);
+    downloadAbort.current?.abort();
+    const controller = downloadAbort.current = new AbortController();
+    const name = exportFileName(slide, kind === "region" && region ? `region-${region.label}` : kind, plan);
+    try {
+      const blob = await renderExport(slide, plan, { signal: controller.signal,
+        onProgress: (done, total) => setDownloading(`Preparing ${downloadLabels[kind].toLowerCase()}… ${Math.round(done / total * 100)}%`) });
+      saveBlob(blob, name);
+      setShareStatus(`Downloaded ${name}`);
+    } catch (error) {
+      if (!controller.signal.aborted) setShareStatus(error instanceof Error ? `Download failed: ${error.message}` : "Download failed");
+    } finally {
+      if (downloadAbort.current === controller) { downloadAbort.current = null; setDownloading(null); }
+    }
+  }
 
   function navigate(id: string, compareNext = compareId) {
     const next = allSlides.find(s => s.slideId === id);
@@ -153,8 +203,25 @@ export function PathologyViewer() {
       <div className="pathology-heading"><span className="pathology-eyebrow">Digital pathology</span><h1>Pathology slides</h1></div>
       <div className="pathology-header-actions">
         {button("Copy current view link", () => void share(), <Copy size={18} />)}
+        <div className="pathology-download" ref={downloadMenu}>
+          <button type="button" title="Download image" aria-label="Download image" aria-haspopup="menu" aria-expanded={Boolean(downloads)}
+            onClick={openDownloads} disabled={!slide} data-test-id="pathology-download"><Download size={18} /></button>
+          {downloads && slide && <div className="pathology-download-menu" role="menu" aria-label="Download image">
+            {(["view", "region", "slide"] as const).map(kind => {
+              const plan = downloads[kind];
+              if (kind === "region" && !region) return null;
+              const full = plan?.downsample === 1;
+              return <button key={kind} type="button" role="menuitem" disabled={!plan || Boolean(downloading)} onClick={() => plan && void download(kind, plan)}>
+                <strong>{kind === "region" && region ? `Region: ${region.label}` : downloadLabels[kind]}</strong>
+                <small>{plan ? `${plan.width.toLocaleString()} × ${plan.height.toLocaleString()} px JPEG · ${full ? "full resolution" : `1/${plan.downsample} scale`}` : "Not available yet"}</small>
+              </button>;
+            })}
+            <p>Exports are unrotated, without annotations. Image pixels are the derived JPEG tiles, not the original SVS.</p>
+          </div>}
+        </div>
+        {downloading && <button type="button" className="pathology-download-cancel" onClick={() => downloadAbort.current?.abort()}>Cancel</button>}
         {button("Full screen", () => { if (document.fullscreenElement) void document.exitFullscreen(); else void workspace.current?.requestFullscreen(); }, <Expand size={18} />)}
-        <span role="status" className="pathology-share-status">{shareStatus}</span>
+        <span role="status" className="pathology-share-status">{downloading ?? shareStatus}</span>
       </div>
     </header>
     {error ? <div className="pathology-empty" role="alert"><h2>Slides could not load</h2><p>Check your connection or sign in again.</p><button onClick={() => void mutate()}>Retry</button><a href="/sign-in">Sign in</a></div>

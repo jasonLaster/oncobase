@@ -5,6 +5,8 @@ import { formatLength, regionLengthMicrons, type PathologyRegion, type Pathology
 export interface SlideControls {
   home(): void; zoom(factor: number): void; magnify(power: number): void; rotate(): void;
   focus(region: PathologyRegion): void; camera(): SlideCamera | null;
+  /** Unrotated bounding box of what is on screen, in full-resolution image pixels. */
+  visibleRect(): { x: number; y: number; width: number; height: number } | null;
 }
 export type SlideTool = "pan" | "region" | "ruler";
 let runtime: Promise<typeof OpenSeadragon> | undefined;
@@ -74,6 +76,16 @@ export function SlideCanvas({ slide, tool = "pan", regions = [], selectedRegion,
             Math.abs(region.endX - region.x) + pad * 2, Math.abs(region.endY - region.y) + pad * 2));
         },
         camera,
+        visibleRect() {
+          const item = instance.world.getItemAt(0);
+          const size = instance.viewport.getContainerSize();
+          if (!item || !size.x || !size.y) return null;
+          const corners = [[0, 0], [size.x, 0], [0, size.y], [size.x, size.y]]
+            .map(([x, y]) => item.viewportToImageCoordinates(instance.viewport.pointFromPixel(new OSD.Point(x, y), true)));
+          const xs = corners.map(p => p.x), ys = corners.map(p => p.y);
+          const x = Math.min(...xs), y = Math.min(...ys);
+          return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+        },
       };
       instance.addHandler("open", () => {
         const saved = restore.current;

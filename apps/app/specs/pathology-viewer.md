@@ -21,6 +21,12 @@ Stain labels describe the supplied source image; no expression score is inferred
 `?slide=<id>` selects the exact immutable source; missing IDs show an error.
 `compare=<id>` opens a second independent slide. Copy View includes the primary
 slide's image-pixel center, image zoom, rotation, and saved region ID.
+Download (header) stitches the served Deep Zoom tiles in the browser into a
+JPEG of the current view, the selected region, or the whole slide. It uses the
+sharpest pyramid level that fits a 16 MP / 8192 px canvas (iOS Safari's limit),
+so small fields export at full resolution and the whole slide at reduced scale.
+Exports are unrotated, without annotations, and are derived JPEG pixels, not
+the original SVS.
 
 ## Review workflow
 
