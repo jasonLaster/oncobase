@@ -107,6 +107,7 @@ export const API_ROUTES: readonly ApiRoute[] = [
   { path: "/api/wiki/talk", gate: "required", load: () => import("./api/page-talk").then(m => ({ request }: ApiRouteRequest) => m.handlePageTalk(request)) },
   { path: "/api/wiki/palette-recommend", gate: "required", load: () => import("./api/palette-recommend").then(m => m.handlePaletteRecommend) },
   { path: "/api/wiki/palette-pick", gate: "required", load: () => import("./api/palette-pick").then(m => m.handlePalettePick) },
+  { path: "/api/client-errors", gate: "required", load: () => import("./api/client-errors").then(m => m.handleClientErrors) },
   // Any other /api/wiki/* path still resolves the site and gate, then falls through.
   { prefix: "/api/wiki/", gate: "required" },
 

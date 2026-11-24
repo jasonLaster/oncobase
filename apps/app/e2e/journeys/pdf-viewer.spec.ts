@@ -74,8 +74,12 @@ for (const width of [393, 1440, 1920]) {
 test("PDF errors offer sign-in and the original download", async ({ page }) => {
   await installWikiApiMocks(page);
   await page.route("**/api/file?**", route => route.fulfill({ status: 404, body: "File not found" }));
+  const reports: Record<string, unknown>[] = [];
+  await page.route("**/api/client-errors", route => { reports.push(route.request().postDataJSON()); return route.fulfill({ status: 204 }); });
   await page.goto("/tools/pdf-viewer?path=private%2Freport.pdf");
   await expect(page.getByRole("alert")).toContainText("could not be opened");
+  await expect.poll(() => reports.length).toBe(1);
+  expect(reports[0]).toMatchObject({ source: "pdf-viewer", stage: "open", path: "private/report.pdf", context: { pdfjs: expect.any(String) } });
   await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute("href", /redirect=.*pdf-viewer/);
   await expect(page.getByRole("link", { name: "Download", exact: true })).toBeVisible();
 });
