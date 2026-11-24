@@ -1,12 +1,17 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { v } from "convex/values";
 
 // 2: assets carry content hashes and include image files (P11). A bump makes
 // every installed snapshot stale; readers then request a rebuild.
 export const MANIFEST_SNAPSHOT_VERSION = 2;
 const BUILD_LEASE_MS = 120_000;
-export type ManifestDelta = { baseRevision: number; slugs: string[] };
+/** `assets` holds `kind:path` keys of upserted assets; the delta builder re-reads
+ * each row, so a key whose row is unchanged patches to the same entry. */
+export type ManifestDelta = { baseRevision: number; slugs: string[]; assets?: string[] };
+export const MANIFEST_DELTA_LIMIT = 128;
+export const manifestDeltaValidator = v.object({ baseRevision: v.number(), slugs: v.array(v.string()), assets: v.optional(v.array(v.string())) });
 
 /** A scoped publisher's live lease. Builds assembled under it are discarded at
  * install, and its finish/fail/expiry path owns queueing the next build. */

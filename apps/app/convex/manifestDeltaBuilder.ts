@@ -6,7 +6,8 @@ import type { WikiManifestPage } from "@oncobase/wiki-content";
 import type { ManifestTelemetry } from "../shared/manifest-telemetry";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
-import { patchManifestPages } from "./lib/manifestDelta";
+import { patchManifestPages, type ManifestAssetUpdate } from "./lib/manifestDelta";
+import { MANIFEST_DELTA_LIMIT } from "./lib/manifestRevision";
 import { emitManifestTelemetry, manifestBuildArgs, recordManifestFailure, storeAndInstall } from "./lib/manifestInstall";
 
 type FallbackReason = "full-required" | "base-unavailable" | "unsupported-pages" | "delta-failed";
@@ -18,7 +19,7 @@ export const build = internalAction({
     const started = performance.now(), startedAt = Date.now();
     const phases: Record<string, number> = {};
     const event: ManifestTelemetry = { version: 1, startedAt, queuedAt, attempt, clientTraceId, revision: -1, durationMs: 0, incremental: true, strategyReason: "delta",
-      ...(delta ? { changedDocuments: delta.slugs.length } : {}), outcome: "failed", failureStage: "revision", phases };
+      ...(delta ? { changedDocuments: delta.slugs.length } : {}), ...(delta?.assets ? { changedAssets: delta.assets.length } : {}), outcome: "failed", failureStage: "revision", phases };
     let fallback: FallbackReason | undefined, handedOff = false;
     try {
       const revision = await ctx.runQuery(internal.manifestCache.revision, { siteSlug });
@@ -27,12 +28,14 @@ export const build = internalAction({
       event.revision = revision;
       event.failureStage = "assemble";
       let json: string | null = null;
-      if (!delta || delta.slugs.length > 128 || revision !== delta.baseRevision + 1) fallback = "full-required";
+      const assetKeys = delta?.assets ?? [];
+      if (!delta || delta.slugs.length > MANIFEST_DELTA_LIMIT || assetKeys.length > MANIFEST_DELTA_LIMIT || revision !== delta.baseRevision + 1) fallback = "full-required";
       else {
         const deltaStarted = performance.now();
         try {
           const base = await ctx.runQuery(internal.manifestCache.deltaBase, { siteSlug, baseRevision: delta.baseRevision });
           const pages: Array<WikiManifestPage | null> = [];
+          const assets: ManifestAssetUpdate[] = [];
           let bytes: Blob | null = null;
           if (base) {
             // Fetch the base bytes while the changed rows are read. Bound
@@ -41,13 +44,15 @@ export const build = internalAction({
             for (let offset = 0; offset < delta.slugs.length; offset += 16) {
               batches.push(ctx.runQuery(internal.documents.internal_publisherManifestPages, { siteSlug, slugs: delta.slugs.slice(offset, offset + 16) }));
             }
-            const [blob, rows] = await Promise.all([ctx.storage.get(base.storageId), Promise.all(batches)]);
+            const [blob, rows, changedAssets] = await Promise.all([ctx.storage.get(base.storageId), Promise.all(batches),
+              assetKeys.length ? ctx.runQuery(internal.documents.internal_publisherManifestAssets, { siteSlug, keys: assetKeys }) : []]);
             bytes = blob;
             for (const batch of rows) pages.push(...batch);
+            assets.push(...changedAssets);
           }
           if (!base || !bytes) fallback = "base-unavailable";
           else {
-            json = patchManifestPages(JSON.parse(await bytes.text()), siteSlug, base.hash, pages);
+            json = patchManifestPages(JSON.parse(await bytes.text()), siteSlug, base.hash, pages, assets);
             if (json === null) fallback = "unsupported-pages";
           }
         } catch { fallback = "delta-failed"; }

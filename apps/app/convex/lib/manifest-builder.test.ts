@@ -43,6 +43,29 @@ test("scheduled public additions use the delta and forward ownership to installa
   }
 });
 
+test("an asset-only delta reads the changed asset rows, never the full listing", async () => {
+  const core = { schemaVersion: 1, siteSlug: "alpha", scope: "public", compactTree: [], pages: [], assets: [] };
+  const hash = createHash("sha256").update(JSON.stringify(core)).digest("hex").slice(0, 24);
+  const base = { ...core, manifestHash: hash, generatedAt: "fixture" };
+  const queries: Array<{ name: string; args: any }> = [];
+  let stored: any;
+  await withoutTelemetry(() => deltaHandler({
+    runQuery: async (ref: any, args: any) => {
+      const name = getFunctionName(ref); queries.push({ name, args });
+      if (name === "manifestCache:revision") return 1;
+      if (name === "manifestCache:deltaBase") return { storageId: "base", hash };
+      if (name === "documents:internal_publisherManifestAssets") return [{ kind: "pdf", path: "a.pdf", listed: true, contentHash: "pa" }];
+      throw Error("Unexpected full scan");
+    },
+    storage: { get: async () => new Blob([JSON.stringify(base)]), store: async (blob: Blob) => { stored = JSON.parse(await blob.text()); return "new-blob"; }, delete: async () => {} },
+    runMutation: async () => "installed",
+  }, { siteSlug: "alpha", delta: { baseRevision: 0, slugs: [], assets: ["pdf:a.pdf"] } }));
+  expect(queries.map(query => query.name)).toEqual(["manifestCache:revision", "manifestCache:deltaBase", "documents:internal_publisherManifestAssets"]);
+  expect(queries[2].args).toEqual({ siteSlug: "alpha", keys: ["pdf:a.pdf"] });
+  expect(stored.assets).toEqual([{ kind: "pdf", path: "a.pdf", contentHash: "pa", size: null }]);
+  expect(stored.compactTree).toEqual([["p", "a"]]);
+});
+
 test("a failed install and failed blob cleanup still reach durable retry handling", async () => {
   const mutations: any[] = [];
   const savedOrigin = process.env.WIKI_TELEMETRY_ORIGIN;

@@ -64,3 +64,50 @@ test("additions with Convex wire key ordering and an empty base match a full reb
   const patched = JSON.parse(patchManifestPages(base, "alpha", base.manifestHash, pages)!);
   expect({ ...patched, generatedAt: "" }).toEqual({ ...await build(), generatedAt: "" });
 });
+
+test("asset upserts match a complete rebuild: hashes, additions, unlisted files and newly sensitive assets", async () => {
+  const pages = [{ slug: "home", title: "home", tags: [], description: null, contentHash: "h", sensitive: false, size: 1 }];
+  type Row = { path: string; ownerSlugs: string[]; sensitive: boolean; contentHash: string | null };
+  const pdfs: Row[] = [{ path: "b.pdf", ownerSlugs: ["home"], sensitive: false, contentHash: "p1" }, { path: "secret.pdf", ownerSlugs: [], sensitive: true, contentHash: "s" }];
+  const files: Row[] = [{ path: "img/b.png", ownerSlugs: ["home"], sensitive: false, contentHash: "f1" }];
+  const sorted = (rows: Row[]) => [...rows].sort((a, b) => a.path < b.path ? -1 : 1);
+  const documents: WikiApiDocumentsGateway = {
+    listManifestPage: async () => ({ page: pages, isDone: true, continueCursor: null }),
+    // The public builder skips sensitive rows before listing them, as Convex does.
+    listPdfAssetVisibilityPage: async () => ({ page: sorted(pdfs).filter(row => !row.sensitive), isDone: true, continueCursor: null }),
+    listFileAssetVisibilityPage: async () => ({ page: sorted(files).filter(row => !row.sensitive), isDone: true, continueCursor: null }),
+    listPageWithContent: async () => { throw Error("unexpected fallback"); },
+    listPdfAssetPathsPage: async () => { throw Error("unexpected fallback"); },
+    listFileAssetPathsPage: async () => { throw Error("unexpected fallback"); },
+    getBySlug: async () => null,
+  };
+  const build = async () => (await createWikiManifestResponse(new Request("https://fixture.test/api/wiki/manifest?scope=public"),
+    { siteSlug: "alpha", documents, manifestFileAssets: true, getSessionUser: async () => null })).json();
+  const base = await build();
+  const upsert = (kind: "pdf" | "file", row: Row) => {
+    const rows = kind === "pdf" ? pdfs : files;
+    const index = rows.findIndex(existing => existing.path === row.path);
+    if (index >= 0) rows[index] = row; else rows.push(row);
+    return { kind, path: row.path, listed: !row.sensitive, contentHash: row.contentHash };
+  };
+  const updates = [
+    upsert("pdf", { path: "b.pdf", ownerSlugs: ["home"], sensitive: false, contentHash: "p2" }), // hash change
+    upsert("pdf", { path: "a.pdf", ownerSlugs: ["home"], sensitive: false, contentHash: "pa" }), // new, sorts first
+    upsert("pdf", { path: "c.pdf", ownerSlugs: ["home"], sensitive: false, contentHash: "pc" }), // new, last PDF
+    upsert("file", { path: "img/a.png", ownerSlugs: ["home"], sensitive: false, contentHash: "fa" }),
+    upsert("file", { path: "data.csv", ownerSlugs: ["home"], sensitive: false, contentHash: "csv" }), // never listed
+    upsert("file", { path: "img/b.png", ownerSlugs: [], sensitive: true, contentHash: "f2" }), // now sensitive
+    upsert("pdf", { path: "secret.pdf", ownerSlugs: [], sensitive: true, contentHash: "s2" }), // stays hidden
+  ];
+  const patched = JSON.parse(patchManifestPages(base, "alpha", base.manifestHash, [], updates)!);
+  const full = await build();
+  expect({ ...patched, generatedAt: "" }).toEqual({ ...full, generatedAt: "" });
+  expect(patched.compactTree).not.toEqual(base.compactTree);
+  // A PDF hash change alone keeps the tree.
+  const rehashed = JSON.parse(patchManifestPages(full, "alpha", full.manifestHash, [], [upsert("pdf", { path: "a.pdf", ownerSlugs: ["home"], sensitive: false, contentHash: "pa2" })])!);
+  expect({ ...rehashed, generatedAt: "" }).toEqual({ ...await build(), generatedAt: "" });
+  expect(rehashed.compactTree).toEqual(full.compactTree);
+  // A PDF that becomes sensitive leaves the tree.
+  const hidden = JSON.parse(patchManifestPages(rehashed, "alpha", rehashed.manifestHash, [], [upsert("pdf", { path: "c.pdf", ownerSlugs: [], sensitive: true, contentHash: "pc" })])!);
+  expect({ ...hidden, generatedAt: "" }).toEqual({ ...await build(), generatedAt: "" });
+});

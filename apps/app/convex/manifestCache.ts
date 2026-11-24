@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { serviceOrSecretMutation, serviceOrSecretQuery } from "./lib/serviceFunctions";
 import { requireSite } from "./lib/site";
-import { hasActiveScopedWriter, MANIFEST_SNAPSHOT_VERSION, queueManifestBuild } from "./lib/manifestRevision";
+import { hasActiveScopedWriter, MANIFEST_SNAPSHOT_VERSION, manifestDeltaValidator, queueManifestBuild } from "./lib/manifestRevision";
 import { manifestFence } from "./lib/accessRevision";
 import { query } from "./lib/serviceFunctions";
 
@@ -131,7 +131,7 @@ export const install = internalMutation({
 });
 
 export const failed = internalMutation({
-  args: { siteSlug: v.string(), generation: v.optional(v.number()), attempt: v.optional(v.number()), clientTraceId: v.optional(v.string()), delta: v.optional(v.object({ baseRevision: v.number(), slugs: v.array(v.string()) })) },
+  args: { siteSlug: v.string(), generation: v.optional(v.number()), attempt: v.optional(v.number()), clientTraceId: v.optional(v.string()), delta: v.optional(manifestDeltaValidator) },
   handler: async (ctx, { siteSlug, generation, attempt = 0, clientTraceId, delta }): Promise<null> => {
     const { site, siteId } = await requireSite(ctx, siteSlug);
     if (!site || !siteId || !ownsBuild(site, generation)) return null;

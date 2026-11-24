@@ -165,16 +165,45 @@ test("manifest strategy follows actual writes, with bounded journals and conserv
     expect((await t.run(ctx => ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", siteId).eq("runId", runId)).collect())).length).toBeGreaterThan(0);
     await t.mutation(api.sites.finishPublish, { slug: "fixture", runId });
     const jobs = await t.run(ctx => ctx.db.system.query("_scheduled_functions").collect());
-    const deltaScenario = scenario === "one" || scenario === "bulk";
+    // An asset upsert names its path, so it patches too; a sensitivity flip ("*") does not.
+    const deltaScenario = scenario === "one" || scenario === "bulk" || scenario === "asset";
     // Deltas run in the default runtime; everything else goes straight to the Node full builder.
     const build = jobs.find(job => job.name === (deltaScenario ? "manifestDeltaBuilder:build" : "manifestBuilder:build"))!;
     expect(build).toBeDefined();
-    const args = build.args[0] as { delta?: { slugs: string[] } };
-    if (deltaScenario) expect(args.delta?.slugs).toEqual(["doc-0"]);
+    const args = build.args[0] as { delta?: { baseRevision: number; slugs: string[]; assets?: string[] } };
+    if (deltaScenario) expect(args.delta).toEqual({ baseRevision: 10, slugs: ["doc-0"], ...(scenario === "asset" ? { assets: ["pdf:asset.pdf"] } : {}) });
     else expect(args.delta).toBeUndefined();
     await t.mutation(internal.sites.cleanupPublishChanges, { siteId, runId });
     // eslint-disable-next-line no-restricted-syntax -- Test fixture queries its explicit site/run index.
     if (scenario !== "129") expect(await t.run(ctx => ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", siteId).eq("runId", runId)).collect())).toEqual([]);
     await drainScheduled(t);
   }
+});
+
+test("delta asset reads agree with the public asset listing the full builder uses", async () => {
+  const t = convexTest(schema, {
+    "../documents.ts": () => import("../documents"), "../sites.ts": () => import("../sites"),
+    "../_generated/server.js": () => import("../_generated/server"),
+  });
+  const siteId = await t.run(ctx => ctx.db.insert("sites", {
+    slug: "fixture", name: "fixture", ownerEmail: "fixture@example.test", status: "active", domains: [], publishTokenHash: "fixture",
+    config: { enableChat: false, enableComments: false, enableDownloads: false, passwordGate: false },
+    quotas: { monthlyOpenAITokens: 0, blobBytes: 0 }, createdAt: 1, updatedAt: 1,
+  }));
+  const row = { siteId, blobUrl: "https://fixture.invalid/a", sizeBytes: 1, uploadedAt: 1 };
+  await t.run(async ctx => {
+    await ctx.db.insert("pdfAssets", { ...row, path: "public.pdf", contentHash: "p", ownerSlugs: ["home"], sensitive: false });
+    await ctx.db.insert("pdfAssets", { ...row, path: "secret.pdf", contentHash: "s", ownerSlugs: [], sensitive: true });
+    await ctx.db.insert("pdfAssets", { ...row, path: "legacy.pdf" }); // incomplete visibility is treated as sensitive
+    await ctx.db.insert("pdfAssets", { ...row, path: "gone.pdf", ownerSlugs: [], sensitive: false, deletedAt: 2 });
+    await ctx.db.insert("fileAssets", { ...row, path: "img/a.png", ownerSlugs: ["home"], sensitive: false });
+  });
+  const keys = ["pdf:public.pdf", "pdf:secret.pdf", "pdf:legacy.pdf", "pdf:gone.pdf", "pdf:missing.pdf", "file:img/a.png"];
+  const reads = await t.query(internal.documents.internal_publisherManifestAssets, { siteSlug: "fixture", keys });
+  const listed = async (kind: "pdf" | "file") => (await t.query(kind === "pdf" ? internal.documents.internal_listPdfAssetVisibilityPage : internal.documents.internal_listFileAssetVisibilityPage,
+    { siteSlug: "fixture", cursor: null, numItems: 100 })).page.map(asset => ({ kind, path: asset.path, contentHash: asset.contentHash }));
+  expect(reads.filter(read => read.listed).map(({ kind, path, contentHash }) => ({ kind, path, contentHash })))
+    .toEqual([...await listed("pdf"), ...await listed("file")]);
+  expect(reads.map(read => read.listed)).toEqual([true, false, false, false, false, true]);
+  await expect(t.query(internal.documents.internal_publisherManifestAssets, { siteSlug: "fixture", keys: ["doc:x"] })).rejects.toThrow();
 });

@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./lib/serviceFunctions";
 import { DEFAULT_SITE_SLUG, SITE_SLUG_RE, assertSiteSlug } from "./lib/site";
 import { assertPublishRun, OWNED_RUN_PREFIX, PUBLISH_LEASE_MS, PUBLISH_LEASE_RENEW_SKIP_MS } from "./lib/publishRun";
-import { invalidateManifest, queueManifestBuild, MANIFEST_SNAPSHOT_VERSION } from "./lib/manifestRevision";
+import { invalidateManifest, queueManifestBuild, MANIFEST_DELTA_LIMIT, MANIFEST_SNAPSHOT_VERSION } from "./lib/manifestRevision";
 import { bumpAccessRevision } from "./lib/accessRevision";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -379,15 +379,18 @@ export const finishPublish = mutation({
     if (owned && site.publishRunChanged !== false) {
       // The server records actual writes transactionally. A broad selection or
       // unchanged referenced assets must not force a whole-vault rebuild.
+      // Journaled asset upserts carry `kind:path` keys the delta can patch; a
+      // "*" entry (a sensitivity change, or a pre-key writer) needs a full build.
       let slugs = site.publishScope?.documents;
-      let assetsChanged = site.publishScope?.assets.length !== 0;
+      let assets: string[] | undefined = site.publishScope?.assets.length === 0 ? [] : undefined;
       if (site.publishJournalVersion === 1 && runId) {
-        const entries = await ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", site._id).eq("runId", runId).eq("kind", "document")).take(129);
+        const entries = await ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", site._id).eq("runId", runId).eq("kind", "document")).take(MANIFEST_DELTA_LIMIT + 1);
         slugs = entries.map(entry => entry.key);
-        assetsChanged = Boolean(await ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", site._id).eq("runId", runId).eq("kind", "asset")).first());
+        const assetEntries = await ctx.db.query("publishChanges").withIndex("by_run_kind_key", q => q.eq("siteId", site._id).eq("runId", runId).eq("kind", "asset")).take(MANIFEST_DELTA_LIMIT + 1);
+        assets = assetEntries.some(entry => entry.key === "*") ? undefined : assetEntries.map(entry => entry.key);
       }
-      const delta = !assetsChanged && slugs && slugs.length > 0 && slugs.length <= 128
-        ? { baseRevision: site.manifestRevision ?? 0, slugs } : undefined;
+      const delta = slugs && assets && slugs.length + assets.length > 0 && slugs.length <= MANIFEST_DELTA_LIMIT && assets.length <= MANIFEST_DELTA_LIMIT
+        ? { baseRevision: site.manifestRevision ?? 0, slugs, ...(assets.length ? { assets } : {}) } : undefined;
       await invalidateManifest(ctx, site._id, 0, delta, clientTraceId);
     }
     // A no-op can reuse only the current-format/current-revision snapshot.

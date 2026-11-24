@@ -5,9 +5,9 @@ import type { ManifestTelemetry } from "../../shared/manifest-telemetry";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
-import { MANIFEST_SNAPSHOT_VERSION, type ManifestDelta } from "./manifestRevision";
+import { MANIFEST_SNAPSHOT_VERSION, manifestDeltaValidator, type ManifestDelta } from "./manifestRevision";
 
-export const manifestBuildArgs = { siteSlug: v.string(), queuedAt: v.optional(v.number()), generation: v.optional(v.number()), attempt: v.optional(v.number()), clientTraceId: v.optional(v.string()), delta: v.optional(v.object({ baseRevision: v.number(), slugs: v.array(v.string()) })) };
+export const manifestBuildArgs = { siteSlug: v.string(), queuedAt: v.optional(v.number()), generation: v.optional(v.number()), attempt: v.optional(v.number()), clientTraceId: v.optional(v.string()), delta: v.optional(manifestDeltaValidator) };
 export type ManifestBuildArgs = { siteSlug: string; queuedAt?: number; generation?: number; attempt?: number; clientTraceId?: string; delta?: ManifestDelta };
 type Phases = Record<string, number>;
 

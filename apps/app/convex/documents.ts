@@ -1090,7 +1090,7 @@ export const upsertPdfAsset = mutation({
   ) => {
     const site = await requireSite(ctx, siteSlug);
     const ownedRun = assertPublishRun(site.site, runId, { asset: `pdf:${path}` });
-    await recordPublishChange(ctx, site.site, ownedRun);
+    await recordPublishChange(ctx, site.site, ownedRun, undefined, `pdf:${path}`);
     const existing = await findAssetByPath(ctx, "pdfAssets", site, path);
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -1548,7 +1548,7 @@ export const upsertFileAsset = mutation({
   ) => {
     const site = await requireSite(ctx, siteSlug);
     const ownedRun = assertPublishRun(site.site, runId, { asset: `file:${path}` });
-    await recordPublishChange(ctx, site.site, ownedRun);
+    await recordPublishChange(ctx, site.site, ownedRun, undefined, `file:${path}`);
     const existing = await findAssetByPath(ctx, "fileAssets", site, path);
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -1655,6 +1655,26 @@ export const publisherState = query({
       };
     }));
     return { version: 1 as const, documents, assets: assetStates };
+  },
+});
+
+// Public manifest entries for upserted assets, mirroring the public branch of
+// list{Pdf,File}AssetVisibilityPage. Asset rows hold no bodies, so a whole
+// delta's keys fit one query. `listed: false` removes the entry.
+export const internal_publisherManifestAssets = internalQuery({
+  args: { siteSlug: v.string(), keys: v.array(v.string()) },
+  handler: async (ctx, { siteSlug, keys }) => {
+    if (keys.length > 128) throw new Error("Manifest delta batch exceeds limit");
+    const site = await requireSite(ctx, siteSlug);
+    return Promise.all(keys.map(async key => {
+      const separator = key.indexOf(":");
+      const prefix = key.slice(0, separator), path = key.slice(separator + 1);
+      const kind = prefix === "pdf" ? "pdf" as const : prefix === "file" ? "file" as const : null;
+      if (!kind) throw new Error("Invalid manifest delta asset key");
+      const row = await findAssetByPath(ctx, kind === "pdf" ? "pdfAssets" : "fileAssets", site, path);
+      const listed = Boolean(row && !row.deletedAt && hasCompleteAssetVisibility(row) && row.sensitive !== true);
+      return { kind, path, listed, contentHash: row?.contentHash ?? null };
+    }));
   },
 });
 
