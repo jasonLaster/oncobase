@@ -96,13 +96,7 @@ test.describe("reading the wiki (real backend)", () => {
   test("a versioned image is reopened from the HTTP cache in a new document (P11)", async ({ page }) => {
     const path = "/api/file?path=wiki%2Fimages%2Ftreatment-timeline.png";
     await keepAllResourceTimings(page);
-    // TEMP P11 diagnostics (CI only reproduces this); removed once understood.
-    const t0 = Date.now(); const log = (...a: unknown[]) => console.log("P11DIAG", ((Date.now() - t0) / 1000).toFixed(1) + "s", ...a);
-    page.on("framenavigated", f => { if (f === page.mainFrame()) log("NAV", f.url()); });
-    page.on("console", m => { if (/\[vite\]|crash|reload/i.test(m.text())) log("CONSOLE", m.text().slice(0, 160)); });
-    page.on("response", async r => { if (r.url().includes("/api/file")) log("FILERES", r.status(), r.url().slice(-40), r.headers()["cache-control"], "fromCache=" + (await r.request().sizes().catch(() => null) ? "?" : "?"), "req-cc=" + (r.request().headers()["cache-control"] ?? ""), "inm=" + (r.request().headers()["if-none-match"] ?? ""), "ims=" + (r.request().headers()["if-modified-since"] ?? "")); });
     await openPage(page, "/");
-    log("OPENED");
     // The server's ETag is the stored content hash: the same value the
     // manifest names an asset by.
     const hash = await page.evaluate(async (url) => (await fetch(url, { credentials: "same-origin" })).headers.get("etag")?.replace(/"/g, ""), path);
@@ -117,13 +111,9 @@ test.describe("reading the wiki (real backend)", () => {
     }, url);
     expect(await show(versioned), "first load reaches the network").toBeGreaterThan(0);
     expect(await show(path), "unversioned first load").toBeGreaterThan(0);
-    log("RELOAD");
     await page.reload();
     await expect(article(page)).toBeVisible();
-    log("AFTER RELOAD", await page.evaluate(() => JSON.stringify({ nav: (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type, files: performance.getEntriesByType("resource").filter(e => e.name.includes("/api/file")).map(e => [e.name.slice(-40), (e as PerformanceResourceTiming).transferSize]) })));
-    const after = await show(versioned);
-    log("SHOW AFTER", after, await page.evaluate(() => JSON.stringify({ nav: (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type, files: performance.getEntriesByType("resource").filter(e => e.name.includes("/api/file")).map(e => [e.name.slice(-40), (e as PerformanceResourceTiming).transferSize, Math.round(e.startTime)]) })));
-    expect(after, "versioned image after reload").toBe(0);
+    expect(await show(versioned), "versioned image after reload").toBe(0);
     expect(await show(path), "unversioned image after reload stays no-store").toBeGreaterThan(0);
   });
 
