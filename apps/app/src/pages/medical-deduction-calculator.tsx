@@ -533,7 +533,8 @@ function AmountSlider({ label, value, min, max, step, onChange }: {
         onValueChange={(next) => onChange(next as number)}
       >
         <SliderControl className="flex h-6 w-full cursor-pointer touch-none items-center">
-          <SliderTrack className="relative h-1.5 w-full rounded-full bg-[var(--border)]">
+          {/* A foreground tint, like the native range track it replaces: --border nearly vanishes in dark mode. */}
+          <SliderTrack className="relative h-1.5 w-full rounded-full bg-[color-mix(in_srgb,var(--foreground)_22%,transparent)]">
             <SliderIndicator className="absolute h-full rounded-full bg-[var(--brand)]" />
             <SliderThumb
               aria-label={`${label} slider`}
