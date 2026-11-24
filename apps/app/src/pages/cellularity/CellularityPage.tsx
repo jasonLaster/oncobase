@@ -15,7 +15,7 @@ import { CelDrawer } from "./controls";
 import { ReconcileAndRcbSection } from "./ReconcileAndRcbSection";
 import { adoptStyles } from "../../lazy-styles";
 import { resetCellularityViewState, usePublishViewState } from "./view-state";
-import type { CellularityData } from "./types";
+import type { CellularityData, FieldRef } from "./types";
 import { CELLULARITY_DATA_URL, cellularityAssetUrl } from "./utils";
 import cellularityCss from "./cellularity.css?inline";
 
@@ -77,6 +77,8 @@ export function CellularityPage() {
   const [data, setData] = useState<CellularityData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
+  // Linked brushing: a 1 mm field hovered in the 3D model or the 2D inspector.
+  const [hoverField, setHoverField] = useState<FieldRef | null>(null);
   const [bedMode, setBedMode] = useState<BedMode>("webgl");
   const [allDrawersOpen, setAllDrawersOpen] = useState(false);
   usePublishViewState("view", bedMode);
@@ -222,7 +224,7 @@ export function CellularityPage() {
           <div className="cel-card">
             <TabsPanel value="webgl" className="cel-bed-panel">
               <Suspense fallback={<div className="cel-webgl-wrap" style={{ display: "grid", placeItems: "center", color: "#5b5953" }}>Loading 3D WebGL model…</div>}>
-                <TumorModel3D data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} />
+                <TumorModel3D data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} hoverField={hoverField} onHoverField={setHoverField} />
               </Suspense>
             </TabsPanel>
             <TabsPanel value="3d" className="cel-bed-panel">
@@ -238,25 +240,28 @@ export function CellularityPage() {
             {/* The 3D model has its own thumbnail strip, linked to the scene. */}
             {bedMode !== "webgl" ? <PageSliceStrip data={data} activeBlock={activeBlock} onSelect={setSelectedBlock} /> : null}
 
-            <div className="cel-legend-row">
-              <div>
-                <span>0%</span>
-                <span className="cel-colorbar-grad" />
-                <span>33% keratin area (compressed scale so 1–5% stays visible)</span>
+            {/* The 3D model carries its own legend. */}
+            {bedMode !== "webgl" ? (
+              <div className="cel-legend-row">
+                <div>
+                  <span>0%</span>
+                  <span className="cel-colorbar-grad" />
+                  <span>33% keratin area (compressed scale so 1–5% stays visible)</span>
+                </div>
+                <div>
+                  <span style={{ display: "inline-block", width: 10, height: 10, border: "1.5px solid currentColor", borderRadius: 2, verticalAlign: -1 }} /> {specimen.legend_real_label}
+                  &nbsp;·&nbsp;
+                  <span style={{ display: "inline-block", width: 10, height: 10, border: "1.5px dashed #2563eb", borderRadius: 2, verticalAlign: -1 }} /> {specimen.legend_virtual_label}
+                </div>
               </div>
-              <div>
-                <span style={{ display: "inline-block", width: 10, height: 10, border: "1.5px solid currentColor", borderRadius: 2, verticalAlign: -1 }} /> {specimen.legend_real_label}
-                &nbsp;·&nbsp;
-                <span style={{ display: "inline-block", width: 10, height: 10, border: "1.5px dashed #2563eb", borderRadius: 2, verticalAlign: -1 }} /> {specimen.legend_virtual_label}
-              </div>
-            </div>
+            ) : null}
 
             <p className="cel-footnote">
               <strong>Anatomical orientation &amp; 3D interpolation note:</strong> {specimen.orientation_note}
             </p>
           </div>
 
-          <BlockInspector data={data} selectedBlock={activeBlock} />
+          <BlockInspector data={data} selectedBlock={activeBlock} hoverField={hoverField} onHoverField={setHoverField} />
         </div>
 
         <div className="cel-drawers">

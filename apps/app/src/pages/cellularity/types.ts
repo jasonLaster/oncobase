@@ -298,3 +298,6 @@ export type CellularityData = {
   rcb_points: Record<string, number>;
   report: ReportContent;
 };
+
+/** A 1 mm field hovered in either the 2D inspector or the 3D model (linked brushing). */
+export type FieldRef = { block: string; col: number; row: number };

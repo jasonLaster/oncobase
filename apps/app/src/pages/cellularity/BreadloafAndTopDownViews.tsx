@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
 import { CelCheckbox, CelSlider } from "./controls";
-import type { BlockRow, CellularityData, SliceMeta } from "./types";
+import type { BlockRow, CellularityData, FieldRef, SliceMeta } from "./types";
 import { draw2DGrid, type GridGeometry, heatColor } from "./utils";
 
 function pointInPoly(px: number, py: number, poly: [number, number][]) {
@@ -583,9 +583,14 @@ const DEFAULT_HOVER_TEXT = {
 export function BlockInspector({
   data,
   selectedBlock,
+  hoverField = null,
+  onHoverField,
 }: {
   data: CellularityData;
   selectedBlock: string;
+  /** Field hovered in the 3D model (or here): linked brushing between 2D and 3D. */
+  hoverField?: FieldRef | null;
+  onHoverField?: (f: FieldRef | null) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const geoRef = useRef<GridGeometry | null>(null);
@@ -602,13 +607,27 @@ export function BlockInspector({
   const grid = data.grids[selectedBlock];
 
   const activeHover = hover?.block === selectedBlock ? hover : null;
-  const hoverCell = activeHover?.cell ?? null;
-  const hoverText = activeHover?.text ?? DEFAULT_HOVER_TEXT;
+  // A field hovered in the 3D model shows here too, with the same readout.
+  const linked = !activeHover && hoverField?.block === selectedBlock && grid ? hoverField : null;
+  const linkedPct = linked ? grid?.fields.find((f) => f[0] === linked.col && f[1] === linked.row)?.[2] : undefined;
+  const hoverCell: [number, number] | null = activeHover?.cell ?? (linked ? [linked.col, linked.row] : null);
+  const hoverText =
+    activeHover?.text ??
+    (linked && grid
+      ? {
+          left: `Field (${linked.col + 1}, ${linked.row + 1}) · ${grid.bed[linked.row]?.[linked.col] ? "inside tight bed" : "outside tight bed"} · from 3D`,
+          right: `${(linkedPct ?? 0).toFixed(2)}% keratin`,
+        }
+      : DEFAULT_HOVER_TEXT);
 
+  // Depend on the cell's coordinates, not the (new each render) array.
+  const hoverCol = hoverCell?.[0] ?? -1;
+  const hoverRow = hoverCell?.[1] ?? -1;
   useEffect(() => {
     if (!canvasRef.current || !grid) return;
-    geoRef.current = draw2DGrid(canvasRef.current, grid, { showBed, showNums, hoverCell });
-  }, [grid, showBed, showNums, hoverCell]);
+    const cell: [number, number] | null = hoverCol >= 0 ? [hoverCol, hoverRow] : null;
+    geoRef.current = draw2DGrid(canvasRef.current, grid, { showBed, showNums, hoverCell: cell });
+  }, [grid, showBed, showNums, hoverCol, hoverRow]);
 
   if (!grid || !row) {
     return (
@@ -696,10 +715,12 @@ export function BlockInspector({
                 cell: [c, r],
                 text: { left: `Field (${c + 1}, ${r + 1}) · ${inBed}`, right: `${ca.toFixed(2)}% keratin` },
               });
+              if (hover?.cell[0] !== c || hover?.cell[1] !== r) onHoverField?.({ block: selectedBlock, col: c, row: r });
             }
           }}
           onMouseLeave={() => {
             setHover(null);
+            onHoverField?.(null);
           }}
         />
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePublishViewState } from "./view-state";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -6,6 +6,7 @@ import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
 import { CelCheckbox, CelSlider } from "./controls";
 import {
   explodeOffset,
+  fieldToPlaneYZ,
   FACES,
   faceFacing,
   fitOrthoZoom,
@@ -17,6 +18,8 @@ import {
   type Slab,
   slabsFromSlices,
   stepScanned,
+  assayLabel,
+  reportedMarginFindings,
   TRAY_CELL,
   trayLayout,
   type Vec3,
@@ -24,13 +27,16 @@ import {
   type ViewId,
   type ViewPreset,
 } from "./tumorModelGeometry";
-import type { BlockGrid, CellularityData, PackedMesh } from "./types";
+import type { BlockGrid, CellularityData, FieldRef, PackedMesh } from "./types";
 import { heatColor } from "./utils";
 
 type Props = {
   data: CellularityData;
   selectedBlock: string;
   onSelectBlock: (id: string) => void;
+  /** Field hovered here or in the 2D inspector; drawn as a 1 mm outline on its slide face. */
+  hoverField?: FieldRef | null;
+  onHoverField?: (f: FieldRef | null) => void;
 };
 
 type Layers = ViewPreset["layers"];
@@ -39,6 +45,7 @@ type SceneState = {
   view: ViewId;
   selected: string;
   hovered: string | null;
+  hoverField: FieldRef | null;
   layers: Layers;
   explode: number;
   deal: number;
@@ -149,16 +156,28 @@ function SliceThumb({ g, active }: { g: BlockGrid; active: boolean }) {
   return <canvas ref={ref} style={{ width: g.cols * 3, height: g.rows * 3 }} aria-hidden="true" />;
 }
 
-export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
+export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = null, onHoverField }: Props) {
   const spec = data.report.specimen;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelsRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const scaleRef = useRef<HTMLDivElement | null>(null);
   const onSelectRef = useRef(onSelectBlock);
+  const onHoverFieldRef = useRef(onHoverField);
   const hoverRef = useRef<(id: string | null) => void>(() => {});
   const sceneApiRef = useRef<SceneApi | null>(null);
 
+  const captionId = useId();
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  // Keep the selected thumbnail visible in the scrolling strip (phones), without scrolling the page.
+  useEffect(() => {
+    const strip = stripRef.current;
+    const el = strip?.querySelector<HTMLElement>(`[data-block="${selectedBlock}"]`);
+    if (!strip || !el) return;
+    const l = el.offsetLeft - strip.offsetLeft;
+    if (l < strip.scrollLeft) strip.scrollLeft = l - 8;
+    else if (l + el.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = l + el.offsetWidth - strip.clientWidth + 8;
+  }, [selectedBlock]);
   const initial = VIEW_PRESETS[0];
   const [view, setView] = useState<ViewId>(initial.id);
   const [layers, setLayers] = useState<Layers>(initial.layers);
@@ -187,8 +206,9 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
 
   useEffect(() => {
     onSelectRef.current = onSelectBlock;
+    onHoverFieldRef.current = onHoverField;
     hoverRef.current = setHovered;
-  }, [onSelectBlock]);
+  }, [onSelectBlock, onHoverField]);
 
   const slabs = useMemo(() => slabsFromSlices(data.slices, spec.bed_length_mm), [data.slices, spec.bed_length_mm]);
   const focusEdge = useMemo(() => {
@@ -278,7 +298,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       slicePlane: THREE.Mesh | null;
       sliceMat: THREE.MeshBasicMaterial | null;
       contour: THREE.LineLoop | null;
-      contourMat: THREE.LineBasicMaterial | null;
+      contourMat: THREE.LineBasicMaterial | THREE.LineDashedMaterial | null;
       tag: HTMLButtonElement;
       /** Rest-frame extents of the slice face, for anchoring labels. */
       face: { yMin: number; yMax: number; zMin: number; zMax: number };
@@ -318,6 +338,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       view: VIEW_PRESETS[0].id,
       selected: "",
       hovered: null,
+      hoverField: null,
       layers: VIEW_PRESETS[0].layers,
       explode: 0,
       deal: 0,
@@ -378,7 +399,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       let slicePlane: THREE.Mesh | null = null;
       let sliceMat: THREE.MeshBasicMaterial | null = null;
       let contour: THREE.LineLoop | null = null;
-      let contourMat: THREE.LineBasicMaterial | null = null;
+      let contourMat: THREE.LineBasicMaterial | THREE.LineDashedMaterial | null = null;
       const face = { yMin: bb.min.y, yMax: bb.max.y, zMin: bb.min.z, zMax: bb.max.z };
       const g = data.grids[slab.id];
       if (slab.scanned && g) {
@@ -395,8 +416,14 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
         const ctr = M.slice_contours[slab.id];
         if (ctr && ctr.pts.length > 2) {
           const cg = track(new THREE.BufferGeometry().setFromPoints(ctr.pts.map(([y, z]) => new THREE.Vector3(slab.xc, y, z))));
-          contourMat = track(new THREE.LineBasicMaterial({ color: slab.kind === "virtual" ? VIRTUAL_INK : SELECT_INK, transparent: true, opacity: 0.5 }));
+          // Virtual PanCK (AI from H&E) outlines are dashed, real stains solid: never color alone.
+          contourMat = track(
+            slab.kind === "virtual"
+              ? new THREE.LineDashedMaterial({ color: VIRTUAL_INK, dashSize: 0.9, gapSize: 0.6, transparent: true, opacity: 0.5 })
+              : new THREE.LineBasicMaterial({ color: SELECT_INK, transparent: true, opacity: 0.5 }),
+          );
           contour = new THREE.LineLoop(cg, contourMat);
+          if (slab.kind === "virtual") contour.computeLineDistances();
           contour.renderOrder = 7;
           group.add(contour);
           face.yMin = Math.min(...ctr.pts.map((p) => p[0]));
@@ -495,6 +522,8 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
     const fmt = (v: number, d = 1) => v.toFixed(d);
     const focusRow = data.summary.rows.find((r) => r.block === specimen.focus_block);
     const inTray = () => dealCur > 0.5;
+    /** True when "cut away" hides this slab (it is lateral to the selected slide). */
+    const cutAway = (idx: number) => state.cut && !inTray() && idx >= 0 && idx < slabIdx(state.selected);
 
     addLabel({
       id: "focus",
@@ -508,7 +537,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       leader: "#7f0d12",
       priority: 100,
       movable: true,
-      show: () => (state.layers.shells || inTray()) && (!state.isolate || state.selected === specimen.focus_block || !inTray()),
+      show: () => (state.layers.shells || inTray()) && (!state.isolate || state.selected === specimen.focus_block || !inTray()) && !cutAway(focusIdx),
     });
     addLabel({
       id: "cavity",
@@ -518,7 +547,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       leader: "#475569",
       priority: 70,
       movable: true,
-      show: () => state.layers.cavity && !inTray(),
+      show: () => state.layers.cavity && !inTray() && !cutAway(cavIdx),
     });
 
     // Ruler: dense-focus fields → nearest inked edge, measured on the focus slide (rest frame, slide plane).
@@ -533,7 +562,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       const face = FACES.find((f) => f.key === edge.direction);
       addLabel({
         id: "ruler",
-        el: mk("cel-m3d-callout ruler", `<strong>≈${fmt(edge.mm)} mm</strong><span>to ${edge.direction} (${face?.inkName ?? ""}) ink</span>`),
+        el: mk("cel-m3d-callout ruler", `<strong>≈${fmt(edge.mm)} mm · model estimate</strong><span>≥5% field center → ${edge.direction} (${face?.inkName ?? ""}) tissue edge</span>`),
         anchor: () => rulerTo(),
         // Continue outward past the inked edge, along the ruler, so the label never covers the tissue it measures.
         offset: (l) => {
@@ -629,21 +658,21 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
     const showShaves = () => state.layers.shaves && !inTray();
     addLabel({
       id: "shave-sup",
-      el: mk("cel-m3d-callout shave", `<strong>${anat.superior_shave.label.split(":")[0]}</strong><span>${anat.superior_shave.label.split(":")[1]?.trim() ?? ""}</span>`),
+      el: mk("cel-m3d-callout shave", `<strong>${anat.superior_shave.label.split(" · ")[0]} · ${anat.superior_shave.label.split(":")[1]?.trim() ?? ""}</strong><span>new superior margin shave</span>`),
       anchor: () => supShave.pos(),
       offset: [40, -40],
       leader: "#15803d",
-      priority: 65,
+      priority: 95,
       movable: true,
       show: showShaves,
     });
     addLabel({
       id: "shave-med",
-      el: mk("cel-m3d-callout shave", `<strong>${anat.medial_shave.lines.slice(0, 2).join(" · ")}</strong><span>${anat.medial_shave.lines.slice(2).join(" ")}</span>`),
+      el: mk("cel-m3d-callout shave", `<strong>${anat.medial_shave.lines[0]?.split(" (")[0] ?? ""} · ${anat.medial_shave.lines.slice(2).join(" ").toLowerCase()}</strong><span>new medial margin shave</span>`),
       anchor: () => medShave.pos(),
       offset: [10, 56],
       leader: "#15803d",
-      priority: 64,
+      priority: 94,
       movable: true,
       show: showShaves,
     });
@@ -661,11 +690,11 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       clickables.push(latPlane);
       addLabel({
         id: "shave-lat",
-        el: mk("cel-m3d-callout shave pos", `<strong>${anat.lateral_shave.lines.slice(0, 2).join(" · ")}</strong><span>${anat.lateral_shave.lines.slice(2).join(" ")}</span>`),
+        el: mk("cel-m3d-callout shave pos", `<strong>${latId} · ${(data.slices.find((x) => x.id === latId)?.margins[0] ?? "").split(" at ")[0].toLowerCase()}</strong><span>${data.slices.find((x) => x.id === latId)?.margins[0] ?? anat.lateral_shave.lines.slice(2).join(" ")}</span>`),
         anchor: () => latPlane?.position.clone() ?? new THREE.Vector3(),
         offset: [-20, -70],
         leader: "#d9481f",
-        priority: 66,
+        priority: 96,
         movable: true,
         show: showShaves,
       });
@@ -703,13 +732,61 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
     const gizmoBox = mk("cel-m3d-gizmo-box", "");
     labelLayer.appendChild(gizmoBox);
 
+    // ---------------------------------------------------------------- linked field highlight
+    // A 1 mm outline on a slide face, driven by hover here or in the 2D inspector.
+    const hlGeo = track(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0.5, -0.5),
+        new THREE.Vector3(0, 0.5, 0.5),
+        new THREE.Vector3(0, -0.5, 0.5),
+        new THREE.Vector3(0, -0.5, -0.5),
+      ]),
+    );
+    const hlMat = track(new THREE.LineBasicMaterial({ color: 0x0891b2, depthTest: false, transparent: true }));
+    const fieldHl = new THREE.LineLoop(hlGeo, hlMat);
+    fieldHl.renderOrder = 20;
+    fieldHl.visible = false;
+    let hlAnchor: { idx: number; x: number; y: number; z: number } | null = null;
+    const fieldLbl = mk("cel-m3d-callout field", "");
+    addLabel({
+      id: "field",
+      el: fieldLbl,
+      anchor: () => (hlAnchor ? toWorld(hlAnchor.idx, hlAnchor.x, hlAnchor.y, hlAnchor.z) : new THREE.Vector3()),
+      offset: [0, -22],
+      priority: 120,
+      movable: true,
+      show: () => fieldHl.visible,
+    });
+    const placeFieldHighlight = (f: FieldRef | null) => {
+      const idx = f ? slabIdx(f.block) : -1;
+      const o = slabObjs[idx];
+      const g = f ? data.grids[f.block] : undefined;
+      if (!f || !o || !g || !o.group.visible) {
+        fieldHl.visible = false;
+        hlAnchor = null;
+        return;
+      }
+      const [y, z] = fieldToPlaneYZ(g, f.col, f.row);
+      const fw = g.plane_w_mm / g.cols;
+      const fh = g.plane_h_mm / g.rows;
+      o.group.add(fieldHl);
+      fieldHl.position.set(o.slab.xc - 0.25, y, z);
+      fieldHl.scale.set(1, fh, fw);
+      fieldHl.visible = true;
+      hlAnchor = { idx, x: o.slab.xc, y: y + fh / 2, z };
+      const pct = g.fields.find((q) => q[0] === f.col && q[1] === f.row)?.[2];
+      fieldLbl.innerHTML = `<strong>${f.block} field (${f.col + 1}, ${f.row + 1})</strong><span>${pct != null ? `${pct.toFixed(1)}% keratin area` : "no score"}</span>`;
+      const lbl = labels.find((l) => l.id === "field");
+      if (lbl) lbl.w = 0; // re-measure the new text
+    };
+
     measureLabels();
 
     // ---------------------------------------------------------------- interaction
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
     let downPos: [number, number] | null = null;
-    const pick = (e: PointerEvent): string | null => {
+    const pickHit = (e: PointerEvent): { id: string | null; field: FieldRef | null } => {
       const rect = renderer.domElement.getBoundingClientRect();
       ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(ndc, camera);
@@ -719,9 +796,20 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       );
       // Prefer slide planes over hull shells: the planes are the measured data.
       const plane = hits.find((h) => h.object instanceof THREE.Mesh && h.object.geometry.type === "PlaneGeometry");
-      const id = (plane ?? hits[0])?.object?.userData?.blockId;
-      return typeof id === "string" ? id : null;
+      const hit = plane ?? hits[0];
+      const id = hit?.object?.userData?.blockId;
+      if (typeof id !== "string") return { id: null, field: null };
+      const g = data.grids[id];
+      if (plane && plane === hit && plane.uv && g) {
+        // uv (0,0) is the plane's bottom-left: col grows superior → inferior, row grows anterior → posterior.
+        const col = Math.floor(plane.uv.x * g.cols);
+        const row = Math.floor((1 - plane.uv.y) * g.rows);
+        const onField = g.fields.some((f) => f[0] === col && f[1] === row);
+        return { id, field: onField ? { block: id, col, row } : null };
+      }
+      return { id, field: null };
     };
+    const pick = (e: PointerEvent) => pickHit(e).id;
     const onPointerDown = (e: PointerEvent) => {
       downPos = [e.clientX, e.clientY];
     };
@@ -731,20 +819,37 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       if (id && (data.grids[id] || slabs.some((s) => s.id === id))) onSelectRef.current(id);
     };
     let lastHover: string | null = null;
+    let lastField = "";
     const onPointerMove = (e: PointerEvent) => {
       if (e.buttons) return;
-      const id = pick(e);
+      const { id, field } = pickHit(e);
       renderer.domElement.style.cursor = id ? "pointer" : "grab";
       if (id !== lastHover) {
         lastHover = id;
         hoverRef.current(id);
       }
+      // Only fields on the selected slide link to the 2D inspector, which shows that slide.
+      const f = field && field.block === state.selected ? field : null;
+      const key = f ? `${f.block}:${f.col}:${f.row}` : "";
+      if (key !== lastField) {
+        lastField = key;
+        onHoverFieldRef.current?.(f);
+      }
+    };
+    const onPointerLeave = () => {
+      if (lastField) {
+        lastField = "";
+        onHoverFieldRef.current?.(null);
+      }
     };
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
     renderer.domElement.addEventListener("pointerup", onPointerUp);
     renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerleave", onPointerLeave);
 
     // ---------------------------------------------------------------- camera moves
+    // Assigned by the render loop below; requests a redraw.
+    let invalidate = () => {};
     let tween: { p0: THREE.Vector3; p1: THREE.Vector3; t0: THREE.Vector3; t1: THREE.Vector3; z0: number; z1: number; k: number } | null = null;
     const startTween = (target: THREE.Vector3, dir: THREE.Vector3, zoom: number) => {
       tween = {
@@ -783,6 +888,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       sync: (s) => {
         const prev = state;
         state = s;
+        invalidate();
         if (s.layers.inks !== inksOn) {
           inksOn = s.layers.inks;
           colorAttr.copyArray(inksOn ? inkCols : neutralCols);
@@ -806,13 +912,14 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
           if (o.contour && o.contourMat) {
             o.contour.visible = !ghost || isSel;
             o.contourMat.opacity = isSel ? 1 : isHover ? 0.85 : s.deal > 0.5 ? 0.45 : 0.22;
-            o.contourMat.color.set(isSel ? SELECT_INK : o.slab.kind === "virtual" ? VIRTUAL_INK : "#57534e");
+            o.contourMat.color.set(o.slab.kind === "virtual" ? (isSel ? "#1d4ed8" : VIRTUAL_INK) : isSel ? SELECT_INK : "#57534e");
           }
           o.tag.classList.toggle("active", isSel);
           o.tag.classList.toggle("hover", isHover && !isSel);
           o.tag.setAttribute("aria-pressed", String(isSel));
         });
         shaveGroup.visible = s.layers.shaves && s.deal < 0.5;
+        placeFieldHighlight(s.hoverField && s.hoverField.block === s.selected ? s.hoverField : null);
         if (prev.deal !== s.deal) measureLabels();
         if (prev.selected !== s.selected) {
           measureLabels();
@@ -943,7 +1050,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
         tmp.copy(n).applyQuaternion(gizmoQuat).multiplyScalar(1.32).project(gCam);
         const gx = w - gizmoSize - 6 + (tmp.x * 0.5 + 0.5) * gizmoSize;
         const gy = h - gizmoSize - 6 + (-tmp.y * 0.5 + 0.5) * gizmoSize;
-        el.style.transform = `translate(${(gx - 8).toFixed(1)}px, ${(gy - 8).toFixed(1)}px)`;
+        el.style.transform = `translate(${(gx - 12).toFixed(1)}px, ${(gy - 12).toFixed(1)}px)`;
         const facing = n.clone().applyQuaternion(gizmoQuat).dot(camDir);
         el.style.opacity = facing < -0.3 ? "0.45" : "1";
       });
@@ -951,28 +1058,52 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
     };
 
     // ---------------------------------------------------------------- loop
+    // Render on demand: draw only while something moves (camera tween, damping,
+    // slab animation) or after an explicit invalidate(); skip entirely offscreen.
+    const reduceMotion = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let rafId = 0;
+    let pendingFrames = 2;
+    let onScreen = true;
+    let lastT = performance.now();
+    let frameCount = 0;
+    invalidate = () => {
+      pendingFrames = Math.max(pendingFrames, 2);
+    };
     const animate = () => {
       rafId = requestAnimationFrame(animate);
+      const now = performance.now();
+      const dt = Math.min(64, now - lastT);
+      lastT = now;
+      if (!onScreen) return;
+      let moving = false;
       if (tween) {
-        tween.k = Math.min(1, tween.k + 0.045);
+        tween.k = reduceMotion ? 1 : Math.min(1, tween.k + dt / 650);
         const e = 1 - Math.pow(1 - tween.k, 3);
         camera.position.lerpVectors(tween.p0, tween.p1, e);
         controls.target.lerpVectors(tween.t0, tween.t1, e);
         camera.zoom = tween.z0 + (tween.z1 - tween.z0) * e;
         camera.updateProjectionMatrix();
         if (tween.k >= 1) tween = null;
+        moving = true;
       }
       const step = (cur: number, target: number) => {
-        if (Math.abs(cur - target) < 2e-3) return target;
-        return cur + Math.sign(target - cur) * Math.min(Math.abs(target - cur), 0.035);
+        if (reduceMotion || Math.abs(cur - target) < 2e-3) return target;
+        return cur + Math.sign(target - cur) * Math.min(Math.abs(target - cur), dt / 480);
       };
-      explodeCur = step(explodeCur, state.explode);
-      dealCur = step(dealCur, state.deal);
+      const ex = step(explodeCur, state.explode);
+      const dl = step(dealCur, state.deal);
+      if (ex !== explodeCur || dl !== dealCur) moving = true;
+      explodeCur = ex;
+      dealCur = dl;
+      // OrbitControls.update() returns true while the camera is still changing (damping).
+      if (controls.update()) moving = true;
+      if (!moving && pendingFrames <= 0) return;
+      if (pendingFrames > 0) pendingFrames -= 1;
       applyPoses();
       shaves.forEach((s) => s.m.position.copy(s.pos()));
       if (latPlane) latPlane.position.set(bb.min.x + explodeOffset(0, slabs.length, explodeCur) - 7, 0, 0);
-      controls.update();
+      frameCount += 1;
+      container.dataset.frames = String(frameCount);
 
       const w = container.clientWidth;
       const h = container.clientHeight;
@@ -1010,9 +1141,15 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
       gizmoBox.style.width = `${gizmoSize}px`;
       gizmoBox.style.height = `${gizmoSize}px`;
       measureLabels();
+      invalidate();
     };
     const ro = new ResizeObserver(resize);
     ro.observe(container);
+    const io = new IntersectionObserver((entries) => {
+      onScreen = entries.some((en) => en.isIntersecting);
+      if (onScreen) invalidate();
+    });
+    io.observe(container);
     resize();
     applyPoses();
     animate();
@@ -1020,9 +1157,11 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
     return () => {
       cancelAnimationFrame(rafId);
       ro.disconnect();
+      io.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
       controls.dispose();
       disposables.forEach((d) => d.dispose());
       renderer.dispose();
@@ -1036,8 +1175,8 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
 
   // Push React state into the scene.
   useEffect(() => {
-    sceneApiRef.current?.sync({ view, selected: selectedBlock, hovered, layers, explode, deal, cut, isolate });
-  }, [view, selectedBlock, hovered, layers, explode, deal, cut, isolate, webglError]);
+    sceneApiRef.current?.sync({ view, selected: selectedBlock, hovered, hoverField, layers, explode, deal, cut, isolate });
+  }, [view, selectedBlock, hovered, hoverField, layers, explode, deal, cut, isolate, webglError]);
 
   // Initial camera.
   useEffect(() => {
@@ -1060,36 +1199,75 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
   };
 
   const toggleLayer = (k: keyof Layers) => setLayers((l) => ({ ...l, [k]: !l[k] }));
+  /** Manual layout change from the Layers menu: keep the current view's camera but refit to the new extent. */
+  const relayout = (next: { deal?: number; explode?: number }) => {
+    const base = VIEW_PRESETS.find((v) => v.id === view) ?? VIEW_PRESETS[0];
+    const d = next.deal ?? deal;
+    const e = next.explode ?? explode;
+    if (next.deal !== undefined) setDeal(d);
+    if (next.explode !== undefined) setExplode(e);
+    if (d > 0.5) setIsolate(false);
+    const dir = d > 0.5 && base.deal < 0.5 ? VIEW_PRESETS[1].dir : d < 0.5 && base.deal > 0.5 ? VIEW_PRESETS[0].dir : base.dir;
+    sceneApiRef.current?.flyTo({ ...base, deal: d, explode: e, isolate: false, aimAtFocus: false, zoom: 1, dir }, selectedBlock);
+  };
 
   // ------------------------------------------------------------------ captions (all numbers from data)
-  const focusRow = data.summary.rows.find((r) => r.block === spec.focus_block);
+  // Every number is the value of the assay shown for that block (max1), never a hidden comparator.
+  const rowOf = (id: string) => data.summary.rows.find((r) => r.block === id);
+  const focusRow = rowOf(spec.focus_block);
   const breastSet = new Set(spec.breast_blocks);
   const others = data.summary.rows.filter((r) => breastSet.has(r.block) && r.block !== spec.focus_block);
-  const otherMax = others.reduce((m, r) => Math.max(m, r.virtual_max1 ?? r.max1), 0);
-  const focusSlice = data.slices.find((s) => s.id === spec.focus_block);
-  const m3stats = data.meshes_3d.stats;
+  const nextHighest = others.reduce<(typeof others)[number] | null>((best, r) => (!best || r.max1 > best.max1 ? r : best), null);
+  const sliceOf = (id: string) => data.slices.find((s) => s.id === id);
   const focusInk = focusEdge ? FACES.find((f) => f.key === focusEdge.direction)?.inkName : "";
+  const marginFindings = reportedMarginFindings(data.slices);
+  const findingsFor = (id: string) => marginFindings.find((m) => m.id === id)?.findings ?? [];
+  const anat = data.report.anatomy;
+  const selSlice = sliceOf(selectedBlock);
+  const selRow = rowOf(selectedBlock);
+
+  const focusAnswer = (): string => {
+    if (selectedBlock !== spec.focus_block) {
+      if (!selSlice?.scanned || !selRow) return `${selSlice?.label ?? selectedBlock} was not scanned.`;
+      const rep = findingsFor(selectedBlock);
+      return (
+        `${selSlice.label} (${assayLabel(selRow.method)}): highest 1 mm field ${selRow.max1.toFixed(1)}%, ` +
+        `${selRow.n_ge5 ? `${selRow.n_ge5} fields at ≥5%` : "no fields at ≥5%"}. ` +
+        `Pathology report for this slice: ${rep.length ? rep.join("; ") : "no margin finding recorded"}.`
+      );
+    }
+    const rep = findingsFor(spec.focus_block);
+    const lead = `Pathology report for ${spec.focus_block}: ${rep.length ? rep.join("; ") : "no margin finding recorded"}.`;
+    if (!focusEdge) return `${lead} No fields at ≥5% on this slide.`;
+    return (
+      `${lead} Model estimate: the ${focusEdge.nHot} fields at ≥5% (${assayLabel(focusRow?.method)}) sit about ` +
+      `${focusEdge.mm.toFixed(1)} mm from the ${focusEdge.direction} (${focusInk}) edge of the scanned section, measured from ` +
+      `field centers on 1 mm fields (±0.5 mm). It is not a margin measurement: the report's distance is to the closest ` +
+      `invasive cells of any density, which can be sparse cells well outside the dense focus.`
+    );
+  };
+
   const caption: Record<ViewId, { q: string; a: string }> = {
     overview: {
       q: VIEW_PRESETS[0].question,
-      a: `One small dense focus in ${spec.focus_block} (up to ${(focusRow?.max1 ?? 0).toFixed(0)}% of a 1 mm field). Every other slide stays at or below ${otherMax.toFixed(1)}% per field: scattered single cells. The red shape is interpolated between slides (≈${m3stats.core5_mm3.toFixed(0)} mm³ at ≥5%); the flat slide faces are what was measured.`,
+      a:
+        `One small dense focus in ${spec.focus_block}: up to ${(focusRow?.max1 ?? 0).toFixed(0)}% of a 1 mm field (${assayLabel(focusRow?.method)}). ` +
+        (nextHighest
+          ? `The next highest slide is ${nextHighest.block} at ${nextHighest.max1.toFixed(1)}% (${assayLabel(nextHighest.method)}); elsewhere only scattered cells. `
+          : "") +
+        `The red 3D shape is a smoothed estimate between slides about 4 mm apart; the flat slide faces are what was measured.`,
     },
     slices: {
       q: VIEW_PRESETS[1].question,
-      a: `The ${spec.bed_length_mm} mm specimen was cut lateral → medial into slabs about 4.8 mm thick, laid out here face-up in order (superior left, anterior up). One 4 µm section of each of ${spec.breast_blocks.join(", ")} was scanned: solid outlines are real PanKeratin, dashed blue are Strand virtual PanCK from H&E. The two end slabs were cut perpendicular and not scanned.`,
+      a: `The specimen was cut lateral → medial into slices about 4 mm thick (gross description), laid out here face-up in order: superior left, anterior up. One 4 µm section of each of ${spec.breast_blocks.join(", ")} was scanned. Solid outlines are a lab PanKeratin stain; dashed blue outlines are AI virtual PanCK predicted from H&E. The two end slices were cut perpendicular and not scanned.`,
     },
-    focus: {
-      q: VIEW_PRESETS[2].question,
-      a: focusEdge
-        ? `On ${spec.focus_block}, the ${focusEdge.nHot} fields at ≥5% sit about ${focusEdge.mm.toFixed(1)} mm from the ${focusEdge.direction} (${focusInk}) inked surface, measured on 1 mm fields (±0.5 mm). Pathology note for this slice: ${(focusSlice?.margins ?? []).join(" · ") || "none"}. Use ‹ › to step to the neighboring slabs.`
-        : `No ≥5% fields on ${spec.focus_block}.`,
-    },
+    focus: { q: VIEW_PRESETS[2].question, a: focusAnswer() },
     margins: {
       q: VIEW_PRESETS[3].question,
-      a: `Inks: ${FACES.map((f) => `${f.key} ${f.inkName}`).join(", ")}. Green boxes are the extra shaves taken from the cavity wall; the ${data.report.anatomy.lateral_shave.block_id} lateral shave was scanned and had focal tumor.`,
+      a: `Ink colors follow the report (${FACES.map((f) => `${f.key} ${f.inkName}`).join(", ")}). Surface shading and the positions of the extra shaves are schematic.`,
     },
   };
-  const ariaSummary = `3D model of the ${spec.bed_length_mm} by ${spec.bed_width_mm} by ${spec.bed_depth_mm} mm lumpectomy, lateral on the left. ${caption.overview.a}`;
+  const ariaSummary = `3D model of the ${spec.bed_length_mm} by ${spec.bed_width_mm} mm lumpectomy tumor bed, lateral on the left. ${caption.overview.a}`;
 
   const stepSlide = (delta: number) => onSelectBlock(stepScanned(slabs, selectedBlock, delta));
   const rowsById = useMemo(() => new Map(data.summary.rows.map((r) => [r.block, r])), [data.summary.rows]);
@@ -1120,21 +1298,42 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
             <CelCheckbox checked={layers.inks} onCheckedChange={() => toggleLayer("inks")}>Margin inks on surface</CelCheckbox>
             <CelCheckbox checked={layers.shaves} onCheckedChange={() => toggleLayer("shaves")}>Extra margin shaves</CelCheckbox>
             <CelCheckbox checked={layers.ruler} onCheckedChange={() => toggleLayer("ruler")}>Focus-to-edge ruler</CelCheckbox>
-            <CelCheckbox checked={deal > 0.5} onCheckedChange={(on) => setDeal(on ? 1 : 0)}>Lay slabs out face-up</CelCheckbox>
+            <CelCheckbox checked={deal > 0.5} onCheckedChange={(on) => relayout({ deal: on ? 1 : 0 })}>Lay slabs out face-up</CelCheckbox>
             <CelCheckbox checked={cut} onCheckedChange={setCut}>Cut away slabs lateral to the selected slide</CelCheckbox>
             <div className="cel-m3d-range">
               Separate slabs
-              <CelSlider label="Separate slabs" min={0} max={100} value={Math.round(explode * 100)} onValueChange={(v) => setExplode(v / 100)} />
+              <CelSlider label="Separate slabs" min={0} max={100} value={Math.round(explode * 100)} onValueChange={(v) => relayout({ explode: v / 100 })} />
             </div>
           </div>
         </details>
       </div>
 
+      <div className="cel-m3d-caption" id={captionId} aria-live="polite">
+        <span className="cel-sr-only">{ariaSummary} </span>
+        <strong>{caption[view].q}</strong> {caption[view].a}
+        {view === "margins" ? (
+          <ul className="cel-m3d-findings" aria-label="Margin findings from the pathology report">
+            {marginFindings.map((m) => (
+              <li key={m.id}>
+                <b>{m.label}</b> {m.findings.join("; ")}
+              </li>
+            ))}
+            <li>
+              <b>{anat.superior_shave.label.split(":")[0]}</b> {anat.superior_shave.label.split(":")[1]?.trim()}
+            </li>
+            <li>
+              <b>{anat.medial_shave.lines.slice(0, 2).join(" · ")}</b> {anat.medial_shave.lines.slice(2).join(" ")}
+            </li>
+          </ul>
+        ) : null}
+      </div>
+
       <div
         className="cel-webgl-wrap cel-m3d-canvas"
         ref={containerRef}
-        role="img"
-        aria-label={ariaSummary}
+        role="region"
+        aria-label="3D specimen model"
+        aria-describedby={captionId}
         data-view={view}
       >
         {webglError ? <div style={{ padding: 28, color: "#5b5953", fontSize: 13.5 }}>{webglError}</div> : null}
@@ -1146,11 +1345,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
         </div>
       </div>
 
-      <div className="cel-m3d-caption" aria-live="polite">
-        <strong>{caption[view].q}</strong> {caption[view].a}
-      </div>
-
-      <div className="cel-m3d-strip">
+      <div className="cel-m3d-strip" ref={stripRef}>
         <button type="button" className="cel-m3d-step" onClick={() => stepSlide(-1)} aria-label="Previous slide">‹</button>
         <ToggleGroup
           className="cel-m3d-thumbs"
@@ -1186,10 +1381,14 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock }: Props) {
         <button type="button" className="cel-m3d-step" onClick={() => stepSlide(1)} aria-label="Next slide">›</button>
       </div>
       <div className="cel-m3d-legend">
+        <span className="cel-m3d-scalebar">
+          0% <span className="cel-colorbar-grad" /> 33% keratin area per 1 mm field <small>(compressed so 1–5% stays visible)</small>
+        </span>
         <span><i className="sw core" />Dense core ≥12% <small>(interpolated)</small></span>
         <span><i className="sw focus" />≥5% <small>(interpolated)</small></span>
         <span><i className="sw halo" />Scatter ≥1.2% <small>(interpolated)</small></span>
         <span><i className="sw slide" />Slide face: measured 1 mm fields</span>
+        <span><i className="sw line-solid" />Lab PanKeratin <i className="sw line-dashed" />AI virtual PanCK</span>
         <span className="cel-m3d-legend-note">Thumbnails: superior left, anterior up, as seen from the lateral side · max field %</span>
       </div>
     </div>
