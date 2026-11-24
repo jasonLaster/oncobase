@@ -96,13 +96,6 @@ test.describe("reading the wiki (real backend)", () => {
   test("a versioned image is reopened from the HTTP cache in a new document (P11)", async ({ page }) => {
     const path = "/api/file?path=wiki%2Fimages%2Ftreatment-timeline.png";
     await keepAllResourceTimings(page);
-    // TEMP P11 diagnostics: requests only, so the spec's timing is unchanged.
-    page.on("requestfinished", async (r) => {
-      if (!r.url().includes("/api/file")) return;
-      const res = await r.response();
-      const h = await r.allHeaders();
-      console.log("P11REQ", r.resourceType(), r.url().slice(-36), res?.status(), (await r.sizes()).responseHeadersSize, JSON.stringify({ accept: h.accept, range: h.range, inm: h["if-none-match"], cc: h["cache-control"], vary: res?.headers().vary }));
-    });
     await openPage(page, "/");
     // The server's ETag is the stored content hash: the same value the
     // manifest names an asset by.
