@@ -14,6 +14,7 @@ import {
 import { CelDrawer } from "./controls";
 import { ReconcileAndRcbSection } from "./ReconcileAndRcbSection";
 import { adoptStyles } from "../../lazy-styles";
+import { resetCellularityViewState, usePublishViewState } from "./view-state";
 import type { CellularityData } from "./types";
 import { CELLULARITY_DATA_URL, cellularityAssetUrl } from "./utils";
 import cellularityCss from "./cellularity.css?inline";
@@ -33,12 +34,54 @@ const BED_MODES: { value: BedMode; label: string }[] = [
   { value: "grid", label: "All Bed Blocks" },
 ];
 
+function PageSliceStrip({
+  data,
+  activeBlock,
+  onSelect,
+}: {
+  data: CellularityData;
+  activeBlock: string;
+  onSelect: (id: string) => void;
+}) {
+  const items = [
+    ...data.slices.map((s) => ({ id: s.id, label: s.label, kind: s.kind, scanned: s.scanned })),
+    ...data.report.specimen.extra_blocks.map((b) => ({ id: b.id, label: b.label, kind: "keratin" as const, scanned: true })),
+  ];
+  return (
+    <ToggleGroup
+      className="cel-slice-strip"
+      aria-label="Inspect block"
+      value={[activeBlock]}
+      onValueChange={(next) => {
+        if (next[0]) onSelect(next[0]);
+      }}
+    >
+      {items.map((it) => {
+        const swColor = !it.scanned ? "#bdb9ae" : it.kind === "virtual" ? "#2563eb" : "#d9481f";
+        return (
+          <Toggle
+            key={it.id}
+            value={it.id}
+            className={`cel-slice-btn${!it.scanned ? " unscanned" : ""}`}
+          >
+            <span className="cel-swatch" style={{ background: swColor }} />
+            {it.label}
+          </Toggle>
+        );
+      })}
+    </ToggleGroup>
+  );
+}
+
 export function CellularityPage() {
   const [data, setData] = useState<CellularityData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [bedMode, setBedMode] = useState<BedMode>("webgl");
   const [allDrawersOpen, setAllDrawersOpen] = useState(false);
+  usePublishViewState("view", bedMode);
+  usePublishViewState("selectedBlock", selectedBlock ?? data?.report.specimen.focus_block);
+  useEffect(() => resetCellularityViewState, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,16 +129,6 @@ export function CellularityPage() {
 
   const { header, specimen } = data.report;
   const activeBlock = selectedBlock ?? specimen.focus_block;
-
-  const sliceButtons = [
-    ...data.slices.map((s) => ({ id: s.id, label: s.label, kind: s.kind, scanned: s.scanned })),
-    ...specimen.extra_blocks.map((b) => ({
-      id: b.id,
-      label: b.label,
-      kind: "keratin" as const,
-      scanned: true,
-    })),
-  ];
 
   const handleJumpToBlock = (id: string) => {
     setSelectedBlock(id);
@@ -202,28 +235,8 @@ export function CellularityPage() {
               <BreastBlocksGrid2x3 data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} />
             </TabsPanel>
 
-            <ToggleGroup
-              className="cel-slice-strip"
-              aria-label="Inspect block"
-              value={[activeBlock]}
-              onValueChange={(next) => {
-                if (next[0]) setSelectedBlock(next[0]);
-              }}
-            >
-              {sliceButtons.map((it) => {
-                const swColor = !it.scanned ? "#bdb9ae" : it.kind === "virtual" ? "#2563eb" : "#d9481f";
-                return (
-                  <Toggle
-                    key={it.id}
-                    value={it.id}
-                    className={`cel-slice-btn${!it.scanned ? " unscanned" : ""}`}
-                  >
-                    <span className="cel-swatch" style={{ background: swColor }} />
-                    {it.label}
-                  </Toggle>
-                );
-              })}
-            </ToggleGroup>
+            {/* The 3D model has its own thumbnail strip, linked to the scene. */}
+            {bedMode !== "webgl" ? <PageSliceStrip data={data} activeBlock={activeBlock} onSelect={setSelectedBlock} /> : null}
 
             <div className="cel-legend-row">
               <div>

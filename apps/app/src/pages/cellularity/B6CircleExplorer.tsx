@@ -1,3 +1,4 @@
+import { usePublishViewState } from "./view-state";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
 import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
@@ -15,6 +16,9 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
   const cfg = data.report.focus_explorer;
   const [k, setK] = useState(cfg.default_k);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  usePublishViewState("focusFields", k);
+  const [serialTabKey, setSerialTabKey] = useState(cfg.serial_drawer.tabs[0]?.key ?? "");
+  usePublishViewState("serialTab", serialTabKey);
 
   const sliderVal = Math.round((1000 * Math.log(Math.max(1, k))) / Math.log(b6C.total));
   const sliderToK = (v: number) =>
@@ -202,7 +206,7 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
 
         <CelDrawer title={cfg.serial_drawer.title} meta={cfg.serial_drawer.meta} allOpen={allDrawersOpen}>
           <p>{cfg.serial_drawer.body}</p>
-          <Tabs defaultValue={cfg.serial_drawer.tabs[0]?.key}>
+          <Tabs value={serialTabKey} onValueChange={(next) => { if (next) setSerialTabKey(next); }}>
             <TabsList className="cel-seg" aria-label={cfg.serial_drawer.title} style={{ marginBottom: 10 }}>
               {cfg.serial_drawer.tabs.map((tab) => (
                 <TabsTab key={tab.key} value={tab.key}>

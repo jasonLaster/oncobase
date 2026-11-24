@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
 import { CelDrawer, CelSlider } from "./controls";
+import { usePublishViewState } from "./view-state";
 import type { BlockRow, CellularityData } from "./types";
 import { cellularityAssetUrl } from "./utils";
 
@@ -32,6 +33,9 @@ export function BlocksAndValidationSection({
   );
   const actT = sensThresholds[sensIdx] ?? data.validation.threshold;
   const actRow = data.validation.sensitivity[String(actT)] ?? {};
+  usePublishViewState("sensitivityThreshold", actT);
+  const [methodTabKey, setMethodTabKey] = useState(cfg.method_drawer.tabs[0]?.key ?? "");
+  usePublishViewState("methodTab", methodTabKey);
 
   const W = 480, H = 250, pL = 44, pR = 62, pT = 18, pB = 38;
   const x = (t: number) => pL + ((t - 0.015) / (0.155 - 0.015)) * (W - pL - pR);
@@ -179,7 +183,7 @@ export function BlocksAndValidationSection({
         </CelDrawer>
 
         <CelDrawer title={cfg.method_drawer.title} meta={cfg.method_drawer.meta} allOpen={allDrawersOpen}>
-          <Tabs defaultValue={cfg.method_drawer.tabs[0]?.key}>
+          <Tabs value={methodTabKey} onValueChange={(next) => { if (next) setMethodTabKey(next); }}>
             <TabsList className="cel-seg" aria-label={cfg.method_drawer.title} style={{ marginTop: 10, marginBottom: 10 }}>
               {cfg.method_drawer.tabs.map((tab) => (
                 <TabsTab key={tab.key} value={tab.key}>

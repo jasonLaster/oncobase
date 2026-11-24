@@ -86,6 +86,13 @@ export class PageConversation {
     this.pageArrived?.();
   }
 
+  /** The reader changed a selection on the page (a block, a slider, a view).
+ * Sent as a quiet note, with no response, so the voice isn't interrupted. */
+  noteState(text: string) {
+    if (!this.started || this.closed || !text.trim()) return;
+    this.note(`The reader changed what they have selected on this page. Use this for "this" and "here", and don't mention the change unless it helps.\n\n${text}`);
+  }
+
   private async start() {
     if (this.started) return;
     this.started = true;

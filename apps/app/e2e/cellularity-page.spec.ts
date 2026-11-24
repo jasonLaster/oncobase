@@ -113,28 +113,28 @@ test("sliders are named, move with the keyboard, and presets press their toggle"
   await expect(panck).toHaveAttribute("aria-valuetext", "0.05");
 });
 
-test("the 3D camera bar is a toolbar with toggles", async ({ page }) => {
+test("the 3D model's guided views, layers and slide strip are UI SDK controls", async ({ page }) => {
   await openCellularity(page);
-  const toolbar = page.getByRole("toolbar", { name: "3D view" });
-  test.skip(!(await toolbar.isVisible()), "WebGL is unavailable in this browser");
-  const camera = toolbar.getByRole("group", { name: "Camera" });
-  await expect(camera.getByRole("button", { name: "Isometric" })).toHaveAttribute("aria-pressed", "true");
-  await camera.getByRole("button", { name: "Anterior" }).click();
-  await expect(camera.getByRole("button", { name: "Anterior" })).toHaveAttribute("aria-pressed", "true");
-  await camera.getByRole("button", { name: "Anterior" }).click();
-  await expect(camera.getByRole("button", { name: "Anterior" })).toHaveAttribute("aria-pressed", "true");
+  // The model's controls render whether or not WebGL is available.
+  const views = page.getByRole("group", { name: "Guided 3D views" });
+  await expect(views.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-pressed", "true");
+  await views.getByRole("button", { name: "Slice by slice" }).click();
+  await expect(views.getByRole("button", { name: "Slice by slice" })).toHaveAttribute("aria-pressed", "true");
+  await expect(views.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-pressed", "false");
+  // Pressing the active view again keeps it.
+  await views.getByRole("button", { name: "Slice by slice" }).click();
+  await expect(views.getByRole("button", { name: "Slice by slice" })).toHaveAttribute("aria-pressed", "true");
 
-  const spin = toolbar.getByRole("button", { name: "Spin" });
-  await spin.click();
-  await expect(spin).toHaveAttribute("aria-pressed", "true");
+  await page.locator(".cel-m3d-layers > summary").click();
+  const ruler = page.getByRole("checkbox", { name: "Focus-to-edge ruler" });
+  const before = await ruler.getAttribute("aria-checked");
+  await ruler.click();
+  await expect(ruler).not.toHaveAttribute("aria-checked", before ?? "");
+  await expect(page.getByRole("slider", { name: "Separate slabs" })).toBeVisible();
 
-  const slidesOnly = toolbar.getByRole("button", { name: "Slides only" });
-  await slidesOnly.click();
-  await expect(slidesOnly).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("checkbox", { name: "3D core (≥5% / ≥12%)" })).not.toBeChecked();
-
-  await expect(toolbar.getByRole("button", { name: "Previous slide" })).toBeVisible();
-  await toolbar.getByRole("button", { name: "Next slide" }).hover();
-  await expect(page.getByRole("tooltip", { name: "Next slide" })).toBeVisible();
-  await expect(page.getByRole("slider", { name: "Hull opacity" })).toBeVisible();
+  const strip = page.getByRole("group", { name: "Slides, lateral to medial" });
+  await strip.getByRole("button", { name: /^B4/ }).click();
+  await expect(strip.getByRole("button", { name: /^B4/ })).toHaveAttribute("aria-pressed", "true");
+  await page.locator(".cel-m3d-strip").getByRole("button", { name: "Next slide" }).click();
+  await expect(strip.getByRole("button", { name: /^B4/ })).toHaveAttribute("aria-pressed", "false");
 });

@@ -23,3 +23,11 @@ export function pathnameMatchesRoutePrefix(pathname: string, prefix: string) {
 export function isDocumentRoute(pathname: string) {
   return !NON_DOCUMENT_ROUTE_PREFIXES.some((prefix) => pathnameMatchesRoutePrefix(pathname, prefix));
 }
+
+/** App pages that have no wiki markdown but can still be talked through. Their
+ * text comes from the page's own data (see talk/talk-pages.ts). */
+export const TALK_APP_ROUTES = ["/diagnostics/cellularity"] as const;
+
+export function isTalkRoute(pathname: string) {
+  return isDocumentRoute(pathname) || TALK_APP_ROUTES.some((route) => pathname === route);
+}
