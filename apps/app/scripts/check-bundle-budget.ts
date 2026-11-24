@@ -277,7 +277,9 @@ const storeGzipBudget = 828_500;
 // sonner and use-stick-to-bottom are gone. Most shared UI SDK code now sits in
 // the paint set above, so lazy grows only ~4,466,278 -> ~4,509,594 B
 // (4,361.6 -> 4,403.9 KiB, main -> branch): 4,480,000 -> 4,520,000.
-const lazyGzipBudget = 4_520_000;
+// Merging main's guided 3D tumor model (lazy, /diagnostics/cellularity only)
+// measured 4,416.0 KiB (~4,521,984 B): 4,520,000 -> 4,532,000.
+const lazyGzipBudget = 4_532_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
