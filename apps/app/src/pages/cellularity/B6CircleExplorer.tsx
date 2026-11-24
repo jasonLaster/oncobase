@@ -107,11 +107,11 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
               </div>
               <div className="cel-live-kpis cel-num">
                 <div className="cel-live-kpi">
-                  <div className="k">By area (RCB-style)</div>
+                  <div className="k">{cfg.area_kpi_label ?? "By area (RCB-style)"}</div>
                   <div className="v blue">{area.toFixed(1)}%</div>
                 </div>
                 <div className="cel-live-kpi">
-                  <div className="k">By nuclei (150–250 µm²/cell)</div>
+                  <div className="k">{cfg.nuclei_kpi_label ?? "By nuclei (150–250 µm²/cell)"}</div>
                   <div className="v orange">{nmid.toFixed(1)}%</div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)" }}>band {nlo.toFixed(0)}–{nhi.toFixed(0)}%</div>
                 </div>
@@ -163,9 +163,9 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
                 </text>
                 <g transform={`translate(${W - 210}, ${pT + 22})`}>
                   <line x1={0} y1={0} x2={14} y2={0} stroke="#d9481f" strokeWidth={2.5} />
-                  <text x={20} y={3.5} fontSize={10.5} fill="#161614">Share of nuclei (150–250 µm²)</text>
+                  <text x={20} y={3.5} fontSize={10.5} fill="#161614">{cfg.nuclei_legend ?? "Share of nuclei (150–250 µm²)"}</text>
                   <line x1={0} y1={16} x2={14} y2={16} stroke="#2563eb" strokeWidth={2.5} />
-                  <text x={20} y={19.5} fontSize={10.5} fill="#161614">Share of area (RCB-style)</text>
+                  <text x={20} y={19.5} fontSize={10.5} fill="#161614">{cfg.area_legend ?? "Share of area (RCB-style)"}</text>
                 </g>
               </svg>
             </div>
@@ -191,7 +191,11 @@ export function B6CircleExplorer({ data, allDrawersOpen }: Props) {
           <div className="cel-table-wrap" style={{ marginTop: 12 }}>
             <table className="cel-table cel-num">
               <thead>
-                <tr><th>Region</th><th>Size</th><th>Cancer % of area</th><th>Cancer % of solid tissue</th><th>Cancer % of nuclei</th></tr>
+                <tr>
+                  {(cfg.hotfields_drawer.headers ?? ["Region", "Size", "Cancer % of area", "Cancer % of solid tissue", "Cancer % of nuclei"]).map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
                 {cfg.hotfields_drawer.rows.map((r) => (

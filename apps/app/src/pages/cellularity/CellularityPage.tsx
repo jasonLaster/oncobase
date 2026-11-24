@@ -79,6 +79,8 @@ export function CellularityPage() {
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   // Linked brushing: a 1 mm field hovered in the 3D model or the 2D inspector.
   const [hoverField, setHoverField] = useState<FieldRef | null>(null);
+  /** Field whose slide image is open in the inspector (clicked in 2D or 3D). */
+  const [pinnedField, setPinnedField] = useState<FieldRef | null>(null);
   const [bedMode, setBedMode] = useState<BedMode>("webgl");
   const [allDrawersOpen, setAllDrawersOpen] = useState(false);
   usePublishViewState("view", bedMode);
@@ -224,7 +226,7 @@ export function CellularityPage() {
           <div className="cel-card">
             <TabsPanel value="webgl" className="cel-bed-panel">
               <Suspense fallback={<div className="cel-webgl-wrap" style={{ display: "grid", placeItems: "center", color: "#5b5953" }}>Loading 3D WebGL model…</div>}>
-                <TumorModel3D data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} hoverField={hoverField} onHoverField={setHoverField} />
+                <TumorModel3D data={data} selectedBlock={activeBlock} onSelectBlock={setSelectedBlock} hoverField={hoverField} onHoverField={setHoverField} onPinField={setPinnedField} />
               </Suspense>
             </TabsPanel>
             <TabsPanel value="3d" className="cel-bed-panel">
@@ -261,7 +263,14 @@ export function CellularityPage() {
             </p>
           </div>
 
-          <BlockInspector data={data} selectedBlock={activeBlock} hoverField={hoverField} onHoverField={setHoverField} />
+          <BlockInspector
+            data={data}
+            selectedBlock={activeBlock}
+            hoverField={hoverField}
+            onHoverField={setHoverField}
+            pinnedField={pinnedField}
+            onPinField={setPinnedField}
+          />
         </div>
 
         <div className="cel-drawers">

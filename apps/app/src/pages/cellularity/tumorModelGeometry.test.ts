@@ -17,6 +17,10 @@ import {
   assayLabel,
   reportedMarginFindings,
   VIEW_PRESETS,
+  meshSectionX,
+  loopArea,
+  pointInLoop,
+  capOutlines,
 } from "./tumorModelGeometry";
 
 const slice = (id: string, x0: number, x1: number, scanned = true, in_bed = true): SliceMeta => ({
@@ -248,5 +252,36 @@ describe("provenance and reported findings", () => {
       { id: "B6", label: "B6", findings: ["1 mm from superior margin"] },
       { id: "B5", label: "B5", findings: ["DCIS <1 mm inferior"] },
     ]);
+  });
+});
+
+describe("end-slab caps", () => {
+  // Unit cube [-1,1]^3 as 12 triangles.
+  const v = [-1, -1, -1, 1, -1, -1, 1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1];
+  const f = [0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 2, 6, 7, 2, 7, 3, 3, 7, 4, 3, 4, 0];
+
+  test("a plane through a closed box gives one closed 2×2 square", () => {
+    const loops = meshSectionX(v, f, 0.25);
+    expect(loops.length).toBe(1);
+    expect(Math.abs(loopArea(loops[0]))).toBeCloseTo(4, 5);
+  });
+
+  test("a plane outside the mesh gives nothing", () => {
+    expect(meshSectionX(v, f, 3)).toEqual([]);
+  });
+
+  test("a plane through a vertex layer still closes", () => {
+    const loops = meshSectionX(v, f, 1);
+    expect(loops.length).toBeLessThanOrEqual(1);
+  });
+
+  test("nested loops become an outline with a hole", () => {
+    const outer: [number, number][] = [[-5, -5], [5, -5], [5, 5], [-5, 5]];
+    const hole: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    const caps = capOutlines([outer, hole]);
+    expect(caps.length).toBe(1);
+    expect(caps[0].holes.length).toBe(1);
+    expect(pointInLoop([0, 0], outer)).toBe(true);
+    expect(pointInLoop([9, 0], outer)).toBe(false);
   });
 });

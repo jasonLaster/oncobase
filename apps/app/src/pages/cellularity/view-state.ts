@@ -13,7 +13,7 @@ export type CellularityViewState = {
   sensitivityThreshold?: number;
   methodTab?: string;
   rcbCellularity?: number;
-  model?: { view: string; question: string; hidden: string[]; laidOut: boolean; cut: boolean; separated: number };
+  model?: { view: string; question: string; hidden: string[]; laidOut: boolean; cut: boolean; separated: number; surface?: string };
 };
 
 let state: CellularityViewState = {};
@@ -63,6 +63,7 @@ export function describeViewState(view: CellularityViewState, data: CellularityD
         (m.laidOut ? ", slabs laid out face-up" : "") +
         (m.cut ? ", slabs lateral to the selected slide cut away" : "") +
         (m.separated > 0 ? `, slabs pulled ${Math.round(m.separated * 100)}% apart` : "") +
+        (m.surface && m.surface !== "default" ? `, specimen surface ${m.surface}` : "") +
         (m.hidden.length ? `; hidden layers: ${m.hidden.join(", ")}` : "; all layers shown") + ".",
     );
   }
@@ -71,7 +72,13 @@ export function describeViewState(view: CellularityViewState, data: CellularityD
     const b6 = data.b6_cum;
     const i = Math.max(0, Math.min(b6.total - 1, view.focusFields - 1));
     const verdict = cfg.verdicts.find((v) => view.focusFields! <= v.max_k)?.text ?? cfg.verdicts.at(-1)?.text ?? "";
-    lines.push(`Focus explorer: counting the hottest ${view.focusFields} of ${b6.total} fields in ${cfg.block_id} gives about ${b6.area[i]?.toFixed(1)}% cancer by area. Page verdict: ${verdict}`);
+    const cells =
+      b6.nmid?.[i] != null
+        ? b6.nuclei_method === "direct"
+          ? ` and ${b6.nmid[i].toFixed(1)}% keratin-positive cells by direct count (range ${b6.nlo[i].toFixed(0)}–${b6.nhi[i].toFixed(0)}% across positivity rules)`
+          : ` and about ${b6.nmid[i].toFixed(1)}% of nuclei by the area ÷ cell-size estimate`
+        : "";
+    lines.push(`Focus explorer: counting the hottest ${view.focusFields} of ${b6.total} fields in ${cfg.block_id} gives about ${b6.area[i]?.toFixed(1)}% keratin by area${cells}. Page verdict: ${verdict}`);
   }
   if (view.serialTab) lines.push(`Serial-section drawer tab: ${view.serialTab}.`);
   if (view.sensitivityThreshold != null) lines.push(`Validation sensitivity threshold: ${view.sensitivityThreshold}.`);
