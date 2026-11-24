@@ -66,6 +66,21 @@ export type BlockGrid = {
   sil_w: number;
 };
 
+/** Real slide images behind the 1 mm field grid (de-identified tissue crops, ink-aligned like the grid). */
+export type SlideImages = {
+  stain: string;
+  /** Asset path of the whole-grid image; field (col,row) starts at (col,row)·px_per_field. */
+  atlas: string;
+  atlas_w: number;
+  atlas_h: number;
+  px_per_field: number;
+  /** µm per atlas pixel and per full-resolution crop pixel. */
+  um_per_px_atlas: number;
+  hires_um_per_px: number;
+  /** Fields with a full-resolution crop at slides/<block>_f<col>_<row>.jpg. */
+  hires: [number, number][];
+};
+
 export type PackedMesh = {
   v: number[];
   f: number[];
@@ -106,6 +121,8 @@ export type B6Cumulative = {
   N1: [number, number, number];
   N2: [number, number, number];
   focus_mm2: number;
+  /** "direct" = per-cell count on the PanKeratin slide; older data used the area ÷ cell-size estimate. */
+  nuclei_method?: "direct" | "area_estimate";
 };
 
 export type F33Steps = {
@@ -214,12 +231,18 @@ export type ReportContent = {
     ref_lines: { pct: number; label: string; strong?: boolean }[];
     verdicts: { max_k: number; text: string }[];
     footnote: string;
+    /** Optional labels for the nuclei metric (older data used the area ÷ cell-size estimate). */
+    nuclei_kpi_label?: string;
+    nuclei_legend?: string;
+    area_kpi_label?: string;
+    area_legend?: string;
     hotfields_drawer: {
       title: string;
       meta: string;
       body: string;
       img: string;
       rows: [string, string, string, string, string][];
+      headers?: [string, string, string, string, string];
     };
     serial_drawer: {
       title: string;
@@ -293,6 +316,8 @@ export type CellularityData = {
   grids: Record<string, BlockGrid>;
   meshes_3d: Meshes3D;
   b6_cum: B6Cumulative;
+  /** Optional: absent in older data releases. */
+  slide_images?: Record<string, SlideImages>;
   f33: F33Steps;
   validation: ValidationData;
   rcb_points: Record<string, number>;

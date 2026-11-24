@@ -19,6 +19,8 @@ import {
   slabsFromSlices,
   stepScanned,
   assayLabel,
+  capOutlines,
+  meshSectionX,
   reportedMarginFindings,
   TRAY_CELL,
   trayLayout,
@@ -37,6 +39,8 @@ type Props = {
   /** Field hovered here or in the 2D inspector; drawn as a 1 mm outline on its slide face. */
   hoverField?: FieldRef | null;
   onHoverField?: (f: FieldRef | null) => void;
+  /** Click on a 1 mm field of a slide face: open its slide image in the inspector. */
+  onPinField?: (f: FieldRef) => void;
 };
 
 type Layers = ViewPreset["layers"];
@@ -51,6 +55,8 @@ type SceneState = {
   deal: number;
   cut: boolean;
   isolate: boolean;
+  /** Specimen surface opacity multiplier (1 = default haze). */
+  surface: number;
 };
 
 type SceneApi = {
@@ -109,6 +115,51 @@ function makeSliceTexture(g: BlockGrid): THREE.CanvasTexture {
   return tex;
 }
 
+/** Diagonal hatch for the cut faces of unscanned end slabs: tissue that exists but was never imaged. */
+function makeHatchTexture(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = c.height = 32;
+  const ctx = c.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "#e7dfcf";
+    ctx.fillRect(0, 0, 32, 32);
+    ctx.strokeStyle = "#b9ad95";
+    ctx.lineWidth = 3;
+    for (const o of [-32, 0, 32]) {
+      ctx.beginPath();
+      ctx.moveTo(o, 32);
+      ctx.lineTo(o + 32, 0);
+      ctx.stroke();
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1 / 3, 1 / 3); // one hatch tile per 3 mm
+  return tex;
+}
+
+/** Flat cap filling the hull's cross-section at X = x (in the slab's rest frame). */
+function buildCapGeometry(packed: PackedMesh, x: number): THREE.BufferGeometry | null {
+  const caps = capOutlines(meshSectionX(packed.v, packed.f, x));
+  if (!caps.length) return null;
+  const shapes = caps.map(({ outer, holes }) => {
+    const sh = new THREE.Shape(outer.map(([y, z]) => new THREE.Vector2(y, z)));
+    holes.forEach((h) => sh.holes.push(new THREE.Path(h.map(([y, z]) => new THREE.Vector2(y, z)))));
+    return sh;
+  });
+  const geo = new THREE.ShapeGeometry(shapes);
+  const pos = geo.getAttribute("position") as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getX(i);
+    const z = pos.getY(i);
+    pos.setXYZ(i, x, y, z);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  return geo;
+}
+
 /** Per-vertex hull colors: neutral tissue, or the six margin inks blended by surface normal. */
 function hullColors(geo: THREE.BufferGeometry, inks: boolean): Float32Array {
   const n = geo.getAttribute("normal") as THREE.BufferAttribute;
@@ -156,7 +207,7 @@ function SliceThumb({ g, active }: { g: BlockGrid; active: boolean }) {
   return <canvas ref={ref} style={{ width: g.cols * 3, height: g.rows * 3 }} aria-hidden="true" />;
 }
 
-export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = null, onHoverField }: Props) {
+export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = null, onHoverField, onPinField }: Props) {
   const spec = data.report.specimen;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelsRef = useRef<HTMLDivElement | null>(null);
@@ -164,6 +215,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
   const scaleRef = useRef<HTMLDivElement | null>(null);
   const onSelectRef = useRef(onSelectBlock);
   const onHoverFieldRef = useRef(onHoverField);
+  const onPinFieldRef = useRef(onPinField);
   const hoverRef = useRef<(id: string | null) => void>(() => {});
   const sceneApiRef = useRef<SceneApi | null>(null);
 
@@ -185,6 +237,8 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
   const [deal, setDeal] = useState(initial.deal);
   const [cut, setCut] = useState(initial.cut);
   const [isolate, setIsolate] = useState(initial.isolate);
+  /** Surface opacity slider, 0–100; 50 = the default haze for each view. */
+  const [surfacePct, setSurfacePct] = useState(50);
   const [hovered, setHovered] = useState<string | null>(null);
   const [webglError, setWebglError] = useState<string | null>(null);
   const activePreset = VIEW_PRESETS.find((p) => p.id === view) ?? VIEW_PRESETS[0];
@@ -202,13 +256,15 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
     laidOut: deal > 0.5,
     cut,
     separated: explode,
+    surface: surfacePct === 50 ? "default" : surfacePct === 0 ? "hidden" : surfacePct >= 100 ? "opaque" : `${surfacePct * 2}% of default opacity`,
   });
 
   useEffect(() => {
     onSelectRef.current = onSelectBlock;
     onHoverFieldRef.current = onHoverField;
+    onPinFieldRef.current = onPinField;
     hoverRef.current = setHovered;
-  }, [onSelectBlock, onHoverField]);
+  }, [onSelectBlock, onHoverField, onPinField]);
 
   const slabs = useMemo(() => slabsFromSlices(data.slices, spec.bed_length_mm), [data.slices, spec.bed_length_mm]);
   const focusEdge = useMemo(() => {
@@ -283,6 +339,10 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
     const core5Geo = track(buildGeometry(M.dense_core_5));
     const haloGeo = track(buildGeometry(M.sparse_halo));
     const cavGeo = track(buildGeometry(M.biopsy_cavity));
+    const hatchTex = track(makeHatchTexture());
+    const capMat = track(
+      new THREE.MeshBasicMaterial({ map: hatchTex, side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1 }),
+    );
 
     // ---------------------------------------------------------------- slabs
     type SlabObj = {
@@ -299,6 +359,8 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
       sliceMat: THREE.MeshBasicMaterial | null;
       contour: THREE.LineLoop | null;
       contourMat: THREE.LineBasicMaterial | THREE.LineDashedMaterial | null;
+      /** Solid caps on the cut faces of unscanned end slabs. */
+      caps: THREE.Mesh[];
       tag: HTMLButtonElement;
       /** Rest-frame extents of the slice face, for anchoring labels. */
       face: { yMin: number; yMax: number; zMin: number; zMax: number };
@@ -344,6 +406,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
       deal: 0,
       cut: false,
       isolate: false,
+      surface: 1,
     };
     let explodeCur = 0;
     let dealCur = 0;
@@ -376,6 +439,21 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
       hull.userData.blockId = slab.id;
       group.add(hull);
       clickables.push(hull);
+
+      // Unscanned end slabs: fill each cut face so the slab reads as solid tissue, not a hollow shell.
+      const caps: THREE.Mesh[] = [];
+      if (!slab.scanned) {
+        for (const cx of [slab.x0 + 0.02, slab.x1 - 0.02]) {
+          const cg = buildCapGeometry(M.specimen_hull, cx);
+          if (!cg) continue;
+          const cap = new THREE.Mesh(track(cg), capMat);
+          cap.renderOrder = 4;
+          cap.userData.blockId = slab.id;
+          group.add(cap);
+          clickables.push(cap);
+          caps.push(cap);
+        }
+      }
 
       const c12 = new THREE.Mesh(core12Geo, track(new THREE.MeshPhongMaterial({ color: 0x7f0d12, emissive: 0x3a0507, shininess: 60, clippingPlanes: planes })));
       c12.renderOrder = 1;
@@ -461,7 +539,7 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
       });
 
       scene.add(group);
-      slabObjs.push({ slab, group, localPlanes, planes, hullMat, shells: [c12, c5], halo, cav, slicePlane, sliceMat, contour, contourMat, tag, face });
+      slabObjs.push({ slab, group, localPlanes, planes, hullMat, shells: [c12, c5], halo, cav, slicePlane, sliceMat, contour, contourMat, caps, tag, face });
     });
 
     /** Rest-frame point (as built, before explode/deal) → current world position via the slab's transform. */
@@ -809,14 +887,14 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
       }
       return { id, field: null };
     };
-    const pick = (e: PointerEvent) => pickHit(e).id;
     const onPointerDown = (e: PointerEvent) => {
       downPos = [e.clientX, e.clientY];
     };
     const onPointerUp = (e: PointerEvent) => {
       if (!downPos || Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) > 5) return;
-      const id = pick(e);
+      const { id, field } = pickHit(e);
       if (id && (data.grids[id] || slabs.some((s) => s.id === id))) onSelectRef.current(id);
+      if (field) onPinFieldRef.current?.(field);
     };
     let lastHover: string | null = null;
     let lastField = "";
@@ -899,7 +977,10 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
           const isSel = o.slab.id === s.selected;
           const isHover = o.slab.id === s.hovered;
           const ghost = (s.cut && s.deal < 0.5 && selIdx >= 0 && o.slab.index < selIdx) || (s.isolate && s.deal > 0.5 && !isSel);
-          o.hullMat.opacity = ghost ? 0.035 : s.layers.inks ? (s.deal > 0.5 ? 0.6 : 0.5) : s.deal > 0.5 ? 0.3 : 0.17;
+          const base = s.layers.inks ? (s.deal > 0.5 ? 0.6 : 0.5) : s.deal > 0.5 ? 0.3 : 0.17;
+          o.hullMat.opacity = ghost ? 0.035 : Math.min(0.95, base * s.surface);
+          o.hullMat.visible = ghost || s.surface > 0;
+          o.caps.forEach((c) => (c.visible = !ghost));
           // Fully hide neighbours in the single-slab view; keep a faint ghost when cutting the loaf.
           o.group.visible = !(ghost && s.isolate);
           o.shells.forEach((m) => (m.visible = s.layers.shells && !ghost));
@@ -1175,8 +1256,8 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
 
   // Push React state into the scene.
   useEffect(() => {
-    sceneApiRef.current?.sync({ view, selected: selectedBlock, hovered, hoverField, layers, explode, deal, cut, isolate });
-  }, [view, selectedBlock, hovered, hoverField, layers, explode, deal, cut, isolate, webglError]);
+    sceneApiRef.current?.sync({ view, selected: selectedBlock, hovered, hoverField, layers, explode, deal, cut, isolate, surface: surfacePct / 50 });
+  }, [view, selectedBlock, hovered, hoverField, layers, explode, deal, cut, isolate, surfacePct, webglError]);
 
   // Initial camera.
   useEffect(() => {
@@ -1303,6 +1384,10 @@ export function TumorModel3D({ data, selectedBlock, onSelectBlock, hoverField = 
             <div className="cel-m3d-range">
               Separate slabs
               <CelSlider label="Separate slabs" min={0} max={100} value={Math.round(explode * 100)} onValueChange={(v) => relayout({ explode: v / 100 })} />
+            </div>
+            <div className="cel-m3d-range">
+              Specimen surface {surfacePct === 0 ? "(hidden)" : surfacePct >= 100 ? "(opaque)" : ""}
+              <CelSlider label="Specimen surface opacity" min={0} max={100} step={5} value={surfacePct} onValueChange={setSurfacePct} />
             </div>
           </div>
         </details>

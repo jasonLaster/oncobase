@@ -36,4 +36,14 @@ test("the 3D model line only shows while the 3D view is active", () => {
   expect(describeViewState({ view: "grid", model }, data)).not.toContain("3D model");
   expect(describeViewState({ view: "webgl", model }, data)).toContain("hidden layers: halo");
   expect(describeViewState({ view: "webgl", model: { ...model, laidOut: true } }, data)).toContain("laid out face-up");
+  expect(describeViewState({ view: "webgl", model: { ...model, surface: "hidden" } }, data)).toContain("specimen surface hidden");
+  expect(describeViewState({ view: "webgl", model: { ...model, surface: "default" } }, data)).not.toContain("specimen surface");
+});
+
+test("the focus explorer line names the direct cell count when the data has one", () => {
+  const direct = { ...data, b6_cum: { total: 3, area: [20, 10, 5], nmid: [36, 20, 2.5], nlo: [31, 16, 1.8], nhi: [44, 26, 3.4], nuclei_method: "direct" } } as unknown as CellularityData;
+  const text = describeViewState({ focusFields: 2 }, direct);
+  expect(text).toContain("20.0% keratin-positive cells by direct count");
+  expect(text).toContain("16–26%");
+  expect(describeViewState({ focusFields: 2 }, data)).not.toContain("direct count");
 });

@@ -1,3 +1,4 @@
+import { SlideFieldView } from "./SlideFieldView";
 import { useEffect, useRef, useState } from "react";
 import { Toggle, ToggleGroup } from "@oncobase/ui/toggle";
 import { CelCheckbox, CelSlider } from "./controls";
@@ -585,9 +586,14 @@ export function BlockInspector({
   selectedBlock,
   hoverField = null,
   onHoverField,
+  pinnedField = null,
+  onPinField,
 }: {
   data: CellularityData;
   selectedBlock: string;
+  /** Field whose slide image is open (clicked here or in the 3D model). */
+  pinnedField?: FieldRef | null;
+  onPinField?: (f: FieldRef | null) => void;
   /** Field hovered in the 3D model (or here): linked brushing between 2D and 3D. */
   hoverField?: FieldRef | null;
   onHoverField?: (f: FieldRef | null) => void;
@@ -607,6 +613,7 @@ export function BlockInspector({
   const grid = data.grids[selectedBlock];
 
   const activeHover = hover?.block === selectedBlock ? hover : null;
+  const pinned = pinnedField?.block === selectedBlock ? pinnedField : null;
   // A field hovered in the 3D model shows here too, with the same readout.
   const linked = !activeHover && hoverField?.block === selectedBlock && grid ? hoverField : null;
   const linkedPct = linked ? grid?.fields.find((f) => f[0] === linked.col && f[1] === linked.row)?.[2] : undefined;
@@ -623,11 +630,14 @@ export function BlockInspector({
   // Depend on the cell's coordinates, not the (new each render) array.
   const hoverCol = hoverCell?.[0] ?? -1;
   const hoverRow = hoverCell?.[1] ?? -1;
+  const pinCol = pinned?.col ?? -1;
+  const pinRow = pinned?.row ?? -1;
   useEffect(() => {
     if (!canvasRef.current || !grid) return;
     const cell: [number, number] | null = hoverCol >= 0 ? [hoverCol, hoverRow] : null;
-    geoRef.current = draw2DGrid(canvasRef.current, grid, { showBed, showNums, hoverCell: cell });
-  }, [grid, showBed, showNums, hoverCol, hoverRow]);
+    const highlightSet = pinCol >= 0 ? new Set([`${pinCol},${pinRow}`]) : undefined;
+    geoRef.current = draw2DGrid(canvasRef.current, grid, { showBed, showNums, hoverCell: cell, highlightSet });
+  }, [grid, showBed, showNums, hoverCol, hoverRow, pinCol, pinRow]);
 
   if (!grid || !row) {
     return (
@@ -722,6 +732,15 @@ export function BlockInspector({
             setHover(null);
             onHoverField?.(null);
           }}
+          onClick={(e) => {
+            const geo = geoRef.current;
+            if (!geo) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const c = Math.floor((e.clientX - rect.left - geo.ox) / geo.cell);
+            const r = Math.floor((e.clientY - rect.top - geo.oy) / geo.cell);
+            if (geo.fieldMap.has(`${c},${r}`)) onPinField?.({ block: selectedBlock, col: c, row: r });
+          }}
+          style={{ cursor: onPinField ? "pointer" : undefined }}
         />
       </div>
 
@@ -729,6 +748,18 @@ export function BlockInspector({
         <span>{hoverText.left}</span>
         <strong>{hoverText.right}</strong>
       </div>
+      {pinned ? (
+        <SlideFieldView
+          block={selectedBlock}
+          grid={grid}
+          images={data.slide_images?.[selectedBlock]}
+          field={pinned}
+          onMove={(f) => onPinField?.(f)}
+          onClose={() => onPinField?.(null)}
+        />
+      ) : onPinField ? (
+        <p className="cel-footnote cel-pin-hint">Click a field to open the slide image behind it.</p>
+      ) : null}
 
       <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 12, color: "var(--text-muted)" }}>
         <CelCheckbox checked={showBed} onCheckedChange={setShowBed} style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>

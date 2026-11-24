@@ -400,3 +400,96 @@ export function reportedMarginFindings(slices: SliceMeta[]): { id: string; label
     }))
     .filter((s) => s.findings.length > 0);
 }
+
+/**
+ * Cross-section of a closed triangle mesh with the plane X = x, as closed loops of [y, z] points.
+ * Used to cap the cut faces of the unscanned end slabs, which would otherwise render hollow.
+ * Crossing points are keyed by mesh edge, so neighbouring triangles share exact endpoints and chain cleanly.
+ */
+export function meshSectionX(v: ArrayLike<number>, f: ArrayLike<number>, x: number): [number, number][][] {
+  const eps = 1e-6;
+  const dx = (i: number) => {
+    const d = v[i * 3] - x;
+    return Math.abs(d) < eps ? eps : d; // nudge vertices that sit exactly on the plane
+  };
+  const pts = new Map<string, [number, number]>();
+  const key = (a: number, b: number) => (a < b ? `${a}_${b}` : `${b}_${a}`);
+  const cross = (a: number, b: number): string => {
+    const k = key(a, b);
+    if (!pts.has(k)) {
+      const da = dx(a);
+      const t = da / (da - dx(b));
+      pts.set(k, [v[a * 3 + 1] + t * (v[b * 3 + 1] - v[a * 3 + 1]), v[a * 3 + 2] + t * (v[b * 3 + 2] - v[a * 3 + 2])]);
+    }
+    return k;
+  };
+  const adj = new Map<string, string[]>();
+  const link = (p: string, q: string) => {
+    if (p === q) return;
+    (adj.get(p) ?? adj.set(p, []).get(p)!).push(q);
+    (adj.get(q) ?? adj.set(q, []).get(q)!).push(p);
+  };
+  for (let t = 0; t + 2 < f.length; t += 3) {
+    const tri = [f[t], f[t + 1], f[t + 2]];
+    const s = tri.map((i) => dx(i) > 0);
+    const ks: string[] = [];
+    for (let e = 0; e < 3; e++) {
+      const a = tri[e];
+      const b = tri[(e + 1) % 3];
+      if (s[e] !== s[(e + 1) % 3]) ks.push(cross(a, b));
+    }
+    if (ks.length === 2) link(ks[0], ks[1]);
+  }
+  const seen = new Set<string>();
+  const loops: [number, number][][] = [];
+  for (const start of adj.keys()) {
+    if (seen.has(start)) continue;
+    const loop: [number, number][] = [];
+    let prev = "";
+    let cur = start;
+    while (cur && !seen.has(cur)) {
+      seen.add(cur);
+      loop.push(pts.get(cur)!);
+      const next = (adj.get(cur) ?? []).find((n) => n !== prev && !seen.has(n));
+      prev = cur;
+      cur = next ?? "";
+    }
+    if (loop.length >= 3) loops.push(loop);
+  }
+  return loops;
+}
+
+/** Signed area (shoelace) of a [y, z] loop. */
+export function loopArea(loop: [number, number][]): number {
+  let a = 0;
+  for (let i = 0; i < loop.length; i++) {
+    const [y0, z0] = loop[i];
+    const [y1, z1] = loop[(i + 1) % loop.length];
+    a += y0 * z1 - y1 * z0;
+  }
+  return a / 2;
+}
+
+/** Point-in-polygon (even–odd) for [y, z] loops. */
+export function pointInLoop(p: [number, number], loop: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) {
+    const [yi, zi] = loop[i];
+    const [yj, zj] = loop[j];
+    if (zi > p[1] !== zj > p[1] && p[0] < ((yj - yi) * (p[1] - zi)) / (zj - zi) + yi) inside = !inside;
+  }
+  return inside;
+}
+
+/** Group section loops into outer outlines with their holes (loops inside an odd number of others are holes). */
+export function capOutlines(loops: [number, number][][], minAreaMm2 = 0.5): { outer: [number, number][]; holes: [number, number][][] }[] {
+  const big = loops.filter((l) => Math.abs(loopArea(l)) >= minAreaMm2);
+  const depth = big.map((l, i) => big.filter((o, j) => j !== i && pointInLoop(l[0], o)).length);
+  return big
+    .map((l, i) => ({ l, i }))
+    .filter(({ i }) => depth[i] % 2 === 0)
+    .map(({ l, i }) => ({
+      outer: l,
+      holes: big.filter((h, j) => j !== i && depth[j] === depth[i] + 1 && pointInLoop(h[0], l)),
+    }));
+}
