@@ -11,7 +11,7 @@ const CLAIMED_EXACT = [
   "/api/test/diagnostic-studies", "/api/test/dicom-comparisons", "/api/tools", "/api/mcp",
   "/api/liveblocks-auth", "/api/liveblocks-threads", "/api/liveblocks-add-comment", "/api/liveblocks-delete-thread",
   "/api/liveblocks-users", "/api/liveblocks-guest", "/api/liveblocks-webhook",
-  "/api/download", "/api/file", "/api/page-copy",
+  "/api/download", "/api/file", "/api/page-copy", "/api/client-errors",
 ];
 const CLAIMED_PREFIXES = ["/api/wiki/", "/api/admin/", "/api/publish/", "/api/pathology/", "/api/dicom/comparisons/", "/api/page-shares/", "/api/chat/wiki-edits/"];
 
