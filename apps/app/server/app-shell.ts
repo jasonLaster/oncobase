@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readerShellHint } from "../src/bootstrap/reader-shell-hint";
 import { landingRouteMetadata, specialRouteMetadata } from "../src/special-route-metadata";
+import { isReaderAppRoute } from "../src/reader-app-routes";
 import { LANDING_READER_ACCESS, rootRouteFor } from "../src/root-route";
 import { injectPageBootstrap, navigationBootstrapScripts, navigationSlice, sessionPageBootstrapScripts } from "./page-bootstrap";
 import { contentSlugFromRouteSlug, slugFromPath } from "../src/wiki-utils";
@@ -79,7 +80,8 @@ type StreamedDocument = { head: string; tail: Promise<string>; rest: string };
 
 type CanonicalSlugCacheEntry = {
   expires: number;
-  map: Map<string, string>;
+  /** In flight or settled. Concurrent cold requests share one listing. */
+  map: Promise<Map<string, string>>;
 };
 
 type ManifestPageResult = {
@@ -170,7 +172,7 @@ function explicitCanonicalRedirectResponse(request: Request) {
   return redirectToPath(request, canonicalPath);
 }
 
-async function publicCanonicalSlugMap(client: ConvexHttpClient, siteSlug: string) {
+function publicCanonicalSlugMap(client: ConvexHttpClient, siteSlug: string) {
   const now = Date.now();
   let canonicalSlugCache = canonicalSlugCaches.get(client);
   if (!canonicalSlugCache) canonicalSlugCaches.set(client, canonicalSlugCache = new Map());
@@ -178,31 +180,33 @@ async function publicCanonicalSlugMap(client: ConvexHttpClient, siteSlug: string
   traceBackendCache("canonical-slugs", Boolean(cached && cached.expires > now));
   if (cached && cached.expires > now) return cached.map;
 
-  const slugs: string[] = [];
-  let cursor: string | null = null;
-  let isDone = false;
-
-  while (!isDone) {
-    const result = await client.query(
-      api.documents.listManifestPage,
-      withSiteSlug(siteSlug, {
-        cursor,
-        numItems: CANONICAL_SLUG_PAGE_SIZE,
-      }),
-    ) as ManifestPageResult;
-    for (const page of result.page) {
-      if (typeof page.slug === "string") {
-        slugs.push(page.slug);
+  const map = (async () => {
+    const slugs: string[] = [];
+    let cursor: string | null = null;
+    let isDone = false;
+    while (!isDone) {
+      const result = await client.query(
+        api.documents.listManifestPage,
+        withSiteSlug(siteSlug, {
+          cursor,
+          numItems: CANONICAL_SLUG_PAGE_SIZE,
+        }),
+      ) as ManifestPageResult;
+      for (const page of result.page) {
+        if (typeof page.slug === "string") {
+          slugs.push(page.slug);
+        }
       }
+      cursor = result.continueCursor;
+      isDone = result.isDone || !cursor;
     }
-    cursor = result.continueCursor;
-    isDone = result.isDone || !cursor;
-  }
-
-  const map = canonicalSlugMap(slugs);
-  canonicalSlugCache.set(siteSlug, {
-    expires: now + CANONICAL_SLUG_CACHE_TTL_MS,
-    map,
+    return canonicalSlugMap(slugs);
+  })();
+  const entry = { expires: now + CANONICAL_SLUG_CACHE_TTL_MS, map };
+  canonicalSlugCache.set(siteSlug, entry);
+  // A failed listing must not be served for the rest of the TTL.
+  map.catch(() => {
+    if (canonicalSlugCache.get(siteSlug) === entry) canonicalSlugCache.delete(siteSlug);
   });
   return map;
 }
@@ -216,6 +220,10 @@ async function canonicalSlugRedirectResponse(
   if (isSignInPathname(url.pathname) || url.pathname.startsWith("/api/") || isAppAssetRequest(url.pathname) || PUBLIC_PAGES.has(url.pathname)) {
     return null;
   }
+  // The reader's own pages (chat, admin, diagnostics, ...) are never wiki
+  // pages, so no published slug can be their canonical form. Without this,
+  // each one paged through the whole site listing (about 1.4-2.2 s).
+  if (isReaderAppRoute(url.pathname)) return null;
 
   const slug = slugFromPathname(url.pathname);
   if (!slug || slug === "index") return null;
@@ -400,7 +408,9 @@ async function staticIndexHtml(
 ): Promise<string | StreamedDocument> {
   const html = providedHtml ?? await readFile(filePath, "utf8");
   const url = new URL(request.url);
-  const slug = slugFromPathname(url.pathname);
+  // An app route (chat, admin, ...) never renders a wiki page, so it has no
+  // page metadata to look up and no navigation slice to inline.
+  const slug = isReaderAppRoute(url.pathname) ? null : slugFromPathname(url.pathname);
   const tag = tagFromPathname(url.pathname);
 
   const siteSlug = await resolveSiteSlug(request, client);

@@ -14,6 +14,18 @@ import path from "node:path";
 
 export const DEFAULT_SEED = 42;
 
+/**
+ * `lab`: the original ~2,300-page vault (default; the budgets' baseline).
+ * `prod`: the same vault plus pages and assets shaped like production on
+ * 2026-11-23 (plans/2026-11-23-opportunities-and-analytics.md, O0): about
+ * 8,750 pages in about 1,000 folders, one 6k-page folder with a 4.5k-page
+ * subfolder, longer slugs and titles, and about 14,400 tiny assets (91% in
+ * one directory, mostly images). Only the shape is production's; every byte
+ * is synthetic.
+ */
+export type VaultScale = "lab" | "prod";
+export const VAULT_SCALES: readonly VaultScale[] = ["lab", "prod"];
+
 /** Pages the scenarios rely on. */
 export const PAGES = {
   /** Ordinary article for load scenarios. */
@@ -29,7 +41,9 @@ export const PAGES = {
 export type VaultFile = { file: string; content: string };
 export type VaultStats = {
   seed: number;
+  scale: VaultScale;
   pages: number;
+  assets: number;
   bytes: number;
   sensitive: number;
   large: number;
@@ -40,9 +54,9 @@ export type VaultStats = {
 
 const WORDS = "tumor response cycle infusion carboplatin paclitaxel pembrolizumab biopsy margin node staging receptor pathway trial cohort endpoint survival toxicity neuropathy fatigue scan contrast lesion baseline follow-up dose schedule clinic referral insurance appeal summary evidence guideline marker assay mutation variant germline somatic immune checkpoint antibody conjugate regimen adjuvant neoadjuvant surgery radiation recovery nutrition exercise sleep support".split(" ");
 
-type Entry = { file: string; title: string; sensitive: boolean; big: boolean; tags: string[] };
+type Entry = { file: string; title: string; sensitive: boolean; big: boolean; tags: string[]; sections?: number };
 
-export function buildVault(seed = DEFAULT_SEED): { files: VaultFile[]; stats: VaultStats } {
+export function buildVault(seed = DEFAULT_SEED, scale: VaultScale = "lab"): { files: VaultFile[]; assets: VaultFile[]; stats: VaultStats } {
   let state = seed;
   const rnd = () => (state = (state * 1664525 + 1013904223) % 4294967296) / 4294967296;
   const pick = <T,>(items: readonly T[]) => items[Math.floor(rnd() * items.length)]!;
@@ -55,8 +69,8 @@ export function buildVault(seed = DEFAULT_SEED): { files: VaultFile[]; stats: Va
 
   const all: { slug: string; title: string }[] = [];
   const entries: Entry[] = [];
-  const add = (dir: string, name: string, title: string, opts: { sensitive?: boolean; big?: boolean } = {}) => {
-    entries.push({ file: `${dir}/${name}.md`, title, sensitive: !!opts.sensitive, big: !!opts.big, tags: [dir.split("/")[0]!] });
+  const add = (dir: string, name: string, title: string, opts: { sensitive?: boolean; big?: boolean; sections?: number } = {}) => {
+    entries.push({ file: `${dir}/${name}.md`, title, sensitive: !!opts.sensitive, big: !!opts.big, tags: [dir.split("/")[0]!], ...(opts.sections ? { sections: opts.sections } : {}) });
     all.push({ slug: `${dir}/${name}`, title });
   };
 
@@ -90,9 +104,35 @@ export function buildVault(seed = DEFAULT_SEED): { files: VaultFile[]; stats: Va
   for (let i = 0; i < 200; i++) add(`labs/${2024 + (i % 3)}`, `lab-${i}`, `Lab panel ${i}`, { sensitive: i % 4 === 0 });
   for (let i = 0; i < 100; i++) add("imaging/reports", `imaging-${i}`, `Imaging report ${i}`);
 
+  // Production-shaped additions. Drawn after every lab entry so the lab
+  // scale's draw order, and therefore its bytes, are unchanged.
+  const assets: VaultFile[] = [];
+  if (scale === "prod") {
+    const words = (n: number) => Array.from({ length: n }, () => pick(WORDS)).join("-");
+    const collections = Array.from({ length: 11 }, (_, i) => `c${i}-${pick(WORDS)}`);
+    const shards = Array.from({ length: 70 }, (_, i) => `${pick(WORDS)}-${i}`);
+    for (let i = 0; i < 6000; i++) {
+      // 4,500 land in the first collection, like production's largest subfolder.
+      const collection = i < 4500 ? collections[0]! : collections[1 + (i % 10)]!;
+      const year = 2015 + (i % 12);
+      // Production pages are mostly short (p50 ~5 KB, p95 ~74 KB).
+      const sections = i % 20 === 0 ? 24 : 1 + Math.floor(rnd() * 2);
+      add(`sources/library/${collection}/${year}/${shards[i % shards.length]}`, `${words(3)}-${i}`, `${words(4).replace(/-/g, " ")}: ${pick(WORDS)} and ${pick(WORDS)} (${year})`, { sensitive: i % 25 === 0, sections });
+    }
+    for (let i = 0; i < 434; i++) add(`wiki/notes/${pick(WORDS)}`, `${words(3)}-note-${i}`, `Note ${i}: ${pick(WORDS)} ${pick(WORDS)} ${pick(WORDS)}`);
+    const imageExts = [...Array(17).fill(".jpg"), ".png", ".png", ".webp", ".svg"];
+    for (let i = 0; i < 14_431; i++) {
+      const pdf = i % 12 === 0;
+      const ext = pdf ? ".pdf" : imageExts[i % imageExts.length]!;
+      const dir = i % 11 === 0 ? `attachments/${shards[i % 7]}` : `sources/library/attachments/${collections[i % 11]}/${2015 + (i % 12)}`;
+      // Tiny placeholders: the manifest and publisher only see path, kind and hash.
+      assets.push({ file: `${dir}/${words(2)}-${i}${ext}`, content: ext === ".svg" ? `<svg xmlns="http://www.w3.org/2000/svg" data-i="${i}"/>` : `synthetic asset ${i}\n` });
+    }
+  }
+
   const body = (f: Entry) => {
     const out = [`---`, `title: ${JSON.stringify(f.title)}`, `description: ${JSON.stringify(sentence())}`, ...(f.sensitive ? ["sensitive: true"] : []), `tags:`, ...f.tags.map((t) => `  - ${t}`), `---`, ``, `# ${f.title}`, ``, para(), ``];
-    const sections = f.big ? 60 : 3 + Math.floor(rnd() * 5);
+    const sections = f.big ? 60 : f.sections ?? 3 + Math.floor(rnd() * 5);
     for (let s = 0; s < sections; s++) {
       out.push(`## ${pick(WORDS)} ${pick(WORDS)} ${s}`, ``, para(), ``);
       const links = Array.from({ length: 3 }, () => pick(all));
@@ -110,14 +150,18 @@ export function buildVault(seed = DEFAULT_SEED): { files: VaultFile[]; stats: Va
   const files = entries.map((f) => ({ file: f.file, content: body(f) }));
   const hash = crypto.createHash("sha256");
   for (const f of files) hash.update(f.file).update("\0").update(f.content).update("\0");
+  for (const f of assets) hash.update(f.file).update("\0").update(f.content).update("\0");
   const byteLength = (s: string) => Buffer.byteLength(s, "utf8");
   const find = (slug: string) => files.find((f) => f.file === `${slug}.md`)!.content;
   const large = find(PAGES.large);
   return {
     files,
+    assets,
     stats: {
       seed,
+      scale,
       pages: files.length,
+      assets: assets.length,
       bytes: files.reduce((sum, f) => sum + byteLength(f.content), 0),
       sensitive: entries.filter((f) => f.sensitive).length,
       large: entries.filter((f) => f.big).length,
@@ -129,10 +173,10 @@ export function buildVault(seed = DEFAULT_SEED): { files: VaultFile[]; stats: Va
 }
 
 /** Write the vault to `root`, replacing whatever was there. */
-export function writeVault(root: string, seed = DEFAULT_SEED): VaultStats {
-  const { files, stats } = buildVault(seed);
+export function writeVault(root: string, seed = DEFAULT_SEED, scale: VaultScale = "lab"): VaultStats {
+  const { files, assets, stats } = buildVault(seed, scale);
   rmSync(root, { recursive: true, force: true });
-  for (const f of files) {
+  for (const f of [...files, ...assets]) {
     const target = path.join(root, f.file);
     mkdirSync(path.dirname(target), { recursive: true });
     writeFileSync(target, f.content);
@@ -142,7 +186,9 @@ export function writeVault(root: string, seed = DEFAULT_SEED): VaultStats {
 
 if (import.meta.main) {
   const root = process.argv[2];
-  if (!root) throw new Error("Usage: bun scripts/perf-lab/vault.ts <dir> [seed]");
-  const stats = writeVault(path.resolve(root), Number(process.argv[3] ?? DEFAULT_SEED));
+  if (!root) throw new Error("Usage: bun scripts/perf-lab/vault.ts <dir> [seed] [lab|prod]");
+  const scale = (process.argv[4] ?? "lab") as VaultScale;
+  if (!VAULT_SCALES.includes(scale)) throw new Error(`Unknown scale ${scale}`);
+  const stats = writeVault(path.resolve(root), Number(process.argv[3] ?? DEFAULT_SEED), scale);
   console.log(JSON.stringify(stats));
 }

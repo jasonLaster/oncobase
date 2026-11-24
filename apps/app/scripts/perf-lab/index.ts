@@ -18,6 +18,9 @@
  *   --report-only                          print the budget check but exit 0 when over budget
  *   --no-build                             reuse the stack's existing reader dist instead of rebuilding it
  *   --base <url>                           measure an already-running, already-published server; no stack
+ *   --scale lab|prod                       synthetic vault: lab (default, the budgets' baseline) or prod
+ *                                          (production-shaped, ~8.7k pages and ~14k assets; budgets report-only,
+ *                                          results default to results-prod.json)
  */
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -30,7 +33,7 @@ import { runPolling } from "./polling";
 import { flattenMetrics, medians, renderSummary, type Samples } from "./report";
 import { LAB_DIR, startStack, type Stack } from "./stack";
 import { checkBudgets, type BudgetFile, type Summary } from "./stats";
-import { buildVault } from "./vault";
+import { buildVault, DEFAULT_SEED, VAULT_SCALES, type VaultScale } from "./vault";
 
 const DEFAULT_BUDGETS = path.join(import.meta.dir, "budgets.json");
 const DEFAULT_OUT = path.join(LAB_DIR, "results.json");
@@ -60,7 +63,7 @@ const KNOWN_FLAGS = {
   check: ["report-only"],
 };
 const KNOWN_OPTIONS = {
-  run: ["only", "profiles", "iterations", "interaction-iterations", "poll-seconds", "out", "summary", "budgets", "base"],
+  run: ["only", "profiles", "iterations", "interaction-iterations", "poll-seconds", "out", "summary", "budgets", "base", "scale"],
   check: ["results", "budgets"],
 };
 function validateArgs() {
@@ -129,10 +132,13 @@ async function runLab() {
   const interactionIterations = count("interaction-iterations", quick ? 1 : 3);
   const pollSeconds = count("poll-seconds", 120);
   const runPoll = groups.includes("polling") && !quick && pollSeconds > 0;
-  const out = path.resolve(option("out") ?? DEFAULT_OUT);
+  const scale = (option("scale") ?? "lab") as VaultScale;
+  if (!VAULT_SCALES.includes(scale)) throw new Error(`Unknown scale ${scale}; expected ${VAULT_SCALES.join(", ")}`);
+  const out = path.resolve(option("out") ?? (scale === "lab" ? DEFAULT_OUT : DEFAULT_OUT.replace(/\.json$/, `-${scale}.json`)));
   const summaryPath = path.resolve(option("summary") ?? out.replace(/\.json$/, "") + ".md");
   const budgetsFile = path.resolve(option("budgets") ?? DEFAULT_BUDGETS);
-  const reportOnly = flag("report-only");
+  // The budgets are lab-scale baselines; other scales are reported, never enforced.
+  const reportOnly = flag("report-only") || scale !== "lab";
   const externalBase = option("base");
 
   let stack: Stack | undefined;
@@ -147,12 +153,12 @@ async function runLab() {
 
   try {
     let base: string;
-    let vault = buildVault().stats;
+    let vault = buildVault(DEFAULT_SEED, scale).stats;
     if (externalBase) {
       base = externalBase.replace(/\/$/, "");
       if (!["127.0.0.1", "localhost"].includes(new URL(base).hostname)) throw new Error("--base must be a loopback URL");
     } else {
-      stack = await startStack({ build: !flag("no-build") });
+      stack = await startStack({ build: !flag("no-build"), scale });
       base = stack.base;
       vault = stack.vault;
     }
@@ -176,7 +182,7 @@ async function runLab() {
             if (!sample.ok) failed.push(`load ${profile} ${scenario} #${i + 1}`);
           }
           const cold = result["signed-in-cold"];
-          log(`loads ${profile} ${i + 1}/${loadIterations}: signed-in cold article ${cold.articleMs} ms, tree ${cold.treeMs} ms, ${Math.round(cold.bytesBeforeArticle / 1024)} KB before article; warm ${result["signed-in-warm"].articleMs} ms; landing LCP ${result["landing-cold"].lcpMs} ms (${((performance.now() - t) / 1000).toFixed(0)}s)`);
+          log(`loads ${profile} ${i + 1}/${loadIterations}: signed-in cold article ${cold.articleMs} ms, tree ${cold.treeMs} ms, manifest ${cold.manifestMs} ms (${Math.round(cold.manifestBytes / 1024)} KB), blocking ${cold.blockingMs} ms, ${Math.round(cold.bytesBeforeArticle / 1024)} KB before article; warm ${result["signed-in-warm"].articleMs} ms; landing LCP ${result["landing-cold"].lcpMs} ms (${((performance.now() - t) / 1000).toFixed(0)}s)`);
         }
       }
     }
@@ -220,7 +226,7 @@ async function runLab() {
     const summary = renderSummary({
       metrics, budgets: check.results, budgetsEnforced: !reportOnly,
       iterations: { loads: loadIterations, interactions: interactionIterations },
-      header: `${results.git.commit}${results.git.dirty ? "+dirty" : ""}, ${results.machine.platform}/${results.machine.arch}, ${results.machine.cpus} CPUs`,
+      header: `${results.git.commit}${results.git.dirty ? "+dirty" : ""}, ${results.machine.platform}/${results.machine.arch}, ${results.machine.cpus} CPUs, ${scale}-scale vault (${vault.pages} pages, ${vault.assets} assets)`,
     });
     mkdirSync(path.dirname(summaryPath), { recursive: true });
     writeFileSync(summaryPath, summary + "\n");

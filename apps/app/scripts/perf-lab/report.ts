@@ -55,13 +55,13 @@ export function renderSummary(input: { metrics: Record<string, Summary>; budgets
 
   const loadRows = Object.keys(metrics).filter((k) => k.startsWith("load.") && k.endsWith(".requests")).map((k) => k.slice(0, -".requests".length));
   if (loadRows.length) {
-    lines.push("### Loads", "", "| Profile | Scenario | Article | Tree | LCP | Requests | Transferred | JS (files) | Before article |", "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
+    lines.push("### Loads", "", "| Profile | Scenario | Article | Tree | LCP | Manifest | Blocking | Requests | Transferred | JS (files) | Before article |", "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
     for (const prefix of loadRows) {
       const [, profile, scenario] = prefix.split(".");
       const files = metrics[`${prefix}.jsFiles`];
-      lines.push(`| ${profile} | ${scenario} | ${cell(metrics, `${prefix}.articleMs`, ms)} | ${cell(metrics, `${prefix}.treeMs`, ms)} | ${cell(metrics, `${prefix}.lcpMs`, ms)} | ${cell(metrics, `${prefix}.requests`, plain)} | ${cell(metrics, `${prefix}.bytes`, kb)} | ${cell(metrics, `${prefix}.jsBytes`, kb)} (${files ? plain(files.median) : "–"}) | ${cell(metrics, `${prefix}.bytesBeforeArticle`, kb)} |`);
+      lines.push(`| ${profile} | ${scenario} | ${cell(metrics, `${prefix}.articleMs`, ms)} | ${cell(metrics, `${prefix}.treeMs`, ms)} | ${cell(metrics, `${prefix}.lcpMs`, ms)} | ${cell(metrics, `${prefix}.manifestMs`, ms)} (${metrics[`${prefix}.manifestBytes`] ? kb(metrics[`${prefix}.manifestBytes`]!.median) : "–"}) | ${cell(metrics, `${prefix}.blockingMs`, ms)} | ${cell(metrics, `${prefix}.requests`, plain)} | ${cell(metrics, `${prefix}.bytes`, kb)} | ${cell(metrics, `${prefix}.jsBytes`, kb)} (${files ? plain(files.median) : "–"}) | ${cell(metrics, `${prefix}.bytesBeforeArticle`, kb)} |`);
     }
-    lines.push("", "Before article: bytes received before the article first appeared, partial bodies included (landing: before LCP).", "");
+    lines.push("", "Before article: bytes received before the article first appeared, partial bodies included (landing: before LCP). Manifest: when the full manifest finished arriving, and its size (signed-in). Blocking: long-task time over 50 ms during the load and settle window.", "");
   }
 
   const cpus = [...new Set(Object.keys(metrics).filter((k) => k.startsWith("interaction.")).map((k) => k.split(".")[1]!))].sort();

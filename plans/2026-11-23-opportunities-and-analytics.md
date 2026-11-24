@@ -1,6 +1,6 @@
 # Opportunities and analytics (2026-11-23)
 
-Status: analysis only. Nothing in this document is implemented. Scope: the `apps/app` reader, its server and Convex backend, and the shared packages. Dimensions, weighted the same way as the 11-13 proposal: performance highest, then reliability, server cost, architecture, accessibility and design.
+Status: analysis only. Nothing in this document is implemented. Revised the same day: O2 was withdrawn as a measurement artifact. Scope: the `apps/app` reader, its server and Convex backend, and the shared packages. Dimensions, weighted the same way as the 11-13 proposal: performance highest, then reliability, server cost, architecture, accessibility and design.
 
 The three predecessors are `plans/2026-11-13-application-improvement-proposal.md` (item IDs P, M, A, X, D) and `plans/2026-11-17-server-rendering-plan.md` (SSR stages). The UI SDK migration plan on branch `ui-sdk-migration` covers X3, X4 and most of D2. This report does not duplicate it.
 
@@ -27,7 +27,7 @@ The biggest server costs are not real users either:
 - Labelled CI traffic is 99.0% of browser boots and 56% of Convex time.
 - After CI, the single largest Convex consumer is the publisher's sync preflight. It downloads the whole vault's content before every publish it runs, about 36% of real Convex time.
 
-**Where SSR stage 1 ranks:** fifth, behind four cheaper items. SSR stage 1 is public-scope documents only. Public-scope readers are about 19% of real reader clients, and only their cold loads benefit. That is a handful of loads a week, each gaining about 0.4–0.5 s of first paint. Stage 1 is worth doing as the foundation for stage 2 (signed-in documents, which is where real users are), but on its own it is not the best next move. The four items above it are each S–M size, reach every real user or remove a large server cost, and do not depend on SSR. Section 4 has the reasoning.
+**Where SSR stage 1 ranks:** fourth, behind three items (O0, O1 and O3; O4 is a server-cost item). SSR stage 1 is public-scope documents only. Public-scope readers are about 19% of real reader clients, and only their cold loads benefit. That is a handful of loads a week, each gaining about 0.4–0.5 s of first paint. Stage 1 is worth doing as the foundation for stage 2 (signed-in documents, which is where real users are), but on its own it is not the best next move. The items above it reach every real user or make the rest measurable, and do not depend on SSR. Section 4 has the reasoning.
 
 ## 2. How this was measured
 
@@ -48,7 +48,7 @@ All numbers are from 2026-11-16 to 2026-11-23, except where marked. Traffic is c
 **Production mobile-profile loads.**
 - Profile: 390×844, DPR 3, 4× CPU, 1.6 Mbps and 150 ms RTT, as in the lab, through Playwright and Chromium.
 - 5 cold loads each, signed in and as a gate guest, of a neutral ~8.6 KB page.
-- **Results:** median article paint 3.31 s signed in and 3.60 s as a gate guest. Signed-in is no slower than public.
+- **Results:** median article paint 3.31 s signed in and 3.60 s as a gate guest. Signed-in is no slower than public. These runs had the HTTP cache off because of request interception (see O2).
 - **Caveat:** nova (2 vCPU, 3.8 GB) was shared with other agent sessions, at load average 9–37 during the runs. The timings are inflated against the laptop's 2.35 s from 11-17. Read them as relative only. Byte counts are unaffected.
 
 **Not done, and why.**
@@ -169,18 +169,12 @@ How to read this:
   - Access revocation must still remove rows: a delta has to carry tombstones, and `accessRevision` must force a full read.
 - **Maps to:** P5 ("serve manifest deltas keyed by revision"), P16. New scale evidence.
 
-### O2. The SQLite wasm downloads twice on every cold load
+### O2. Withdrawn: the "duplicate wasm download" was a measurement artifact
 
-- **Evidence (measured on production, one CDP-traced load):** two requests for `/assets/wa-sqlite-*.wasm`, both 200 and brotli, 308,817 and 308,843 bytes, neither from cache.
-  - The first comes from the head script's `startRuntime` (`src/bootstrap/early-requests.ts:44-55`), which fetches it "into the HTTP cache".
-  - The second comes from the store's own load.
-  - The response is `public, max-age=31536000, immutable`, so the second fetch should have been a cache hit. Likely causes: it starts before the first finishes (no in-flight dedupe across a worker boundary), or the request modes differ.
-  - The lab's 295 KB wasm figure suggests the lab does not reproduce it. Verify there before fixing.
-- **Change.** Find which fetch duplicates. Then either hand the early `ArrayBuffer` to the adapter (it is already held in `early.runtime`) or drop the head-script wasm fetch and keep a `<link rel=preload as=fetch crossorigin>` with matching mode.
-- **Reach:** every cold load, about a quarter of real loads (inline payload plus network startups).
-- **Gain:** −309 KB per cold load, about 1.5 s of link on the mobile profile, earlier store boot.
-- **Cost:** S. **Risk:** low.
-- **Maps to:** P2 (follow-up).
+- The first version of this report said `wa-sqlite.wasm` downloads twice on every cold load. That came from a probe that labelled traffic with `context.route`.
+- Playwright disables the HTTP cache while request interception is on.
+- Re-measured with `setExtraHTTPHeaders` instead, the second request (from the store's own load, about 0.5 s after the head script's) is served from disk cache with 0 bytes. The head-script prefetch works as designed.
+- **Consequence for measurement:** any production check that adds `x-wiki-test-run` through `context.route` measures a cold load with no HTTP cache. That includes this report's mobile runs (§2) and probably the 11-17 production check. Those loads over-count bytes for anything fetched twice by design. `perf:lab` does not intercept, so its numbers are unaffected. For future production probes, use the CDP `Network.setExtraHTTPHeaders` on the page target, scoped to the origin, or accept the cache-off caveat.
 
 ### O3. Take the startup snapshot off the main thread's hot path
 
@@ -343,14 +337,14 @@ How to read this:
 - Background prefetch wakes every 2 s while the tab is hidden or offline, and every 30 s while visible, even when its plan is empty (`src/sync/BackgroundPrefetch.tsx:62,104`). Stop on hidden and resume on `visibilitychange`. Size S. Maps to P7.
 - `StoreHost` (about 825 KiB gzip of Effect and LiveStore) is imported in the first effect after paint (`src/ReaderRoot.tsx:116-128`). Start it at idle when the page already painted from the payload or the snapshot. Size S–M. Maps to P2.
 - The fast-path snapshot reads the state database twice and compares the copies byte by byte on the page thread (`src/livestore/fast-path-snapshot.ts:95,136-152`). At production scale the database is several MB. Size S.
-- Lucide per-icon trim (open decision): no new evidence. The previous recommendation (leave it, or try one lazy icon group) stands, and it is worth less than O2's 309 KB by two orders of magnitude.
+- Lucide per-icon trim (open decision): no new evidence. The previous recommendation (leave it, or try one lazy icon group) stands, and it is small next to O1–O3.
 
 ## 5. Recommendation
 
 Proposed order. Each item is independent, and each lands with its own measurement.
 
 1. **O0** (production-scale lab vault), so the rest can be measured. Size S.
-2. **O2** (duplicate wasm) and **O7** (app-route canonical scan). Both S, low risk and measurable today.
+2. **O7** (app-route canonical scan). S, low risk and measurable today.
 3. **O3** (snapshot write and read path, plus a size-failure span), before the 2 MiB cliff. Size S–M.
 4. **O4** (hash-only sync plan) and **O5** (move heavy deployed specs off production). Together they remove about 90% of avoidable Convex time. S–M. O4 needs your answer on what runs the publishes.
 5. **O1** (manifest: split assets out, then deltas), together with **O8** (build at publish, then overlay deltas). Size M–L. This is the change that matters most at production scale.
@@ -360,7 +354,7 @@ In parallel, cheap and outside the performance track: R1 (MCP batch cap and rate
 
 ## 6. Decisions needed
 
-1. Which items to take on, and in what order. The default queue was SSR stage 1. I recommend O0 → O2/O7 → O3 → O4/O5 → O1/O8 → SSR 1+2.
+1. Which items to take on, and in what order. The default queue was SSR stage 1. I recommend O0 → O7 → O3 → O4/O5 → O1/O8 → SSR 1+2.
 2. **O4:** what runs about 15 sync-first publishes a day (about 105 a week), and may it switch to `sync/plan`?
 3. **O5:** may the corpus- and file-heavy deployed specs move off production?
 4. **O1:** may the palette's offline full-index search over the 6k-page folder become server-backed or lazily loaded?
