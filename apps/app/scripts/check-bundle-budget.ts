@@ -285,7 +285,11 @@ const storeGzipBudget = 828_500;
 // measured 4,416.0 KiB (~4,521,984 B): 4,520,000 -> 4,532,000.
 // Main's second 3D review round (+~3.8 KiB, above) merged into the branch:
 // 4,418.5 KiB (~4,524,544 B): 4,532,000 -> 4,536,000.
-const lazyGzipBudget = 4_536_000;
+// Cellularity round 3 (slide image behind a field, end-slab caps from the hull
+// cross-section, surface opacity slider, data-driven count labels) adds ~11 KiB
+// to the same lazy route chunk, no paint/store/eager impact. Vercel measured
+// 4,429.9 KiB (~4,536,218 B), local 4,429.3 KiB: 4,536,000 -> 4,544,000.
+const lazyGzipBudget = 4_544_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
