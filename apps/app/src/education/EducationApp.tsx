@@ -450,6 +450,10 @@ export function EducationApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   const searchInput = useRef<HTMLInputElement>(null);
   const main = useRef<HTMLElement>(null);
+  const header = useRef<HTMLElement>(null);
+  // The phone menu opens below the header, as the off-canvas aside did, so
+  // the brand, search and the toggle's close icon stay in view above it.
+  const [menuTop, setMenuTop] = useState(0);
   const start =
     pages.find(
       (page) => page.slug === `${EDUCATION_PREFIX}oncology-101/index`,
@@ -547,7 +551,7 @@ export function EducationApp() {
       <a className="edu-skip" href="#education-main">
         Skip to content
       </a>
-      <header className="edu-header">
+      <header className="edu-header" ref={header}>
         <Link to="/education" className="edu-brand" onClick={closeMenu}>
           <span className="edu-brand-icon">
             <Network size={22} />
@@ -585,7 +589,14 @@ export function EducationApp() {
         <a className="edu-wiki-link" href="/">
           Care wiki <ArrowRight size={14} />
         </a>
-        <Drawer open={menuOpen} side="left" onOpenChange={setMenuOpen}>
+        <Drawer
+          open={menuOpen}
+          side="left"
+          onOpenChange={(open) => {
+            if (open) setMenuTop(Math.max(0, header.current?.getBoundingClientRect().bottom ?? 0));
+            setMenuOpen(open);
+          }}
+        >
           <DrawerTrigger
             className="edu-menu-toggle"
             aria-label={
@@ -597,7 +608,10 @@ export function EducationApp() {
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
           </DrawerTrigger>
           <DrawerBackdrop className="edu-drawer-backdrop" />
-          <DrawerContent className="edu-sidebar edu-drawer">
+          <DrawerContent
+            className="edu-sidebar edu-drawer"
+            style={{ height: `calc(100% - ${menuTop}px)`, marginTop: menuTop }}
+          >
             <DrawerTitle className="edu-sr-only">Education navigation</DrawerTitle>
             {navigation}
             {sidebarFooter}

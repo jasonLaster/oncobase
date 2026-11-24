@@ -12,7 +12,8 @@
 .edu-topic {
   margin: 4px 0;
 }
-.edu-topic-trigger {
+/* .edu-sidebar scope: .education-app button's `font: inherit` would win otherwise. */
+.edu-sidebar .edu-topic-trigger {
   align-items: center;
   background: transparent;
   border: 0;
@@ -29,19 +30,23 @@
   text-align: left;
   width: 100%;
 }
-.edu-topic-trigger:hover {
+.edu-sidebar .edu-topic-trigger:hover {
   background: var(--edu-soft);
 }
-.edu-topic-trigger > svg {
+.edu-sidebar .edu-topic-trigger > svg {
   color: var(--edu-muted);
   flex-shrink: 0;
   transform: rotate(-90deg);
 }
-.edu-topic-trigger[data-open] > svg {
+.edu-sidebar .edu-topic-trigger[data-open] > svg {
   transform: none;
 }
+/* Like the off-canvas aside it replaces: no dimming, a shadow on the panel,
+ * and the panel starts below the header (its margin and height are set inline
+ * on open). A press on the header, close icon included, lands outside the
+ * panel and closes it. */
 .edu-drawer-backdrop {
-  background: rgb(0 0 0 / 0.2);
+  background: transparent;
 }
 .edu-sidebar.edu-drawer {
   box-shadow: 16px 0 30px #0002;
@@ -50,7 +55,7 @@
   width: min(320px, 85vw);
 }
 @media (max-width: 700px) {
-  .edu-topic-trigger {
+  .edu-sidebar .edu-topic-trigger {
     min-height: 44px;
   }
 }
