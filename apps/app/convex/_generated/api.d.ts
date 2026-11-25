@@ -24,6 +24,7 @@ import type * as lib_accessRevision from "../lib/accessRevision.js";
 import type * as lib_assetVisibility from "../lib/assetVisibility.js";
 import type * as lib_conversationAuth from "../lib/conversationAuth.js";
 import type * as lib_documentMeta from "../lib/documentMeta.js";
+import type * as lib_documentVersions from "../lib/documentVersions.js";
 import type * as lib_manifestDelta from "../lib/manifestDelta.js";
 import type * as lib_manifestInstall from "../lib/manifestInstall.js";
 import type * as lib_manifestRevision from "../lib/manifestRevision.js";
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   "lib/assetVisibility": typeof lib_assetVisibility;
   "lib/conversationAuth": typeof lib_conversationAuth;
   "lib/documentMeta": typeof lib_documentMeta;
+  "lib/documentVersions": typeof lib_documentVersions;
   "lib/manifestDelta": typeof lib_manifestDelta;
   "lib/manifestInstall": typeof lib_manifestInstall;
   "lib/manifestRevision": typeof lib_manifestRevision;

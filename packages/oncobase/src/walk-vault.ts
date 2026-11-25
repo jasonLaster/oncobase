@@ -340,6 +340,11 @@ function parseDocumentEntry({ filePath, relativePath }: Entry, raw = fs.readFile
   };
 }
 
+/** Parse one vault markdown source (any revision of it) exactly as publish does. */
+export function parseVaultDocumentSource(relativePath: string, raw: string): PublishDocument {
+  return parseDocumentEntry({ filePath: relativePath, relativePath }, raw).document;
+}
+
 function documentEntries(vaultPath: string, entries = vaultFiles(vaultPath)) {
   return entries
     .filter(({ relativePath }) => DOCUMENT_EXTENSIONS.has(path.extname(relativePath)))

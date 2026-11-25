@@ -21,7 +21,10 @@ function fixture() {
         assets: args.assets.map((asset: any) => ({ ...asset, exists: true, contentHash: asset.path === "unknown.png" ? null : "same", visibilityHash: "stale", observedVisibilityHash: "different", hasVisibility: true, hasBlob: true })),
       };
     },
-    async mutation(ref: any, args: any, options?: any) { mutations.push({ name: getFunctionName(ref), args, options }); },
+    async mutation(ref: any, args: any, options?: any) {
+      mutations.push({ name: getFunctionName(ref), args, options });
+      if (getFunctionName(ref) === "documents:importVersions") return { found: true, inserted: args.versions.length, skipped: 0 };
+    },
   };
   const request = (step: string, body: any, token = "fixture") => handlePublishRequest({ step, client: client as never,
     request: new Request(`http://localhost/api/publish/${step}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-Publisher-Version": "1" }, body: JSON.stringify({ siteSlug: "alpha", ...body }) }),
@@ -230,4 +233,17 @@ test("finish rejects non-string deletion lists before any write", async () => {
   const valid = fixture();
   await valid.request("finish", { deletedDocSlugs: ["gone"], deletedAssetPaths: [] });
   expect(valid.mutations.map(m => m.name).slice(0, 2)).toEqual(["documents:deleteBySlug", "sites:finishPublish"]);
+});
+
+test("history import validates versions and forwards them to Convex", async () => {
+  const f = fixture();
+  const version = { title: "Page", content: "old body", tags: ["a"], sensitive: false, versionAt: 1_700_000_000_000, commitSha: "a".repeat(40), commitMessage: "edit" };
+  for (const versions of [undefined, [{ ...version, versionAt: "yesterday" }], [{ ...version, commitSha: "not-a-sha" }], Array(201).fill(version)]) {
+    expect((await f.request("versions", { slug: "page", versions })).status).toBe(400);
+  }
+  expect((await f.request("versions", { slug: "page", versions: [version] }, "wrong")).status).toBe(401);
+  expect(f.mutations).toEqual([]);
+  const imported = await f.request("versions", { slug: "page", versions: [{ ...version, extra: "dropped" }] });
+  expect(await imported.json()).toEqual({ found: true, inserted: 1, skipped: 0 });
+  expect(f.mutations).toEqual([{ name: "documents:importVersions", args: { siteSlug: "alpha", slug: "page", versions: [version] }, options: undefined }]);
 });

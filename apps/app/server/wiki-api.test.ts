@@ -390,6 +390,18 @@ function createFakeConvexClient({
             sensitive: page.sensitive === true,
           };
         }
+        // Page history: every page has one past version, "<slug>-v1", whose
+        // body repeats the live page's (so redaction applies to it too).
+        case "documents:listVersions":
+        case "documents:getVersion": {
+          const page = pages.find((candidate) => candidate.slug === args.slug);
+          if (!page || (page.sensitive && (!args.userId || deniedSlugSet.has(page.slug)))) return null;
+          const version = { id: `${page.slug.replace(/\W/g, "")}v1`, title: page.title, versionAt: 1, source: "git", commitMessage: "Edit for Diana Laster", size: page.content.length };
+          if (getFunctionName(ref) === "documents:listVersions") {
+            return { slug: page.slug, sensitive: page.sensitive === true, current: { title: page.title, updatedAt: 2 }, versions: [version] };
+          }
+          return args.versionId === version.id ? { ...version, slug: page.slug, tags: page.tags, content: page.content, sensitive: page.sensitive === true } : null;
+        }
         case "documents:getSensitivityBySlugs":
           return (args.slugs as string[]).flatMap((slug) => {
             const page = pages.find((candidate) => candidate.slug === slug);
@@ -636,6 +648,14 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(copy?.status).toBe(200);
     expect(await copy!.text()).not.toContain("Hidden patient detail");
     expect((await handler(request("/api/page-copy?slug=wiki/education/private-case")))?.status).toBe(404);
+    const history = await handler(request(`/api/page-versions?slug=${slug}`));
+    expect(history?.status).toBe(200);
+    const { versions } = await history!.json();
+    const version = await handler(request(`/api/page-versions?slug=${slug}&id=${versions[0].id}`));
+    expect(version?.status).toBe(200);
+    expect(await version!.text()).not.toContain("Hidden patient detail");
+    expect((await handler(request("/api/page-versions?slug=wiki/education/private-case")))?.status).toBe(404);
+    expect((await handler(request("/api/page-versions?slug=wiki/public")))?.status).toBe(401);
     expect((await handler(request("/api/wiki/pages?scope=session")))?.status).toBe(401);
     expect((await handler(request("/api/search?q=Public&scope=session")))?.status).toBe(401);
     expect((await handler(request("/api/wiki/prefetch")))?.status).toBe(200);
@@ -1060,6 +1080,34 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
       if (previousWait == null) delete process.env.WIKI_SEARCH_CORPUS_WAIT_MS;
       else process.env.WIKI_SEARCH_CORPUS_WAIT_MS = previousWait;
     }
+  });
+
+  test("page history follows page-copy access and redacts bodies and commit messages", async () => {
+    const handler = createWikiApiHandler(createFakeConvexClient({ deniedSlugs: ["private/shared"] }) as never);
+    const list = await handler(request("/api/page-versions?slug=wiki/public"));
+    expect(list?.status).toBe(200);
+    expect(list!.headers.get("x-wiki-cache-scope")).toBe("public");
+    const history = await list!.json();
+    expect(history.versions.map((version: { id: string }) => version.id)).toEqual(["wikipublicv1"]);
+    expect(JSON.stringify(history)).not.toContain("Diana Laster");
+    const version = await (await handler(request("/api/page-versions?slug=wiki/public&id=wikipublicv1")))!.json();
+    expect(version.content).toContain("Public wiki body.");
+    expect((await handler(request("/api/page-versions?slug=wiki/public&id=missing")))?.status).toBe(404);
+    for (const path of ["/api/page-versions?slug=../x", "/api/page-versions?slug=wiki/public&id=a-b"]) {
+      expect((await handler(request(path)))?.status).toBe(400);
+    }
+
+    // Restricted pages: 404 without a session, readable with one, never for a denied reader.
+    expect((await handler(request("/api/page-versions?slug=private/plan")))?.status).toBe(404);
+    const cookie = await signupCookie(handler, "history-reader@example.com");
+    const privateList = await handler(request("/api/page-versions?slug=private/plan", { headers: { Cookie: cookie } }));
+    expect(privateList?.status).toBe(200);
+    expect(privateList!.headers.get("x-wiki-cache-scope")).toBe("session");
+    const privateVersion = await handler(request("/api/page-versions?slug=private/plan&id=privateplanv1", { headers: { Cookie: cookie } }));
+    const privateBody = await privateVersion!.text();
+    expect(privateBody).toContain("Sensitive note");
+    expect(privateBody).not.toContain("88855655");
+    expect((await handler(request("/api/page-versions?slug=private/shared", { headers: { Cookie: cookie } })))?.status).toBe(404);
   });
 
   test("keeps text and AI search in the explicit reader scope", async () => {

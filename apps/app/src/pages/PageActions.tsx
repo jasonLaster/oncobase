@@ -4,8 +4,17 @@ import { copyTextToClipboard } from "@oncobase/wiki-shell";
 import { toast } from "@oncobase/ui/toast";
 import { Toolbar, ToolbarButton } from "@oncobase/ui/toolbar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
-import { LinkIcon, LockKeyhole } from "lucide-react";
+import { History, LinkIcon, LockKeyhole } from "lucide-react";
 import { type ComponentProps, lazy, Suspense, useState } from "react";
+
+// Lazy: the menu and its fetch stay out of the reader's first-paint chunk.
+const PageHistoryMenu = lazy(() => import("./PageHistoryMenu"));
+
+const PAGE_HISTORY_PLACEHOLDER = (
+  <ToolbarButton aria-label="Page history" className="wiki-shell-page-action page-action" disabled>
+    <History size={16} />
+  </ToolbarButton>
+);
 
 const PageShareDialog = lazy(() => import("./PageShareDialog").then(m => ({ default: m.PageShareDialog })));
 
@@ -75,6 +84,9 @@ export function PageActions({
             <LockKeyhole size={16} />
           </ActionButton>
         ) : null}
+        <Suspense fallback={PAGE_HISTORY_PLACEHOLDER}>
+          <PageHistoryMenu slug={slug} />
+        </Suspense>
         <ActionButton label="Copy page link" onClick={copyLink}>
           <LinkIcon size={16} />
         </ActionButton>

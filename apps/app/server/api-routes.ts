@@ -69,6 +69,7 @@ export const RAW_API_ROUTES: readonly RawApiRoute[] = [
 const PUBLISH_STEPS = [
   "begin", "document", "asset", "asset-hashes", "document-hashes", "finish", "abort",
   "sync/plan", "sync/documents", "sync/assets", "state", "scoped/begin", "scoped/abort", "scoped/finish", "scoped/complete", "status",
+  "versions",
 ] as const;
 
 export const API_ROUTES: readonly ApiRoute[] = [
@@ -174,6 +175,11 @@ export const API_ROUTES: readonly ApiRoute[] = [
     path: "/api/page-copy", gate: "required", educationRead: educationParam("slug"), privatize: true,
     load: () => import("./api/page-copy").then(m => ({ request, client, siteSlug, educationOnly }: ApiRouteRequest) =>
       m.handlePageCopyRequest(request, client, siteSlug, educationOnly)),
+  },
+  {
+    path: "/api/page-versions", gate: "required", educationRead: educationParam("slug"), privatize: true,
+    load: () => import("./api/page-versions").then(m => ({ request, client, siteSlug, educationOnly }: ApiRouteRequest) =>
+      m.handlePageVersionsRequest(request, client, siteSlug, educationOnly)),
   },
 
 ];

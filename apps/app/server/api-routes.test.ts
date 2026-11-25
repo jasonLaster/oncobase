@@ -11,7 +11,7 @@ const CLAIMED_EXACT = [
   "/api/test/diagnostic-studies", "/api/test/dicom-comparisons", "/api/tools", "/api/mcp",
   "/api/liveblocks-auth", "/api/liveblocks-threads", "/api/liveblocks-add-comment", "/api/liveblocks-delete-thread",
   "/api/liveblocks-users", "/api/liveblocks-guest", "/api/liveblocks-webhook",
-  "/api/download", "/api/file", "/api/page-copy", "/api/client-errors",
+  "/api/download", "/api/file", "/api/page-copy", "/api/page-versions", "/api/client-errors",
 ];
 const CLAIMED_PREFIXES = ["/api/wiki/", "/api/admin/", "/api/publish/", "/api/pathology/", "/api/dicom/comparisons/", "/api/page-shares/", "/api/chat/wiki-edits/"];
 
@@ -64,12 +64,14 @@ test("education fallback covers only the public reader reads", () => {
   expect(eligible("/api/file")).toBe(false);
   expect(eligible("/api/page-copy?slug=wiki/education/a")).toBe(true);
   expect(eligible("/api/page-copy?slug=private")).toBe(false);
+  expect(eligible("/api/page-versions?slug=wiki/education/a")).toBe(true);
+  expect(eligible("/api/page-versions?slug=private")).toBe(false);
   for (const path of ["/api/download", "/api/tools", "/api/chat", "/api/wiki/convex-token", "/api/wiki/unknown"]) expect(eligible(path)).toBe(false);
   for (const target of Object.values(EDUCATION_API_ALIASES)) expect(matchApiRoute(target)?.educationRead).toBeDefined();
 });
 
-test("privatized responses are the four previously wrapped routes", () => {
-  expect(API_ROUTES.filter(route => route.privatize).map(route => route.path).sort()).toEqual(["/api/download", "/api/file", "/api/page-copy", "/api/search"]);
+test("privatized responses are the four previously wrapped routes plus page history", () => {
+  expect(API_ROUTES.filter(route => route.privatize).map(route => route.path).sort()).toEqual(["/api/download", "/api/file", "/api/page-copy", "/api/page-versions", "/api/search"]);
 });
 
 test("tracing names only fixed route strings", () => {
