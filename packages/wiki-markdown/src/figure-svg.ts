@@ -127,10 +127,20 @@ function svgRoot(width: number, height: number, ariaLabel: string, children: Svg
   );
 }
 
-function titleNode(title: string | undefined): SvgChild[] {
-  return title
-    ? [el("text", { x: 0, y: 14, "font-size": FS.title, "font-weight": 700, fill: INK }, [title])]
-    : [];
+function titleLines(title: string | undefined, width: number): string[] {
+  if (!title) return [];
+  return wrapLines(title, Math.max(16, Math.floor(width / (FS.title * 0.56))));
+}
+
+/** Extra vertical space taken by wrapped title lines beyond the first. */
+function titleExtra(title: string | undefined, width: number): number {
+  return Math.max(0, titleLines(title, width).length - 1) * 16;
+}
+
+function titleNode(title: string | undefined, width: number): SvgChild[] {
+  return titleLines(title, width).map((line, index) =>
+    el("text", { x: 0, y: 14 + index * 16, "font-size": FS.title, "font-weight": 700, fill: INK }, [line]),
+  );
 }
 
 function buildHorizontalBars(spec: BarsFigureSpec, ariaLabel: string, opts: FigureLayoutOptions): SvgElementNode {
@@ -143,11 +153,11 @@ function buildHorizontalBars(spec: BarsFigureSpec, ariaLabel: string, opts: Figu
   const stacked = longestLabel + valueAllowance + 120 > width;
   const labelWidth = stacked ? 0 : Math.min(width * 0.42, longestLabel + 12);
   const barMaxWidth = Math.max(60, width - labelWidth - valueAllowance);
-  const titleOffset = spec.title ? 26 : 4;
+  const titleOffset = (spec.title ? 26 : 4) + titleExtra(spec.title, width);
   const rowStep = stacked ? 44 : 30;
   const height = titleOffset + spec.data.length * rowStep + 4;
 
-  const children: SvgChild[] = [...titleNode(spec.title)];
+  const children: SvgChild[] = [...titleNode(spec.title, width)];
   if (spec.max !== undefined) {
     // Faint full-scale track so a fixed 0–max axis is visible, not just claimed.
     spec.data.forEach((_, index) => {
@@ -183,7 +193,7 @@ function buildVerticalBars(spec: BarsFigureSpec, ariaLabel: string, opts: Figure
   const totalBarsWidth = count * barWidth + (count - 1) * gap;
   const startX = (width - totalBarsWidth) / 2;
   const scaleMax = spec.max ?? Math.max(...spec.data.map((d) => Math.abs(d.value)), 1);
-  const titleOffset = spec.title ? 26 : 6;
+  const titleOffset = (spec.title ? 26 : 6) + titleExtra(spec.title, width);
   const maxBarHeight = 110;
   const baselineY = titleOffset + 20 + maxBarHeight;
   const labelLines = spec.data.map((d) => wrapLines(d.label, Math.max(6, Math.floor((barWidth + gap) / (FS.small * 0.56)))));
@@ -196,7 +206,7 @@ function buildVerticalBars(spec: BarsFigureSpec, ariaLabel: string, opts: Figure
     spec.bracket.to >= spec.bracket.from;
   const height = baselineY + labelBlock + (hasBracket ? 34 : 6);
 
-  const children: SvgChild[] = [...titleNode(spec.title)];
+  const children: SvgChild[] = [...titleNode(spec.title, width)];
   children.push(el("line", { x1: 0, y1: baselineY, x2: width, y2: baselineY, stroke: RULE, "stroke-width": 1 }));
 
   spec.data.forEach((item, index) => {
@@ -261,9 +271,18 @@ function buildDiverging(spec: DivergingFigureSpec, ariaLabel: string, opts: Figu
   const hasExpected = spec.data.some((d) => d.expected !== undefined || d.expectedText);
   const barH = 20;
   const rowStep = (stacked ? 20 : 0) + barH + (hasExpected ? 22 : 12);
-  const titleOffset = spec.title ? 24 : 0;
+  const titleOffset = (spec.title ? 24 : 0) + titleExtra(spec.title, width);
   const headerY = titleOffset + 14;
-  const topY = titleOffset + 26;
+  // Side headers: right-align the left one to the axis when it fits, else
+  // start it at x=0; if the two would then collide, drop the right one a line.
+  const leftHeader = `◀ ${spec.leftLabel}`;
+  const rightHeader = `${spec.rightLabel} ▶`;
+  const leftHeaderW = textWidth(leftHeader, FS.small);
+  const leftHeaderFits = mid - 8 - leftHeaderW >= 0;
+  const leftHeaderEnd = leftHeaderFits ? mid - 8 : leftHeaderW;
+  const headersCollide = maxLeft > 0 && maxRight > 0 && leftHeaderEnd + 6 > mid + 8;
+  const rightHeaderY = headersCollide ? headerY + 14 : headerY;
+  const topY = titleOffset + 26 + (headersCollide ? 14 : 0);
   const axisBottom = topY + spec.data.length * rowStep - (hasExpected ? 14 : 8);
   const height = axisBottom + 6;
 
@@ -274,12 +293,20 @@ function buildDiverging(spec: DivergingFigureSpec, ariaLabel: string, opts: Figu
   const rightSoftFill = toneSoftFill(spec.rightTone);
   const rightTextFill = toneText(spec.rightTone);
 
-  const children: SvgChild[] = [...titleNode(spec.title)];
+  const children: SvgChild[] = [...titleNode(spec.title, width)];
   if (maxLeft > 0) {
-    children.push(el("text", { x: mid - 8, y: headerY, "text-anchor": "end", "font-size": FS.small, "font-weight": 700, fill: leftTextFill }, [`◀ ${spec.leftLabel}`]));
+    children.push(
+      el(
+        "text",
+        leftHeaderFits
+          ? { x: mid - 8, y: headerY, "text-anchor": "end", "font-size": FS.small, "font-weight": 700, fill: leftTextFill }
+          : { x: 0, y: headerY, "text-anchor": "start", "font-size": FS.small, "font-weight": 700, fill: leftTextFill },
+        [leftHeader],
+      ),
+    );
   }
   if (maxRight > 0) {
-    children.push(el("text", { x: mid + 8, y: headerY, "text-anchor": "start", "font-size": FS.small, "font-weight": 700, fill: rightTextFill }, [`${spec.rightLabel} ▶`]));
+    children.push(el("text", { x: mid + 8, y: rightHeaderY, "text-anchor": "start", "font-size": FS.small, "font-weight": 700, fill: rightTextFill }, [rightHeader]));
   }
 
   spec.data.forEach((row, index) => {
@@ -334,7 +361,16 @@ function buildDiverging(spec: DivergingFigureSpec, ariaLabel: string, opts: Figu
     children.push(el("g", undefined, groupChildren));
   });
 
-  children.push(el("line", { x1: mid, y1: titleOffset + 20, x2: mid, y2: axisBottom, stroke: INK, "stroke-width": 1.25 }));
+  if (stacked) {
+    // Stacked rows put labels above the bars; draw the zero axis only beside
+    // the bars so it never strikes through a label.
+    spec.data.forEach((_, index) => {
+      const y = topY + index * rowStep + 20;
+      children.push(el("line", { x1: mid, y1: y - 3, x2: mid, y2: y + barH + 3, stroke: INK, "stroke-width": 1.25 }));
+    });
+  } else {
+    children.push(el("line", { x1: mid, y1: titleOffset + 20, x2: mid, y2: axisBottom, stroke: INK, "stroke-width": 1.25 }));
+  }
 
   return svgRoot(width, height, ariaLabel, children);
 }
@@ -349,7 +385,7 @@ function buildIconArray(spec: IconArrayFigureSpec, ariaLabel: string, opts: Figu
   const longestLabel = Math.max(...spec.data.map((d) => textWidth(d.label, FS.label)), 40);
   const stacked = longestLabel + 12 + gridWidth > width;
   const gridX = stacked ? dotRadius : Math.min(longestLabel + 12, width - gridWidth);
-  const titleOffset = spec.title ? 24 : 4;
+  const titleOffset = (spec.title ? 24 : 4) + titleExtra(spec.title, width);
 
   let cursorY = titleOffset;
   const laidOut = spec.data.map((row) => {
@@ -359,7 +395,7 @@ function buildIconArray(spec: IconArrayFigureSpec, ariaLabel: string, opts: Figu
     return { ...row, y0 };
   });
 
-  const children: SvgChild[] = [...titleNode(spec.title)];
+  const children: SvgChild[] = [...titleNode(spec.title, width)];
   for (const row of laidOut) {
     const activeFill = toneFill(row.tone ?? "benefit");
     const total = Math.min(row.of, 400);
@@ -389,8 +425,8 @@ function buildTimeline(spec: TimelineFigureSpec, ariaLabel: string, opts: Figure
   const count = spec.data.length;
   const natural = Math.max(480, count * 136);
   const width = clampWidth(opts.width, natural);
-  const titleOffset = spec.title ? 24 : 4;
-  const children: SvgChild[] = [...titleNode(spec.title)];
+  const titleOffset = (spec.title ? 24 : 4) + titleExtra(spec.title, width);
+  const children: SvgChild[] = [...titleNode(spec.title, width)];
 
   // Narrow containers: a vertical rail, dates left, labels right.
   if (opts.width !== undefined && width < count * 112) {
