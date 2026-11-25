@@ -1110,7 +1110,9 @@
   }
 
   .wiki-markdown img,
-  .wiki-markdown tr {
+  .wiki-markdown tr,
+  .wiki-markdown figure.wiki-component {
+    /* Keep walkthroughs and their footnotes on one page when they fit. */
     break-inside: avoid;
   }
 
