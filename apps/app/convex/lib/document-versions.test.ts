@@ -25,8 +25,8 @@ async function setup() {
   return { t, anonymous };
 }
 
-const publish = (t: Awaited<ReturnType<typeof setup>>["t"], slug: string, title: string, content: string, extra: { sensitive?: boolean; tags?: string[]; siteSlug?: string } = {}) =>
-  t.mutation(api.documents.upsert, { siteSlug: extra.siteSlug ?? "alpha", slug, title, content, tags: extra.tags ?? [], contentHash: `${title}:${content}`, sensitive: extra.sensitive });
+const publish = (t: Awaited<ReturnType<typeof setup>>["t"], slug: string, title: string, content: string, extra: { sensitive?: boolean; tags?: string[]; sensitiveInclude?: string[]; siteSlug?: string } = {}) =>
+  t.mutation(api.documents.upsert, { siteSlug: extra.siteSlug ?? "alpha", slug, title, content, tags: extra.tags ?? [], contentHash: `${title}:${content}`, sensitive: extra.sensitive, sensitiveInclude: extra.sensitiveInclude });
 
 test("each publish that changes the body archives the outgoing version", async () => {
   const { t } = await setup();
@@ -56,12 +56,12 @@ test("versions never leak across pages, tenants or into the public scope", async
   await publish(t, "page", "Page", "beta", { siteSlug: "beta" });
   await publish(t, "page", "Page", "beta 2", { siteSlug: "beta" });
 
-  // The page is public now: its private past is hidden, even with includeSensitive.
-  const history = await t.query(api.documents.listVersions, { siteSlug: "alpha", slug: "page", includeSensitive: true });
+  // The page is public now: its private past is hidden.
+  const history = await t.query(api.documents.listVersions, { siteSlug: "alpha", slug: "page" });
   expect(history?.versions.map(v => v.title)).toEqual(["Page"]);
   const all = await t.run(ctx => ctx.db.query("documentVersions").collect());
   const secret = all.find(v => v.slug === "page" && v.sensitive)!;
-  expect(await t.query(api.documents.getVersion, { siteSlug: "alpha", slug: "page", versionId: secret._id, includeSensitive: true })).toBeNull();
+  expect(await t.query(api.documents.getVersion, { siteSlug: "alpha", slug: "page", versionId: secret._id })).toBeNull();
 
   const otherVersion = all.find(v => v.slug === "other")!;
   const betaVersion = all.find(v => v.slug === "page" && v.siteId !== secret.siteId)!;
@@ -69,13 +69,44 @@ test("versions never leak across pages, tenants or into the public scope", async
   expect(await t.query(api.documents.getVersion, { siteSlug: "alpha", slug: "page", versionId: betaVersion._id })).toBeNull();
   expect(await t.query(api.documents.getVersion, { siteSlug: "alpha", slug: "page", versionId: "not-an-id" })).toBeNull();
 
-  // A restricted live page needs includeSensitive and then shows its whole history.
+  // A restricted live page needs an authorized session.
   await publish(t, "page", "Page", "private again", { sensitive: true });
   expect(await t.query(api.documents.listVersions, { siteSlug: "alpha", slug: "page" })).toBeNull();
-  expect((await t.query(api.documents.listVersions, { siteSlug: "alpha", slug: "page", includeSensitive: true }))?.versions).toHaveLength(3);
 
   await expect(anonymous.query(api.documents.listVersions, { siteSlug: "alpha", slug: "page" })).rejects.toThrow();
   await expect(anonymous.mutation(api.documents.importVersions, { siteSlug: "alpha", slug: "page", versions: [] })).rejects.toThrow();
+  await drainScheduled(t);
+});
+
+test("restricted history requires access under both live and historical tags", async () => {
+  const { t } = await setup();
+  const { reader, reviewer } = await t.run(async ctx => {
+    const siteId = (await ctx.db.query("sites").withIndex("by_slug", q => q.eq("slug", "alpha")).unique())!._id;
+    const everyone = await ctx.db.insert("roles", { siteId, name: "reader", createdAt: 1, updatedAt: 1 });
+    const reviewers = await ctx.db.insert("roles", { siteId, name: "reviewer", createdAt: 1, updatedAt: 1 });
+    await ctx.db.insert("rolePermissions", { siteId, roleId: everyone, excludeTags: ["serova-sensitive"], createdAt: 1 });
+    await ctx.db.insert("rolePermissions", { siteId, roleId: reviewers, includeTags: ["serova-sensitive"], createdAt: 1 });
+    const reader = await ctx.db.insert("users", { siteId, email: "reader@example.test", passwordHash: "fixture", passwordSalt: "fixture", createdAt: 1, updatedAt: 1 });
+    const reviewer = await ctx.db.insert("users", { siteId, email: "reviewer@example.test", passwordHash: "fixture", passwordSalt: "fixture", createdAt: 1, updatedAt: 1 });
+    await ctx.db.insert("userRoles", { siteId, userId: reader, roleId: everyone, createdAt: 1 });
+    await ctx.db.insert("userRoles", { siteId, userId: reviewer, roleId: everyone, createdAt: 1 });
+    await ctx.db.insert("userRoles", { siteId, userId: reviewer, roleId: reviewers, createdAt: 1 });
+    return { reader, reviewer };
+  });
+  await publish(t, "page", "Page", "restricted outgoing text", { sensitive: true, sensitiveInclude: ["serova"] });
+  await publish(t, "page", "Page", "broadly readable text", { sensitive: true });
+  await t.mutation(api.documents.importVersions, {
+    siteSlug: "alpha", slug: "page",
+    versions: [{ title: "Page", content: "restricted git text", tags: [], sensitive: true, sensitiveInclude: ["serova"], versionAt: 1 }],
+  });
+  const page = { siteSlug: "alpha", slug: "page" };
+  expect((await t.query(api.documents.listVersions, { ...page, userId: reader }))?.versions).toEqual([]);
+  const history = await t.query(api.documents.listVersions, { ...page, userId: reviewer });
+  expect(history?.versions).toHaveLength(2);
+  for (const { id } of history!.versions) {
+    expect(await t.query(api.documents.getVersion, { ...page, userId: reader, versionId: id })).toBeNull();
+    expect(await t.query(api.documents.getVersion, { ...page, userId: reviewer, versionId: id })).not.toBeNull();
+  }
   await drainScheduled(t);
 });
 
@@ -89,9 +120,10 @@ test("git import dedupes against the live page and stored versions", async () =>
     { title: "Page", content: "v1", tags: [], sensitive: false, versionAt: 20 },
     { title: "Page", content: "v2", tags: [], sensitive: false, versionAt: 30, commitMessage: "second" },
     { title: "Page", content: "v3", tags: [], sensitive: false, versionAt: 40 },
+    { title: "Page", content: "é".repeat(530_000), tags: [], sensitive: false, versionAt: 50 },
   ];
-  expect(await t.mutation(api.documents.importVersions, { siteSlug: "alpha", slug: "page", versions })).toEqual({ found: true, inserted: 2, skipped: 3 });
-  expect(await t.mutation(api.documents.importVersions, { siteSlug: "alpha", slug: "page", versions })).toEqual({ found: true, inserted: 0, skipped: 5 });
+  expect(await t.mutation(api.documents.importVersions, { siteSlug: "alpha", slug: "page", versions })).toEqual({ found: true, inserted: 2, skipped: 3, oversized: 1 });
+  expect(await t.mutation(api.documents.importVersions, { siteSlug: "alpha", slug: "page", versions })).toEqual({ found: true, inserted: 0, skipped: 5, oversized: 1 });
   expect(await t.mutation(api.documents.importVersions, { siteSlug: "alpha", slug: "missing", versions })).toMatchObject({ found: false });
   const history = await t.query(api.documents.listVersions, { siteSlug: "alpha", slug: "page" });
   // v1 came from the publish archive (stamped with its publish time); the git copy of it was skipped.

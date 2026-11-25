@@ -395,7 +395,7 @@ function createFakeConvexClient({
         case "documents:listVersions":
         case "documents:getVersion": {
           const page = pages.find((candidate) => candidate.slug === args.slug);
-          if (!page || (page.sensitive && args.includeSensitive !== true)) return null;
+          if (!page || (page.sensitive && (!args.userId || deniedSlugSet.has(page.slug)))) return null;
           const version = { id: `${page.slug.replace(/\W/g, "")}v1`, title: page.title, versionAt: 1, source: "git", commitMessage: "Edit for Diana Laster", size: page.content.length };
           if (getFunctionName(ref) === "documents:listVersions") {
             return { slug: page.slug, sensitive: page.sensitive === true, current: { title: page.title, updatedAt: 2 }, versions: [version] };

@@ -24,6 +24,7 @@ import {
 } from "./walk-vault";
 import { ensureCleanVault, ensureUpToDateWithUpstream } from "./working-tree";
 import { publisherPost } from "./publish-post";
+import { runWithConcurrency } from "./publish-concurrency";
 import { installPublishProfile, publishProfile } from "./publish-profile";
 import { WorkQueue } from "./work-queue";
 
@@ -66,28 +67,6 @@ type AssetChange = {
 
 type AssetChangeCounts = Record<AssetChangeReason, number>;
 
-async function runWithConcurrency<T>(
-  items: T[],
-  limit: number,
-  worker: (item: T, index: number) => Promise<void>,
-) {
-  let next = 0;
-  let failed = false;
-  const runners = Array.from({ length: Math.min(limit, items.length) }, () =>
-    (async () => {
-      while (true) {
-        if (failed) return;
-        const i = next++;
-        if (i >= items.length) return;
-        try { await worker(items[i], i); }
-        catch (error) { failed = true; throw error; }
-      }
-    })(),
-  );
-  const results = await Promise.allSettled(runners);
-  const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
-  if (failure) throw failure.reason;
-}
 // embed() in src/lib/embeddings handles chunking + pooling per doc.
 // Parallelize at the doc level instead of OpenAI's request-batching
 // since long docs need their own multi-chunk request anyway.

@@ -8,6 +8,7 @@ export type PastVersion = {
   content: string;
   tags: string[];
   sensitive: boolean;
+  sensitiveInclude: string[];
   /** Commit time, epoch ms. */
   versionAt: number;
   commitSha: string;
@@ -94,6 +95,7 @@ export function readDocumentHistory(vaultPath: string, slugs: ReadonlySet<string
         content: doc.content,
         tags: doc.tags,
         sensitive: doc.sensitive,
+        sensitiveInclude: doc.sensitiveInclude,
         versionAt: rev.time,
         commitSha: rev.sha,
         ...(rev.subject ? { commitMessage: rev.subject } : {}),

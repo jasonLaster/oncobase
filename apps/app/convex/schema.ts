@@ -180,6 +180,7 @@ export default defineSchema({
     title: v.string(),
     tags: v.array(v.string()),
     sensitive: v.boolean(),
+    sensitiveInclude: v.optional(v.array(v.string())),
     // sha256 of the stored body + title, for dedupe across publish and git.
     bodyHash: v.string(),
     size: v.number(),

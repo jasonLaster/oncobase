@@ -29,7 +29,7 @@ test("reads each committed revision of the requested pages, parsed like publish"
   const { root, vault, commit } = repo();
   try {
     commit({ "notes/page.md": "# Page\n\nfirst", "notes/other.md": "# Other\n\nx", "outside.txt": "ignored" }, "add pages");
-    commit({ "notes/page.md": "---\nsensitive: true\ntags: [a]\n---\n# Page v2\n\nsecond" }, "edit page");
+    commit({ "notes/page.md": "---\nsensitive: true\nsensitive-include: [serova]\ntags: [a]\n---\n# Page v2\n\nsecond" }, "edit page");
     commit({ "notes/other.md": null }, "delete other");
     fs.writeFileSync(path.join(root, "README.md"), "# Not in the vault");
     const history = readDocumentHistory(vault, new Set(["notes/page", "notes/other"]));
@@ -39,6 +39,7 @@ test("reads each committed revision of the requested pages, parsed like publish"
       ["Page", "first", false, [], "add pages"],
     ]);
     expect(page[0].versionAt).toBeGreaterThan(page[1].versionAt);
+    expect(page[0].sensitiveInclude).toEqual(["serova"]);
     expect(page[0].commitSha).toMatch(/^[0-9a-f]{40}$/);
     // The deletion commit adds no revision.
     expect(history.get("notes/other")!.map(v => v.content)).toEqual(["x"]);
@@ -49,7 +50,7 @@ test("reads each committed revision of the requested pages, parsed like publish"
 });
 
 test("batches stay under the count and byte caps", () => {
-  const version = (content: string) => ({ title: "t", content, tags: [], sensitive: false, versionAt: 1, commitSha: "a".repeat(40) });
+  const version = (content: string) => ({ title: "t", content, tags: [], sensitive: false, sensitiveInclude: [], versionAt: 1, commitSha: "a".repeat(40) });
   expect(batchVersions([version("a"), version("b"), version("c")], { maxCount: 2 }).map(b => b.length)).toEqual([2, 1]);
   expect(batchVersions([version("x".repeat(100)), version("y".repeat(100))], { maxBytes: 150 }).map(b => b.length)).toEqual([1, 1]);
 });

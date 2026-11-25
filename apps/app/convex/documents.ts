@@ -29,6 +29,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
 import { archiveBeforeOverwrite, importVersions as importDocumentVersions, listVisibleVersions, versionVisibleWith } from "./lib/documentVersions";
+import { createDocumentAccessCheck } from "./access";
 
 // Multi-tenant scoping: every public function takes an optional
 // `siteSlug` argument. During the Diana migration window, omitting it
@@ -306,19 +307,21 @@ export const getBySlug = query({
 export const listVersions = query({
   args: {
     slug: v.string(),
-    includeSensitive: v.optional(v.boolean()),
+    userId: v.optional(v.id("users")),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { slug, includeSensitive, siteSlug }) => {
+  handler: async (ctx, { slug, userId, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const doc = await findDocBySlug(ctx, site, slug);
-    if (!doc || !doc.siteId || !rowBelongsToSite(doc, site) || !canReadDocument(doc, includeSensitive)) return null;
+    if (!doc || !doc.siteId || !rowBelongsToSite(doc, site) || !canReadDocument(doc, !!userId)) return null;
+    const canRead = doc.sensitive && userId ? await createDocumentAccessCheck(ctx, site, userId) : null;
+    if (canRead && !canRead(slug, doc)) return null;
     const versions = await listVisibleVersions(ctx, { ...doc, siteId: doc.siteId });
     return {
       slug: doc.slug,
       sensitive: doc.sensitive === true,
       current: { title: doc.title, updatedAt: doc.updatedAt },
-      versions: versions.map(row => ({
+      versions: versions.filter(row => !canRead || canRead(slug, row)).map(row => ({
         id: row._id,
         title: row.title,
         versionAt: row.versionAt,
@@ -337,16 +340,20 @@ export const getVersion = query({
   args: {
     slug: v.string(),
     versionId: v.string(),
-    includeSensitive: v.optional(v.boolean()),
+    userId: v.optional(v.id("users")),
     siteSlug: v.optional(v.string()),
   },
-  handler: async (ctx, { slug, versionId, includeSensitive, siteSlug }) => {
+  handler: async (ctx, { slug, versionId, userId, siteSlug }) => {
     const site = await requireSite(ctx, siteSlug);
     const doc = await findDocBySlug(ctx, site, slug);
-    if (!doc || !doc.siteId || !rowBelongsToSite(doc, site) || !canReadDocument(doc, includeSensitive)) return null;
+    if (!doc || !doc.siteId || !rowBelongsToSite(doc, site) || !canReadDocument(doc, !!userId)) return null;
     const id = ctx.db.normalizeId("documentVersions", versionId);
     const version = id ? await ctx.db.get(id) : null;
     if (!version || version.documentId !== doc._id || version.siteId !== doc.siteId || !versionVisibleWith(doc, version)) return null;
+    if (doc.sensitive && userId) {
+      const canRead = await createDocumentAccessCheck(ctx, site, userId);
+      if (!canRead(slug, doc) || !canRead(slug, version)) return null;
+    }
     const body = await ctx.db.get(version.bodyId);
     if (!body) return null;
     return {
@@ -375,6 +382,7 @@ export const importVersions = mutation({
       content: v.string(),
       tags: v.array(v.string()),
       sensitive: v.boolean(),
+      sensitiveInclude: v.optional(v.array(v.string())),
       versionAt: v.number(),
       commitSha: v.optional(v.string()),
       commitMessage: v.optional(v.string()),

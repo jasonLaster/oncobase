@@ -6,11 +6,12 @@
 import { hasFlag, readFlag } from "./cli";
 import { loadConfig, loadPublishToken } from "./config";
 import { batchVersions, readDocumentHistory } from "./git-history";
+import { runWithConcurrency } from "./publish-concurrency";
 import { publisherPost } from "./publish-post";
 import { readVaultDocuments } from "./walk-vault";
 
 function usage() {
-  console.error("Usage: oncobase docs:backfill-history --site <slug> [--slug <slug>...] [--max-per-page <n>] [--dry-run]");
+  console.error("Usage: oncobase docs:backfill-history --site <slug> [--vault <path>] [--slug <slug>...] [--max-per-page <n>] [--dry-run]");
 }
 
 function readFlags(args: string[], name: string) {
@@ -33,7 +34,8 @@ if (!Number.isInteger(maxPerPage) || maxPerPage < 1 || maxPerPage > 1000) {
 }
 
 const config = loadConfig(site);
-const published = new Set(readVaultDocuments(config.vaultPath).map(doc => doc.slug));
+const vaultPath = readFlag(args, "--vault") ?? config.vaultPath;
+const published = new Set(readVaultDocuments(vaultPath).map(doc => doc.slug));
 const requested = readFlags(args, "--slug");
 const unknown = requested.filter(slug => !published.has(slug));
 if (unknown.length) {
@@ -41,23 +43,24 @@ if (unknown.length) {
   process.exit(1);
 }
 const slugs = new Set(requested.length ? requested : published);
-const history = readDocumentHistory(config.vaultPath, slugs, { maxPerPage });
+const history = readDocumentHistory(vaultPath, slugs, { maxPerPage });
 const total = [...history.values()].reduce((sum, versions) => sum + versions.length, 0);
 console.log(`${history.size} pages have ${total} committed revisions (newest ${maxPerPage} per page).`);
 if (dryRun) process.exit(0);
 
 const token = loadPublishToken(site);
-let inserted = 0, skipped = 0, missing = 0, done = 0;
-for (const [slug, versions] of history) {
+let inserted = 0, skipped = 0, oversized = 0, missing = 0, done = 0;
+await runWithConcurrency([...history], 16, async ([slug, versions]) => {
   for (const batch of batchVersions(versions)) {
-    const result = await publisherPost<{ found: boolean; inserted: number; skipped: number }>(
+    const result = await publisherPost<{ found: boolean; inserted: number; skipped: number; oversized?: number }>(
       `${config.publishUrl}/versions`, token, { siteSlug: config.site, slug, versions: batch },
       { signal: AbortSignal.timeout(60_000) },
     );
     if (!result.found) { missing++; break; }
     inserted += result.inserted;
     skipped += result.skipped;
+    oversized += result.oversized ?? 0;
   }
   if (++done % 100 === 0) console.log(`  ${done}/${history.size} pages`);
-}
-console.log(`Imported ${inserted} past versions (${skipped} already stored or identical to the live page; ${missing} pages not published yet).`);
+});
+console.log(`Imported ${inserted} past versions (${skipped} already stored or identical to the live page; ${oversized} exceeded the Convex document limit; ${missing} pages not published yet).`);

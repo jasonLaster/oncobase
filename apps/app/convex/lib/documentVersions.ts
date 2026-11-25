@@ -11,8 +11,8 @@
  *
  * Visibility rule: a reader sees a page's history only if they can read the
  * live page, and a version that was restricted (`sensitive`) is listed only
- * while the live page is restricted too. Making a page public therefore never
- * exposes what it said while it was private.
+ * while the live page is restricted too. Restricted reads also apply the
+ * reader's current grants to each version's own access metadata.
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
@@ -20,6 +20,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 export const MAX_LISTED_VERSIONS = 200;
+// Allow room for the document's fields and Convex metadata under its 1 MiB limit.
+const MAX_VERSION_CONTENT_BYTES = 1024 * 1024 - 1024;
 
 export function versionBodyHash(title: string, content: string) {
   return bytesToHex(sha256(new TextEncoder().encode(JSON.stringify({ title, content })))).slice(0, 32);
@@ -35,6 +37,7 @@ type VersionInput = {
   content: string;
   tags: string[];
   sensitive: boolean;
+  sensitiveInclude?: string[];
   versionAt: number;
   source: "publish" | "git";
   commitSha?: string;
@@ -50,6 +53,7 @@ async function insertVersion(ctx: MutationCtx, doc: Doc<"documents"> & { siteId:
     title: input.title,
     tags: input.tags,
     sensitive: input.sensitive,
+    sensitiveInclude: input.sensitiveInclude,
     bodyHash,
     size: input.content.length,
     versionAt: input.versionAt,
@@ -86,6 +90,7 @@ export async function archiveBeforeOverwrite(
     content: existing.content,
     tags: existing.tags,
     sensitive: existing.sensitive === true,
+    sensitiveInclude: existing.sensitiveInclude,
     versionAt: existing.updatedAt,
     source: "publish",
   }, bodyHash);
@@ -102,7 +107,12 @@ export async function importVersions(ctx: MutationCtx, doc: Doc<"documents">, ve
   const seen = new Set<string>([liveHash]);
   let inserted = 0;
   let skipped = 0;
+  let oversized = 0;
   for (const version of [...versions].sort((a, b) => a.versionAt - b.versionAt)) {
+    if (new TextEncoder().encode(version.content).byteLength > MAX_VERSION_CONTENT_BYTES) {
+      oversized++;
+      continue;
+    }
     const bodyHash = versionBodyHash(version.title, version.content);
     if (seen.has(bodyHash)) { skipped++; continue; }
     seen.add(bodyHash);
@@ -115,7 +125,7 @@ export async function importVersions(ctx: MutationCtx, doc: Doc<"documents">, ve
     await insertVersion(ctx, doc as Doc<"documents"> & { siteId: Id<"sites"> }, version, bodyHash);
     inserted++;
   }
-  return { inserted, skipped };
+  return { inserted, skipped, ...(oversized ? { oversized } : {}) };
 }
 
 export async function listVisibleVersions(ctx: QueryCtx, live: Doc<"documents"> & { siteId: Id<"sites"> }) {

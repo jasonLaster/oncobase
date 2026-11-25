@@ -5,7 +5,8 @@
 // rule (a restricted version stays hidden while the live page is public).
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api.js";
-import { canUserAccessSlug, getSessionUser, redactText, withSiteSlug } from "../reader-access";
+import type { Id } from "../../convex/_generated/dataModel.js";
+import { getSessionUser, redactText, withSiteSlug } from "../reader-access";
 
 const PUBLIC_HEADERS = {
   "Cache-Control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
@@ -35,18 +36,18 @@ export async function handlePageVersionsRequest(request: Request, client: Convex
     return new Response("Invalid request", { status: 400 });
   }
 
-  const read = async (includeSensitive: boolean) => versionId
-    ? client.query(api.documents.getVersion, withSiteSlug(siteSlug, { slug, versionId, includeSensitive }))
-    : client.query(api.documents.listVersions, withSiteSlug(siteSlug, { slug, includeSensitive }));
+  const args = (userId?: Id<"users">) => withSiteSlug(siteSlug, userId ? { slug, userId } : { slug });
+  const read = (userId?: Id<"users">) => versionId
+    ? client.query(api.documents.getVersion, { ...args(userId), versionId })
+    : client.query(api.documents.listVersions, args(userId));
 
-  let result = await read(false);
+  let result = await read();
   let headers = PUBLIC_HEADERS;
   if (!result) {
     const user = await getSessionUser(request, client, siteSlug);
     if (!user) return notFound();
-    result = await read(true);
+    result = await read(user._id);
     if (!result) return notFound();
-    if (result.sensitive && !(await canUserAccessSlug(client, siteSlug, user, slug))) return notFound();
     headers = SESSION_HEADERS;
   }
 
@@ -55,10 +56,15 @@ export async function handlePageVersionsRequest(request: Request, client: Convex
   if ("content" in result) {
     return Response.json({
       ...result,
+      title: await redactText(client, siteSlug, result.title),
       content: await redactText(client, siteSlug, result.content),
       commitMessage: await redact(result.commitMessage),
     }, { headers });
   }
-  const versions = await Promise.all(result.versions.map(async version => ({ ...version, commitMessage: await redact(version.commitMessage) })));
+  const versions = await Promise.all(result.versions.map(async version => ({
+    ...version,
+    title: await redactText(client, siteSlug, version.title),
+    commitMessage: await redact(version.commitMessage),
+  })));
   return Response.json({ ...result, versions }, { headers });
 }

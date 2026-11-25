@@ -752,6 +752,7 @@ function parsePastVersions(body: Record<string, any>) {
     const version = raw as Record<string, unknown> | null;
     if (!version || typeof version.title !== "string" || typeof version.content !== "string" ||
         !Array.isArray(version.tags) || !version.tags.every(tag => typeof tag === "string") ||
+        (version.sensitiveInclude !== undefined && (!Array.isArray(version.sensitiveInclude) || !version.sensitiveInclude.every(tag => typeof tag === "string"))) ||
         typeof version.sensitive !== "boolean" || typeof version.versionAt !== "number" || !Number.isFinite(version.versionAt) ||
         (version.commitSha !== undefined && (typeof version.commitSha !== "string" || !/^[0-9a-f]{7,64}$/.test(version.commitSha))) ||
         (version.commitMessage !== undefined && typeof version.commitMessage !== "string")) return null;
@@ -760,9 +761,10 @@ function parsePastVersions(body: Record<string, any>) {
       content: version.content,
       tags: version.tags as string[],
       sensitive: version.sensitive,
+      ...(version.sensitiveInclude === undefined ? {} : { sensitiveInclude: version.sensitiveInclude as string[] }),
       versionAt: version.versionAt,
       ...(version.commitSha ? { commitSha: version.commitSha as string } : {}),
-      ...(version.commitMessage ? { commitMessage: (version.commitMessage as string).slice(0, 500) } : {}),
+      ...(version.commitMessage ? { commitMessage: version.commitMessage as string } : {}),
     });
   }
   return versions;
@@ -1072,7 +1074,11 @@ export async function handlePublishRequest({
         withSiteSlug(siteSlug, {
           slug: body.slug as string,
           // Stored like documents.content: redacted with the site's patterns.
-          versions: versions.map(version => ({ ...version, content: applyPiiRedactions(version.content, { patterns: piiPatterns }) })),
+          versions: versions.map(version => ({
+            ...version,
+            content: applyPiiRedactions(version.content, { patterns: piiPatterns }),
+            ...(version.commitMessage ? { commitMessage: applyPiiRedactions(version.commitMessage, { patterns: piiPatterns }) } : {}),
+          })),
         }),
       );
       return Response.json(result);
