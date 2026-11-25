@@ -648,6 +648,14 @@ describe("wiki Vite API auth and scoped archive behavior", () => {
     expect(copy?.status).toBe(200);
     expect(await copy!.text()).not.toContain("Hidden patient detail");
     expect((await handler(request("/api/page-copy?slug=wiki/education/private-case")))?.status).toBe(404);
+    const history = await handler(request(`/api/page-versions?slug=${slug}`));
+    expect(history?.status).toBe(200);
+    const { versions } = await history!.json();
+    const version = await handler(request(`/api/page-versions?slug=${slug}&id=${versions[0].id}`));
+    expect(version?.status).toBe(200);
+    expect(await version!.text()).not.toContain("Hidden patient detail");
+    expect((await handler(request("/api/page-versions?slug=wiki/education/private-case")))?.status).toBe(404);
+    expect((await handler(request("/api/page-versions?slug=wiki/public")))?.status).toBe(401);
     expect((await handler(request("/api/wiki/pages?scope=session")))?.status).toBe(401);
     expect((await handler(request("/api/search?q=Public&scope=session")))?.status).toBe(401);
     expect((await handler(request("/api/wiki/prefetch")))?.status).toBe(200);

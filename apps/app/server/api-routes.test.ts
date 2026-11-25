@@ -64,6 +64,8 @@ test("education fallback covers only the public reader reads", () => {
   expect(eligible("/api/file")).toBe(false);
   expect(eligible("/api/page-copy?slug=wiki/education/a")).toBe(true);
   expect(eligible("/api/page-copy?slug=private")).toBe(false);
+  expect(eligible("/api/page-versions?slug=wiki/education/a")).toBe(true);
+  expect(eligible("/api/page-versions?slug=private")).toBe(false);
   for (const path of ["/api/download", "/api/tools", "/api/chat", "/api/wiki/convex-token", "/api/wiki/unknown"]) expect(eligible(path)).toBe(false);
   for (const target of Object.values(EDUCATION_API_ALIASES)) expect(matchApiRoute(target)?.educationRead).toBeDefined();
 });

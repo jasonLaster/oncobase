@@ -6,6 +6,7 @@
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api.js";
 import type { Id } from "../../convex/_generated/dataModel.js";
+import { isPublicEducationPage } from "../education-access";
 import { getSessionUser, redactText, withSiteSlug } from "../reader-access";
 
 const PUBLIC_HEADERS = {
@@ -25,7 +26,7 @@ function validSlug(slug: string) {
 
 const notFound = () => Response.json({ error: "Not found" }, { status: 404, headers: { "Cache-Control": "private, no-store" } });
 
-export async function handlePageVersionsRequest(request: Request, client: ConvexHttpClient, siteSlug: string) {
+export async function handlePageVersionsRequest(request: Request, client: ConvexHttpClient, siteSlug: string, educationOnly = false) {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response("Method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
   }
@@ -43,6 +44,7 @@ export async function handlePageVersionsRequest(request: Request, client: Convex
 
   let result = await read();
   let headers = PUBLIC_HEADERS;
+  if (educationOnly && !isPublicEducationPage(result)) return notFound();
   if (!result) {
     const user = await getSessionUser(request, client, siteSlug);
     if (!user) return notFound();
