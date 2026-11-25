@@ -383,6 +383,8 @@ const styles = `
 
 @media print {
   .scenario-walkthrough-toggle { display: none; }
+  .scenario-walkthrough-chart,
+  .scenario-walkthrough-text li,
   .scenario-waterfall-row { break-inside: avoid; }
   .scenario-waterfall-bar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }

@@ -1125,8 +1125,7 @@
 
   .wiki-markdown img,
   .wiki-markdown tr,
-  .wiki-markdown figure.wiki-component {
-    /* Keep walkthroughs and their footnotes on one page when they fit. */
+  .wiki-markdown figure.wiki-component:not(:has(.scenario-walkthrough)) {
     break-inside: avoid;
   }
 
@@ -1152,7 +1151,11 @@
   /* Static chart images can't re-flow like data figures; at half a Letter
      page their labels drop to ~5pt, so columns holding one stack in print. */
   .wiki-markdown .wiki-columns:has(img) {
-    grid-template-columns: minmax(0, 1fr);
+    display: block;
+  }
+
+  .wiki-markdown .wiki-columns:has(img) > .wiki-column + .wiki-column {
+    margin-block-start: 0.9rem;
   }
 
   .wiki-markdown .wiki-columns--3 {
