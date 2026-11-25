@@ -158,6 +158,24 @@ describe("remarkLayout: columns", () => {
   });
 });
 
+describe("remarkLayout: columns inside callouts", () => {
+  test("splits `> :::columns` inside a foldable callout on bold lead paragraphs", () => {
+    const md = [
+      "> [!question]- Four questions",
+      "> :::columns",
+      "> **Pathology & surgery**",
+      "> - one",
+      ">",
+      "> **Oncology**",
+      "> - two",
+      "> :::",
+    ].join("\n");
+    const html = renderWikiMarkdownHtml(md);
+    expect(html).toContain('<div class="wiki-columns wiki-columns--2"');
+    expect(html).not.toContain(":::");
+  });
+});
+
 describe("remarkLayout: page breaks", () => {
   test("converts <!-- page-break --> to a print page-break marker", () => {
     const md = "Page one.\n\n<!-- page-break -->\n\nPage two.";

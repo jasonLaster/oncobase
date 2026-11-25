@@ -2359,10 +2359,37 @@ a {
     overflow: visible !important;
   }
 
+  /* Printed handouts use the whole page: no sidebar slot, rails or gutters. */
+  .app-content {
+    flex: 1 1 100% !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .wiki-shell-outline-root,
+  .wiki-shell-outline-content,
+  .wiki-shell-outline-content-inner,
+  .wiki-shell-document-article,
+  .app-shell {
+    /* Forced page breaks are ignored inside flex items; print as plain blocks. */
+    display: block !important;
+    margin: 0 !important;
+    max-width: none !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+  }
+
   .skip-link,
   .sidebar,
+  .sidebar-expanded-rail,
+  .sidebar-collapsed-rail,
+  .sidebar-collapse-button,
+  .wiki-shell-right-rail,
+  .wiki-shell-rail-button,
   .sidebar-resize-handle,
   .wiki-vite-talk-launcher,
+  .wiki-vite-mobile-fab-group,
   .wiki-vite-mobile-talk,
   .wiki-vite-title-copy,
   [data-test-id="mobile-page-header"] {

@@ -73,6 +73,7 @@ import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-ada
 import { PageActions } from "./PageActions";
 import { NoteBundleNavigation } from "./NoteBundleNavigation";
 import { ScopedErrorBoundary } from "../shell/ScopedErrorBoundary";
+import { usePrintExpandsDetails } from "./print-expand-details";
 
 const UnavailablePage = lazy(() => import("./UnavailablePage"));
 
@@ -238,6 +239,7 @@ export const WikiPage = memo(function WikiPage({
   const pageIndex = useReaderQuery(readerQuery.pageIndex, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
   const assets = useReaderQuery(readerQuery.assets, EMPTY_READER_ROWS) as AssetIndexRow[];
   const readyRecorded = useRef(false);
+  usePrintExpandsDetails();
   useEffect(() => {
     if (!readyRecorded.current && page?.contentStatus === "fresh" && !routePending) {
       readyRecorded.current = true;

@@ -786,7 +786,10 @@
   .wiki-markdown .smart-table-wrapper th,
   .wiki-markdown .table-scroll-wrapper th {
     font-size: 0.7rem;
-    white-space: nowrap;
+    /* Wrap long headers inside their column; nowrap spilled them over the
+       neighbouring header once column widths were fixed. */
+    white-space: normal;
+    overflow-wrap: break-word;
   }
 
   /* Sticky first column keeps row identity visible while scrolling. */
@@ -1070,6 +1073,21 @@
   .wiki-markdown .smart-table-wrapper col,
   .wiki-markdown .table-scroll-wrapper col {
     width: auto !important;
+  }
+
+  /* Keep headings with the figure, table or paragraph they introduce. */
+  .wiki-markdown h1,
+  .wiki-markdown h2,
+  .wiki-markdown h3,
+  .wiki-markdown h4,
+  .wiki-markdown .wiki-callout__title {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .wiki-markdown img,
+  .wiki-markdown tr {
+    break-inside: avoid;
   }
 
   .wiki-markdown .wiki-callout,

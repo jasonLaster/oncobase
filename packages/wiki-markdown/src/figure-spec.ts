@@ -31,14 +31,20 @@ export type BarsFigureSpec = {
   unit: string;
   data: BarsItem[];
   bracket?: BarsBracket;
+  /** Fixed scale maximum (e.g. 100 for a true 0–100% axis). Defaults to the largest value. */
+  max?: number;
 };
 
 export type DivergingItem = {
   label: string;
   left: number;
   leftText?: string;
+  /** Optional upper bound drawn as a lighter extension beyond the central `left` bar. */
+  leftHigh?: number;
   right: number;
   rightText?: string;
+  /** Optional upper bound drawn as a lighter extension beyond the central `right` bar. */
+  rightHigh?: number;
   expected?: number;
   expectedText?: string;
 };
@@ -337,6 +343,22 @@ function asString(value: unknown): string | undefined {
   return undefined;
 }
 
+function optionalAbs(value: number | undefined): number | undefined {
+  return value === undefined ? undefined : Math.abs(value);
+}
+
+/** Display text for one side of a diverging row; "—" when the side is empty. */
+export function divergingSideText(
+  value: number,
+  text: string | undefined,
+  high: number | undefined,
+  sign: "−" | "+",
+): string {
+  if (text !== undefined) return text;
+  if (value === 0 && !high) return "—";
+  return high !== undefined && high > value ? `${sign}${value} (to ${sign}${high})` : `${sign}${value}`;
+}
+
 function asNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim() !== "") {
@@ -408,7 +430,20 @@ export function parseFigureSpec(source: string): FigureParseResult {
       }
     }
 
-    return { ok: true, spec: { type: "bars", title, caption, orientation, unit, data, bracket } };
+    const max = asNumber(raw.max);
+    return {
+      ok: true,
+      spec: {
+        type: "bars",
+        title,
+        caption,
+        orientation,
+        unit,
+        data,
+        bracket,
+        ...(max !== undefined && max > 0 ? { max } : {}),
+      },
+    };
   }
 
   if (type === "diverging") {
@@ -429,8 +464,10 @@ export function parseFigureSpec(source: string): FigureParseResult {
         label,
         left: Math.abs(left),
         leftText: asString(entry.leftText ?? entry.left_text ?? entry.costText)?.trim() || undefined,
+        leftHigh: optionalAbs(asNumber(entry.leftHigh ?? entry.left_high)),
         right: Math.abs(right),
         rightText: asString(entry.rightText ?? entry.right_text ?? entry.gainText)?.trim() || undefined,
+        rightHigh: optionalAbs(asNumber(entry.rightHigh ?? entry.right_high)),
         expected: asNumber(entry.expected),
         expectedText: asString(entry.expectedText ?? entry.expected_text)?.trim() || undefined,
       });
@@ -497,14 +534,17 @@ export function figureTableData(spec: FigureSpec): FigureTableData {
       ? ["Measure", spec.leftLabel, spec.rightLabel, "Expected"]
       : ["Measure", spec.leftLabel, spec.rightLabel];
     const rows = spec.data.map((item) => {
-      const left = item.leftText ?? `−${item.left}`;
-      const right = item.rightText ?? `+${item.right}`;
+      const left = divergingSideText(item.left, item.leftText, item.leftHigh, "−");
+      const right = divergingSideText(item.right, item.rightText, item.rightHigh, "+");
       if (!hasExpected) return [item.label, left, right];
       const exp = item.expectedText ?? (item.expected !== undefined ? `+${item.expected}` : "—");
       return [item.label, left, right, exp];
     });
     const summary = spec.data
-      .map((item) => `${item.label}: ${item.leftText ?? `-${item.left}`} vs ${item.rightText ?? `+${item.right}`}`)
+      .map(
+        (item) =>
+          `${item.label}: ${divergingSideText(item.left, item.leftText, item.leftHigh, "−")} vs ${divergingSideText(item.right, item.rightText, item.rightHigh, "+")}`,
+      )
       .join("; ");
     const ariaLabel = [spec.title, summary, spec.caption].filter(Boolean).join(". ");
     return { headers, rows, ariaLabel };
@@ -552,8 +592,8 @@ export function figureToPortableMarkdown(source: string): string {
     }
   } else if (spec.type === "diverging") {
     for (const item of spec.data) {
-      const left = item.leftText ?? `−${item.left}`;
-      const right = item.rightText ?? `+${item.right}`;
+      const left = divergingSideText(item.left, item.leftText, item.leftHigh, "−");
+      const right = divergingSideText(item.right, item.rightText, item.rightHigh, "+");
       const exp = item.expectedText
         ? `; ${item.expectedText}`
         : item.expected !== undefined

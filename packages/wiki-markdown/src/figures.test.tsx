@@ -215,3 +215,54 @@ describe("figure SVG renderers", () => {
     }
   });
 });
+
+describe("figure ranges, empty sides, fixed scale and width-aware layout", () => {
+  const divergingRangeYaml = `
+type: diverging
+leftLabel: Lowers OS
+rightLabel: Raises OS
+data:
+  - { label: Capecitabine dropped, left: 8, right: 0 }
+  - { label: LVI absent, left: 0, right: 11, rightHigh: 17 }
+  - { label: 7-week wait, left: 1.6, leftHigh: 3.2, right: 0 }
+`;
+
+  test("empty diverging sides draw no bar or ±0 label, and ranges show central and bound", () => {
+    const parsed = parseFigureSpec(divergingRangeYaml);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const html = renderToStaticMarkup(createElement(WikiFigureRendered, { spec: parsed.spec }));
+    const svg = html.slice(html.indexOf("<svg"), html.indexOf("</svg>"));
+    expect(svg).not.toContain(">+0<");
+    expect(svg).not.toContain(">−0<");
+    expect(svg).toContain("+11 (to +17)");
+    expect(svg).toContain("−1.6 (to −3.2)");
+    // Accessible table marks empty sides with an em dash.
+    expect(figureTableData(parsed.spec).rows[0]).toEqual(["Capecitabine dropped", "−8", "—"]);
+  });
+
+  test("bars honor a fixed max so 0–100% means the full axis", () => {
+    const parsed = parseFigureSpec(`
+type: bars
+orientation: horizontal
+unit: "%"
+max: 100
+data:
+  - { label: MRI, value: 95 }
+  - { label: Ultrasound, value: 38 }
+`);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok || parsed.spec.type !== "bars") return;
+    expect(parsed.spec.max).toBe(100);
+  });
+
+  test("lays out at the container width so type is not scaled down on phones", async () => {
+    const { buildFigureSvgNode } = await import("./figure-svg.ts");
+    const parsed = parseFigureSpec(divergingRangeYaml);
+    if (!parsed.ok) throw new Error(parsed.error);
+    const narrow = buildFigureSvgNode(parsed.spec, { width: 344 });
+    expect(String(narrow.attrs?.viewBox)).toMatch(/^0 0 344 /);
+    const natural = buildFigureSvgNode(parsed.spec);
+    expect(String(natural.attrs?.viewBox)).toMatch(/^0 0 640 /);
+  });
+});
