@@ -176,7 +176,11 @@ export const API_ROUTES: readonly ApiRoute[] = [
     load: () => import("./api/page-copy").then(m => ({ request, client, siteSlug, educationOnly }: ApiRouteRequest) =>
       m.handlePageCopyRequest(request, client, siteSlug, educationOnly)),
   },
-  { path: "/api/page-versions", gate: "required", privatize: true, load: () => import("./api/page-versions").then(m => legacy(m.handlePageVersionsRequest)) },
+  {
+    path: "/api/page-versions", gate: "required", educationRead: educationParam("slug"), privatize: true,
+    load: () => import("./api/page-versions").then(m => ({ request, client, siteSlug, educationOnly }: ApiRouteRequest) =>
+      m.handlePageVersionsRequest(request, client, siteSlug, educationOnly)),
+  },
 
 ];
 
