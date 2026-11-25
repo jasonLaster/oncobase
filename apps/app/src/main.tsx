@@ -13,6 +13,7 @@ import { publishRuntimeEnvironment } from "./observability";
 import { observeReaderVitals, recordReaderPhase, setReaderTelemetryRoute } from "./reader-telemetry";
 import { webMcpAvailable } from "./webmcp/webmcp-flag";
 import { installScrollMemory } from "./shell/scroll-memory";
+import { usePrintExpandsDetails } from "./pages/print-expand-details";
 // oncobase.io is the marketing site: three pages, no reader, no sign-in, no telemetry endpoint.
 const site = siteResponse();
 const initialRoute = rootRouteFor(location.pathname, educationOnlyResponse(), landingResponse(), site);
@@ -111,6 +112,7 @@ function RootRouteBoundary() {
   // Only reader routes need a wiki session or database. This single boundary
   // applies to cold loads, client navigation, and browser history alike.
   const route = rootRouteFor(pathname, educationOnlyResponse(), landingResponse(), site);
+  usePrintExpandsDetails(route === "reader");
   const needsPassword = route === "password";
   useEffect(() => {
     if (needsPassword) window.location.replace(`/sign-in?redirect=${encodeURIComponent(`${pathname}${search}${hash}`)}`);

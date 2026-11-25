@@ -264,6 +264,9 @@ caption: Share of all recurrences by year after surgery.
 
 > [!note]- Foldable details
 > Hidden until opened.
+
+> [!tip]+ Open details
+> Visible until closed.
 `,
   },
   "private/plan": {

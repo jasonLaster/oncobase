@@ -74,7 +74,6 @@ import { PageActions } from "./PageActions";
 import { formatVersionDate, usePageVersion, versionIdFromSearch } from "./page-history";
 import { NoteBundleNavigation } from "./NoteBundleNavigation";
 import { ScopedErrorBoundary } from "../shell/ScopedErrorBoundary";
-import { usePrintExpandsDetails } from "./print-expand-details";
 
 const UnavailablePage = lazy(() => import("./UnavailablePage"));
 
@@ -243,7 +242,6 @@ export const WikiPage = memo(function WikiPage({
   const versionId = versionIdFromSearch(location.search);
   const pageVersion = usePageVersion(displayedSlug, routePending ? null : versionId);
   const readyRecorded = useRef(false);
-  usePrintExpandsDetails();
   useEffect(() => {
     if (!readyRecorded.current && page?.contentStatus === "fresh" && !routePending) {
       readyRecorded.current = true;

@@ -6,24 +6,25 @@ import { useEffect } from "react";
  * exactly those again on `afterprint`. Lazy images below the fold would print
  * blank, so they switch to eager loading on `beforeprint`.
  */
-export function usePrintExpandsDetails(selector = ".wiki-markdown"): void {
+export function usePrintExpandsDetails(enabled: boolean): void {
   useEffect(() => {
-    let opened: HTMLDetailsElement[] = [];
+    if (!enabled) return;
+    const opened: HTMLDetailsElement[] = [];
     const onBeforePrint = () => {
-      opened = [];
-      for (const root of document.querySelectorAll(selector)) {
-        for (const details of root.querySelectorAll<HTMLDetailsElement>("details:not([open])")) {
-          details.open = true;
-          opened.push(details);
-        }
-        for (const image of root.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')) {
-          image.loading = "eager";
+      const elements = document.querySelectorAll<HTMLDetailsElement | HTMLImageElement>(
+        ".wiki-markdown :is(details:not([open]), img[loading=lazy])",
+      );
+      for (const element of elements) {
+        if (element instanceof HTMLDetailsElement) {
+          element.open = true;
+          opened.push(element);
+        } else {
+          element.loading = "eager";
         }
       }
     };
     const onAfterPrint = () => {
-      for (const details of opened) details.open = false;
-      opened = [];
+      for (const details of opened.splice(0)) details.open = false;
     };
     window.addEventListener("beforeprint", onBeforePrint);
     window.addEventListener("afterprint", onAfterPrint);
@@ -31,5 +32,5 @@ export function usePrintExpandsDetails(selector = ".wiki-markdown"): void {
       window.removeEventListener("beforeprint", onBeforePrint);
       window.removeEventListener("afterprint", onAfterPrint);
     };
-  }, [selector]);
+  }, [enabled]);
 }

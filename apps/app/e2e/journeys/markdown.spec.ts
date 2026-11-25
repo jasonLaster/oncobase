@@ -170,6 +170,17 @@ test.describe("markdown rendering (mocked backend)", () => {
       await expect(details).not.toHaveAttribute("open", "");
       await details.locator("summary").click();
       await expect(details).toHaveAttribute("open", "");
+      await details.locator("summary").click();
+      const openDetails = article.locator('details.wiki-callout[data-callout="tip"]');
+      await expect(openDetails).toHaveAttribute("open", "");
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event("beforeprint"));
+        window.dispatchEvent(new Event("beforeprint"));
+      });
+      await expect(details).toHaveAttribute("open", "");
+      await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+      await expect(details).not.toHaveAttribute("open", "");
+      await expect(openDetails).toHaveAttribute("open", "");
 
       // Columns render side by side on desktop.
       const cols = article.locator(".wiki-columns .wiki-column");
