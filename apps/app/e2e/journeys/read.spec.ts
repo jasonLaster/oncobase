@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Response } from "@playwright/test";
 import { article, keepAllResourceTimings, openPage, passGate, requireLocalStack } from "./helpers";
 
 requireLocalStack();
@@ -102,6 +102,12 @@ test.describe("reading the wiki (real backend)", () => {
     const hash = await page.evaluate(async (url) => (await fetch(url, { credentials: "same-origin" })).headers.get("etag")?.replace(/"/g, ""), path);
     expect(hash).toBeTruthy();
     const versioned = `${path}&v=${hash}`;
+    const versionedUrl = new URL(versioned, page.url()).href;
+    const versionedResponses: Array<{ phase: string; response: Response }> = [];
+    let phase = "first load";
+    page.on("response", response => {
+      if (response.url() === versionedUrl) versionedResponses.push({ phase, response });
+    });
     const show = (url: string) => page.evaluate(async (src) => {
       const image = new Image();
       image.src = src;
@@ -111,9 +117,26 @@ test.describe("reading the wiki (real backend)", () => {
     }, url);
     expect(await show(versioned), "first load reaches the network").toBeGreaterThan(0);
     expect(await show(path), "unversioned first load").toBeGreaterThan(0);
+    phase = "reload";
     await page.reload();
     await expect(article(page)).toBeVisible();
-    expect(await show(versioned), "versioned image after reload").toBe(0);
+    const transferAfterReload = await show(versioned);
+    if (transferAfterReload !== 0) {
+      const cacheResponses = await Promise.all(versionedResponses.map(async ({ phase, response }) => {
+        const [headers, requestHeaders] = await Promise.all([response.allHeaders(), response.request().allHeaders()]);
+        return {
+          phase,
+          status: response.status(),
+          version: headers["x-wiki-version"],
+          cacheControl: headers["cache-control"],
+          vary: headers.vary,
+          requestCacheControl: requestHeaders["cache-control"],
+          accept: requestHeaders.accept,
+          conditional: Boolean(requestHeaders["if-none-match"]),
+        };
+      }));
+      expect(transferAfterReload, `versioned image after reload. Responses: ${JSON.stringify(cacheResponses)}`).toBe(0);
+    }
     expect(await show(path), "unversioned image after reload stays no-store").toBeGreaterThan(0);
   });
 
