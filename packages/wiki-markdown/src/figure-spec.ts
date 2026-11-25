@@ -58,6 +58,8 @@ export type DivergingFigureSpec = {
   leftTone: FigureTone;
   rightTone: FigureTone;
   data: DivergingItem[];
+  /** Fixed per-side scale maximum so separate diverging charts can share one scale. */
+  max?: number;
 };
 
 export type IconArrayItem = {
@@ -474,7 +476,17 @@ export function parseFigureSpec(source: string): FigureParseResult {
     }
     return {
       ok: true,
-      spec: { type: "diverging", title, caption, leftLabel, rightLabel, leftTone, rightTone, data },
+      spec: {
+        type: "diverging",
+        title,
+        caption,
+        leftLabel,
+        rightLabel,
+        leftTone,
+        rightTone,
+        data,
+        ...(asNumber(raw.max) !== undefined && asNumber(raw.max)! > 0 ? { max: asNumber(raw.max)! } : {}),
+      },
     };
   }
 

@@ -8,6 +8,7 @@ const SVG_ATTR_TO_REACT: Record<string, string> = {
   "font-weight": "fontWeight",
   "text-anchor": "textAnchor",
   "stroke-width": "strokeWidth",
+  "fill-opacity": "fillOpacity",
 };
 
 function svgNodeToReact(node: SvgChild, key: number): ReactNode {

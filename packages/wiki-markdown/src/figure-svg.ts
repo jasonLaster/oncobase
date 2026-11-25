@@ -23,6 +23,8 @@ const INK_MUTED = "var(--figure-ink-muted, #52514e)";
 const RULE = "var(--figure-rule, #e4e2dc)";
 const NEUTRAL_SOFT = "var(--figure-neutral-soft, #e4e2dc)";
 const SURFACE = "var(--background, #ffffff)";
+/** Range extensions reuse the bar's hue, fainter, so they read lighter in both themes. */
+const RANGE_OPACITY = 0.38;
 
 function toneFill(tone: FigureTone | undefined): string {
   switch (tone) {
@@ -252,8 +254,11 @@ function buildDiverging(spec: DivergingFigureSpec, ariaLabel: string, opts: Figu
   const width = clampWidth(opts.width, 640, 280);
   const leftExtent = (d: (typeof spec.data)[number]) => Math.max(d.left, d.leftHigh ?? 0);
   const rightExtent = (d: (typeof spec.data)[number]) => Math.max(d.right, d.rightHigh ?? 0, d.expected ?? 0);
-  const maxLeft = Math.max(...spec.data.map(leftExtent), 0);
-  const maxRight = Math.max(...spec.data.map(rightExtent), 0);
+  const dataMaxLeft = Math.max(...spec.data.map(leftExtent), 0);
+  const dataMaxRight = Math.max(...spec.data.map(rightExtent), 0);
+  // A fixed `max` gives both sides (and separate charts) one shared scale.
+  const maxLeft = spec.max !== undefined && dataMaxLeft > 0 ? Math.max(spec.max, dataMaxLeft) : dataMaxLeft;
+  const maxRight = spec.max !== undefined && dataMaxRight > 0 ? Math.max(spec.max, dataMaxRight) : dataMaxRight;
   const leftTexts = spec.data.map((d) => (leftExtent(d) > 0 || d.leftText ? divergingSideText(d.left, d.leftText, d.leftHigh, "−") : ""));
   const rightTexts = spec.data.map((d) => (rightExtent(d) > 0 || d.rightText ? divergingSideText(d.right, d.rightText, d.rightHigh, "+") : ""));
   const leftTextW = Math.max(...leftTexts.map((t) => textWidth(t, FS.value)), 0) + (maxLeft > 0 ? 8 : 0);
@@ -287,7 +292,6 @@ function buildDiverging(spec: DivergingFigureSpec, ariaLabel: string, opts: Figu
   const height = axisBottom + 6;
 
   const leftFill = toneFill(spec.leftTone);
-  const leftSoftFill = toneSoftFill(spec.leftTone);
   const leftTextFill = toneText(spec.leftTone);
   const rightFill = toneFill(spec.rightTone);
   const rightSoftFill = toneSoftFill(spec.rightTone);
@@ -322,7 +326,7 @@ function buildDiverging(spec: DivergingFigureSpec, ariaLabel: string, opts: Figu
     const leftEnd = leftExtent(row);
     if (leftEnd > 0) {
       if (row.leftHigh !== undefined && row.leftHigh > row.left) {
-        groupChildren.push(el("rect", { x: mid - row.leftHigh * unit, y, width: row.leftHigh * unit, height: barH, rx: 4, fill: leftSoftFill }));
+        groupChildren.push(el("rect", { x: mid - row.leftHigh * unit, y, width: row.leftHigh * unit, height: barH, rx: 4, fill: leftFill, "fill-opacity": RANGE_OPACITY }));
       }
       if (row.left > 0) {
         groupChildren.push(el("rect", { x: mid - row.left * unit, y, width: Math.max(2, row.left * unit), height: barH, rx: 4, fill: leftFill }));
@@ -339,7 +343,7 @@ function buildDiverging(spec: DivergingFigureSpec, ariaLabel: string, opts: Figu
     const expW = row.expected !== undefined ? Math.max(2, row.expected * unit) : null;
     if (rightEnd > 0) {
       if (row.rightHigh !== undefined && row.rightHigh > row.right) {
-        groupChildren.push(el("rect", { x: mid, y, width: row.rightHigh * unit, height: barH, rx: 4, fill: rightSoftFill }));
+        groupChildren.push(el("rect", { x: mid, y, width: row.rightHigh * unit, height: barH, rx: 4, fill: rightFill, "fill-opacity": RANGE_OPACITY }));
       }
       if (row.right > 0) {
         groupChildren.push(

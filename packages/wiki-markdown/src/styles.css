@@ -1116,7 +1116,13 @@
     break-inside: avoid;
   }
 
-  .wiki-markdown .wiki-callout,
+  .wiki-markdown .wiki-callout {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Long callouts may split across pages (keeping one whole left pages a
+     third empty); their title still stays with the body via break-after. */
   .wiki-markdown .wiki-data-figure {
     break-inside: avoid;
     page-break-inside: avoid;

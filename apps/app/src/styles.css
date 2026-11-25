@@ -2359,6 +2359,21 @@ a {
     overflow: visible !important;
   }
 
+  /* Viewport-height shells and bottom padding spill onto an extra blank page. */
+  html,
+  body,
+  .prototype-shell,
+  .app-shell,
+  .app-content,
+  .content-shell,
+  .wiki-shell-outline-root,
+  .wiki-shell-outline-content,
+  .wiki-shell-outline-content-inner {
+    height: auto !important;
+    min-height: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
   /* Printed handouts use the whole page: no sidebar slot, rails or gutters. */
   .app-content {
     flex: 1 1 100% !important;
