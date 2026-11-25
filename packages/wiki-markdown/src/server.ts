@@ -1,6 +1,4 @@
 import { Buffer } from "node:buffer";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { renderMermaidSVG, THEMES } from "beautiful-mermaid";
 import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
@@ -9,7 +7,7 @@ import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { preprocessCitationMarkdown } from "./citations.ts";
 import { parseFigureSpec } from "./figure-spec.ts";
-import { WikiFigureRendered } from "./figures.tsx";
+import { renderFigureStaticHtml } from "./figure-svg.ts";
 import {
   markdownRehypePlugins,
   markdownRemarkPlugins,
@@ -66,7 +64,7 @@ function extractFigureBlocks(md: string): { markdown: string; figures: string[] 
     const source = body.trimEnd();
     const parsed = parseFigureSpec(source);
     const html = parsed.ok
-      ? renderToStaticMarkup(createElement(WikiFigureRendered, { spec: parsed.spec }))
+      ? renderFigureStaticHtml(parsed.spec)
       : `<figure class="wiki-data-figure wiki-data-figure--error" data-test-id="wiki-figure">` +
         `<figcaption class="wiki-data-figure__caption">Figure could not be rendered: ${escapeHtml(parsed.error)}</figcaption>` +
         `<pre><code>${escapeHtml(source)}</code></pre></figure>`;
