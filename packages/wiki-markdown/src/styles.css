@@ -1103,6 +1103,12 @@
     gap: 0.9rem;
   }
 
+  /* Static chart images can't re-flow like data figures; at half a Letter
+     page their labels drop to ~5pt, so columns holding one stack in print. */
+  .wiki-markdown .wiki-columns:has(img) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .wiki-markdown .wiki-columns--3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
