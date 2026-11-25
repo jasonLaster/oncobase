@@ -60,14 +60,8 @@ export function FigureAccessibleTable({
   visuallyHidden?: boolean;
 }) {
   const { headers, rows } = figureTableData(spec);
-  return (
-    <table
-      className={
-        visuallyHidden
-          ? "wiki-data-figure__table wiki-sr-only"
-          : "wiki-data-figure__table"
-      }
-    >
+  const table = (
+    <table className="wiki-data-figure__table">
       <thead>
         <tr>
           {headers.map((header) => (
@@ -88,6 +82,7 @@ export function FigureAccessibleTable({
       </tbody>
     </table>
   );
+  return visuallyHidden ? <div className="wiki-sr-only">{table}</div> : table;
 }
 
 export function WikiFigureRendered({ spec }: { spec: FigureSpec }) {

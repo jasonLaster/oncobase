@@ -785,7 +785,7 @@
   .wiki-markdown .table-scroll-wrapper th,
   .wiki-markdown .table-scroll-wrapper td {
     height: auto;
-    min-width: 5.5rem; /* 3 columns fit a 390px phone without sideways scrolling */
+    min-width: 5.5rem;
     max-width: 18rem;
     padding: 0.5rem 0.65rem;
     line-height: 1.4;
@@ -816,6 +816,20 @@
     max-width: 9rem;
     background: var(--wiki-table-bg);
     box-shadow: 1px 0 0 color-mix(in srgb, var(--smart-table-border-color, #e5e7eb) 80%, transparent);
+  }
+
+  /* Keep simple comparisons entirely in view. Tables with more columns or
+     merged cells retain the scroll layout. */
+  .wiki-markdown :is(.smart-table-wrapper, .table-scroll-wrapper)
+    table:not(:has(tr > :nth-child(4), [colspan])) {
+    width: 100% !important;
+  }
+
+  .wiki-markdown :is(.smart-table-wrapper, .table-scroll-wrapper)
+    table:not(:has(tr > :nth-child(4), [colspan])) :is(th, td) {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 /* ---- end mobile markdown tables ---- */
@@ -1030,20 +1044,20 @@
   padding: 0.85rem 1rem;
 }
 
-.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only) {
+.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only *) {
   border-collapse: collapse;
   font-size: 0.875rem;
   width: 100%;
 }
 
-.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only) th,
-.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only) td {
+.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only *) th,
+.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only *) td {
   border-bottom: 1px solid var(--border, #e4e2dc);
   padding: 0.35rem 0.5rem;
   text-align: left;
 }
 
-.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only) th {
+.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only *) th {
   color: var(--text-muted, #52514e);
   font-size: 0.75rem;
   font-weight: 600;

@@ -543,7 +543,7 @@ export function renderFigureStaticHtml(spec: FigureSpec): string {
     .map((row) => `<tr>${row.map((cell) => `<td>${escapeXml(cell)}</td>`).join("")}</tr>`)
     .join("");
   const tableHtml =
-    `<table class="wiki-data-figure__table wiki-sr-only"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+    `<div class="wiki-sr-only"><table class="wiki-data-figure__table"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>`;
 
   return (
     `<figure class="wiki-data-figure" data-figure-type="${escapeXml(spec.type)}" data-figure-rendered="true" data-test-id="wiki-figure">` +

@@ -199,6 +199,13 @@ test.describe("markdown rendering (mocked backend)", () => {
         const b1 = (await cols.nth(1).boundingBox())!;
         return b1.y >= b0.y + b0.height - 2 && Math.abs(b1.x - b0.x) < 4;
       }).toBe(true);
+
+      // The figure data stays in the accessibility tree without widening the reader.
+      await expect(figure.getByRole("table").getByRole("cell", { name: "13%" })).toBeAttached();
+      const shell = page.locator(".content-shell");
+      await expect.poll(() => shell.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+      const comparison = article.locator(".smart-table-wrapper, .table-scroll-wrapper").filter({ hasText: "One-cycle bridge" });
+      await expect.poll(() => comparison.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
     } finally {
       release();
     }
