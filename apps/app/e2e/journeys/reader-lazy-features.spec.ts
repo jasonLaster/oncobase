@@ -191,6 +191,17 @@ test("a scenario walkthrough switches between its waterfall and step-by-step tab
   await expect(tabs.getByRole("tab", { name: "Waterfall" })).toBeFocused();
   await expect(chart).toBeVisible();
   await expect(text).toBeHidden();
+
+  await page.emulateMedia({ media: "print" });
+  await expect(tabs).toBeHidden();
+  await expect(chart).toBeVisible();
+  await expect(text).toBeVisible();
+  await page.emulateMedia({ media: "screen" });
+  await expect(text).toBeHidden();
+  await tabs.getByRole("tab", { name: "Step by step" }).click();
+  await page.emulateMedia({ media: "print" });
+  await expect(article.locator(".scenario-walkthrough-chart")).toBeVisible();
+  await expect(text).toBeVisible();
 });
 
 test("native table cells and keyboard scrolling are available while SmartTable downloads", async ({ page }) => {

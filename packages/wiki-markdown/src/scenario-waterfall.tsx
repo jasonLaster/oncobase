@@ -383,8 +383,14 @@ const styles = `
 
 @media print {
   .scenario-walkthrough-toggle { display: none; }
-  .scenario-walkthrough [hidden] { display: block; }
   .scenario-waterfall-row { break-inside: avoid; }
   .scenario-waterfall-bar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
+/* Match the layer of Tailwind preflight's important [hidden] rule. */
+@layer base {
+  @media print {
+    .scenario-walkthrough > [role="tabpanel"][hidden] { display: block !important; }
+  }
 }
 `;
