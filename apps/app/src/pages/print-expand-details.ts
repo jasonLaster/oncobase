@@ -3,7 +3,8 @@ import { useEffect } from "react";
 /**
  * Printed handouts must show folded content (`<details>`, foldable callouts):
  * open every closed `<details>` inside the article on `beforeprint` and close
- * exactly those again on `afterprint`.
+ * exactly those again on `afterprint`. Lazy images below the fold would print
+ * blank, so they switch to eager loading on `beforeprint`.
  */
 export function usePrintExpandsDetails(selector = ".wiki-markdown"): void {
   useEffect(() => {
@@ -14,6 +15,9 @@ export function usePrintExpandsDetails(selector = ".wiki-markdown"): void {
         for (const details of root.querySelectorAll<HTMLDetailsElement>("details:not([open])")) {
           details.open = true;
           opened.push(details);
+        }
+        for (const image of root.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')) {
+          image.loading = "eager";
         }
       }
     };
