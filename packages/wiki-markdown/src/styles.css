@@ -785,7 +785,7 @@
   .wiki-markdown .table-scroll-wrapper th,
   .wiki-markdown .table-scroll-wrapper td {
     height: auto;
-    min-width: 7.5rem;
+    min-width: 5.5rem; /* 3 columns fit a 390px phone without sideways scrolling */
     max-width: 18rem;
     padding: 0.5rem 0.65rem;
     line-height: 1.4;
