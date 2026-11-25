@@ -225,8 +225,13 @@ const storeLoaderPatterns = [
 // (1,079.1 -> 1,227.1 KiB); store unchanged. Lazy-loading the popups on
 // first interaction (plan section 5, Phase 3) would take most of it back.
 // Paint 280,000 -> 436,000; eager 1,108,500 -> 1,262,000.
-const eagerGzipBudget = 1_262_000;
-const paintGzipBudget = 436_000;
+// Markdown handout layout directives (remark-layout callouts, :::columns,
+// print page-break, tiny FigureFallback, plus callout/columns/print CSS) add
+// ~2.4 KiB gzip to the paint set (Vercel measured paint 426.2 KiB / ~436,428 B,
+// eager 1233.3 KiB / ~1,262,899 B). Allow 4 KiB headroom: paint 436,000 ->
+// 440,000; eager 1,262,000 -> 1,266,000.
+const eagerGzipBudget = 1_266_000;
+const paintGzipBudget = 440_000;
 const storeGzipBudget = 828_500;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
 // on-demand and dominates the lazy pool; it is not first-load critical.
@@ -289,7 +294,11 @@ const storeGzipBudget = 828_500;
 // cross-section, surface opacity slider, data-driven count labels) adds ~11 KiB
 // to the same lazy route chunk, no paint/store/eager impact. Vercel measured
 // 4,429.9 KiB (~4,536,218 B), local 4,429.3 KiB: 4,536,000 -> 4,544,000.
-const lazyGzipBudget = 4_544_000;
+// Data figures (figures.tsx 2.5 KiB + figure-spec.ts 2.9 KiB) and lazy
+// portable markdown (portable.ts 0.8 KiB) load only on pages with ```figure
+// blocks or on copy click, adding ~6.2 KiB to the lazy pool (Vercel measured
+// 4,438.3 KiB / ~4,544,819 B): 4,544,000 -> 4,552,000.
+const lazyGzipBudget = 4_552_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
