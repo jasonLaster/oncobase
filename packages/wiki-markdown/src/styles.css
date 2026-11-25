@@ -768,6 +768,18 @@
     width: auto !important;
   }
 
+  /* "anywhere" wrapping lets the auto table layout squeeze columns until
+     words split mid-letter ("PEMBROLIZ UMAB"); keep words whole in print. */
+  .wiki-markdown .smart-table-wrapper th,
+  .wiki-markdown .smart-table-wrapper td,
+  .wiki-markdown .table-scroll-wrapper th,
+  .wiki-markdown .table-scroll-wrapper td {
+    font-size: 0.78rem;
+    hyphens: none;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
   .wiki-markdown .smart-table-wrapper th,
   .wiki-markdown .smart-table-wrapper td,
   .wiki-markdown .table-scroll-wrapper th,
@@ -1073,6 +1085,18 @@
   .wiki-markdown .smart-table-wrapper col,
   .wiki-markdown .table-scroll-wrapper col {
     width: auto !important;
+  }
+
+  /* "anywhere" wrapping lets the auto table layout squeeze columns until
+     words split mid-letter ("PEMBROLIZ UMAB"); keep words whole in print. */
+  .wiki-markdown .smart-table-wrapper th,
+  .wiki-markdown .smart-table-wrapper td,
+  .wiki-markdown .table-scroll-wrapper th,
+  .wiki-markdown .table-scroll-wrapper td {
+    font-size: 0.78rem;
+    hyphens: none;
+    overflow-wrap: break-word;
+    word-break: normal;
   }
 
   /* Keep headings with the figure, table or paragraph they introduce. */
