@@ -5,7 +5,7 @@
 // is safe to re-run.
 import { hasFlag, readFlag } from "./cli";
 import { loadConfig, loadPublishToken } from "./config";
-import { batchVersions, readDocumentHistory } from "./git-history";
+import { batchVersions, readDocumentHistory, type PastVersion } from "./git-history";
 import { runWithConcurrency } from "./publish-concurrency";
 import { publisherPost } from "./publish-post";
 import { readVaultDocuments } from "./walk-vault";
@@ -49,13 +49,37 @@ console.log(`${history.size} pages have ${total} committed revisions (newest ${m
 if (dryRun) process.exit(0);
 
 const token = loadPublishToken(site);
+const uploadBytesPerSecond = 2 * 1024 * 1024;
+let nextUploadAt = 0;
 let inserted = 0, skipped = 0, oversized = 0, missing = 0, done = 0;
+
+async function uploadVersions(slug: string, versions: PastVersion[]) {
+  const payload = { siteSlug: config.site, slug, versions };
+  const bytes = Buffer.byteLength(JSON.stringify(payload));
+  for (let attempt = 0; ; attempt++) {
+    // All workers share this budget so a busy page cannot starve ongoing publishes.
+    const now = Date.now();
+    const startAt = Math.max(now, nextUploadAt);
+    nextUploadAt = startAt + Math.ceil(bytes * 1000 / uploadBytesPerSecond);
+    if (startAt > now) await new Promise(resolve => setTimeout(resolve, startAt - now));
+    try {
+      return await publisherPost<{ found: boolean; inserted: number; skipped: number; oversized?: number }>(
+        `${config.publishUrl}/versions`, token, payload, { signal: AbortSignal.timeout(60_000) },
+      );
+    } catch (error) {
+      // Batch imports are idempotent, including when a response is lost after a write.
+      const transient = error instanceof Error && (
+        error.name === "TimeoutError" || /TooManyWrites|^(429|502|503|504)\b/.test(error.message)
+      );
+      if (!transient || attempt >= 4) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt));
+    }
+  }
+}
+
 await runWithConcurrency([...history], 16, async ([slug, versions]) => {
-  for (const batch of batchVersions(versions)) {
-    const result = await publisherPost<{ found: boolean; inserted: number; skipped: number; oversized?: number }>(
-      `${config.publishUrl}/versions`, token, { siteSlug: config.site, slug, versions: batch },
-      { signal: AbortSignal.timeout(60_000) },
-    );
+  for (const batch of batchVersions(versions, { maxBytes: uploadBytesPerSecond / 2 })) {
+    const result = await uploadVersions(slug, batch);
     if (!result.found) { missing++; break; }
     inserted += result.inserted;
     skipped += result.skipped;
