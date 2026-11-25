@@ -39,8 +39,9 @@ test("every server-only public handler denies before reading or mutating data", 
       checked++;
     }
   }
-  // +3: sites.gate, manifestCache.knownState, access.sessionManifestOverlay; -8: retired epicFhir; +11: wikiEdits.
-  expect(checked).toBe(118);
+  // +3: sites.gate, manifestCache.knownState, access.sessionManifestOverlay; -8: retired epicFhir; +11: wikiEdits;
+  // +3: documents.listVersions, getVersion, importVersions (page history).
+  expect(checked).toBe(121);
 });
 
 test("document reads, legacy bulk reads, sensitive flag and hash lookups require a verified service identity", async () => {

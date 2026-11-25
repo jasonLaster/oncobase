@@ -71,6 +71,7 @@ import { useBrowserOnline } from "../shell/ReaderStatus";
 import { PageTransferActivity as PageActivity } from "../shell/PageTransferActivity";
 import { wikiViteSmartTableLayoutAdapter } from "../shell/smart-table-layout-adapter";
 import { PageActions } from "./PageActions";
+import { formatVersionDate, usePageVersion, versionIdFromSearch } from "./page-history";
 import { NoteBundleNavigation } from "./NoteBundleNavigation";
 import { ScopedErrorBoundary } from "../shell/ScopedErrorBoundary";
 
@@ -237,6 +238,9 @@ export const WikiPage = memo(function WikiPage({
   const routeIndex = useReaderQuery(readerQuery.pageIndexBySlug(slug), initial?.pages.find(page => page.slug === slug) ?? null) as PageIndexRow | null;
   const pageIndex = useReaderQuery(readerQuery.pageIndex, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
   const assets = useReaderQuery(readerQuery.assets, EMPTY_READER_ROWS) as AssetIndexRow[];
+  // `?version=<id>` shows a past version of the page in place of the live body.
+  const versionId = versionIdFromSearch(location.search);
+  const pageVersion = usePageVersion(displayedSlug, routePending ? null : versionId);
   const readyRecorded = useRef(false);
   useEffect(() => {
     if (!readyRecorded.current && page?.contentStatus === "fresh" && !routePending) {
@@ -500,10 +504,25 @@ export const WikiPage = memo(function WikiPage({
     return loadingPage;
   }
 
+  const shownVersion = versionId && pageVersion.status === "ready" ? pageVersion.data : null;
+  const bodyContent = shownVersion?.content ?? page.content;
+  const bodyTitle = shownVersion?.title ?? page.title;
   const displayTitle =
-    displayedRouteSlug.toLowerCase() === "about/index" && page.title.toLowerCase() === "index"
+    displayedRouteSlug.toLowerCase() === "about/index" && bodyTitle.toLowerCase() === "index"
       ? "Index"
-      : page.title;
+      : bodyTitle;
+  const versionBanner = versionId ? (
+    <WikiStatusNotice data-test-id="page-version-banner" data-version-status={pageVersion.status}>
+      {pageVersion.status === "ready"
+        ? <>You are viewing this page as it was on {formatVersionDate(pageVersion.data.versionAt)}{pageVersion.data.commitMessage ? ` (${pageVersion.data.commitMessage})` : ""}.</>
+        : pageVersion.status === "loading"
+          ? "Loading an earlier version of this page…"
+          : "That version of this page is not available. Showing the current version."}
+      <Link className="wiki-shell-page-action page-action" data-test-id="page-version-current" to={location.pathname}>
+        View current version
+      </Link>
+    </WikiStatusNotice>
+  ) : null;
   const isHomePage = displayedRouteSlug === "index" && page.slug === "index";
   const pageBody = (
     <>
@@ -541,7 +560,7 @@ export const WikiPage = memo(function WikiPage({
           }
           actions={
             <PageActions
-              content={page.content}
+              content={bodyContent}
               contentHash={page.contentHash}
               scope={scope}
               sensitive={page.sensitive || index?.sensitive}
@@ -552,6 +571,7 @@ export const WikiPage = memo(function WikiPage({
         />
       ) : null}
       <NoteBundleNavigation slug={page.slug} pageSlugs={pageSlugs} />
+      {versionBanner}
       {stale && !routePending ? <PageActivity
         label={!online ? "Saved page · offline" : failedBodySlug === displayedSlug ? "Saved page · retrying" : "Updating page…"}
         busy={online && failedBodySlug !== displayedSlug}
@@ -572,14 +592,14 @@ export const WikiPage = memo(function WikiPage({
       />
       <ScopedErrorBoundary
         boundary="body"
-        resetKey={`${page.slug}:${page.contentHash ?? "none"}`}
+        resetKey={`${page.slug}:${shownVersion?.id ?? page.contentHash ?? "none"}`}
         fallback={retry => <ArticleBodyError retry={retry} />}
       >
         <AssetVersionsContext.Provider value={assetHashes}>
-          <WikiMarkdown
+          {versionId && pageVersion.status === "loading" ? MARKDOWN_BODY_FALLBACK : <WikiMarkdown
             loadingFallback={MARKDOWN_BODY_FALLBACK}
-            content={page.content}
-            className={page.content.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
+            content={bodyContent}
+            className={bodyContent.length > 128 * 1024 ? "wiki-markdown-long" : undefined}
             currentSlug={page.slug}
             LinkComponent={routeLink}
             ImageComponent={VersionedWikiImage}
@@ -587,20 +607,23 @@ export const WikiPage = memo(function WikiPage({
             notification={notification}
             routeAdapter={routeAdapter}
             tableLayoutAdapter={wikiViteSmartTableLayoutAdapter}
-          />
+          />}
         </AssetVersionsContext.Provider>
-        <MermaidRendererSlot content={page.content} />
+        <MermaidRendererSlot content={bodyContent} />
       </ScopedErrorBoundary>
     </>
   );
   const outlineProps = {
     articleClassName: "page-shell",
-    contentKey: `${page.slug}:${page.contentHash ?? "none"}`,
+    contentKey: `${page.slug}:${shownVersion?.id ?? page.contentHash ?? "none"}`,
     documentSlug: page.slug,
     documentTitle: displayTitle,
     mobileRail: false,
     pathname: routePending ? hrefForSlug(displayedRouteSlug) : location.pathname,
   };
+
+  // Comments anchor to the live text, so a past version shows without them.
+  if (versionId) return <DocumentOutlineShell {...outlineProps}>{pageBody}</DocumentOutlineShell>;
 
   // Comments are optional: if they fail, keep the article in a plain outline.
   return (

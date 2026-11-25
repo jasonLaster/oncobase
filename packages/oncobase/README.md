@@ -31,6 +31,7 @@ The publish token can be provided with `WIKI_PUBLISH_TOKEN_<SITE>`, `WIKI_PUBLIS
 - `oncobase skills --site <slug>` copies bundled vault skills into `<vault>/.claude/skills`.
 - `oncobase assets:backfill-hashes --site <slug>` backfills asset hashes without a full content upload.
 - `oncobase docs:backfill-hashes --site <slug> --since-ref <commit>` backfills document hashes without a full content upload while protecting recent local edits.
+- `oncobase docs:backfill-history --site <slug> [--slug <slug>...] [--dry-run]` imports each published page's past versions from the vault's git history into page history. Re-running it is safe; versions already stored are skipped.
 - `oncobase elicit papers <query>` searches Elicit's academic-paper index and emits provenance-preserving JSON or Markdown.
 - `oncobase elicit trials <query>` searches ClinicalTrials.gov through Elicit and emits provenance-preserving JSON or Markdown.
 - `oncobase transcription record --site <slug> --context <file>` records audio until Ctrl-C, then transcribes and drafts an enriched note with Vercel AI Gateway.

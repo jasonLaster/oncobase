@@ -115,6 +115,8 @@ const MUTATIONS: Record<string, Effect> = {
   "wikiEdits:markPendingPublish": NO_MANIFEST_DATA,
   "wikiEdits:markFailed": NO_MANIFEST_DATA,
   "wikiEdits:rejectProposal": NO_MANIFEST_DATA,
+  // Past page versions are read on demand, never listed in the manifest.
+  "documents:importVersions": NO_MANIFEST_DATA,
 };
 
 test("every exported mutation is classified for the manifest token", async () => {

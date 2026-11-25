@@ -15,6 +15,8 @@ function fixture() {
     pdfAssets: [{ _id: "pdf", siteId: "a", path: "one.pdf" }],
     fileAssets: [{ _id: "file", siteId: "a", path: "one.png" }],
     documentMeta: [],
+    documentVersions: [],
+    documentVersionBodies: [],
   };
   const jobs: any[] = [], deleted: string[] = [], delays: number[] = [];
   const ctx: any = {
@@ -29,6 +31,7 @@ function fixture() {
         const filters: [string, unknown][] = [];
         const builder = {
           withIndex: (_name: string, filter: any) => { const q = { eq: (key: string, value: unknown) => { filters.push([key, value]); return q; } }; filter(q); return builder; },
+          order: () => builder,
           first: async () => { const row = rows[table].find(row => filters.every(([key, value]) => row[key] === value)); return row ? structuredClone(row) : null; },
           collect: async () => rows[table].filter(row => filters.every(([key, value]) => row[key] === value)),
         };

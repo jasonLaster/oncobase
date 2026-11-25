@@ -168,6 +168,37 @@ export default defineSchema({
     .index("by_site_sensitive_slug", ["siteId", "sensitive", "slug"])
     .index("by_site_deleted_sensitive_slug", ["siteId", "deletedAt", "sensitive", "slug"]),
 
+  // Past versions of a page (see convex/lib/documentVersions.ts). The live
+  // version stays in `documents`; a row here is the reader-facing (PII-redacted)
+  // body a page had before a publish replaced it, or one imported from vault git
+  // history. Metadata and body are split so listing a page's history reads no
+  // bodies. Unredacted rawContent is never copied here.
+  documentVersions: defineTable({
+    siteId: v.id("sites"),
+    documentId: v.id("documents"),
+    slug: v.string(),
+    title: v.string(),
+    tags: v.array(v.string()),
+    sensitive: v.boolean(),
+    // sha256 of the stored body + title, for dedupe across publish and git.
+    bodyHash: v.string(),
+    size: v.number(),
+    // When this version became the live page (publish time or commit time).
+    versionAt: v.number(),
+    source: v.union(v.literal("publish"), v.literal("git")),
+    commitSha: v.optional(v.string()),
+    commitMessage: v.optional(v.string()),
+    bodyId: v.id("documentVersionBodies"),
+    createdAt: v.number(),
+  })
+    .index("by_site_document_time", ["siteId", "documentId", "versionAt"])
+    .index("by_site_document_body", ["siteId", "documentId", "bodyHash"]),
+
+  documentVersionBodies: defineTable({
+    siteId: v.id("sites"),
+    content: v.string(),
+  }),
+
   pageShares: defineTable({
     siteId: v.id("sites"),
     documentId: v.id("documents"),
