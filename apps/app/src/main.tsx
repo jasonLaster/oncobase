@@ -7,7 +7,7 @@ import { landingResponse, rootRouteFor, siteResponse } from "./root-route";
 import { prefetchReaderSession } from "./reader-session-prefetch";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router";
-import { AppErrorBoundary, reloadOnceForLoadError } from "./AppErrorBoundary";
+import { AppErrorBoundary, reloadOnceForLoadError, trackChunkRecoveryNavigation } from "./AppErrorBoundary";
 import { AppStarting } from "./AppStarting";
 import { publishRuntimeEnvironment } from "./observability";
 import { observeReaderVitals, recordReaderPhase, setReaderTelemetryRoute } from "./reader-telemetry";
@@ -44,6 +44,7 @@ if (new URLSearchParams(location.search).get("paintDebug") === "1" && !window.__
   }).catch(() => console.warn("Visual diagnostics could not be loaded"));
 }
 
+trackChunkRecoveryNavigation(window);
 // Vite throws this when a dynamic import's JS/CSS fails to load — most often a
 // tab left open across a deploy. Recover by reloading once; if we already
 // reloaded this session, let it propagate to the error boundary instead of
