@@ -47,6 +47,10 @@ const edgeCases: Record<string, string> = {
   "tables and headings": "## Results\n\n| A | B |\n|---|---:|\n| 1 | 2 |\n\n## Results\n\n| C |\n|---|\n| 3 |\n",
   gfm: "~~gone~~ www.example.com\n\n- [x] done\n- [ ] todo\n",
   mermaid: "```mermaid\ngantt\n  title Plan\n  Task A: a1, 2024-01-01, 1d\n```\n",
+  callout: "> [!question] One question\n> Ask when radiation starts.\n\n> [!note]- Folded\n> Hidden.\n\n> [!tip]+ Expanded\n> Shown.\n",
+  columns: ':::columns{tone="benefit cost"}\n### Left\nOne.\n### Right\nTwo.\n:::\n',
+  figure: "```figure\ntype: bars\norientation: vertical\nunit: \"%\"\ndata:\n  - { label: Year 1, value: 41, tone: cost }\ncaption: By year.\n```\n",
+  "page-break": "First page.\n\n<!-- page-break -->\n\nSecond page.\n",
 };
 
 type Doc = { name: string; content: string; slug?: string };
@@ -96,7 +100,7 @@ describe("raw-HTML detection", () => {
       expect({ name, raw: needsRaw(name) }).toEqual({ name, raw: true });
     }
     expect(mayContainRawHtml(prepareWikiMarkdown(article, "wiki/treatment/note", "/api"))).toBe(false);
-    for (const name of ["plain", "less-than in prose", "autolinks", "block comment", "multi-line comment", "math", "currency", "gfm", "tables and headings", "mermaid"]) {
+    for (const name of ["plain", "less-than in prose", "autolinks", "block comment", "multi-line comment", "math", "currency", "gfm", "tables and headings", "mermaid", "callout", "columns", "figure", "page-break"]) {
       expect({ name, raw: needsRaw(name) }).toEqual({ name, raw: false });
     }
   });

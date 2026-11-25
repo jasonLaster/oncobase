@@ -5,6 +5,7 @@ import { markdownRehypePlugins } from "./math";
 import { SlidesViewer } from "./slides-viewer";
 export * from "./renderer";
 export { SlidesViewer, SlidesViewerControls } from "./slides-viewer";
+export { toPortableMarkdown } from "./portable.ts";
 export { markdownRehypePlugins } from "./math";
 
 // Preserve the synchronous renderer for SSR and existing package consumers.

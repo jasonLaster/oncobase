@@ -225,6 +225,42 @@ gantt
 \`\`\`
 `,
   },
+  "wiki/examples/handout-layout": {
+    title: "Handout Layout Fixture",
+    tags: ["examples"],
+    content: `# Handout Layout Fixture
+
+> [!summary] On the numbers, the two choices are close.
+> Radiation covers the area either way.
+
+:::columns{tone="benefit cost"}
+### The case for removing it
+Prevents local recurrence if cancer is still there.
+
+### The case for leaving it in
+Avoids delaying the next drug.
+:::
+
+\`\`\`figure
+type: bars
+title: When recurrences happen (share of all)
+orientation: vertical
+unit: "%"
+data:
+  - { label: Year 1, value: 41, tone: cost }
+  - { label: Year 2, value: 32, tone: cost }
+  - { label: Year 3, value: 13 }
+bracket: { from: 0, to: 1, label: 73% in the first 2 years, tone: cost }
+caption: Share of all recurrences by year after surgery.
+\`\`\`
+
+> [!question] The one question to ask first
+> When could radiation and the next drug actually start?
+
+> [!note]- Foldable details
+> Hidden until opened.
+`,
+  },
   "private/plan": {
     title: "Private Plan",
     tags: ["sensitive"],

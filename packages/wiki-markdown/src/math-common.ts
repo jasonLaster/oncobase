@@ -1,6 +1,7 @@
 import rehypeSlug from "rehype-slug";
 import { remarkGfmParse, remarkMathParse } from "./remark-parse-only.ts";
 import { rehypeRawEquivalent } from "./raw-html-equivalent.ts";
+import { remarkLayout } from "./remark-layout.ts";
 
 type MarkdownNode = {
   type: string;
@@ -127,7 +128,7 @@ export function remarkCleanMath() {
   };
 }
 
-export const markdownRemarkPlugins = [remarkGfmParse, remarkMathParse, remarkCleanMath];
+export const markdownRemarkPlugins = [remarkGfmParse, remarkMathParse, remarkCleanMath, remarkLayout];
 /** Plugins after the raw-HTML step. The full list (`rehype-plugins.ts`) puts
  * rehype-raw in front; documents without raw HTML use `markdownLightRehypePlugins`. */
 export const markdownRehypeTailPlugins = [rehypeSlug];

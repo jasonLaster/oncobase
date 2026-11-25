@@ -85,6 +85,16 @@
       "types": "./src/mdx-components.ts",
       "import": "./src/mdx-components.ts",
       "default": "./src/mdx-components.ts"
+    },
+    "./portable": {
+      "types": "./src/portable.ts",
+      "import": "./src/portable.ts",
+      "default": "./src/portable.ts"
+    },
+    "./figures": {
+      "types": "./src/figures.tsx",
+      "import": "./src/figures.tsx",
+      "default": "./src/figures.tsx"
     }
   },
   "scripts": {

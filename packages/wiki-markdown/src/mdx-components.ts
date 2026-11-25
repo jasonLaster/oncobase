@@ -287,7 +287,7 @@ export function expandWikiMdx(md: string): string {
  * component replaced by its fallback image, or by a link to its HTML source
  * when it has none.
  */
-export function toPortableMarkdown(md: string): string {
+export function toPortableMdx(md: string): string {
   const parsed = parseWikiMdx(md);
   if (!parsed) return md;
   return rewrite(md, parsed, (u) => {

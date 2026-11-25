@@ -29,11 +29,161 @@ export interface ApplyPiiRedactionsOptions {
 
 const TRUTHY_VALUES = new Set(["1", "true", "yes", "on"]);
 
-const BLOCK_REDACTION_RE =
-  /^[\t ]*:::redact\b([^\n]*)\r?\n([\s\S]*?)^[\t ]*:::[\t ]*$/gm;
+const BLOCK_REDACTION_OPEN_RE = /^[\t ]*:::redact(?=$|[\s[\]{])([^\n]*)$/;
+const CONTAINER_OPEN_RE = /^[\t ]*:::[A-Za-z][A-Za-z0-9_-]*(?=$|[\s[\]{])/;
+const CONTAINER_CLOSE_RE = /^[\t ]*:::[\t ]*$/;
+const CODE_FENCE_RE = /^[\t ]*(`{3,}|~{3,})([^\n]*)$/;
 
 const INLINE_REDACTION_RE =
   /<redact\b([^>]*)>([\s\S]*?)<\/redact>/gi;
+
+export type RedactionSpan = {
+  kind: "block" | "inline";
+  start: number;
+  end: number;
+  raw: string;
+  attrs: string;
+  content: string;
+};
+
+type BlockRedactionMatch = {
+  start: number;
+  end: number;
+  attrs: string;
+  content: string;
+};
+
+/**
+ * Depth-aware scanner for `:::redact ... :::` blocks.
+ *
+ * Tracks nested `:::name` container openers (such as `:::columns`) and fenced
+ * code blocks inside an active `:::redact` so an inner bare `:::` cannot close
+ * the redaction early and leak the rest of the block.
+ */
+function scanBlockRedactions(markdown: string): BlockRedactionMatch[] {
+  if (!markdown.includes(":::redact")) return [];
+
+  const matches: BlockRedactionMatch[] = [];
+  let pos = 0;
+  let open:
+    | {
+        start: number;
+        contentStart: number;
+        attrs: string;
+        depth: number;
+        fence: { char: string; length: number } | null;
+      }
+    | null = null;
+
+  while (pos <= markdown.length) {
+    const nl = markdown.indexOf("\n", pos);
+    const hasNewline = nl !== -1;
+    const lineEnd = hasNewline ? nl : markdown.length;
+    const nextPos = hasNewline ? nl + 1 : markdown.length + 1;
+    const rawLine = markdown.slice(pos, lineEnd);
+    const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+
+    if (!open) {
+      const opener = line.match(BLOCK_REDACTION_OPEN_RE);
+      if (opener && hasNewline) {
+        open = {
+          start: pos,
+          contentStart: nextPos,
+          attrs: opener[1] ?? "",
+          depth: 1,
+          fence: null,
+        };
+      }
+    } else {
+      const fenceMatch = line.match(CODE_FENCE_RE);
+      if (open.fence) {
+        if (
+          fenceMatch &&
+          fenceMatch[1]![0] === open.fence.char &&
+          fenceMatch[1]!.length >= open.fence.length &&
+          !(fenceMatch[2] ?? "").trim()
+        ) {
+          open.fence = null;
+        }
+      } else if (fenceMatch) {
+        open.fence = {
+          char: fenceMatch[1]![0]!,
+          length: fenceMatch[1]!.length,
+        };
+      } else if (CONTAINER_OPEN_RE.test(line)) {
+        open.depth += 1;
+      } else if (CONTAINER_CLOSE_RE.test(line)) {
+        open.depth -= 1;
+        if (open.depth === 0) {
+          matches.push({
+            start: open.start,
+            end: lineEnd,
+            attrs: open.attrs,
+            content: markdown.slice(open.contentStart, pos),
+          });
+          open = null;
+        }
+      }
+    }
+
+    pos = nextPos;
+  }
+
+  return matches;
+}
+
+/**
+ * Return every `:::redact` block and `<redact>` inline span in document order.
+ * Inline tags that fall inside a `:::redact` block are covered by that block.
+ */
+export function findRedactionSpans(markdown: string): RedactionSpan[] {
+  const blocks = scanBlockRedactions(markdown);
+  const spans: RedactionSpan[] = blocks.map((block) => ({
+    kind: "block",
+    start: block.start,
+    end: block.end,
+    raw: markdown.slice(block.start, block.end),
+    attrs: block.attrs,
+    content: block.content,
+  }));
+
+  if (/<redact\b/i.test(markdown)) {
+    for (const match of markdown.matchAll(INLINE_REDACTION_RE)) {
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      if (blocks.some((block) => start >= block.start && start < block.end)) {
+        continue;
+      }
+      spans.push({
+        kind: "inline",
+        start,
+        end,
+        raw: match[0],
+        attrs: match[1] ?? "",
+        content: match[2] ?? "",
+      });
+    }
+  }
+
+  return spans.sort((a, b) => a.start - b.start);
+}
+
+function replaceBlockRedactions(
+  markdown: string,
+  replacer: (attrs: string, content: string) => string,
+): string {
+  const blocks = scanBlockRedactions(markdown);
+  if (blocks.length === 0) return markdown;
+  let out = "";
+  let cursor = 0;
+  for (const block of blocks) {
+    out += markdown.slice(cursor, block.start);
+    out += replacer(block.attrs, block.content);
+    cursor = block.end;
+  }
+  out += markdown.slice(cursor);
+  return out;
+}
 
 const ATTRIBUTE_RE =
   /([A-Za-z_:][A-Za-z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
@@ -268,10 +418,8 @@ export function applyPiiRedactions(
   // Every block tag contains ":::redact"; skip the line-anchored scan when
   // the text has none (most pages). Search preparation redacts every page.
   const withoutBlocks = markdown.includes(":::redact")
-    ? markdown.replace(
-        BLOCK_REDACTION_RE,
-        (_match, attrs: string | undefined, content: string) =>
-          redact(content, parseBlockRedactionAttributes(attrs), true)
+    ? replaceBlockRedactions(markdown, (attrs, content) =>
+        redact(content, parseBlockRedactionAttributes(attrs), true),
       )
     : markdown;
 

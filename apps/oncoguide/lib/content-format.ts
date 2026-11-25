@@ -59,7 +59,7 @@ export function compileEducation(sources: SourcePage[], onAsset: (path: string) 
   const parsed = sources.map(({ path, raw }) => {
     if (!path.startsWith(PREFIX) || !path.endsWith(".md")) throw Error(`Unexpected content path: ${path}`);
     const { data, content } = matter(raw);
-    if (data.sensitive === true || String(data.sensitive).toLowerCase() === "true" || data["sensitive-include"]?.length || /<redact\b/i.test(raw)) {
+    if (data.sensitive === true || String(data.sensitive).toLowerCase() === "true" || data["sensitive-include"]?.length || /<redact\b/i.test(raw) || /^[\t ]*:::redact(?=$|[\s[\]{])/m.test(raw)) {
       throw Error(`Private content cannot be committed to OncoGuide: ${path}`);
     }
     const heading = content.match(/^#\s+(.+)$/m);

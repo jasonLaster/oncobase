@@ -79,7 +79,33 @@ function normalizeRendererSemantics(html: string): RendererSemantics {
     },
   );
 
-  return { headings, images, links, redactions, tables };
+  const callouts = Array.from(
+    html.matchAll(/<(?:div|details)\b([^>]*\bdata-callout="[^"]*"[^>]*)>\s*<(?:div|summary)\b[^>]*class="wiki-callout__title"[^>]*>([\s\S]*?)<\/(?:div|summary)>/gi),
+  ).map((match) => ({
+    type: attribute(match[1], "data-callout"),
+    tone: attribute(match[1], "data-callout-tone"),
+    title: textContent(match[2]),
+  }));
+  const columns = Array.from(
+    html.matchAll(/<div\b([^>]*\bdata-columns="(\d+)"[^>]*)>/gi),
+  ).map((match) => Number(match[2]));
+  const figures = Array.from(
+    html.matchAll(/<figure\b([^>]*\bdata-figure-type="[^"]*"[^>]*)>([\s\S]*?)<\/figure>/gi),
+  ).map((match) => ({
+    type: attribute(match[1], "data-figure-type"),
+    caption: textContent(match[2].match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i)?.[1] ?? ""),
+  }));
+
+  return {
+    headings,
+    images,
+    links,
+    redactions,
+    tables,
+    ...(callouts.length > 0 ? { callouts } : {}),
+    ...(columns.length > 0 ? { columns } : {}),
+    ...(figures.length > 0 ? { figures } : {}),
+  };
 }
 
 describe("server and React renderer parity", () => {

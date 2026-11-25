@@ -405,7 +405,7 @@ for (const pattern of eagerRootPatterns) {
 
 const classes = eagerAssetClasses(assets);
 const eagerNames = new Set([...classes.paint, ...classes.store]);
-for (const feature of ["slides-viewer", "image-theater-modal", "enhance-table", "scenario-waterfall", "configured-redirects"]) {
+for (const feature of ["slides-viewer", "image-theater-modal", "enhance-table", "scenario-waterfall", "configured-redirects", "figures"]) {
   const chunks = assets.filter(({ name }) => name.startsWith(feature + "-") && name.endsWith(".js"));
   if (chunks.length === 0) failures.push(`optional reader feature: missing ${feature} chunk`);
   for (const { name } of chunks) {
