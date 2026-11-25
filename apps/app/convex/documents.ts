@@ -28,6 +28,8 @@ import {
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { applyPiiRedactions, parseSitePiiPatterns } from "@oncobase/wiki-content/pii";
+import { archiveBeforeOverwrite, importVersions as importDocumentVersions, listVisibleVersions, versionVisibleWith } from "./lib/documentVersions";
+import { createDocumentAccessCheck } from "./access";
 
 // Multi-tenant scoping: every public function takes an optional
 // `siteSlug` argument. During the Diana migration window, omitting it
@@ -297,6 +299,101 @@ export const getBySlug = query({
       hashFunctionVersion: doc.hashFunctionVersion,
       sensitive: doc.sensitive,
     };
+  },
+});
+
+/** A page's history, newest first: the live version plus visible past ones.
+ * Bodies are not read. Null when the live page is missing or not readable. */
+export const listVersions = query({
+  args: {
+    slug: v.string(),
+    userId: v.optional(v.id("users")),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { slug, userId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const doc = await findDocBySlug(ctx, site, slug);
+    if (!doc || !doc.siteId || !rowBelongsToSite(doc, site) || !canReadDocument(doc, !!userId)) return null;
+    const canRead = doc.sensitive && userId ? await createDocumentAccessCheck(ctx, site, userId) : null;
+    if (canRead && !canRead(slug, doc)) return null;
+    const versions = await listVisibleVersions(ctx, { ...doc, siteId: doc.siteId });
+    return {
+      slug: doc.slug,
+      sensitive: doc.sensitive === true,
+      current: { title: doc.title, updatedAt: doc.updatedAt },
+      versions: versions.filter(row => !canRead || canRead(slug, row)).map(row => ({
+        id: row._id,
+        title: row.title,
+        versionAt: row.versionAt,
+        source: row.source,
+        commitSha: row.commitSha,
+        commitMessage: row.commitMessage,
+        size: row.size,
+      })),
+    };
+  },
+});
+
+/** One past version's reader-facing body, under the same visibility rule as
+ * `listVersions`. Null when the id is not a visible version of `slug`. */
+export const getVersion = query({
+  args: {
+    slug: v.string(),
+    versionId: v.string(),
+    userId: v.optional(v.id("users")),
+    siteSlug: v.optional(v.string()),
+  },
+  handler: async (ctx, { slug, versionId, userId, siteSlug }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const doc = await findDocBySlug(ctx, site, slug);
+    if (!doc || !doc.siteId || !rowBelongsToSite(doc, site) || !canReadDocument(doc, !!userId)) return null;
+    const id = ctx.db.normalizeId("documentVersions", versionId);
+    const version = id ? await ctx.db.get(id) : null;
+    if (!version || version.documentId !== doc._id || version.siteId !== doc.siteId || !versionVisibleWith(doc, version)) return null;
+    if (doc.sensitive && userId) {
+      const canRead = await createDocumentAccessCheck(ctx, site, userId);
+      if (!canRead(slug, doc) || !canRead(slug, version)) return null;
+    }
+    const body = await ctx.db.get(version.bodyId);
+    if (!body) return null;
+    return {
+      id: version._id,
+      slug: doc.slug,
+      title: version.title,
+      tags: version.tags,
+      content: body.content,
+      versionAt: version.versionAt,
+      source: version.source,
+      commitSha: version.commitSha,
+      commitMessage: version.commitMessage,
+      sensitive: doc.sensitive === true,
+    };
+  },
+});
+
+/** Import past versions of one page (the publisher's git-history backfill).
+ * Content arrives PII-redacted by the publish API. Idempotent. */
+export const importVersions = mutation({
+  args: {
+    siteSlug: v.optional(v.string()),
+    slug: v.string(),
+    versions: v.array(v.object({
+      title: v.string(),
+      content: v.string(),
+      tags: v.array(v.string()),
+      sensitive: v.boolean(),
+      sensitiveInclude: v.optional(v.array(v.string())),
+      versionAt: v.number(),
+      commitSha: v.optional(v.string()),
+      commitMessage: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, { siteSlug, slug, versions }) => {
+    const site = await requireSite(ctx, siteSlug);
+    const doc = await findDocBySlug(ctx, site, slug);
+    if (!doc || !rowBelongsToSite(doc, site)) return { found: false, inserted: 0, skipped: versions.length };
+    const result = await importDocumentVersions(ctx, doc, versions.map(version => ({ ...version, source: "git" as const })));
+    return { found: true, ...result };
   },
 });
 
@@ -681,6 +778,7 @@ export const upsert = mutation({
         return { skipped: true };
       }
       await recordPublishChange(ctx, site.site, ownedRun, (existing.sensitive === true) !== sensitive ? undefined : slug);
+      await archiveBeforeOverwrite(ctx, existing, { title, content });
       await patchDocument(ctx, existing, {
         title,
         content,

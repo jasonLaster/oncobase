@@ -710,7 +710,7 @@ export const canUserAccessSlug = query({
 
 // Reuse the batch policy for already-read documents; it never accepts policy
 // metadata from the browser or caches an authorization decision.
-async function createDocumentAccessCheck(ctx: QueryCtx, site: SiteCtx, userId: Id<"users">) {
+export async function createDocumentAccessCheck(ctx: QueryCtx, site: SiteCtx, userId: Id<"users">) {
   const roles = await siteRoles(ctx, site);
   const rolesById = new Map();
   for (const role of roles) {

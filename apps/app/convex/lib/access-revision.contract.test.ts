@@ -115,6 +115,8 @@ const MUTATIONS: Record<string, Effect> = {
   "wikiEdits:markPendingPublish": NO_MANIFEST_DATA,
   "wikiEdits:markFailed": NO_MANIFEST_DATA,
   "wikiEdits:rejectProposal": NO_MANIFEST_DATA,
+  // Past page versions are read on demand, never listed in the manifest.
+  "documents:importVersions": NO_MANIFEST_DATA,
 };
 
 test("every exported mutation is classified for the manifest token", async () => {
@@ -547,5 +549,6 @@ test("the access policy code is fingerprinted with ACCESS_POLICY_VERSION", () =>
     source("lib/accessPolicy.ts"), source("lib/assetVisibility.ts"),
   ].join("\n--\n");
   const fingerprint = createHash("sha256").update(policy).digest("hex").slice(0, 16);
-  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 3, fingerprint: "264d2697a2709521" });
+  // Exporting the existing check for history does not change manifest access.
+  expect({ version: ACCESS_POLICY_VERSION, fingerprint }).toEqual({ version: 3, fingerprint: "529affb7cc4ac41d" });
 });

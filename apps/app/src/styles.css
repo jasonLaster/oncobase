@@ -1286,6 +1286,40 @@ a {
   color: var(--foreground);
 }
 
+.page-history-menu {
+  background: var(--background);
+  border-radius: 0.5rem;
+  box-shadow:
+    0 4px 6px -1px rgb(15 23 42 / 0.1),
+    0 2px 4px -2px rgb(15 23 42 / 0.1),
+    0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+  max-height: min(24rem, 70vh);
+  overflow-y: auto;
+  padding: 0.25rem;
+  width: 18rem;
+  z-index: 80;
+}
+
+.page-history-item {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0;
+}
+
+.page-history-item[data-current] .page-history-label {
+  font-weight: 650;
+}
+
+.page-history-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
 .wiki-vite-mobile-page-header,
 .wiki-vite-mobile-fab-group {
   display: none;

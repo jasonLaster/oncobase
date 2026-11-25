@@ -12,13 +12,14 @@ const COMMANDS = new Set([
   "skills",
   "assets:backfill-hashes",
   "docs:backfill-hashes",
+  "docs:backfill-history",
   "elicit",
   "transcription",
 ]);
 
 function usage() {
   console.error(
-    "Usage: oncobase <init|sync|check|publish|skills|assets:backfill-hashes|docs:backfill-hashes|elicit|transcription> [options]",
+    "Usage: oncobase <init|sync|check|publish|skills|assets:backfill-hashes|docs:backfill-hashes|docs:backfill-history|elicit|transcription> [options]",
   );
 }
 
@@ -48,6 +49,7 @@ const commandScripts: Partial<Record<string, string>> = {
   skills: "skills-command.js",
   "assets:backfill-hashes": "assets-backfill-hashes.js",
   "docs:backfill-hashes": "docs-backfill-hashes.js",
+  "docs:backfill-history": "docs-backfill-history.js",
   elicit: "elicit-command.js",
   transcription: "transcription-command.js",
 };
