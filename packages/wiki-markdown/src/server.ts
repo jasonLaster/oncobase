@@ -6,6 +6,8 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { preprocessCitationMarkdown } from "./citations.ts";
+import { parseFigureSpec } from "./figure-spec.ts";
+import { renderFigureStaticHtml } from "./figure-svg.ts";
 import {
   markdownRehypePlugins,
   markdownRemarkPlugins,
@@ -14,6 +16,7 @@ import {
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
 import { expandWikiMdx } from "./mdx-components.ts";
 import { resolveWikilinks } from "./paths.ts";
+import { isolateDirectiveLines } from "./remark-layout.ts";
 import { formatWikiHtml, type WikiHtmlAdapters } from "./server-format.ts";
 export type { WikiHtmlAdapters } from "./server-format.ts";
 
@@ -46,20 +49,55 @@ function extractMermaidBlocks(md: string, options?: WikiHtmlAdapters["mermaidOpt
   });
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function extractFigureBlocks(md: string): { markdown: string; figures: string[] } {
+  const figures: string[] = [];
+  if (!md.includes("```figure")) return { markdown: md, figures };
+  const markdown = md.replace(/^```figure[ \t]*\r?\n([\s\S]*?)^```[ \t]*$/gm, (_match, body: string) => {
+    const source = body.trimEnd();
+    const parsed = parseFigureSpec(source);
+    const html = parsed.ok
+      ? renderFigureStaticHtml(parsed.spec)
+      : `<figure class="wiki-data-figure wiki-data-figure--error" data-test-id="wiki-figure">` +
+        `<figcaption class="wiki-data-figure__caption">Figure could not be rendered: ${escapeHtml(parsed.error)}</figcaption>` +
+        `<pre><code>${escapeHtml(source)}</code></pre></figure>`;
+    const index = figures.length;
+    figures.push(html);
+    return `\n<div data-wiki-figure-slot="${index}"></div>\n`;
+  });
+  return { markdown, figures };
+}
+
+function restoreFigureBlocks(html: string, figures: string[]): string {
+  if (figures.length === 0) return html;
+  return html.replace(/<div data-wiki-figure-slot="(\d+)"><\/div>/g, (match, index: string) => {
+    return figures[Number(index)] ?? match;
+  });
+}
+
 function stripLegacyTableDirectives(md: string): string {
   return md.replace(/^\s*<!--\s*table-cols:\s*.*?-->\s*$/gm, "");
 }
 
-
 export function renderWikiMarkdownHtml(md: string, currentSlug?: string, adapters?: WikiHtmlAdapters): string {
   const citationLinked = preprocessCitationMarkdown(resolveWikilinks(expandWikiMdx(md), currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
-  const mermaidExtracted = extractMermaidBlocks(slidesExpanded, adapters?.mermaidOptions);
-  const cleanMd = protectCurrencyFromMath(
-    stripLegacyTableDirectives(mermaidExtracted),
+  const { markdown: figuresExtracted, figures } = extractFigureBlocks(slidesExpanded);
+  const mermaidExtracted = extractMermaidBlocks(figuresExtracted, adapters?.mermaidOptions);
+  const cleanMd = isolateDirectiveLines(
+    protectCurrencyFromMath(
+      stripLegacyTableDirectives(mermaidExtracted),
+    ),
   );
   const raw = processor.processSync(cleanMd).toString();
-  return formatWikiHtml(raw, currentSlug, adapters);
+  return restoreFigureBlocks(formatWikiHtml(raw, currentSlug, adapters), figures);
 }
 
 export async function renderWikiMarkdownHtmlAsync(
@@ -69,10 +107,13 @@ export async function renderWikiMarkdownHtmlAsync(
 ): Promise<string> {
   const citationLinked = preprocessCitationMarkdown(resolveWikilinks(expandWikiMdx(md), currentSlug));
   const slidesExpanded = expandSlidesMarkdown(citationLinked);
-  const mermaidExtracted = extractMermaidBlocks(slidesExpanded, adapters?.mermaidOptions);
-  const cleanMd = protectCurrencyFromMath(
-    stripLegacyTableDirectives(mermaidExtracted),
+  const { markdown: figuresExtracted, figures } = extractFigureBlocks(slidesExpanded);
+  const mermaidExtracted = extractMermaidBlocks(figuresExtracted, adapters?.mermaidOptions);
+  const cleanMd = isolateDirectiveLines(
+    protectCurrencyFromMath(
+      stripLegacyTableDirectives(mermaidExtracted),
+    ),
   );
   const raw = (await processor.process(cleanMd)).toString();
-  return formatWikiHtml(raw, currentSlug, adapters);
+  return restoreFigureBlocks(formatWikiHtml(raw, currentSlug, adapters), figures);
 }

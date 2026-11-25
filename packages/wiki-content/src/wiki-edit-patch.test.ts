@@ -339,4 +339,75 @@ describe("applyValidatedWikiEdit", () => {
       }).ok,
     ).toBe(false);
   });
+
+  test("allows agents to add or edit :::columns while still blocking changes to :::redact", () => {
+    const withRedactRaw = [
+      "---",
+      "title: Decision",
+      "---",
+      "",
+      "# Decision",
+      "",
+      "Intro paragraph.",
+      "",
+      ":::redact[Hidden clinical detail]",
+      "Secret clinical note.",
+      ":::",
+      "",
+      "### Option A",
+      "First option.",
+      "",
+      "### Option B",
+      "Second option.",
+      "",
+    ].join("\n");
+
+    const wrapInColumns = applyValidatedWikiEdit({
+      slug: "wiki/decision",
+      baseRaw: withRedactRaw,
+      edits: [
+        {
+          oldText: "### Option A\nFirst option.\n\n### Option B\nSecond option.",
+          newText: ":::columns\n### Option A\nFirst option.\n\n### Option B\nSecond option.\n:::",
+        },
+      ],
+      piiPatterns: parseSitePiiPatterns([]),
+    });
+    expect(wrapInColumns.ok).toBe(true);
+    if (wrapInColumns.ok) {
+      expect(wrapInColumns.proposedRaw).toContain(":::columns");
+      expect(wrapInColumns.proposedRaw).toContain(":::redact[Hidden clinical detail]\nSecret clinical note.\n:::");
+    }
+
+    const introduceRedact = applyValidatedWikiEdit({
+      slug: "wiki/decision",
+      baseRaw: withRedactRaw,
+      edits: [
+        {
+          oldText: "Intro paragraph.",
+          newText: ":::redact[nope]\nhidden\n:::",
+        },
+      ],
+      piiPatterns: parseSitePiiPatterns([]),
+    });
+    expect(introduceRedact.ok).toBe(false);
+    if (!introduceRedact.ok) expect(introduceRedact.code).toBe("redaction_violation");
+
+    const newPageWithColumns = validateNewWikiPage({
+      slug: "wiki/questions/comparison",
+      title: "Comparison",
+      body: ":::columns\n### A\nOne\n### B\nTwo\n:::",
+      piiPatterns: parseSitePiiPatterns([]),
+    });
+    expect(newPageWithColumns.ok).toBe(true);
+
+    const newPageWithRedact = validateNewWikiPage({
+      slug: "wiki/questions/secret",
+      title: "Secret",
+      body: ":::redact[x]\nsecret\n:::",
+      piiPatterns: parseSitePiiPatterns([]),
+    });
+    expect(newPageWithRedact.ok).toBe(false);
+    if (!newPageWithRedact.ok) expect(newPageWithRedact.code).toBe("redaction_violation");
+  });
 });

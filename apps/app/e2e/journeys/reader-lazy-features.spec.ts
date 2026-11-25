@@ -6,6 +6,7 @@ const theaterChunk = /\/(?:image-theater-modal-[^/]+\.js|image-theater-modal\.ts
 const tableChunk = /\/enhance-table-[^/]+\.js(?:\?.*)?$/;
 const redirectsChunk = /\/(?:configured-redirects-[^/]+\.js|configured-redirects\.ts)(?:\?.*)?$/;
 const waterfallChunk = /\/(?:scenario-waterfall-[^/]+\.js|scenario-waterfall\.tsx)(?:\?.*)?$/;
+const figuresChunk = /\/(?:figures-[^/]+\.js|figures\.tsx)(?:\?.*)?$/;
 const fixtureSlug = "wiki/fixture";
 
 async function setup(page: Page, source: string, extraPages: Record<string, { title: string; tags: string[]; content: string }> = {}) {
@@ -44,7 +45,7 @@ test("a cold text reader skips optional chunks even with a fenced slideshow exam
   const requests = await setup(page, 'Plain text.\n\n```html\n<figure data-wiki-slides></figure>\n```');
   await gotoWiki(page, "/" + fixtureSlug);
   await expect(documentArticle(page)).toContainText("Plain text.");
-  expect(requests.filter(url => [slideChunk, theaterChunk, tableChunk, waterfallChunk].some(chunk => chunk.test(url)))).toEqual([]);
+  expect(requests.filter(url => [slideChunk, theaterChunk, tableChunk, waterfallChunk, figuresChunk].some(chunk => chunk.test(url)))).toEqual([]);
 });
 
 test("the redirect table loads after paint and still resolves an in-app legacy link", async ({ page }) => {

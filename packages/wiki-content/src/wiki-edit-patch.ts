@@ -1,4 +1,4 @@
-import { applyPiiRedactions, type PiiPattern } from "./pii.ts";
+import { applyPiiRedactions, findRedactionSpans, type PiiPattern } from "./pii.ts";
 import {
   extractAssetAndEmbedReferences,
   findFirstH1,
@@ -67,7 +67,17 @@ export type ValidatedNewWikiPageResult =
     };
 
 const MAX_EDITS_PER_PROPOSAL = 20;
-const REDACTION_MARKUP_RE = /(?:^[\t ]*:::redact\b|^[\t ]*:::[\t ]*$|<\/?redact\b)/im;
+const REDACTION_TAG_RE = /(?:^[\t ]*:::redact(?=$|[\s[\]{])|<\/?redact\b)/im;
+
+function redactionSpansEqual(before: string, after: string): boolean {
+  const beforeSpans = findRedactionSpans(before);
+  const afterSpans = findRedactionSpans(after);
+  if (beforeSpans.length !== afterSpans.length) return false;
+  return beforeSpans.every(
+    (span, index) =>
+      span.kind === afterSpans[index]!.kind && span.raw === afterSpans[index]!.raw,
+  );
+}
 
 function normalizeWhitespace(markdown: string): string {
   return markdown
@@ -290,7 +300,7 @@ export function applyValidatedWikiEdit({
         error: `Edit #${i + 1} makes no change (oldText equals newText).`,
       };
     }
-    if (REDACTION_MARKUP_RE.test(edit.oldText) || REDACTION_MARKUP_RE.test(edit.newText)) {
+    if (REDACTION_TAG_RE.test(edit.oldText) || REDACTION_TAG_RE.test(edit.newText)) {
       return {
         ok: false,
         code: "redaction_violation",
@@ -376,6 +386,13 @@ export function applyValidatedWikiEdit({
   }
 
   const proposedBody = applySpanReplacements(rawBody, rawSpans);
+  if (!redactionSpansEqual(rawBody, proposedBody)) {
+    return {
+      ok: false,
+      code: "redaction_violation",
+      error: "Edit modifies or alters the boundaries of a redacted span.",
+    };
+  }
   const redactedFromRaw = redact(proposedBody);
   const redactedFromEditedView = normalizeWhitespace(
     applySpanReplacements(redactedBaseBody, redactedSpans),
@@ -630,7 +647,7 @@ export function validateNewWikiPage({
     };
   }
   const redact = (text: string) => applyPiiRedactions(text, { patterns: piiPatterns });
-  if (REDACTION_MARKUP_RE.test(cleanTitle) || redact(cleanTitle) !== normalizeWhitespace(cleanTitle)) {
+  if (REDACTION_TAG_RE.test(cleanTitle) || redact(cleanTitle) !== normalizeWhitespace(cleanTitle)) {
     return {
       ok: false,
       code: "redaction_violation",
@@ -687,7 +704,7 @@ export function validateNewWikiPage({
       error: "Do not include YAML frontmatter in body; pass title, tags, and sensitive as fields.",
     };
   }
-  if (REDACTION_MARKUP_RE.test(normalizedInputBody)) {
+  if (REDACTION_TAG_RE.test(normalizedInputBody)) {
     return {
       ok: false,
       code: "redaction_violation",

@@ -9,6 +9,7 @@ import {
   useMemo,
   useEffect,
   useRef,
+  useState,
   type AnchorHTMLAttributes,
   type ComponentProps,
   type ComponentType,
@@ -158,10 +159,187 @@ function isMermaidCodeElement(value: ReactNode): value is ReactElement<Component
     value.props.className.includes("language-mermaid");
 }
 
+function isFigureCodeElement(value: ReactNode): value is ReactElement<ComponentProps<"code">> {
+  return isValidElement<ComponentProps<"code">>(value) &&
+    typeof value.props.className === "string" &&
+    /\blanguage-figure\b/.test(value.props.className);
+}
+
+type LoadedFigureRenderer = ComponentType<{ source: string }>;
+let loadedFigureRenderer: LoadedFigureRenderer | null = null;
+let pendingFigureRenderer: Promise<LoadedFigureRenderer> | null = null;
+
+function loadFigureRenderer(): Promise<LoadedFigureRenderer> {
+  return (pendingFigureRenderer ??= import("./figures.tsx").then((module) => {
+    loadedFigureRenderer = module.WikiFigureFromSource;
+    return module.WikiFigureFromSource;
+  }));
+}
+
+const VALID_FIGURE_TYPES = new Set(["bars", "diverging", "icon-array", "timeline"]);
+
+function unquoteYamlScalar(raw: string): string {
+  const s = raw.trim().replace(/\s+#.*$/, "").trim();
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    return s.slice(1, -1);
+  }
+  return s;
+}
+
+function readTopYamlField(source: string, key: string): string | undefined {
+  const match = source.match(new RegExp(`^${key}:[ \\t]+(.+)$`, "m"));
+  return match ? unquoteYamlScalar(match[1]!) || undefined : undefined;
+}
+
+function readInlineField(line: string, key: string): string | undefined {
+  const match = line.match(
+    new RegExp(`(?:^|[{,\\s])${key}:[ \\t]*(?:"([^"]*)"|'([^']*)'|([^,}\\n]+))`),
+  );
+  const val = match?.[1] ?? match?.[2] ?? match?.[3];
+  return val !== undefined ? val.trim() : undefined;
+}
+
+/**
+ * Lightweight line-based preview used before the lazy `figures` chunk loads
+ * (and during SSR), keeping the full YAML parser and SVG renderers off the
+ * reader's paint path.
+ */
+function parseFigureFallbackPreview(source: string): {
+  valid: boolean;
+  type: string;
+  title?: string;
+  caption?: string;
+  headers: string[];
+  rows: string[][];
+} {
+  const type = (readTopYamlField(source, "type") ?? "").toLowerCase();
+  const title = readTopYamlField(source, "title");
+  const caption = readTopYamlField(source, "caption");
+  const unit = readTopYamlField(source, "unit") ?? "";
+  if (!VALID_FIGURE_TYPES.has(type)) {
+    return { valid: false, type, title, caption, headers: [], rows: [] };
+  }
+
+  const rows: string[][] = [];
+  const lines = source.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    if (!line.startsWith("- ")) continue;
+    let combined = line.slice(2);
+    while (i + 1 < lines.length && /^[ \t]{2,}[A-Za-z_]/.test(lines[i + 1]!)) {
+      combined += ", " + lines[++i]!.trim();
+    }
+    const label = readInlineField(combined, "label");
+    if (type === "bars") {
+      const display = readInlineField(combined, "display");
+      const value = readInlineField(combined, "value");
+      if (label && (display || value !== undefined)) rows.push([label, display ?? `${value}${unit}`]);
+    } else if (type === "diverging") {
+      const left = readInlineField(combined, "leftText") ?? readInlineField(combined, "left");
+      const right = readInlineField(combined, "rightText") ?? readInlineField(combined, "right");
+      if (label && left && right) rows.push([label, left, right]);
+    } else if (type === "icon-array") {
+      const count = readInlineField(combined, "count");
+      const of = readInlineField(combined, "of") ?? "100";
+      if (label && count !== undefined) rows.push([label, `${count} of ${of}`]);
+    } else if (type === "timeline") {
+      const date = readInlineField(combined, "date");
+      if (date && label) rows.push([date, label]);
+    }
+  }
+
+  const headers =
+    type === "bars"
+      ? ["Item", "Value"]
+      : type === "diverging"
+        ? ["Measure", readTopYamlField(source, "leftLabel") ?? "Cost", readTopYamlField(source, "rightLabel") ?? "Gain"]
+        : type === "icon-array"
+          ? ["Group", "Count"]
+          : ["Date", "Event"];
+
+  return { valid: rows.length > 0, type, title, caption, headers, rows };
+}
+
+function FigureFallback({ source }: { source: string }) {
+  const preview = useMemo(() => parseFigureFallbackPreview(source), [source]);
+  if (!preview.valid) {
+    return (
+      <figure className="wiki-data-figure wiki-data-figure--error" data-test-id="wiki-figure">
+        <figcaption className="wiki-data-figure__caption">
+          Figure could not be rendered
+        </figcaption>
+        <pre>
+          <code>{source}</code>
+        </pre>
+      </figure>
+    );
+  }
+  return (
+    <figure
+      className="wiki-data-figure wiki-data-figure--fallback"
+      data-figure-type={preview.type}
+      data-test-id="wiki-figure"
+    >
+      {preview.title ? <div className="wiki-data-figure__title">{preview.title}</div> : null}
+      <table className="wiki-data-figure__table">
+        <thead>
+          <tr>
+            {preview.headers.map((header) => (
+              <th key={header} scope="col">
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {preview.rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {row.map((cell, cellIndex) => (
+                <td key={cellIndex}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {preview.caption ? (
+        <figcaption className="wiki-data-figure__caption">{preview.caption}</figcaption>
+      ) : null}
+    </figure>
+  );
+}
+
+function WikiFigureBlock({ source }: { source: string }) {
+  const [Renderer, setRenderer] = useState<LoadedFigureRenderer | null>(() => loadedFigureRenderer);
+
+  useEffect(() => {
+    if (Renderer) return;
+    let active = true;
+    void loadFigureRenderer()
+      .then((Component) => {
+        if (active) setRenderer(() => Component);
+      })
+      .catch(() => {
+        /* Fallback caption and data table stay visible. */
+      });
+    return () => {
+      active = false;
+    };
+  }, [Renderer]);
+
+  if (Renderer) {
+    return <Renderer source={source} />;
+  }
+
+  return <FigureFallback source={source} />;
+}
+
 function MarkdownPre({ children, ...props }: ComponentProps<"pre">) {
   const onlyChild = Children.count(children) === 1 ? Children.only(children) : null;
   if (isMermaidCodeElement(onlyChild)) {
     return <MermaidFallback source={String(onlyChild.props.children ?? "").trimEnd()} />;
+  }
+  if (isFigureCodeElement(onlyChild)) {
+    return <WikiFigureBlock source={String(onlyChild.props.children ?? "").trimEnd()} />;
   }
   return <pre {...props}>{children}</pre>;
 }
@@ -441,7 +619,6 @@ export {
   splitWikilinkAlias,
 };
 export { BUILT_IN_WIKI_MDX_COMPONENTS, WikiComponentFigure } from "./wiki-component.tsx";
-export { toPortableMarkdown } from "./mdx-components.ts";
 export type {
   WikiMdxComponents,
   WikiImageComponent,

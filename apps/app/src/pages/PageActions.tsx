@@ -1,5 +1,4 @@
 import { CopyPageIcon } from "../shell/copy-page-icon";
-import { toPortableMarkdown } from "@oncobase/wiki-markdown/mdx";
 import type { WikiScope } from "@oncobase/wiki-content";
 import { copyTextToClipboard } from "@oncobase/wiki-shell";
 import { toast } from "@oncobase/ui/toast";
@@ -42,7 +41,8 @@ export function PageActions({
 
   const copyMarkdown = async () => {
     try {
-      // MDX components copy as their static fallback image.
+      // MDX components, layout directives and data figures copy as portable markdown.
+      const { toPortableMarkdown } = await import("@oncobase/wiki-markdown/portable");
       await copyTextToClipboard(`# ${title}\n\n${toPortableMarkdown(content)}`);
       toast.success("Page copied as markdown");
     } catch (error) {

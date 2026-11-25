@@ -2349,3 +2349,23 @@ a {
   padding: 4px 8px;
 }
 /* end ui-sdk: w8-nav-tree-resizable */
+
+@media print {
+  .prototype-shell,
+  .app-content,
+  .content-shell {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .skip-link,
+  .sidebar,
+  .sidebar-resize-handle,
+  .wiki-vite-talk-launcher,
+  .wiki-vite-mobile-talk,
+  .wiki-vite-title-copy,
+  [data-test-id="mobile-page-header"] {
+    display: none !important;
+  }
+}

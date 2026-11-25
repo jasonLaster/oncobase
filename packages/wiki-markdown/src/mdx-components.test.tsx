@@ -8,9 +8,9 @@ import {
   isWikiComponentAssetPath,
   parseComponentAttributes,
   resolveWikiComponentSrc,
-  toPortableMarkdown,
   wikiMdxReferences,
 } from "./mdx-components.ts";
+import { toPortableMarkdown } from "./portable.ts";
 
 const slug = "wiki/research/reviews/yield";
 const page = `---

@@ -1,6 +1,6 @@
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api.js";
-import { toPortableMarkdown } from "@oncobase/wiki-markdown/mdx";
+import { toPortableMarkdown } from "@oncobase/wiki-markdown/portable";
 import { isEducationSlug } from "../education-access";
 import { canUserAccessSlug, getSessionUser, redactText, withSiteSlug } from "../reader-access";
 

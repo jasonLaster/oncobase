@@ -4,6 +4,9 @@ export type RendererSemantics = {
   links: Array<{ href: string; pdf: boolean; target: string; text: string }>;
   redactions: Array<{ label: string; text: string }>;
   tables: Array<{ headers: string[]; rows: string[][]; smart: boolean }>;
+  callouts?: Array<{ type: string; tone: string; title: string }>;
+  columns?: number[];
+  figures?: Array<{ type: string; caption: string }>;
 };
 
 export type RendererParityFixture = {
@@ -102,6 +105,53 @@ export const rendererParityFixtures: RendererParityFixture[] = [
       images: [],
       redactions: [],
       tables: [],
+    },
+  },
+  {
+    name: "callouts, columns, and data figures",
+    currentSlug: "wiki/questions/nipple-decision",
+    markdown: [
+      "> [!summary] Short answer",
+      "> The two choices are close.",
+      "",
+      ':::columns{tone="benefit cost"}',
+      "### Remove it",
+      "Prevents local recurrence.",
+      "### Leave it in",
+      "Avoids delaying the next drug.",
+      ":::",
+      "",
+      "```figure",
+      "type: bars",
+      "orientation: vertical",
+      'unit: "%"',
+      "data:",
+      "  - { label: Year 1, value: 41, tone: cost }",
+      "  - { label: Year 2, value: 32, tone: cost }",
+      "caption: Recurrences by year.",
+      "```",
+    ].join("\n"),
+    expected: {
+      headings: [
+        { level: 3, id: "remove-it", text: "Remove it" },
+        { level: 3, id: "leave-it-in", text: "Leave it in" },
+      ],
+      links: [],
+      images: [],
+      redactions: [],
+      tables: [
+        {
+          headers: ["Item", "Value"],
+          rows: [
+            ["Year 1", "41%"],
+            ["Year 2", "32%"],
+          ],
+          smart: false,
+        },
+      ],
+      callouts: [{ type: "summary", tone: "lead", title: "Short answer" }],
+      columns: [2],
+      figures: [{ type: "bars", caption: "Recurrences by year." }],
     },
   },
 ];
