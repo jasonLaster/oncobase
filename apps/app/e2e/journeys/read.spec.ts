@@ -1,4 +1,4 @@
-import { expect, test, type Response } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { article, keepAllResourceTimings, openPage, passGate, requireLocalStack } from "./helpers";
 
 requireLocalStack();
@@ -95,49 +95,29 @@ test.describe("reading the wiki (real backend)", () => {
 
   test("a versioned image is reopened from the HTTP cache in a new document (P11)", async ({ page }) => {
     const path = "/api/file?path=wiki%2Fimages%2Ftreatment-timeline.png";
-    await keepAllResourceTimings(page);
-    await openPage(page, "/");
-    // The server's ETag is the stored content hash: the same value the
-    // manifest names an asset by.
-    const hash = await page.evaluate(async (url) => (await fetch(url, { credentials: "same-origin" })).headers.get("etag")?.replace(/"/g, ""), path);
-    expect(hash).toBeTruthy();
-    const versioned = `${path}&v=${hash}`;
-    const versionedUrl = new URL(versioned, page.url()).href;
-    const versionedResponses: Array<{ phase: string; response: Response }> = [];
-    let phase = "first load";
-    page.on("response", response => {
-      if (response.url() === versionedUrl) versionedResponses.push({ phase, response });
-    });
-    const show = (url: string) => page.evaluate(async (src) => {
-      const image = new Image();
-      image.src = src;
-      await image.decode();
-      const entries = performance.getEntriesByName(new URL(src, location.href).href) as PerformanceResourceTiming[];
-      return entries.at(-1)?.transferSize ?? -1;
+    const readImage = (url: string) => page.evaluate(async (src) => {
+      const response = await fetch(src, { headers: { Accept: "image/png" } });
+      if (!response.ok) throw new Error(`Image request returned ${response.status}`);
+      await response.arrayBuffer();
+      const timings = performance.getEntriesByName(new URL(src, location.href).href) as PerformanceResourceTiming[];
+      return {
+        hash: response.headers.get("etag")?.replace(/"/g, ""),
+        transferSize: timings.at(-1)?.transferSize ?? -1,
+      };
     }, url);
-    expect(await show(versioned), "first load reaches the network").toBeGreaterThan(0);
-    expect(await show(path), "unversioned first load").toBeGreaterThan(0);
-    phase = "reload";
-    await page.reload();
-    await expect(article(page)).toBeVisible();
-    const transferAfterReload = await show(versioned);
-    if (transferAfterReload !== 0) {
-      const cacheResponses = await Promise.all(versionedResponses.map(async ({ phase, response }) => {
-        const [headers, requestHeaders] = await Promise.all([response.allHeaders(), response.request().allHeaders()]);
-        return {
-          phase,
-          status: response.status(),
-          version: headers["x-wiki-version"],
-          cacheControl: headers["cache-control"],
-          vary: headers.vary,
-          requestCacheControl: requestHeaders["cache-control"],
-          accept: requestHeaders.accept,
-          conditional: Boolean(requestHeaders["if-none-match"]),
-        };
-      }));
-      expect(transferAfterReload, `versioned image after reload. Responses: ${JSON.stringify(cacheResponses)}`).toBe(0);
-    }
-    expect(await show(path), "unversioned image after reload stays no-store").toBeGreaterThan(0);
+
+    // Wiki startup can evict the fixture from Chromium's in-memory HTTP cache.
+    // Use small same-origin documents and fetch to exercise the HTTP cache.
+    await page.goto("/robots.txt");
+    const unversioned = await readImage(path);
+    expect(unversioned.hash, "ETag names the stored image").toBeTruthy();
+    expect(unversioned.transferSize, "unversioned first load").toBeGreaterThan(0);
+    const versioned = `${path}&v=${unversioned.hash}`;
+    expect((await readImage(versioned)).transferSize, "versioned first load").toBeGreaterThan(0);
+
+    await page.goto("/llms.txt");
+    expect((await readImage(versioned)).transferSize, "versioned image is cached in the new document").toBe(0);
+    expect((await readImage(path)).transferSize, "unversioned image in the new document stays no-store").toBeGreaterThan(0);
   });
 
   test("a tag page lists its tagged pages and links to them", async ({ page }) => {
