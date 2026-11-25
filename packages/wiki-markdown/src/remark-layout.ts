@@ -270,6 +270,23 @@ function paragraphExactText(node: MdastNode): string | null {
 function splitIntoColumns(nodes: MdastNode[]): MdastNode[][] {
   if (nodes.length === 0) return [];
 
+  // An explicit `---` separator is the author's intent and wins over the
+  // heading and callout heuristics.
+  if (nodes.some((child) => child.type === "thematicBreak")) {
+    const columns: MdastNode[][] = [];
+    let current: MdastNode[] = [];
+    for (const child of nodes) {
+      if (child.type === "thematicBreak") {
+        if (current.length > 0) columns.push(current);
+        current = [];
+      } else {
+        current.push(child);
+      }
+    }
+    if (current.length > 0) columns.push(current);
+    return columns;
+  }
+
   const firstHeading = nodes.find((child) => child.type === "heading" && typeof child.depth === "number");
   if (firstHeading && typeof firstHeading.depth === "number") {
     const splitDepth = firstHeading.depth;
@@ -307,20 +324,6 @@ function splitIntoColumns(nodes: MdastNode[]): MdastNode[][] {
     return columns;
   }
 
-  if (nodes.some((child) => child.type === "thematicBreak")) {
-    const columns: MdastNode[][] = [];
-    let current: MdastNode[] = [];
-    for (const child of nodes) {
-      if (child.type === "thematicBreak") {
-        if (current.length > 0) columns.push(current);
-        current = [];
-      } else {
-        current.push(child);
-      }
-    }
-    if (current.length > 0) columns.push(current);
-    return columns;
-  }
 
   // Bold-only lead paragraphs (`**Pathology & surgery**`) act like headings
   // when there are at least two of them.
