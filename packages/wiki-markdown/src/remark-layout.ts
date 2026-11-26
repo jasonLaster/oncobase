@@ -59,13 +59,22 @@ export function isolateDirectiveLines(markdown: string): string {
   const out: string[] = [];
   let fence: { char: string; length: number } | null = null;
 
-  const isMarker = (line: string) =>
-    COLUMNS_OPEN_LINE_RE.test(line) || CONTAINER_CLOSE_LINE_RE.test(line);
+  // Split a line into its blockquote prefix (`> > `) and content so markers
+  // inside callouts (`> :::columns`) are isolated with `>`-only blank lines.
+  const splitQuote = (line: string): { prefix: string; content: string } => {
+    const match = line.match(/^((?:[ \t]*>[ \t]?)*)(.*)$/);
+    return { prefix: match?.[1] ?? "", content: match?.[2] ?? line };
+  };
+  const isMarker = (content: string) =>
+    COLUMNS_OPEN_LINE_RE.test(content) || CONTAINER_CLOSE_LINE_RE.test(content);
+  const isBlank = (line: string | undefined) =>
+    line === undefined || splitQuote(line.endsWith("\r") ? line.slice(0, -1) : line).content.trim() === "";
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]!;
     const line = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
-    const fenceMatch = line.match(CODE_FENCE_LINE_RE);
+    const { prefix, content } = splitQuote(line);
+    const fenceMatch = content.match(CODE_FENCE_LINE_RE);
 
     if (fence) {
       if (
@@ -86,14 +95,14 @@ export function isolateDirectiveLines(markdown: string): string {
       continue;
     }
 
-    if (isMarker(line)) {
-      if (out.length > 0 && out[out.length - 1]!.trim() !== "") {
-        out.push("");
+    if (isMarker(content)) {
+      const blank = prefix.trimEnd();
+      if (out.length > 0 && !isBlank(out[out.length - 1])) {
+        out.push(blank);
       }
       out.push(raw);
-      const next = lines[i + 1];
-      if (next !== undefined && next.trim() !== "") {
-        out.push("");
+      if (!isBlank(lines[i + 1]) && lines[i + 1] !== undefined) {
+        out.push(blank);
       }
     } else {
       out.push(raw);
@@ -261,6 +270,23 @@ function paragraphExactText(node: MdastNode): string | null {
 function splitIntoColumns(nodes: MdastNode[]): MdastNode[][] {
   if (nodes.length === 0) return [];
 
+  // An explicit `---` separator is the author's intent and wins over the
+  // heading and callout heuristics.
+  if (nodes.some((child) => child.type === "thematicBreak")) {
+    const columns: MdastNode[][] = [];
+    let current: MdastNode[] = [];
+    for (const child of nodes) {
+      if (child.type === "thematicBreak") {
+        if (current.length > 0) columns.push(current);
+        current = [];
+      } else {
+        current.push(child);
+      }
+    }
+    if (current.length > 0) columns.push(current);
+    return columns;
+  }
+
   const firstHeading = nodes.find((child) => child.type === "heading" && typeof child.depth === "number");
   if (firstHeading && typeof firstHeading.depth === "number") {
     const splitDepth = firstHeading.depth;
@@ -298,16 +324,20 @@ function splitIntoColumns(nodes: MdastNode[]): MdastNode[][] {
     return columns;
   }
 
-  if (nodes.some((child) => child.type === "thematicBreak")) {
+
+  // Bold-only lead paragraphs (`**Pathology & surgery**`) act like headings
+  // when there are at least two of them.
+  const isBoldLead = (child: MdastNode) =>
+    child.type === "paragraph" && child.children?.length === 1 && child.children[0]!.type === "strong";
+  if (nodes.filter(isBoldLead).length >= 2 && isBoldLead(nodes[0]!)) {
     const columns: MdastNode[][] = [];
     let current: MdastNode[] = [];
     for (const child of nodes) {
-      if (child.type === "thematicBreak") {
-        if (current.length > 0) columns.push(current);
+      if (isBoldLead(child) && current.length > 0) {
+        columns.push(current);
         current = [];
-      } else {
-        current.push(child);
       }
+      current.push(child);
     }
     if (current.length > 0) columns.push(current);
     return columns;

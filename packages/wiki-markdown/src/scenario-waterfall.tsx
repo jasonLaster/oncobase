@@ -209,6 +209,14 @@ const styles = `
   container-type: inline-size;
 }
 
+/* light-dark() follows color-scheme, which the reader's .dark class does not
+   set; without this the dark theme kept the light (low-contrast) tones. */
+.dark .scenario-walkthrough, .dark .scenario-waterfall {
+  --waterfall-up: #6ed4b0;
+  --waterfall-down: #ffad96;
+  --waterfall-total: #a4b9fb;
+}
+
 .scenario-walkthrough-toggle {
   display: inline-flex;
   margin: 0 0 0.75rem;
@@ -375,8 +383,16 @@ const styles = `
 
 @media print {
   .scenario-walkthrough-toggle { display: none; }
-  .scenario-walkthrough [hidden] { display: block; }
+  .scenario-walkthrough-chart,
+  .scenario-walkthrough-text li,
   .scenario-waterfall-row { break-inside: avoid; }
   .scenario-waterfall-bar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
+/* Match the layer of Tailwind preflight's important [hidden] rule. */
+@layer base {
+  @media print {
+    .scenario-walkthrough > [role="tabpanel"][hidden] { display: block !important; }
+  }
 }
 `;

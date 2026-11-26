@@ -241,6 +241,11 @@ Prevents local recurrence if cancer is still there.
 Avoids delaying the next drug.
 :::
 
+| Option | Radiation | Added therapy |
+| --- | --- | --- |
+| One-cycle bridge | January 4–26 | Capecitabine December 14, resume February 1 |
+| Radiation first | February 1–23 | Review options with the oncology team |
+
 \`\`\`figure
 type: bars
 title: When recurrences happen (share of all)
@@ -249,7 +254,7 @@ unit: "%"
 data:
   - { label: Year 1, value: 41, tone: cost }
   - { label: Year 2, value: 32, tone: cost }
-  - { label: Year 3, value: 13 }
+  - { label: Year 3 after the first surgery and completion of the scheduled treatment course, value: 13 }
 bracket: { from: 0, to: 1, label: 73% in the first 2 years, tone: cost }
 caption: Share of all recurrences by year after surgery.
 \`\`\`
@@ -259,6 +264,9 @@ caption: Share of all recurrences by year after surgery.
 
 > [!note]- Foldable details
 > Hidden until opened.
+
+> [!tip]+ Open details
+> Visible until closed.
 `,
   },
   "private/plan": {

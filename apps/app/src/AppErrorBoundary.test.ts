@@ -3,6 +3,7 @@ import {
   clearLocalWikiData,
   isChunkLoadError,
   reloadOnceForLoadError,
+  trackChunkRecoveryNavigation,
 } from "./AppErrorBoundary";
 
 const descriptors = ["navigator", "indexedDB", "window", "document"] as const;
@@ -87,6 +88,28 @@ describe("isChunkLoadError", () => {
 });
 
 describe("reloadOnceForLoadError", () => {
+  for (const event of ["pageshow", "pointerdown", "keydown"]) {
+    test(`yields to an outgoing navigation until ${event}`, () => {
+      const reload = mock(() => {});
+      const setItem = mock(() => {});
+      const target = Object.assign(new EventTarget(), {
+        location: { reload },
+        sessionStorage: { getItem: () => null, setItem },
+      });
+      stub("window", target);
+      trackChunkRecoveryNavigation(target);
+
+      target.dispatchEvent(new Event("beforeunload"));
+      expect(reloadOnceForLoadError()).toBe(false);
+      expect(reload).not.toHaveBeenCalled();
+      expect(setItem).not.toHaveBeenCalled();
+
+      target.dispatchEvent(new Event(event));
+      expect(reloadOnceForLoadError()).toBe(true);
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+  }
+
   test("reloads only once per entry build", () => {
     const store = new Map<string, string>();
     const reload = mock(() => {});

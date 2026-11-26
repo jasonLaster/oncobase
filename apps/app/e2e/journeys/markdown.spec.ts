@@ -170,6 +170,17 @@ test.describe("markdown rendering (mocked backend)", () => {
       await expect(details).not.toHaveAttribute("open", "");
       await details.locator("summary").click();
       await expect(details).toHaveAttribute("open", "");
+      await details.locator("summary").click();
+      const openDetails = article.locator('details.wiki-callout[data-callout="tip"]');
+      await expect(openDetails).toHaveAttribute("open", "");
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event("beforeprint"));
+        window.dispatchEvent(new Event("beforeprint"));
+      });
+      await expect(details).toHaveAttribute("open", "");
+      await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+      await expect(details).not.toHaveAttribute("open", "");
+      await expect(openDetails).toHaveAttribute("open", "");
 
       // Columns render side by side on desktop.
       const cols = article.locator(".wiki-columns .wiki-column");
@@ -199,6 +210,13 @@ test.describe("markdown rendering (mocked backend)", () => {
         const b1 = (await cols.nth(1).boundingBox())!;
         return b1.y >= b0.y + b0.height - 2 && Math.abs(b1.x - b0.x) < 4;
       }).toBe(true);
+
+      // The figure data stays in the accessibility tree without widening the reader.
+      await expect(figure.getByRole("table").getByRole("cell", { name: "13%" })).toBeAttached();
+      const shell = page.locator(".content-shell");
+      await expect.poll(() => shell.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+      const comparison = article.locator(".smart-table-wrapper, .table-scroll-wrapper").filter({ hasText: "One-cycle bridge" });
+      await expect.poll(() => comparison.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
     } finally {
       release();
     }

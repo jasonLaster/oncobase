@@ -768,12 +768,24 @@
     width: auto !important;
   }
 
+  /* "anywhere" wrapping lets the auto table layout squeeze columns until
+     words split mid-letter ("PEMBROLIZ UMAB"); keep words whole in print. */
+  .wiki-markdown .smart-table-wrapper th,
+  .wiki-markdown .smart-table-wrapper td,
+  .wiki-markdown .table-scroll-wrapper th,
+  .wiki-markdown .table-scroll-wrapper td {
+    font-size: 0.78rem;
+    hyphens: none;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
   .wiki-markdown .smart-table-wrapper th,
   .wiki-markdown .smart-table-wrapper td,
   .wiki-markdown .table-scroll-wrapper th,
   .wiki-markdown .table-scroll-wrapper td {
     height: auto;
-    min-width: 7.5rem;
+    min-width: 5.5rem;
     max-width: 18rem;
     padding: 0.5rem 0.65rem;
     line-height: 1.4;
@@ -786,7 +798,10 @@
   .wiki-markdown .smart-table-wrapper th,
   .wiki-markdown .table-scroll-wrapper th {
     font-size: 0.7rem;
-    white-space: nowrap;
+    /* Wrap long headers inside their column; nowrap spilled them over the
+       neighbouring header once column widths were fixed. */
+    white-space: normal;
+    overflow-wrap: break-word;
   }
 
   /* Sticky first column keeps row identity visible while scrolling. */
@@ -801,6 +816,20 @@
     max-width: 9rem;
     background: var(--wiki-table-bg);
     box-shadow: 1px 0 0 color-mix(in srgb, var(--smart-table-border-color, #e5e7eb) 80%, transparent);
+  }
+
+  /* Keep simple comparisons entirely in view. Tables with more columns or
+     merged cells retain the scroll layout. */
+  .wiki-markdown :is(.smart-table-wrapper, .table-scroll-wrapper)
+    table:not(:has(tr > :nth-child(4), [colspan])) {
+    width: 100% !important;
+  }
+
+  .wiki-markdown :is(.smart-table-wrapper, .table-scroll-wrapper)
+    table:not(:has(tr > :nth-child(4), [colspan])) :is(th, td) {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 /* ---- end mobile markdown tables ---- */
@@ -1015,20 +1044,20 @@
   padding: 0.85rem 1rem;
 }
 
-.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only) {
+.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only *) {
   border-collapse: collapse;
   font-size: 0.875rem;
   width: 100%;
 }
 
-.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only) th,
-.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only) td {
+.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only *) th,
+.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only *) td {
   border-bottom: 1px solid var(--border, #e4e2dc);
   padding: 0.35rem 0.5rem;
   text-align: left;
 }
 
-.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only) th {
+.wiki-markdown .wiki-data-figure__table:not(.wiki-sr-only *) th {
   color: var(--text-muted, #52514e);
   font-size: 0.75rem;
   font-weight: 600;
@@ -1072,7 +1101,41 @@
     width: auto !important;
   }
 
-  .wiki-markdown .wiki-callout,
+  /* "anywhere" wrapping lets the auto table layout squeeze columns until
+     words split mid-letter ("PEMBROLIZ UMAB"); keep words whole in print. */
+  .wiki-markdown .smart-table-wrapper th,
+  .wiki-markdown .smart-table-wrapper td,
+  .wiki-markdown .table-scroll-wrapper th,
+  .wiki-markdown .table-scroll-wrapper td {
+    font-size: 0.78rem;
+    hyphens: none;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  /* Keep headings with the figure, table or paragraph they introduce. */
+  .wiki-markdown h1,
+  .wiki-markdown h2,
+  .wiki-markdown h3,
+  .wiki-markdown h4,
+  .wiki-markdown .wiki-callout__title {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .wiki-markdown img,
+  .wiki-markdown tr,
+  .wiki-markdown figure.wiki-component:not(:has(.scenario-walkthrough)) {
+    break-inside: avoid;
+  }
+
+  .wiki-markdown .wiki-callout {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Long callouts may split across pages (keeping one whole left pages a
+     third empty); their title still stays with the body via break-after. */
   .wiki-markdown .wiki-data-figure {
     break-inside: avoid;
     page-break-inside: avoid;
@@ -1083,6 +1146,16 @@
   .wiki-markdown .wiki-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.9rem;
+  }
+
+  /* Static chart images can't re-flow like data figures; at half a Letter
+     page their labels drop to ~5pt, so columns holding one stack in print. */
+  .wiki-markdown .wiki-columns:has(img) {
+    display: block;
+  }
+
+  .wiki-markdown .wiki-columns:has(img) > .wiki-column + .wiki-column {
+    margin-block-start: 0.9rem;
   }
 
   .wiki-markdown .wiki-columns--3 {

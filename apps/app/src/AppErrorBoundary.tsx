@@ -8,6 +8,17 @@ const RELOAD_FLAG_KEY = "wiki-vite:reloaded-for-load-error";
 const CHUNK_LOAD_ERROR_RE =
   /Unable to preload (?:CSS|module)|Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|ChunkLoadError|Loading (?:CSS )?chunk/i;
 
+let leavingDocument = false;
+
+export function trackChunkRecoveryNavigation(target: Pick<Window, "addEventListener">) {
+  target.addEventListener("beforeunload", () => { leavingDocument = true; });
+  const resume = () => { leavingDocument = false; };
+  target.addEventListener("pageshow", resume);
+  // A navigation can be canceled, leaving the current document interactive.
+  target.addEventListener("pointerdown", resume, true);
+  target.addEventListener("keydown", resume, true);
+}
+
 export function isChunkLoadError(error: unknown): boolean {
   const message =
     error instanceof Error ? `${error.name} ${error.message}` : String(error ?? "");
@@ -19,6 +30,8 @@ export function isChunkLoadError(error: unknown): boolean {
 // must not exhaust recovery for the rest of this tab's lifetime. A persistent
 // failure in the same build still cannot create a reload loop.
 export function reloadOnceForLoadError(): boolean {
+  // WebKit can cancel an in-flight import when a hard navigation starts.
+  if (leavingDocument) return false;
   try {
     const build = typeof document === "undefined" ? "unknown"
       : document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.getAttribute("src") ?? "unknown";

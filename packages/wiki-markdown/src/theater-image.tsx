@@ -67,7 +67,12 @@ export function TheaterImage({
         aria-label={alt ? `Open image: ${alt}` : "Open image"}
         className="wiki-theater-image-button"
         data-theme-variant={themeVariant}
-        style={{ aspectRatio: Number(width) > 0 && Number(height) > 0 ? `${Number(width)} / ${Number(height)}` : "16 / 9" }}
+        style={{
+          aspectRatio: Number(width) > 0 && Number(height) > 0 ? `${Number(width)} / ${Number(height)}` : "16 / 9",
+          // An explicit width is the largest the image should render: a
+          // 400px phone-first chart must not be upscaled to the column width.
+          ...(Number(width) > 0 ? { maxWidth: `min(100%, ${Number(width)}px)` } : {}),
+        }}
         onClick={(event) => {
           setOpener(event.currentTarget);
           const imageElement = event.currentTarget.querySelector("img");

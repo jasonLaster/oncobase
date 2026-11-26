@@ -158,6 +158,33 @@ describe("remarkLayout: columns", () => {
   });
 });
 
+describe("remarkLayout: explicit column separators", () => {
+  test("--- wins over the callout rule, so no stray rule renders beside a callout", () => {
+    const md = [":::columns", "> [!note] Box", "> body", "", "Paragraph under the box.", "", "---", "", "Right column.", ":::"].join("\n");
+    const html = renderWikiMarkdownHtml(md);
+    expect(html).toContain('<div class="wiki-columns wiki-columns--2"');
+    expect(html).not.toContain("<hr");
+  });
+});
+
+describe("remarkLayout: columns inside callouts", () => {
+  test("splits `> :::columns` inside a foldable callout on bold lead paragraphs", () => {
+    const md = [
+      "> [!question]- Four questions",
+      "> :::columns",
+      "> **Pathology & surgery**",
+      "> - one",
+      ">",
+      "> **Oncology**",
+      "> - two",
+      "> :::",
+    ].join("\n");
+    const html = renderWikiMarkdownHtml(md);
+    expect(html).toContain('<div class="wiki-columns wiki-columns--2"');
+    expect(html).not.toContain(":::");
+  });
+});
+
 describe("remarkLayout: page breaks", () => {
   test("converts <!-- page-break --> to a print page-break marker", () => {
     const md = "Page one.\n\n<!-- page-break -->\n\nPage two.";
