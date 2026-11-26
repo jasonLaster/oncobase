@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { isOncobaseHost, ONCOBASE_HOST_PATTERN, siteKindForHost, siteOrigin } from "./site-host";
 
 describe("site hosts", () => {
-  test("oncobase.io, its subdomains, and oncobase.localhost serve the marketing site", () => {
-    for (const host of ["oncobase.io", "www.oncobase.io", "ONCOBASE.IO:443", "oncobase.localhost:60377", "x.oncobase.io"]) {
+  test("oncobase.io, www.oncobase.io, and oncobase.localhost serve the marketing site", () => {
+    for (const host of ["oncobase.io", "www.oncobase.io", "ONCOBASE.IO:443", "oncobase.localhost:60377", "www.oncobase.localhost"]) {
       expect(isOncobaseHost(host), host).toBe(true);
     }
   });
 
-  test("everything else is Diana's site, including lookalikes", () => {
-    for (const host of ["diana-tnbc.com", "localhost:3000", "127.0.0.1", "notoncobase.io", "oncobase.io.evil.com", "oncobase.com", "", null, undefined]) {
+  test("patient subdomains and everything else serve wikis, including lookalikes", () => {
+    for (const host of ["kevin.oncobase.io", "x.oncobase.io", "diana-tnbc.com", "localhost:3000", "127.0.0.1", "notoncobase.io", "oncobase.io.evil.com", "oncobase.com", "", null, undefined]) {
       expect(isOncobaseHost(host), String(host)).toBe(false);
       expect(siteKindForHost(host)).toBe("diana");
     }

@@ -9,11 +9,12 @@ export const ONCOBASE_ORIGIN = "https://oncobase.io";
 export const DIANA_ORIGIN = "https://diana-tnbc.com";
 
 /**
- * Hosts that serve the marketing site: oncobase.io and its subdomains, plus oncobase.localhost for
- * local work (browsers send *.localhost to the loopback address). The inline reader scripts copy
- * this pattern because they are serialized into the HTML head; a test keeps the copies equal.
+ * Hosts that serve the marketing site: oncobase.io and www.oncobase.io, plus oncobase.localhost
+ * and www.oncobase.localhost for local work. Other subdomains (e.g. kevin.oncobase.io) serve
+ * hosted wikis resolved by host. The inline reader scripts copy this pattern because they are
+ * serialized into the HTML head; a test keeps the copies equal.
  */
-export const ONCOBASE_HOST_PATTERN = "(^|\\.)oncobase\\.(io|localhost)$";
+export const ONCOBASE_HOST_PATTERN = "^(www\\.)?oncobase\\.(io|localhost)$";
 const ONCOBASE_HOST_RE = new RegExp(ONCOBASE_HOST_PATTERN);
 
 /** `extraHosts` adds preview aliases (the ONCOBASE_SITE_HOSTS environment variable on the server). */

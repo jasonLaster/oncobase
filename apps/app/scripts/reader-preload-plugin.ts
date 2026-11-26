@@ -15,7 +15,7 @@ export function startsReader(hostname: string, pathname: string, access: string 
   if (reader === "true") return true;
   if (reader === "false") return false;
   // The marketing site (oncobase.io) never opens the reader. This pattern is copied from src/site-host.ts.
-  if (site === "oncobase" || /(^|\.)oncobase\.(io|localhost)$/.test(hostname)) return false;
+  if (site === "oncobase" || /^(www\.)?oncobase\.(io|localhost)$/.test(hostname)) return false;
   // Signed-out visitors to "/" get the landing page, which paid for the whole reader before this check.
   if (access === "landing" && pathname === "/") return false;
   if (pathname === "/education" || pathname.startsWith("/education/")) return false;
