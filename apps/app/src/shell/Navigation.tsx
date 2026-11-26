@@ -42,6 +42,7 @@ import { NavigationStatus } from "./ReaderStatus";
 import { isDocumentRoute, isTalkRoute, pathnameMatchesRoutePrefix } from "./document-routes";
 import { PhoneIcon } from "../talk/PhoneIcon";
 import { loadTalkPanel, openTalk, useTalkState } from "../talk/talk-store";
+import { currentSiteBrand } from "../site-host";
 import type { NavigationFreshness } from "../types";
 
 const ChatNavigation = lazy(() => import("../chat/ChatNavigation"));
@@ -134,6 +135,7 @@ function DiagnosticsTreeLink({
 }
 
 function WorkspaceHeader() {
+  const brand = currentSiteBrand();
   const trigger = (
     <button
       type="button"
@@ -158,10 +160,10 @@ function WorkspaceHeader() {
           fontWeight="700"
           textAnchor="middle"
         >
-          D
+          {brand.initial}
         </text>
       </svg>
-      <span>Diana TNBC</span>
+      <span>{brand.label}</span>
       <ChevronDown size={14} aria-hidden="true" />
     </button>
   );

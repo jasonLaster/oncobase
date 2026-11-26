@@ -43,3 +43,32 @@ export function siteOrigin(site: SiteKind, here: { protocol: string; hostname: s
   }
   return site === "oncobase" ? ONCOBASE_ORIGIN : DIANA_ORIGIN;
 }
+
+/** The name a hosted wiki shows in its logo, sign-in page and workspace menu. */
+export type SiteBrand = {
+  /** The letter in the square logo. */
+  initial: string;
+  /** Wordmark first part, e.g. "Diana" or "Kevin". */
+  name: string;
+  /** Wordmark tag after the name, e.g. "TNBC"; empty for hosted wikis. */
+  tag: string;
+  /** Name and tag together, for labels. */
+  label: string;
+};
+
+const DIANA_BRAND: SiteBrand = { initial: "D", name: "Diana", tag: "TNBC", label: "Diana TNBC" };
+const HOSTED_WIKI_RE = /^([a-z0-9][a-z0-9-]*)\.oncobase\.(io|localhost)$/;
+
+/** Hosted wikis on <name>.oncobase.io brand themselves from the subdomain; every other host is Diana's. */
+export function siteBrandForHost(host: string | null | undefined): SiteBrand {
+  const name = (host ?? "").trim().toLowerCase().split(":")[0] ?? "";
+  const sub = HOSTED_WIKI_RE.exec(name)?.[1];
+  if (!sub || sub === "www") return DIANA_BRAND;
+  const display = sub.split("-").filter(Boolean).map((part) => part[0]!.toUpperCase() + part.slice(1)).join(" ");
+  return { initial: display[0] ?? "", name: display, tag: "", label: display };
+}
+
+/** The brand for the page's own host (Diana's on the server, where there is no location). */
+export function currentSiteBrand(): SiteBrand {
+  return siteBrandForHost(typeof location === "undefined" ? null : location.hostname);
+}

@@ -9,10 +9,12 @@ import { SIGN_IN_TITLE } from "../special-route-metadata";
 import { DianaBrand, VillageTexture } from "./LandingBrands";
 import { images } from "../assets/images";
 import { ResponsiveImage } from "./LandingShowcase";
+import { currentSiteBrand } from "../site-host";
 import { asksForSignIn, signInRedirectTarget } from "./sign-in";
 import "./marketing-styles";
 
 function PasswordForm() {
+  const { name } = currentSiteBrand();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -70,11 +72,11 @@ function PasswordForm() {
       </Field>
       <Button type="submit" className="auth-button" disabled={submitting}>
         {submitting
-          ? "Opening Diana’s knowledge base…"
-          : "Enter Diana’s knowledge base"}
+          ? `Opening ${name}’s knowledge base…`
+          : `Enter ${name}’s knowledge base`}
       </Button>
       <p className="lp-access-note">
-        <LockKeyhole size={13} /> A private space for Diana’s village.
+        <LockKeyhole size={13} /> A private space for {name}’s village.
       </p>
     </form>
   );
@@ -82,16 +84,17 @@ function PasswordForm() {
 
 export function SignInPage() {
   const continuing = useMemo(() => asksForSignIn(window.location.search), []);
+  const brand = currentSiteBrand();
 
   useEffect(() => {
-    document.title = SIGN_IN_TITLE;
-  }, []);
+    document.title = brand.tag ? SIGN_IN_TITLE : `Sign in — ${brand.name}’s Knowledge Base`;
+  }, [brand.name, brand.tag]);
 
   return (
     <div className="landing-page sign-in-page" data-test-id="sign-in-page">
-      <section className="si-art" aria-label="Diana TNBC">
+      <section className="si-art" aria-label={brand.label}>
         <VillageTexture />
-        <a className="lp-brand" href="/" aria-label="Diana TNBC home">
+        <a className="lp-brand" href="/" aria-label={`${brand.label} home`}>
           <DianaBrand />
         </a>
         <figure className="si-cartoon">
@@ -109,7 +112,9 @@ export function SignInPage() {
             It takes <span>a village.</span>
           </p>
           <p>
-            Diana’s records, research, and the people helping her, together.
+            {brand.tag
+              ? "Diana’s records, research, and the people helping her, together."
+              : `${brand.name}’s records, research, and care team, together.`}
           </p>
         </div>
       </section>
@@ -118,7 +123,7 @@ export function SignInPage() {
           <PublicThemeControl />
         </div>
         <div className="si-form">
-          <h1 id="sign-in-title">Open Diana’s knowledge base.</h1>
+          <h1 id="sign-in-title">Open {brand.name}’s knowledge base.</h1>
           <p>
             {continuing
               ? "Enter the shared password to continue to the page you opened."
@@ -127,7 +132,7 @@ export function SignInPage() {
           <PasswordForm />
           <p className="si-access">Need access? Ask Jason.</p>
         </div>
-        <nav className="si-links" aria-label="More from Diana TNBC">
+        <nav className="si-links" aria-label={`More from ${brand.label}`}>
           <a href="/">
             <ArrowLeft size={15} /> About the knowledge base
           </a>

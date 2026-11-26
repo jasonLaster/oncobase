@@ -1,4 +1,5 @@
 import { Network } from "lucide-react";
+import { currentSiteBrand } from "../site-host";
 
 export function DianaMark() {
   return (
@@ -13,18 +14,19 @@ export function DianaMark() {
         fontWeight="700"
         textAnchor="middle"
       >
-        D
+        {currentSiteBrand().initial}
       </text>
     </svg>
   );
 }
 
 export function DianaBrand() {
+  const brand = currentSiteBrand();
   return (
     <>
       <DianaMark />
       <span className="lp-diana-wordmark">
-        Diana <span>TNBC</span>
+        {brand.name}{brand.tag ? <> <span>{brand.tag}</span></> : null}
       </span>
     </>
   );

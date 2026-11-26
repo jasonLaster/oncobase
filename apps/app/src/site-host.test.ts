@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isOncobaseHost, ONCOBASE_HOST_PATTERN, siteKindForHost, siteOrigin } from "./site-host";
+import { isOncobaseHost, ONCOBASE_HOST_PATTERN, siteBrandForHost, siteKindForHost, siteOrigin } from "./site-host";
 
 describe("site hosts", () => {
   test("oncobase.io, www.oncobase.io, and oncobase.localhost serve the marketing site", () => {
@@ -34,6 +34,20 @@ describe("site hosts", () => {
     for (const file of copies) {
       const source = await Bun.file(new URL(`../${file}`, import.meta.url)).text();
       expect(source, file).toContain(ONCOBASE_HOST_PATTERN);
+    }
+  });
+});
+
+describe("siteBrandForHost", () => {
+  test("brands hosted wikis from the subdomain", () => {
+    expect(siteBrandForHost("kevin.oncobase.io")).toEqual({ initial: "K", name: "Kevin", tag: "", label: "Kevin" });
+    expect(siteBrandForHost("kevin.oncobase.localhost:5173").initial).toBe("K");
+    expect(siteBrandForHost("mary-jane.oncobase.io").label).toBe("Mary Jane");
+  });
+
+  test("keeps Diana's brand everywhere else", () => {
+    for (const host of ["diana-tnbc.com", "localhost", "www.oncobase.io", "oncobase.io", null]) {
+      expect(siteBrandForHost(host).label).toBe("Diana TNBC");
     }
   });
 });

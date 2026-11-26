@@ -1,11 +1,13 @@
 import { PageActivity } from "./shell/PageActivity";
+import { currentSiteBrand } from "./site-host";
 
 /** Only for JavaScript loading. The delayed reveal skips warm-load flashes. */
 export function AppStarting({ stage }: { stage?: string }) {
+  const brand = currentSiteBrand();
   return (
-    <div className="app-startup" style={{ visibility: "hidden" }} role="status" aria-label="Launching Diana TNBC" data-test-id="app-starting" data-startup-stage={stage}>
-      <span className="app-startup-mark" aria-hidden="true">D</span>
-      <span>Launching Diana TNBC...</span>
+    <div className="app-startup" style={{ visibility: "hidden" }} role="status" aria-label={`Launching ${brand.label}`} data-test-id="app-starting" data-startup-stage={stage}>
+      <span className="app-startup-mark" aria-hidden="true">{brand.initial}</span>
+      <span>Launching {brand.label}...</span>
     </div>
   );
 }
