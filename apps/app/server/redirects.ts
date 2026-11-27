@@ -1,6 +1,8 @@
 import { configuredRedirect } from "../src/configured-redirects.ts";
 
-export function legacyRedirectResponse(request: Request) {
+const DEFAULT_SITE_SLUG = "diana";
+
+export function legacyRedirectResponse(request: Request, siteSlug: string = DEFAULT_SITE_SLUG) {
   const url = new URL(request.url);
   if (/\.pdf$/i.test(url.pathname) && !url.pathname.startsWith("/api/")) {
     try {
@@ -13,6 +15,7 @@ export function legacyRedirectResponse(request: Request) {
       return Response.redirect(target, 302);
     } catch { return null; }
   }
+  if (siteSlug !== DEFAULT_SITE_SLUG) return null;
   const redirect = configuredRedirect(url.pathname);
   if (!redirect) return null;
   const target = new URL(redirect.destination, request.url);

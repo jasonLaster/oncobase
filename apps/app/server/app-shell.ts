@@ -834,7 +834,8 @@ export function createWikiViteHandler({
     }
     const gateResponse = await traceBackendPhase("shell.gate", () => enforcePasswordGate(request, client));
     if (gateResponse) return gateResponse;
-    const redirectResponse = legacyRedirectResponse(request);
+    const siteSlug = await resolveSiteSlug(request, client);
+    const redirectResponse = legacyRedirectResponse(request, siteSlug ?? undefined);
     if (redirectResponse) return redirectResponse;
     const explicitCanonicalRedirect = explicitCanonicalRedirectResponse(request);
     if (explicitCanonicalRedirect) return explicitCanonicalRedirect;

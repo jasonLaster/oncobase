@@ -503,6 +503,33 @@ export const restore = internalMutation({
   },
 });
 
+export const setPasswordGate = internalMutation({
+  args: {
+    slug: v.string(),
+    passwordGate: v.boolean(),
+    passwordHash: v.optional(v.string()),
+  },
+  handler: async (ctx, { slug, passwordGate, passwordHash }) => {
+    assertSiteSlug(slug);
+    const site = await ctx.db
+      .query("sites")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    if (!site) throw new Error("site not found");
+    const nextConfig = {
+      ...site.config,
+      passwordGate,
+      passwordHash: passwordGate ? (passwordHash ?? site.config.passwordHash) : undefined,
+    };
+    await ctx.db.patch(site._id, {
+      config: nextConfig,
+      updatedAt: Date.now(),
+    });
+    await bumpAccessRevision(ctx, site._id);
+    return { slug: site.slug, passwordGate: nextConfig.passwordGate };
+  },
+});
+
 // Bounded cleanup also handles publishers that crash or abort. The original
 // expiry job owns cleanup even after finish has released the run's lock.
 export const cleanupPublishChanges = internalMutation({

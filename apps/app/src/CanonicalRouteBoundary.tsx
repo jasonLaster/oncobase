@@ -5,6 +5,7 @@ import {
   canonicalRoutePathname,
   canonicalSlugMap,
 } from "./route-canonicalization";
+import { currentSiteBrand } from "./site-host";
 import type { PageIndexRow } from "./types";
 
 type RedirectLookup = (pathname: string) => string | null;
@@ -25,10 +26,10 @@ function loadConfiguredRedirects() {
   return redirectsRequest;
 }
 
-function useConfiguredRedirects() {
-  const [redirects, setRedirects] = useState(() => loadedRedirects);
+function useConfiguredRedirects(enabled: boolean) {
+  const [redirects, setRedirects] = useState(() => (enabled ? loadedRedirects : null));
   useEffect(() => {
-    if (redirects) return;
+    if (!enabled || redirects) return;
     let active = true;
     void loadConfiguredRedirects().then((lookup) => {
       if (active && lookup) setRedirects(() => lookup);
@@ -36,15 +37,16 @@ function useConfiguredRedirects() {
     return () => {
       active = false;
     };
-  }, [redirects]);
-  return redirects ?? undefined;
+  }, [enabled, redirects]);
+  return enabled ? (redirects ?? undefined) : undefined;
 }
 
 export function CanonicalRouteBoundary({ children }: { children: ReactNode }) {
   const location = useLocation();
   const initial = useInitialReaderData();
   const pages = useReaderQuery(readerQuery.pageIndex, initial?.pages ?? EMPTY_READER_ROWS) as PageIndexRow[];
-  const configuredRedirects = useConfiguredRedirects();
+  const useDianaLegacyRedirects = currentSiteBrand().label === "Diana TNBC";
+  const configuredRedirects = useConfiguredRedirects(useDianaLegacyRedirects);
   const canonicalSlugs = useMemo(
     () => canonicalSlugMap(pages.map((page) => page.slug)),
     [pages],
