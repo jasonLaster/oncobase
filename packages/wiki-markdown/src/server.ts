@@ -13,6 +13,7 @@ import {
   markdownRemarkPlugins,
   protectCurrencyFromMath,
 } from "./math.ts";
+import { fixMermaidSvgContrast } from "./mermaid-contrast.ts";
 import { expandSlidesMarkdown } from "./slides-markdown.ts";
 import { expandWikiMdx } from "./mdx-components.ts";
 import { resolveWikilinks } from "./paths.ts";
@@ -33,10 +34,14 @@ function extractMermaidBlocks(md: string, options?: WikiHtmlAdapters["mermaidOpt
     const src = graph.trimEnd();
     try {
       if (options) {
-        return `<div class="mermaid-diagram">${renderMermaidSVG(src, options)}</div>`;
+        // Theme colours are CSS variables here, so label text is unknown at
+        // build time: give every authored fill its readable label colour.
+        return `<div class="mermaid-diagram">${fixMermaidSvgContrast(renderMermaidSVG(src, options))}</div>`;
       }
-      const svgLight = renderMermaidSVG(src, THEMES["github-light"]);
-      const svgDark = renderMermaidSVG(src, THEMES["github-dark"]);
+      const light = THEMES["github-light"];
+      const dark = THEMES["github-dark"];
+      const svgLight = fixMermaidSvgContrast(renderMermaidSVG(src, light), light.fg);
+      const svgDark = fixMermaidSvgContrast(renderMermaidSVG(src, dark), dark.fg);
       return (
         `<div class="mermaid-diagram dark:hidden">${svgLight}</div>` +
         `<div class="mermaid-diagram hidden dark:block">${svgDark}</div>`

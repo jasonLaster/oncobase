@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { labelColorFix } from "./mermaid-contrast.ts";
 
 function base64ToUtf8(b64: string): string {
   const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -122,6 +123,43 @@ function fixGanttTextColors(svg: SVGSVGElement, scheme: Scheme): void {
 
     if (fill) text.style.setProperty("fill", fill, "important");
     if (weight) text.style.setProperty("font-weight", weight, "important");
+  }
+}
+
+/**
+ * Authored `style`/`classDef` fills often omit a text colour, leaving the
+ * theme's label colour on a fill it was never tuned for (light text on a
+ * pastel box in dark mode). Flip those labels to dark or light text.
+ */
+function fixNodeLabelContrast(svg: SVGSVGElement): void {
+  const groups = svg.querySelectorAll<SVGGElement>("g.node, g.cluster");
+  for (const group of Array.from(groups)) {
+    let fill: string | null = null;
+    for (const shape of Array.from(
+      group.querySelectorAll<SVGGraphicsElement>(
+        ":scope > rect, :scope > polygon, :scope > circle, :scope > ellipse, :scope > path, :scope > g > path",
+      ),
+    )) {
+      const candidate = getComputedStyle(shape).fill;
+      if (candidate && candidate !== "none") {
+        fill = candidate;
+        break;
+      }
+    }
+    if (!fill) continue;
+
+    const htmlLabels = group.querySelectorAll<HTMLElement>(
+      ".nodeLabel, .nodeLabel *, .cluster-label span, .cluster-label span *",
+    );
+    for (const label of Array.from(htmlLabels)) {
+      const fix = labelColorFix(fill, getComputedStyle(label).color);
+      if (fix) label.style.setProperty("color", fix, "important");
+    }
+    const svgLabels = group.querySelectorAll<SVGElement>("text, tspan");
+    for (const label of Array.from(svgLabels)) {
+      const fix = labelColorFix(fill, getComputedStyle(label).fill);
+      if (fix) label.style.setProperty("fill", fix, "important");
+    }
   }
 }
 
@@ -379,6 +417,10 @@ export function WikiMermaidRenderer({
           host.innerHTML = svg;
           host.setAttribute("data-kind", gantt ? "gantt" : "flow");
           host.setAttribute("data-scheme", scheme);
+          if (!gantt) {
+            const rendered = host.querySelector("svg") as SVGSVGElement | null;
+            if (rendered) fixNodeLabelContrast(rendered);
+          }
           if (gantt) {
             const rendered = host.querySelector("svg") as SVGSVGElement | null;
             rendered?.removeAttribute("style");
