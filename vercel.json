@@ -34,6 +34,11 @@
   ],
   "rewrites": [
     {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "data.diana-tnbc.com" }],
+      "destination": "/api/app-shell?__path=$1"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api?__path=api/$1"
     },

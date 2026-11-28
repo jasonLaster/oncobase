@@ -25,3 +25,29 @@ export async function isAdminSessionUser(
     ),
   );
 }
+
+/**
+ * The user's role names on the site, lowercased: explicit assignments and
+ * email-pattern grants (from access.listUsersWithRoles, the same source as
+ * isAdminSessionUser), plus "admin" for the site owner. A lookup failure
+ * yields no roles, so callers deny.
+ */
+export async function sessionUserRoleNames(
+  client: ConvexHttpClient,
+  siteSlug: string,
+  user: SessionUser | null,
+): Promise<string[]> {
+  if (!user) return [];
+  const [site, users] = await Promise.all([
+    client.query(api.sites.getBySlug, { slug: siteSlug }).catch(() => null),
+    client.query(api.access.listUsersWithRoles, { siteSlug }).catch(() => []),
+  ]);
+  const roles = new Set<string>();
+  const userWithRoles = users.find((item: { _id: string }) => item._id === user._id);
+  for (const role of (userWithRoles?.roles ?? []) as string[]) {
+    const name = role.trim().toLowerCase();
+    if (name) roles.add(name);
+  }
+  if (site?.ownerEmail?.toLowerCase() === user.email.toLowerCase()) roles.add("admin");
+  return [...roles];
+}

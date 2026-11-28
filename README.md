@@ -12,6 +12,7 @@ Diana TNBC is the first production site on the platform. The repository is now o
 - [Applications](apps/README.md) - the production Vite app and shared backend.
 - [Packages](packages/README.md) - reusable workspace packages and public package boundaries.
 - [Operations runbook](apps/app/specs/operator-runbook.md) - publishing, previews, and production recovery notes.
+- [Data overlay](apps/app/specs/data-overlay.md) - `data.diana-tnbc.com`: presigned S3 downloads gated by site roles, env vars and ops steps.
 - [Vite cutover QA](docs/vite-cutover-qa-2026-09-05.md) - production promotion, verification evidence, and rollback boundaries.
 
 ## Repository Layout

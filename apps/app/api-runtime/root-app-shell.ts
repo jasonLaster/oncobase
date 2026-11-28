@@ -9,6 +9,7 @@ import {
   sendWebResponse,
 } from "../server/http-adapter";
 import { internalReaderNotFound, isInternalReaderPath } from "../server/reader-cache-context";
+import { isDataOverlayHost, rawRequestPath } from "../server/data-overlay/host";
 
 declare const __WIKI_VITE_INDEX_HTML__: string;
 const distDir = path.join(process.cwd(), "apps/app/dist");
@@ -33,7 +34,16 @@ export default async function wikiViteRootAppShell(
   res: ServerResponse,
 ) {
   try {
-    const request = restoreRewrittenPath(await requestFromIncoming(req));
+    const incoming = await requestFromIncoming(req);
+    // data.diana-tnbc.com: S3 presigned redirects (specs/data-overlay.md).
+    // Read the client's path from the raw URL; restoring it through the URL
+    // parser would resolve `..` before the overlay can reject it.
+    if (isDataOverlayHost(incoming.headers.get("host"))) {
+      const { handleDataOverlayRequest } = await import("../server/data-overlay/entry");
+      await sendWebResponse(res, await handleDataOverlayRequest(incoming, rawRequestPath(req.url ?? "/")));
+      return;
+    }
+    const request = restoreRewrittenPath(incoming);
     if (isInternalReaderPath(new URL(request.url).pathname)) {
       await sendWebResponse(res, internalReaderNotFound());
       return;

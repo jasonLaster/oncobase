@@ -8,6 +8,7 @@ import {
   restoreRewrittenPath,
   sendWebResponse,
 } from "../server/http-adapter";
+import { isDataOverlayHost } from "../server/data-overlay/host";
 import { isMarketingRequest } from "../server/marketing-host";
 import { internalReaderNotFound, isInternalReaderPath } from "../server/reader-cache-context";
 
@@ -21,7 +22,10 @@ export default async function wikiViteApi(req: IncomingMessage, res: ServerRespo
       return;
     }
     // oncobase.io is the marketing site: it has no wiki and no API, so nothing here may answer for it.
-    if (isMarketingRequest(request)) {
+    // data.diana-tnbc.com is served by the data overlay in the app-shell
+    // function (vercel.json); a direct call to this function must not expose
+    // the wiki API on that host.
+    if (isMarketingRequest(request) || isDataOverlayHost(request.headers.get("host"))) {
       await sendWebResponse(
         res,
         new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8", Vary: "Host" } }),
