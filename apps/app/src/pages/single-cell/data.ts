@@ -167,19 +167,24 @@ export async function decodeLibrary(file: SingleCellLibraryFile): Promise<Single
   if (coords.length !== file.n * 2) throw new Error("Coordinate count does not match nuclei");
   const xy = new Float32Array(coords.length);
   for (let i = 0; i < coords.length; i++) xy[i] = coords[i] / COORD_LEVELS;
+  const categoryEntries = Object.entries(file.categorical);
+  const layerKeys = ["corrected", "raw"] as const;
+  const [codeColumns, levelColumns] = await Promise.all([
+    Promise.all(categoryEntries.map(([, value]) => decodeArray(value.codes))),
+    Promise.all(layerKeys.map((key) => decodeArray(file.layers[key].values))),
+  ]);
   const categories: SingleCellLibrary["categories"] = {};
-  for (const [key, value] of Object.entries(file.categorical)) {
-    const codes = (await decodeArray(value.codes)) as Uint8Array;
+  categoryEntries.forEach(([key, value], i) => {
+    const codes = codeColumns[i] as Uint8Array;
     if (codes.length !== file.n) throw new Error(`Label column ${key} does not match nuclei`);
     categories[key] = { labels: value.labels, codes };
-  }
+  });
   const layers = {} as SingleCellLibrary["layers"];
-  for (const key of ["corrected", "raw"] as const) {
-    const layer = file.layers[key];
-    const levels = (await decodeArray(layer.values)) as Uint8Array;
+  layerKeys.forEach((key, i) => {
+    const levels = levelColumns[i] as Uint8Array;
     if (levels.length !== file.n * file.genes.length) throw new Error(`Expression layer ${key} has the wrong size`);
-    layers[key] = { max: layer.max, levels };
-  }
+    layers[key] = { max: file.layers[key].max, levels };
+  });
   return { id: file.library, n: file.n, xy, categories, genes: file.genes, layers };
 }
 

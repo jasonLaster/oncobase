@@ -254,6 +254,7 @@ export function UmapCanvas({
           onHover?.(nearest(event.clientX, event.clientY));
         }}
         onPointerUp={() => { drag.current = null; }}
+        onPointerCancel={() => { drag.current = null; }}
         onPointerLeave={() => { drag.current = null; onHover?.(null); }}
         onDoubleClick={() => setView(HOME)}
       />
