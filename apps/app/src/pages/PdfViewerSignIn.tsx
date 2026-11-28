@@ -3,7 +3,7 @@ import {
   WikiAuthDialog,
   type WikiActionsMenuAuthInput,
   type WikiActionsMenuUser,
-} from "@oncobase/wiki-shell/actions-menu";
+} from "@oncobase/wiki-shell";
 
 /** Account sign-in from the viewer: the shared password never unlocks restricted files. */
 async function submitAuth(input: WikiActionsMenuAuthInput): Promise<WikiActionsMenuUser> {
