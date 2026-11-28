@@ -22,7 +22,7 @@ describe("reader app routes", () => {
   });
 
   test("leaves published page paths alone", () => {
-    for (const pathname of ["/", "/wiki/chat", "/chat/a/b", "/chats", "/tags", "/tools", "/tools/other", "/diagnostics/other", "/about/Index"]) {
+    for (const pathname of ["/", "/wiki/chat", "/chat/a/b", "/chats", "/tags", "/toolbox", "/tools/other", "/diagnostics/other", "/about/Index"]) {
       expect(isReaderAppRoute(pathname)).toBe(false);
     }
   });

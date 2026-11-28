@@ -117,6 +117,12 @@ function routeDefinition(pathname: string): RouteDefinition | null {
   if (pathname === "/diagnostics/cellularity") {
     return { routeTitle: "Tumor-Bed Cellularity" };
   }
+  if (pathname === "/tools") {
+    return { routeTitle: "Tools", description: "Interactive tools: who each is for, what it shows and the question it answers." };
+  }
+  if (pathname === "/tools/single-cell") {
+    return { routeTitle: "Single-Cell Viewer" };
+  }
   if (pathname === "/tools/dicom-viewer") {
     return { routeTitle: "DICOM Viewer" };
   }

@@ -70,6 +70,14 @@ const CellularityPage = lazy(() =>
     default: module.CellularityPage,
   })),
 );
+const SingleCellPage = lazy(() =>
+  import("./pages/single-cell/SingleCellPage").then((module) => ({
+    default: module.SingleCellPage,
+  })),
+);
+const ToolsPage = lazy(() =>
+  import("./pages/tools/ToolsPage").then((module) => ({ default: module.ToolsPage })),
+);
 const ChatPage = lazy(() =>
   import("./chat/ChatPage").then((module) => ({ default: module.ChatPage })),
 );
@@ -187,6 +195,8 @@ export function App({
                   <Route path="/chat/:id" element={<ChatRoute />} />
                   <Route path="/comments" element={<CommentsPage />} />
                   <Route path="/tags/:tag" element={<StoreScoped><TagPage /></StoreScoped>} />
+                  <Route path="/tools" element={<ToolsPage />} />
+                  <Route path="/tools/single-cell" element={<SingleCellPage />} />
                   <Route path="/tools/medical-deduction" element={<MedicalDeductionPage />} />
                   <Route path="/access" element={<AdminPage />} />
                   <Route path="/admin" element={<AdminPage />} />

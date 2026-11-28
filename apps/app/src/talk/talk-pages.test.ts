@@ -9,3 +9,10 @@ test("the cellularity explorer is a talk page, other diagnostics screens are not
   expect(isTalkRoute("/diagnostics/other")).toBe(false);
   expect(isTalkRoute("/wiki/diagnosis")).toBe(true);
 });
+
+test("the single-cell viewer is a talk page; the tools index is not", () => {
+  expect(appTalkPage("/tools/single-cell")?.slug).toBe("app/tools/single-cell");
+  expect(isTalkRoute("/tools/single-cell")).toBe(true);
+  expect(appTalkPage("/tools")).toBeNull();
+  expect(isTalkRoute("/tools")).toBe(false);
+});

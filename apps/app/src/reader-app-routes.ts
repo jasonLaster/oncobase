@@ -14,6 +14,8 @@ export const READER_APP_ROUTES = [
   "/chat/:id",
   "/comments",
   "/tags/:tag",
+  "/tools",
+  "/tools/single-cell",
   "/tools/medical-deduction",
   "/tools/dicom-viewer",
   "/tools/dicom-compare",

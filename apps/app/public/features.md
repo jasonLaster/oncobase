@@ -52,6 +52,8 @@ Clinical data is easier to understand next to the conversation about it. These v
 - **Imaging list.** Every study with its reports, images, comparisons, and download, as a table or a phone list. Where: /diagnostics/imaging. Interface: `GET /api/diagnostic-studies`.
 - **DICOM viewer.** Stack and series browsing, window/level, pan, zoom, cine, touch gestures, deep links, and saved annotations with a calibrated ruler. Where: /tools/dicom-viewer. Interface: `/api/dicom/*`.
 - **DICOM compare.** Two synced viewports with presets such as subtraction, z-matched, and projection, and a clear match state. Where: /tools/dicom-compare.
+- **Tools index.** One page listing every interactive tool with who it is for, what it shows, the question it answers and the help it is asking for; tools a role cannot open are marked. Where: /tools.
+- **Single-cell viewer.** A WebGL map of tens of thousands of nuclei from single-nucleus RNA-seq, colored by cell type or a gene, with a per-cell-type expression table. Its data is gated like the most private diagnostics. Where: /tools/single-cell. Interface: `/api/file`.
 - **Pathology slides.** Whole-slide viewing with a navigator, magnification, scale bar, rulers, side-by-side compare, and saved region notes. Where: /tools/pathology-viewer. Interface: `/api/pathology/*`.
 
 ## Work through it together.
