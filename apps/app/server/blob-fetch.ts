@@ -13,7 +13,7 @@ export function blobHeaderTimeoutMs(env: Record<string, string | undefined> = pr
 
 export async function fetchBlob(
   url: string,
-  init: { headers?: HeadersInit; signal?: AbortSignal | null } = {},
+  init: { headers?: HeadersInit; signal?: AbortSignal | null; redirect?: RequestRedirect } = {},
   { headerTimeoutMs = blobHeaderTimeoutMs(), fetchImpl = fetch }: { headerTimeoutMs?: number; fetchImpl?: typeof fetch } = {},
 ): Promise<Response> {
   const controller = new AbortController();

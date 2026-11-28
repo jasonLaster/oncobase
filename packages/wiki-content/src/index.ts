@@ -126,6 +126,8 @@ const VERSIONED_FILE_EXTENSION = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
  * manifest rows); images are most of them and the only ones whose repeat
  * downloads matter. Data files stay unlisted and their links unversioned.
  */
+export { isPrivateAssetStorageUrl, requiresPrivateAssetStorage } from "./private-assets.ts";
+
 export function isManifestFileAssetPath(path: string) {
   return VERSIONED_FILE_EXTENSION.test(path);
 }

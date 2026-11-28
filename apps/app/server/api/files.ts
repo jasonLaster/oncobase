@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { ConvexHttpClient } from "convex/browser";
-import { VERSIONED_PRIVATE_CACHE_CONTROL, WIKI_VERSION_HEADER, WIKI_VERSION_PARAM } from "@oncobase/wiki-content";
+import { isPrivateAssetStorageUrl, requiresPrivateAssetStorage, VERSIONED_PRIVATE_CACHE_CONTROL, WIKI_VERSION_HEADER, WIKI_VERSION_PARAM } from "@oncobase/wiki-content";
 import { api } from "../../convex/_generated/api.js";
 import { traceBackendPhase } from "../backend-tracing";
 import { fetchBlob } from "../blob-fetch";
@@ -214,6 +214,19 @@ export async function handleFileRequest(
     if (!canAccessEveryOwner) return privateFileNotFound();
   }
 
+  const needsPrivateStorage = requiresPrivateAssetStorage(siteSlug, normalized);
+  const blobHeaders = new Headers(blobRequestHeaders(request));
+  if (needsPrivateStorage) {
+    const token = process.env.WIKI_PRIVATE_READ_WRITE_TOKEN;
+    const storeId = token?.split("_")[3]?.toLowerCase();
+    const source = URL.parse(asset.blobUrl);
+    if (!assetIsSensitive || !token || !storeId || !source || !isPrivateAssetStorageUrl(source) ||
+        source.hostname !== `${storeId}.private.blob.vercel-storage.com`) {
+      return privateFileNotFound();
+    }
+    blobHeaders.set("Authorization", `Bearer ${token}`);
+  }
+
   const cacheScope = assetIsSensitive ? "session" : "public";
   // Cache privacy: any password-gated or signed-in request
   // gets a private response varying on Cookie, independent of RBAC scope.
@@ -265,14 +278,15 @@ export async function handleFileRequest(
   const blobUrl = asset.blobUrl;
   try {
     upstream = await traceBackendPhase("external.blob", () => fetchBlob(blobUrl, {
-      headers: blobRequestHeaders(request),
+      headers: blobHeaders,
+      redirect: needsPrivateStorage ? "error" : undefined,
       signal: request.signal,
     }));
   } catch (error) {
     console.error("[file] Active Blob URL fetch failed:", error);
   }
 
-  if (!upstream || (!upstream.ok && upstream.status !== 416)) {
+  if (!needsPrivateStorage && (!upstream || (!upstream.ok && upstream.status !== 416))) {
     try {
       upstream = await recoverActiveFileAsset(request, normalized, siteSlug);
     } catch (error) {

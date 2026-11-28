@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
 import { applyPiiRedactions, parseSitePiiPatterns, type PiiPattern } from "@oncobase/wiki-content/pii";
-import { isManifestFileAssetPath, parseWikiManifest } from "@oncobase/wiki-content";
+import { isManifestFileAssetPath, isPrivateAssetStorageUrl, parseWikiManifest, requiresPrivateAssetStorage } from "@oncobase/wiki-content";
 import { embed } from "./embeddings";
 import { withSiteSlug } from "./reader-access.js";
 import { siteBlobKey } from "./blob";
@@ -281,8 +281,16 @@ async function handleAssetUpload(request: Request, client: ConvexHttpClient) {
   if (owned && !/^[0-9a-f]{16,64}$/.test(contentHash)) return new Response("Invalid content hash", { status: 400 });
   const expectedKey = siteBlobKey(siteSlug, owned ? `${kind}s/${contentHash}/${assetPath}` : `${kind}s/${assetPath}`);
   let blobPath: string;
-  try { blobPath = decodeURIComponent(new URL(blobUrl).pathname).replace(/^\//, ""); }
-  catch { return new Response("Invalid blobUrl", { status: 400 }); }
+  let source: URL;
+  try {
+    source = new URL(blobUrl);
+    blobPath = decodeURIComponent(source.pathname).replace(/^\//, "");
+  } catch {
+    return new Response("Invalid blobUrl", { status: 400 });
+  }
+  if (requiresPrivateAssetStorage(siteSlug, assetPath) && (!body.sensitive || !isPrivateAssetStorageUrl(source))) {
+    return new Response("Single-cell assets require private Blob storage and sensitive ownership", { status: 400 });
+  }
   if (blobPath !== expectedKey) {
     return new Response("blobUrl does not match site/path/hash", { status: 400 });
   }

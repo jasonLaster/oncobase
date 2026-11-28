@@ -5,6 +5,7 @@ import path from "node:path";
 import type { DependencyCacheMode } from "./dependency-cache";
 import { randomUUID, createHash } from "node:crypto";
 import { sitePut } from "./blob";
+import { requiresPrivateAssetStorage } from "../../wiki-content/src/private-assets";
 import { countEmbeddingTokens, embedBatch } from "./embeddings";
 import { parseArgs } from "node:util";
 import { readGitPublishScope, readPublishScope, readPublishAssetScope, readPublishSelection, type AssetMode } from "./publish-scope";
@@ -89,14 +90,25 @@ async function uploadAsset(
   const body = publishProfile.sync("asset.read", () => fs.readFileSync(asset.filePath));
   if (createHash("sha256").update(body).digest("hex").slice(0, 16) !== asset.hash) throw new Error("Asset changed after planning; refusing to upload mismatched bytes");
   const key = runId.startsWith("scoped:") ? `${asset.kind}s/${asset.hash}/${asset.relativePath}` : `${asset.kind}s/${asset.relativePath}`;
+  const needsPrivateStorage = requiresPrivateAssetStorage(siteSlug, asset.relativePath);
+  const privateToken = needsPrivateStorage ? process.env.WIKI_PRIVATE_READ_WRITE_TOKEN : undefined;
+  if (needsPrivateStorage && (!asset.sensitive || !privateToken)) {
+    throw new Error("Single-cell assets require sensitive ownership and WIKI_PRIVATE_READ_WRITE_TOKEN");
+  }
   const blob = await publishProfile.span("asset.blob", () => sitePut(siteSlug, key, body, {
+    ...(privateToken ? { access: "private", token: privateToken, cacheControlMaxAge: 60 } : {}),
     contentType: asset.contentType,
     addRandomSuffix: false,
     allowOverwrite: true,
   }));
   if (runId.startsWith("scoped:")) {
     await publishProfile.span("asset.verify", async () => {
-      const response = await fetch(blob.url, { signal: AbortSignal.timeout(requestTimeoutMs), cache: "no-store" });
+      const response = await fetch(blob.url, {
+        headers: privateToken ? { Authorization: `Bearer ${privateToken}` } : undefined,
+        redirect: "error",
+        signal: AbortSignal.timeout(requestTimeoutMs),
+        cache: "no-store",
+      });
       if (!response.ok || !response.body) throw new Error(`Uploaded asset read-back failed (${response.status})`);
       const digest = createHash("sha256");
       let bytes = 0;

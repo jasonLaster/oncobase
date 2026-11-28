@@ -14,11 +14,11 @@ export async function sitePut(
   siteSlug: string,
   key: string,
   body: Blob | Buffer | ReadableStream<Uint8Array>,
-  options: Omit<Parameters<typeof put>[2], "access"> = {},
+  options: Partial<Parameters<typeof put>[2]> = {},
 ) {
   return await put(siteBlobKey(siteSlug, key), body, {
-    ...options,
     access: "public",
+    ...options,
   });
 }
 

@@ -47,6 +47,7 @@ const MUTATIONS: Record<string, Effect> = {
   "access:deleteUsers": "access",
   "users:create": "access",
   "sites:ensureDiana": "access",
+  "sites:setPasswordGate": "access",
   "sites:archive": "access",
   "sites:restore": "access",
   "documentMeta:backfillBatch": "access",
@@ -210,6 +211,7 @@ const SCENARIOS: Record<string, (s: Setup) => Promise<unknown>> = {
   "access:deleteUsers": s => s.t.mutation(api.access.deleteUsers, { siteSlug: SITE, userIds: [s.fx.other] }),
   "users:create": s => s.t.mutation(api.users.create, { siteSlug: SITE, email: "new@example.test", passwordHash: "x", passwordSalt: "x" }),
   "sites:ensureDiana": s => s.t.mutation(internal.sites.ensureDiana, { passwordHash: "sha256:two" }),
+  "sites:setPasswordGate": s => s.t.mutation(internal.sites.setPasswordGate, { slug: SITE, passwordGate: false }),
   "sites:archive": s => s.t.mutation(internal.sites.archive, { slug: SITE }).then(() => s.t.mutation(internal.sites.restore, { slug: SITE })),
   "sites:restore": async s => {
     await s.t.run(ctx => ctx.db.patch(s.fx.siteId, { status: "archived" }));

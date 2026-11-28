@@ -100,6 +100,20 @@ test("scoped asset registration requires the content-based path", async () => {
   expect((await f.request("asset", { ...body, blobUrl: `https://example.test/sites/alpha/files/${body.contentHash}/shared.png` })).status).toBe(200);
 });
 
+test("single-cell asset registration requires a sensitive owner and a private Blob URL", async () => {
+  const f = fixture();
+  const assetPath = "sources/diagnostics/single-cell/manifest.json";
+  const body = { siteSlug: "diana", assetPath, contentHash: "same", sizeBytes: 12,
+    ownerSlugs: ["sources/diagnostics/single-cell/index"], sensitive: true };
+  const suffix = `/sites/diana/files/${assetPath}`;
+  const privateUrl = `https://store42.private.blob.vercel-storage.com${suffix}`;
+  const publicUrl = `https://store42.public.blob.vercel-storage.com${suffix}`;
+  expect((await f.request("asset", { ...body, blobUrl: publicUrl })).status).toBe(400);
+  expect((await f.request("asset", { ...body, blobUrl: privateUrl, sensitive: false })).status).toBe(400);
+  expect(f.mutations).toEqual([]);
+  expect((await f.request("asset", { ...body, blobUrl: privateUrl })).status).toBe(200);
+});
+
 test("scoped document hashes are checked before writing", async () => {
   const f = fixture();
   const body = { runId: "scoped:11111111-1111-1111-1111-111111111111", slug: "doc", title: "Title", content: "Source", tags: [], sensitive: false, sensitiveInclude: [], hashFunctionVersion: 3 };
