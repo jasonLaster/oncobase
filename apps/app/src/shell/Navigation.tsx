@@ -143,10 +143,11 @@ function AppRouteTreeLink({
 
 function AppRouteTreeLinks({ activePathname, onNavigate, testPrefix = "sidebar-view" }: { activePathname: string; onNavigate?: () => void; testPrefix?: string }) {
   return (
-    <>
+    // One row, so adding Tools does not lengthen the sidebar.
+    <div className="app-route-tree-links">
       <AppRouteTreeLink activePathname={activePathname} icon={ClipboardCheck} label="Diagnostics" onNavigate={onNavigate} testId={`${testPrefix}-diagnostics`} to="/diagnostics" />
       <AppRouteTreeLink activePathname={activePathname} icon={Wrench} label="Tools" onNavigate={onNavigate} testId={`${testPrefix}-tools`} to="/tools" />
-    </>
+    </div>
   );
 }
 

@@ -2013,6 +2013,8 @@ a {
 .wiki-shell-tree-directory .wiki-shell-tree-icon { opacity: .6; }
 .wiki-shell-tree-directory[data-tree-depth="0"] .wiki-shell-tree-label,
 .comments-tree-link .wiki-shell-tree-label,
+.app-route-tree-links { display: flex; gap: 2px; }
+.app-route-tree-links > .diagnostics-tree-link { flex: 0 1 auto; width: auto; min-width: 0; padding-right: 10px; }
 .diagnostics-tree-link .wiki-shell-tree-label { font-weight: 500; color: color-mix(in srgb, var(--foreground) 85%, transparent); }
 .comments-tree-link { gap: 10px; }
 .comments-tree-link > svg, .diagnostics-tree-link > svg { opacity: .5; }
