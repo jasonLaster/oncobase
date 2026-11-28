@@ -246,6 +246,25 @@ describe("wiki vite LiveStore schema", () => {
     expect(gone).toEqual(expect.objectContaining({ contentStatus: "missing", title: "Gone again", expectedContentHash: "g-2", size: 40, missingAt: 3 }));
   });
 
+  test("reconciliation keeps restricted and missing pages unavailable when this scope's manifest leaves them out", async () => {
+    const store = await makeStore();
+    // A password-only reader asks for a sensitive page before the public
+    // manifest arrives; that manifest never lists it, which isn't a deletion.
+    store.commit(
+      events.pageContentUnavailable({ slug: "private/notes", title: "Notes", tags: [], contentHash: "n-1", sensitive: true, size: 10, unavailableAt: 3 }),
+      events.pageContentMissing({ slug: "wiki/missing", contentHash: null, missingAt: 3 }),
+      events.manifestApplied({
+        siteSlug: "diana", scope: "public", manifestHash: crypto.randomUUID(), generatedAt: "2026-05-09T12:00:00.000Z",
+        receivedAt: 50, manifestSize: 100, compactTreeJson: "[]", assetsJson: "[]",
+        pagesJson: JSON.stringify([{ slug: "index", title: "Index", tags: [], description: null, contentHash: "h", sensitive: false, size: 1 }]),
+      }),
+    );
+    expect(store.query(pageContentBySlug$("private/notes"))).toEqual(
+      expect.objectContaining({ contentStatus: "sensitive-unavailable", missingAt: 3, deletedAt: null }));
+    expect(store.query(pageContentBySlug$("wiki/missing"))).toEqual(
+      expect.objectContaining({ contentStatus: "missing", missingAt: 3, deletedAt: null }));
+  });
+
   test("separates missing pages and cache resets", async () => {
     const store = await makeStore();
     store.commit(

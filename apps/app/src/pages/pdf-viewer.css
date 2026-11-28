@@ -4,6 +4,8 @@
 .pdf-viewer-header a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; flex-shrink: 0; text-decoration: none; }
 .pdf-viewer-back { color: var(--text-muted, #666); }
 .pdf-viewer-download { padding: 0 14px; border: 1px solid var(--border, #ddd); border-radius: 6px; }
+button.pdf-viewer-download { min-height: 44px; flex-shrink: 0; font: inherit; color: inherit; background: transparent; }
+.pdf-viewer-download:disabled { opacity: 0.45; cursor: not-allowed; }
 .pdf-viewer-toolbar { display: flex; align-items: center; justify-content: center; gap: 24px; padding: 8px 16px; border-bottom: 1px solid var(--border, #ddd); }
 .pdf-viewer-page-controls, .pdf-viewer-zoom-controls, .pdf-viewer-page-field { display: flex; align-items: center; gap: 8px; }
 .pdf-viewer-toolbar button { min-width: 44px; min-height: 44px; border: 1px solid var(--border, #ddd); border-radius: 5px; background: var(--bg, #fff); font-size: 16px; cursor: pointer; }

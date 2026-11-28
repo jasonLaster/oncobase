@@ -185,7 +185,11 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
     <header className="pdf-viewer-header">
       <a className="pdf-viewer-back" href="/">← Wiki</a>
       <h1 title={path}>{name}</h1>
-      <a className="pdf-viewer-download" href={`${fileUrl}&download=1`} download={name}>Download</a>
+      {failure?.kind === "unavailable"
+        // The download is the same restricted file; offer it once the PDF opens.
+        ? <button type="button" className="pdf-viewer-download" disabled
+          title={failure.account === "signed-in" ? "This PDF isn't available to your account" : "Sign in to download"}>Download</button>
+        : <a className="pdf-viewer-download" href={`${fileUrl}&download=1`} download={name}>Download</a>}
     </header>
     <Toolbar className="pdf-viewer-toolbar" aria-label="PDF controls">
       <ToolbarGroup className="pdf-viewer-page-controls" aria-label="Page">

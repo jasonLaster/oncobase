@@ -191,8 +191,13 @@ const materializers = State.SQLite.materializers(events, {
     // down. Order matters: missing rows are settled before stale/fresh.
     const content = (sql: string, bindValues: unknown[] = []) => ({ sql, bindValues, writeTables: new Set(["pageContent"]) });
     const reconcileContent = [
+      // A page the server already answered as unavailable (missing, or
+      // sensitive to this reader) is never in this scope's manifest, so its
+      // absence is not a deletion. Relabeling it flashed "Page no longer
+      // available" before the restricted state with its sign-in action.
       content(`UPDATE pageContent SET expectedContentHash = NULL, contentStatus = 'deleted', staleAt = NULL, deletedAt = ?, missingAt = NULL
-        WHERE slug NOT IN (SELECT slug FROM pageIndex)`, [receivedAt]),
+        WHERE slug NOT IN (SELECT slug FROM pageIndex)
+          AND missingAt IS NULL AND contentStatus NOT IN ('missing', 'sensitive-unavailable')`, [receivedAt]),
       content(`UPDATE pageContent SET title = p.title, tagsJson = p.tagsJson, expectedContentHash = p.contentHash, sensitive = p.sensitive,
           size = p.size, contentStatus = 'missing', staleAt = NULL, deletedAt = NULL
         FROM pageIndex AS p WHERE p.slug = pageContent.slug AND (pageContent.missingAt IS NOT NULL OR pageContent.contentStatus = 'missing')`),

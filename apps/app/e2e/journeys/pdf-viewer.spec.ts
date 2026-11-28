@@ -92,7 +92,10 @@ test("a restricted PDF asks a password-only reader to sign in with an account, t
   await expect(alert).toContainText("shared site password doesn't open restricted files");
   await expect.poll(() => reports.length).toBe(1);
   expect(reports[0]).toMatchObject({ source: "pdf-viewer", stage: "open", path: "private/report.pdf", context: { pdfjs: expect.any(String) } });
-  await expect(page.getByRole("link", { name: "Download", exact: true })).toBeVisible();
+  // The download is the same restricted file, so it waits for sign-in too.
+  await expect(page.getByRole("link", { name: "Download", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Download", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Download", exact: true })).toHaveAttribute("title", "Sign in to download");
 
   await alert.getByRole("button", { name: "Sign in", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Sign in", exact: true });
@@ -102,6 +105,7 @@ test("a restricted PDF asks a password-only reader to sign in with an account, t
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(page.getByRole("status").filter({ hasText: /^Page 1 of 2$/ })).toHaveCount(1);
+  await expect(page.getByRole("link", { name: "Download", exact: true })).toHaveAttribute("href", /download=1/);
 });
 
 test("a signed-in reader without access is told so, not asked to sign in again", async ({ page }) => {
@@ -114,4 +118,5 @@ test("a signed-in reader without access is told so, not asked to sign in again",
   await expect(alert).toContainText("Your account doesn't have access to this PDF");
   await expect(alert.getByRole("button", { name: "Sign in" })).toHaveCount(0);
   await expect(alert.getByRole("link", { name: "Source page" })).toHaveAttribute("href", "/private/report");
+  await expect(page.getByRole("button", { name: "Download", exact: true })).toBeDisabled();
 });
