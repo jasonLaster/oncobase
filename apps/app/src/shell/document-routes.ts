@@ -26,7 +26,7 @@ export function isDocumentRoute(pathname: string) {
 
 /** App pages that have no wiki markdown but can still be talked through. Their
  * text comes from the page's own data (see talk/talk-pages.ts). */
-export const TALK_APP_ROUTES = ["/diagnostics/cellularity"] as const;
+export const TALK_APP_ROUTES = ["/diagnostics/cellularity", "/tools/single-cell"] as const;
 
 export function isTalkRoute(pathname: string) {
   return isDocumentRoute(pathname) || TALK_APP_ROUTES.some((route) => pathname === route);

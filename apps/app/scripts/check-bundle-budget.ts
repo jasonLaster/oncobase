@@ -97,7 +97,10 @@ const budgets: Budget[] = [
   // UI SDK migration (Phase 3, approved bundle hit): the shell's Tree, Menu,
   // Drawer, Toast and Tooltip wiring lands here, 19,964 -> 21,639 B gzip
   // (main -> branch, same machine). Cap 20,736 -> 22,272 (measured + ~3%).
-  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 22_272 },
+  // The sidebar's Tools row (shared app-route link + icon) and the /tools and
+  // /tools/single-cell routes (lazy loaders, titles, route lists) add 336 B:
+  // 22,228 -> 22,564 B gzip (main -> branch, same machine). Cap 22,272 -> 22,656.
+  { label: "reader paint chunk", pattern: /^WikiViteRoot-[\w-]+\.js$/, maxGzipBytes: 22_656 },
   // A1 step 1 moved WikiSync's effects into a plain, unit-tested
   // SyncController: 10,959 -> 11,312 B gzip (raw is smaller; the denser code
   // compresses worse). +256 B; the store pool total is unchanged.
@@ -298,7 +301,11 @@ const storeGzipBudget = 828_500;
 // portable markdown (portable.ts 0.8 KiB) load only on pages with ```figure
 // blocks or on copy click, adding ~6.2 KiB to the lazy pool (Vercel measured
 // 4,438.3 KiB / ~4,544,819 B): 4,544,000 -> 4,552,000.
-const lazyGzipBudget = 4_552_000;
+// The /tools index (ToolsPage 3.7 KiB) and the /tools/single-cell viewer
+// (SingleCellPage 10.5 KiB with its WebGL scatter, decoders and adopted CSS)
+// load only on their routes; with chunk overhead the lazy pool grows ~19.8 KiB
+// (4,440.8 -> 4,460.6 KiB, main -> branch, local): 4,552,000 -> 4,572,000.
+const lazyGzipBudget = 4_572_000;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KiB`;

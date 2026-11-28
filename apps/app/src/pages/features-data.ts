@@ -65,6 +65,8 @@ export const features: Feature[] = [
   { group: "data", name: "Imaging list", summary: "Every study with its reports, images, comparisons, and download, as a table or a phone list.", where: "/diagnostics/imaging", surface: "GET /api/diagnostic-studies" },
   { group: "data", name: "DICOM viewer", summary: "Stack and series browsing, window/level, pan, zoom, cine, touch gestures, deep links, and saved annotations with a calibrated ruler.", where: "/tools/dicom-viewer", surface: "/api/dicom/*" },
   { group: "data", name: "DICOM compare", summary: "Two synced viewports with presets such as subtraction, z-matched, and projection, and a clear match state.", where: "/tools/dicom-compare" },
+  { group: "data", name: "Tools index", summary: "One page listing every interactive tool with who it is for, what it shows, the question it answers and the help it is asking for; tools a role cannot open are marked.", where: "/tools" },
+  { group: "data", name: "Single-cell viewer", summary: "A WebGL map of tens of thousands of nuclei from single-nucleus RNA-seq, colored by cell type or a gene, with a per-cell-type expression table. Its data is gated like the most private diagnostics.", where: "/tools/single-cell", surface: "/api/file" },
   { group: "data", name: "Pathology slides", summary: "Whole-slide viewing with a navigator, magnification, scale bar, rulers, side-by-side compare, and saved region notes.", where: "/tools/pathology-viewer", surface: "/api/pathology/*" },
   // Share
   { group: "share", name: "Comments", summary: "Page-level and selection-anchored threads with replies, reactions, resolve, and shareable links; guests get a stable name.", where: "Right rail, /comments", surface: "/api/liveblocks-*" },

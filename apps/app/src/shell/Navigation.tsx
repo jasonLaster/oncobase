@@ -13,7 +13,7 @@ import {
   type WikiNavigationNode,
   type WikiTreePageLinkRenderArgs,
 } from "@oncobase/wiki-shell";
-import { ChevronDown, ClipboardCheck, MessageSquareText, Search, WandSparkles } from "lucide-react";
+import { ChevronDown, ClipboardCheck, MessageSquareText, Search, WandSparkles, Wrench } from "lucide-react";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@oncobase/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@oncobase/ui/tooltip";
 import { MobileChatIcon, nodeIcon } from "./navigation-icons";
@@ -108,29 +108,45 @@ function navigationActiveSlug(pathname: string) {
 }
 
 
-function DiagnosticsTreeLink({
+/** A sidebar row for an app route (Diagnostics, Tools), styled like a tree link. */
+function AppRouteTreeLink({
   activePathname,
+  icon: Icon,
+  label,
   onNavigate,
-  testId = "sidebar-view-diagnostics",
+  testId,
+  to,
 }: {
   activePathname: string;
+  icon: typeof ClipboardCheck;
+  label: string;
   onNavigate?: () => void;
-  testId?: string;
+  testId: string;
+  to: string;
 }) {
-  const active = activePathname.startsWith("/diagnostics");
+  const active = activePathname === to || activePathname.startsWith(`${to}/`);
   return (
     <Link
       aria-current={active ? "page" : undefined}
       className={`wiki-shell-tree-link tree-link diagnostics-tree-link${active ? " active" : ""}`}
       data-selected-file-tree-item={active ? "true" : undefined}
       data-test-id={testId}
-      to="/diagnostics"
+      to={to}
       onClick={onNavigate}
       style={{ paddingLeft: 12 }}
     >
-      <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />
-      <span className="wiki-shell-tree-label">Diagnostics</span>
+      <Icon size={ICON_SIZE} aria-hidden="true" />
+      <span className="wiki-shell-tree-label">{label}</span>
     </Link>
+  );
+}
+
+function AppRouteTreeLinks({ activePathname, onNavigate, testPrefix = "sidebar-view" }: { activePathname: string; onNavigate?: () => void; testPrefix?: string }) {
+  return (
+    <>
+      <AppRouteTreeLink activePathname={activePathname} icon={ClipboardCheck} label="Diagnostics" onNavigate={onNavigate} testId={`${testPrefix}-diagnostics`} to="/diagnostics" />
+      <AppRouteTreeLink activePathname={activePathname} icon={Wrench} label="Tools" onNavigate={onNavigate} testId={`${testPrefix}-tools`} to="/tools" />
+    </>
   );
 }
 
@@ -265,7 +281,7 @@ function WikiNavigationSidebar({ freshness }: { freshness: NavigationFreshness }
       beforeTree={
         <>
           <CommentsTreeLink activePathname={pathname} />
-          <DiagnosticsTreeLink activePathname={pathname} />
+          <AppRouteTreeLinks activePathname={pathname} />
           <NavigationStatus freshness={freshness} hasPages={tree.length > 0} />
         </>
       }
@@ -348,6 +364,7 @@ function pageTitleFromPath(pathname: string) {
   if (pathname.startsWith("/diagnostics")) {
     return "Diagnostics";
   }
+  if (pathname === "/tools") return "Tools";
   const slug = slugFromPath(pathname);
   return formatFileLabel(slug.split("/").at(-1) ?? slug);
 }
@@ -570,11 +587,7 @@ export const MobileNav = memo(function MobileNav({ freshness }: { freshness: Nav
               onNavigate={() => setOpen(false)}
               testId="mobile-view-comments"
             />
-            <DiagnosticsTreeLink
-              activePathname={pathname}
-              onNavigate={() => setOpen(false)}
-              testId="mobile-view-diagnostics"
-            />
+            <AppRouteTreeLinks activePathname={pathname} onNavigate={() => setOpen(false)} testPrefix="mobile-view" />
             <WikiSidebarSignInPrompt
               onAuthSubmit={submitAuth}
               onSessionChange={setSessionUser}

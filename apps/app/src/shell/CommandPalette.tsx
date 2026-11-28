@@ -2,6 +2,8 @@ import { readerQuery, useInitialReaderData, useReaderQuery, useReaderStoreKit, E
 import {
   BugIcon,
   CalculatorIcon,
+  DnaIcon,
+  WrenchIcon,
   DownloadIcon,
   FileIcon,
   FileTextIcon,
@@ -310,6 +312,20 @@ export function CommandPalette({
         description: "Download the current scoped markdown as a zip archive",
         href: backendHref("/api/download", { type: "markdown", scope }),
         icon: <DownloadIcon size={15} aria-hidden="true" />,
+      },
+      {
+        group: "Tools",
+        label: "All tools",
+        description: "Every interactive tool, who it is for and what it answers",
+        href: "/tools",
+        icon: <WrenchIcon size={15} aria-hidden="true" />,
+      },
+      {
+        group: "Tools",
+        label: "Single-cell viewer",
+        description: "Single-nucleus RNA map: cell types and target gene expression (restricted)",
+        href: "/tools/single-cell",
+        icon: <DnaIcon size={15} aria-hidden="true" />,
       },
       {
         group: "Tools",
