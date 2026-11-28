@@ -385,7 +385,7 @@ test("the search shortcut survives refreshing an unknown deep link before script
   // An unknown deep link renders not-found after the manifest syncs.
   await gotoWiki(page, "/wiki/missing/not-here");
   await expect(documentArticle(page).locator("h1")).toHaveText("This page may be restricted");
-  await expect(documentArticle(page)).toContainText("Sign in to check access");
+  await expect(documentArticle(page)).toContainText("Sign in with your account to check access");
   await expect(documentArticle(page).getByRole("link", { name: "Go home" })).toHaveAttribute("href", "/");
   await expect(page.getByTestId("page-loading")).toHaveCount(0);
   try {

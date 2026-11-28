@@ -58,7 +58,6 @@ import {
   contentSlugFromRouteSlug,
   hrefForSlug,
   parseJsonArray,
-  signInHrefFor,
   slugFromPath,
   storageSnapshot,
 } from "../wiki-utils";
@@ -204,7 +203,6 @@ export const WikiPage = memo(function WikiPage({
   const identity = useWikiSession();
   const identityPending = useWikiIdentityPending();
   const online = useBrowserOnline();
-  const signInHref = signInHrefFor(location);
   const routeSlug = slugFromPath(location.pathname);
   const slug = contentSlugFromRouteSlug(routeSlug);
   // Keep the previous live query on screen until the destination has content
@@ -435,7 +433,7 @@ export const WikiPage = memo(function WikiPage({
   if (page?.missingAt || page?.contentStatus === "missing") {
     return (
       <Suspense fallback={loadingPage}>
-        <UnavailablePage before={<Breadcrumbs />} publicView={scope === "public"} signInHref={signInHref} />
+        <UnavailablePage before={<Breadcrumbs />} publicView={scope === "public"} />
       </Suspense>
     );
   }
@@ -443,7 +441,7 @@ export const WikiPage = memo(function WikiPage({
   if (page?.contentStatus === "sensitive-unavailable") {
     return (
       <Suspense fallback={loadingPage}>
-        <UnavailablePage restricted slug={page.slug} publicView={identity?.authenticated !== true} signInHref={signInHref} />
+        <UnavailablePage restricted slug={page.slug} publicView={identity?.authenticated !== true} />
       </Suspense>
     );
   }

@@ -10,7 +10,6 @@ import { injectNavigationBootstrap, injectPageBootstrap, navigationSlice } from 
 import { renderReaderFirstFrame } from "./server-entry";
 import { HeaderAuthDialogHost, startupSignInRequested, WikiAuthProvider } from "./shell/Header";
 import { useBrowserOnline } from "./shell/ReaderStatus";
-import { signInHrefFor } from "./wiki-utils";
 
 test("there is no DOM here", () => {
   expect(typeof window).toBe("undefined");
@@ -39,14 +38,6 @@ describe("account state and the sign-in dialog", () => {
     expect(startupSignInRequested(null, "?reader-action=signin")).toBe(true);
     expect(startupSignInRequested("pages", "?reader-action=other")).toBe(false);
     expect(startupSignInRequested(undefined, "")).toBe(false);
-  });
-});
-
-describe("signInHrefFor", () => {
-  test("returns to the route without an explicit scope, from the path alone", () => {
-    expect(signInHrefFor({ pathname: "/wiki/a", search: "?scope=session&x=1", hash: "#h" }))
-      .toBe(`/sign-in?redirect=${encodeURIComponent("/wiki/a?x=1#h")}`);
-    expect(signInHrefFor({ pathname: "/wiki/a", search: "", hash: "" })).toBe(`/sign-in?redirect=${encodeURIComponent("/wiki/a")}`);
   });
 });
 

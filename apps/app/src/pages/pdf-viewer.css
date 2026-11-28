@@ -56,3 +56,8 @@
 }
 .pdf-viewer-paper .textLayer .markedContent { display: contents; }
 .pdf-viewer-paper .textLayer ::selection { background: #4466ff66; color: transparent; }
+.pdf-viewer-message h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+.pdf-viewer-message p { max-width: 46ch; margin: 0 auto; }
+.pdf-viewer-actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: center; margin-top: 16px; }
+.pdf-viewer-action { font: inherit; cursor: pointer; border-radius: 8px; padding: 6px 14px; border: 1px solid currentColor; background: transparent; color: inherit; }
+.pdf-viewer-action-primary { background: var(--primary, #4f46e5); border-color: var(--primary, #4f46e5); color: var(--primary-foreground, #fff); }

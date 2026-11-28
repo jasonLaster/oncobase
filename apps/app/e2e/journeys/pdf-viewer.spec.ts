@@ -71,15 +71,47 @@ for (const width of [393, 1440, 1920]) {
   });
 }
 
-test("PDF errors offer sign-in and the original download", async ({ page }) => {
+test("a restricted PDF asks a password-only reader to sign in with an account, then opens", async ({ page }) => {
   await installWikiApiMocks(page);
-  await page.route("**/api/file?**", route => route.fulfill({ status: 404, body: "File not found" }));
+  let signedIn = false;
+  const bytes = samplePdf();
+  await page.route("**/api/file?**", route => signedIn
+    ? route.fulfill({ contentType: "application/pdf", body: bytes })
+    : route.fulfill({ status: 404, body: "File not found" }));
+  await page.route("**/api/auth/session", route => route.fulfill({ json: { user: signedIn ? { email: "care@example.test", name: "Care" } : null } }));
+  await page.route("**/api/auth/signin", async route => {
+    expect(route.request().postDataJSON()).toEqual({ email: "care@example.test", password: "account-password" });
+    signedIn = true;
+    return route.fulfill({ json: { ok: true, user: { email: "care@example.test", name: "Care" } } });
+  });
   const reports: Record<string, unknown>[] = [];
   await page.route("**/api/client-errors", route => { reports.push(route.request().postDataJSON()); return route.fulfill({ status: 204 }); });
   await page.goto("/tools/pdf-viewer?path=private%2Freport.pdf");
-  await expect(page.getByRole("alert")).toContainText("could not be opened");
+  const alert = page.getByRole("alert");
+  await expect(alert.getByRole("heading", { name: "Sign in to open this PDF" })).toBeVisible();
+  await expect(alert).toContainText("shared site password doesn't open restricted files");
   await expect.poll(() => reports.length).toBe(1);
   expect(reports[0]).toMatchObject({ source: "pdf-viewer", stage: "open", path: "private/report.pdf", context: { pdfjs: expect.any(String) } });
-  await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute("href", /redirect=.*pdf-viewer/);
   await expect(page.getByRole("link", { name: "Download", exact: true })).toBeVisible();
+
+  await alert.getByRole("button", { name: "Sign in", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Sign in", exact: true });
+  await dialog.getByLabel("Email", { exact: true }).fill("care@example.test");
+  await dialog.getByLabel("Password", { exact: true }).fill("account-password");
+  await dialog.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: /^Page 1 of 2$/ })).toHaveCount(1);
+});
+
+test("a signed-in reader without access is told so, not asked to sign in again", async ({ page }) => {
+  await installWikiApiMocks(page);
+  await page.route("**/api/file?**", route => route.fulfill({ status: 404, body: "File not found" }));
+  await page.route("**/api/auth/session", route => route.fulfill({ json: { user: { email: "reader@example.test", name: "Reader" } } }));
+  await page.route("**/api/client-errors", route => route.fulfill({ status: 204 }));
+  await page.goto("/tools/pdf-viewer?path=private%2Freport.pdf");
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText("Your account doesn't have access to this PDF");
+  await expect(alert.getByRole("button", { name: "Sign in" })).toHaveCount(0);
+  await expect(alert.getByRole("link", { name: "Source page" })).toHaveAttribute("href", "/private/report");
 });

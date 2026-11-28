@@ -2282,7 +2282,7 @@ test("repeat snapshot hits read storage once per hash and representation", async
   }
 });
 
-test("PDF navigation authorizes before opening the viewer and keeps original downloads", async () => {
+test("PDF navigation opens the viewer without disclosing access and keeps original downloads", async () => {
   const handler = createWikiApiHandler(createFakeConvexClient() as never);
   const view = await handler(request("/api/file?path=sources/public/source.pdf", { headers: { Accept: "text/html" } }));
   expect(view?.status).toBe(302);
@@ -2292,9 +2292,17 @@ test("PDF navigation authorizes before opening the viewer and keeps original dow
   const versioned = await handler(request("/api/file?path=sources/public/source.pdf&v=abc123", { headers: { Accept: "text/html" } }));
   expect(versioned!.headers.get("location")).toBe("/tools/pdf-viewer?path=sources%2Fpublic%2Fsource.pdf&v=abc123");
   expect(versioned!.headers.get("cache-control")).toBe("private, no-store");
-  const denied = await handler(request("/api/file?path=private/plan.pdf", { headers: { Accept: "text/html" } }));
-  expect(denied?.status).toBe(404);
-  expect(denied!.headers.get("location")).toBeNull();
+  // Restricted and missing PDFs redirect the same way, so the redirect says
+  // nothing about existence; the viewer's own fetch is the one that's denied
+  // and it offers account sign-in.
+  for (const hidden of ["private/plan.pdf", "private/missing.pdf"]) {
+    const denied = await handler(request(`/api/file?path=${hidden}`, { headers: { Accept: "text/html" } }));
+    expect(denied?.status).toBe(302);
+    expect(denied!.headers.get("location")).toBe(`/tools/pdf-viewer?path=${encodeURIComponent(hidden)}`);
+    expect(denied!.headers.get("cache-control")).toBe("private, no-store");
+    const bytes = await handler(request(`/api/file?path=${hidden}`, { headers: { Accept: "*/*" } }));
+    expect(bytes?.status).toBe(404);
+  }
   const originalFetch = globalThis.fetch;
   globalThis.fetch = Object.assign(async () => new Response("%PDF-original"), { preconnect: globalThis.fetch.preconnect });
   try {

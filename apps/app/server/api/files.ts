@@ -152,6 +152,22 @@ export async function handleFileRequest(
   if (!mimeType) return new Response("File type not supported", { status: 400 });
 
   const ext = path.extname(normalized).toLowerCase();
+  // Browser navigation opens the application viewer; PDF.js and API clients
+  // still receive the original bytes, including range responses. Every PDF
+  // navigation redirects, before any lookup, so the redirect cannot disclose
+  // whether a restricted asset exists. The viewer's own fetch is authorized
+  // and, when denied, offers account sign-in instead of a bare 404.
+  if (ext === ".pdf" && request.headers.get("Accept")?.includes("text/html") &&
+      !url.searchParams.has("download") && !url.searchParams.has("raw") &&
+      !request.headers.has("Range") && !educationOnly) {
+    // `v` rides along so the viewer's own fetch is the versioned one (P11).
+    const version = url.searchParams.get(WIKI_VERSION_PARAM);
+    return new Response(null, { status: 302, headers: {
+      Location: `/tools/pdf-viewer?path=${encodeURIComponent(normalized)}${version ? `&${WIKI_VERSION_PARAM}=${encodeURIComponent(version)}` : ""}`,
+      ...PRIVATE_FILE_DENIAL_HEADERS,
+    } });
+  }
+
   const filename = path.basename(normalized);
   const [sessionUser, hasPasswordSession] = await Promise.all([
     getSessionUser(request, client, siteSlug),
@@ -235,20 +251,6 @@ export async function handleFileRequest(
     assetIsSensitive ||
     Boolean(sessionUser) ||
     hasPasswordSession;
-
-  // Browser navigation opens the application viewer; PDF.js and API clients
-  // still receive the original bytes, including range responses. Authorize
-  // first, so the redirect cannot disclose a restricted asset's existence.
-  if (ext === ".pdf" && request.headers.get("Accept")?.includes("text/html") &&
-      !url.searchParams.has("download") && !url.searchParams.has("raw") &&
-      !request.headers.has("Range") && !educationOnly) {
-    // `v` rides along so the viewer's own fetch is the versioned one (P11).
-    const version = url.searchParams.get(WIKI_VERSION_PARAM);
-    return new Response(null, { status: 302, headers: {
-      Location: `/tools/pdf-viewer?path=${encodeURIComponent(normalized)}${version ? `&${WIKI_VERSION_PARAM}=${encodeURIComponent(version)}` : ""}`,
-      ...PRIVATE_FILE_DENIAL_HEADERS,
-    } });
-  }
 
   // P11: `?v=` names the content. Only after the access checks above, and
   // only when it is exactly the stored hash, does the response cache for a

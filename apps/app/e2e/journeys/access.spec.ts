@@ -61,18 +61,26 @@ const unavailable = (page: Page) => page.locator('[data-reader-unavailable="true
 test.describe("account access (real backend)", () => {
   test.beforeEach(async ({ page }) => passGate(page));
 
-  test("a signed-out reader gets a sign-in path, not the sensitive page", async ({ page }) => {
+  test("a password-only reader signs in with an account from the restricted page and stays on it", async ({ page }) => {
     await page.goto(PRIVATE_PAGE);
     await expect(unavailable(page)).toBeVisible();
-    await expect(unavailable(page).getByRole("link", { name: "Sign in" })).toBeVisible();
     await expect(page.getByText(PRIVATE_MARKER)).toHaveCount(0);
+    // The shared-password page would only bounce back here; this opens account sign-in in place.
+    await unavailable(page).getByRole("button", { name: "Sign in", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Sign in", exact: true });
+    await dialog.getByLabel("Email", { exact: true }).fill(CARE.email);
+    await dialog.getByLabel("Password", { exact: true }).fill(CARE.password);
+    await dialog.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`${PRIVATE_PAGE}$`));
+    await expect(article(page)).toContainText(PRIVATE_MARKER);
   });
 
   test("a signed-in reader without a role still cannot read it", async ({ page }) => {
     await signIn(page, READER);
     await page.goto(PRIVATE_PAGE);
     await expect(unavailable(page)).toBeVisible();
-    await expect(unavailable(page).getByRole("link", { name: "Sign in" })).toHaveCount(0);
+    await expect(unavailable(page).getByRole("button", { name: "Sign in" })).toHaveCount(0);
     await expect(page.getByText(PRIVATE_MARKER)).toHaveCount(0);
   });
 

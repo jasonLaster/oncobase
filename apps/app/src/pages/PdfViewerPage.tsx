@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { getDocument, GlobalWorkerOptions, TextLayer, version as pdfjsVersion, type PDFDocumentProxy, type RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -8,6 +8,26 @@ import { Toolbar, ToolbarButton, ToolbarGroup, ToolbarInput } from "@oncobase/ui
 import "./pdf-viewer-styles";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
+
+// The account dialog loads only when a PDF turns out to need sign-in.
+const PdfViewerSignIn = lazy(() => import("./PdfViewerSignIn"));
+
+/** Why a PDF didn't open, as far as the viewer can tell without disclosing more than the server does. */
+type OpenFailure =
+  | { kind: "invalid" }
+  // Restricted, missing, or unreachable; the account state picks the message.
+  | { kind: "unavailable"; account: "checking" | "signed-out" | "signed-in" };
+
+async function hasAccountSession() {
+  try {
+    const response = await fetch("/api/auth/session", { credentials: "same-origin" });
+    if (!response.ok) return false;
+    const data = await response.json() as { user?: unknown };
+    return Boolean(data.user);
+  } catch {
+    return false;
+  }
+}
 
 type ReportContext = Record<string, string | number | boolean | null>;
 
@@ -40,7 +60,9 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
   const [zoom, setZoom] = useState(1);
   const [width, setWidth] = useState(Math.max(240, window.innerWidth - 32));
   const [error, setError] = useState("");
-  const [showSignIn, setShowSignIn] = useState(false);
+  const [failure, setFailure] = useState<OpenFailure | null>(null);
+  // Bumped after an account sign-in, to open the PDF again with the new session.
+  const [attempt, setAttempt] = useState(0);
   const [rendering, setRendering] = useState(true);
   const container = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -70,14 +92,24 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
       if (!active) return;
       reportViewerError("open", path, cause, undefined, {});
       if (cause instanceof Error && cause.name === "InvalidPDFException") {
+        setFailure({ kind: "invalid" });
         setError("The stored file is not a valid PDF. Download the original or check its source page for a replacement.");
-      } else {
-        setShowSignIn(true);
-        setError("This PDF could not be opened. It may require sign-in, or the file may be unavailable.");
+        return;
       }
+      // The server answers a restricted file and a missing one the same way;
+      // the reader's own account state decides what to suggest.
+      setFailure({ kind: "unavailable", account: "checking" });
+      setError("This PDF could not be opened.");
+      void hasAccountSession().then(signedIn => {
+        if (!active) return;
+        setFailure({ kind: "unavailable", account: signedIn ? "signed-in" : "signed-out" });
+        setError(signedIn
+          ? "Your account doesn't have access to this PDF, or it is no longer available."
+          : "This PDF may be restricted to readers with an account. The shared site password doesn't open restricted files. Sign in with your account to open it.");
+      });
     });
     return () => { active = false; void task.destroy(); };
-  }, [fileUrl, name, path]);
+  }, [attempt, fileUrl, name, path]);
 
   useEffect(() => {
     const element = container.current;
@@ -133,6 +165,13 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
     return () => { active = false; renderingTask?.cancel(); textLayer?.cancel(); };
   }, [path, pdf, page, width, zoom]);
 
+  // After an account sign-in, open the PDF again with the new session.
+  function reopen() {
+    setError("");
+    setFailure(null);
+    setAttempt(value => value + 1);
+  }
+
   function goToPage(value: number | null) {
     if (!pdf) return;
     const next = Math.min(pdf.numPages, Math.max(1, Math.trunc(value ?? page) || 1));
@@ -166,9 +205,19 @@ function PdfDocument({ path, version }: { path: string; version: string | null }
       </ToolbarGroup>
     </Toolbar>
     <div className="pdf-viewer-content" ref={container} tabIndex={0} aria-label="PDF page">
-      {error ? <div className="pdf-viewer-message" role="alert"><p>{error}</p>{showSignIn
-        ? <a href={`/sign-in?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}>Sign in</a>
-        : <a href={`/${path.replace(/\.pdf$/i, "")}`}>Source page</a>}</div> : null}
+      {error ? <div className="pdf-viewer-message" role="alert" data-pdf-viewer-failure={failure?.kind === "unavailable" ? failure.account : failure?.kind}>
+        {failure?.kind === "unavailable" && failure.account === "signed-out" ? <h2>Sign in to open this PDF</h2> : null}
+        <p>{error}</p>
+        <div className="pdf-viewer-actions">
+          {failure?.kind === "unavailable" && failure.account === "signed-out"
+            ? <Suspense fallback={null}><PdfViewerSignIn onSignedIn={reopen} /></Suspense>
+            : null}
+          {failure?.kind === "unavailable" && failure.account === "checking"
+            ? null
+            : <a href={`/${path.replace(/\.pdf$/i, "")}`}>Source page</a>}
+          <a href="/">Back to the wiki</a>
+        </div>
+      </div> : null}
       {!error && !pdf ? <p className="pdf-viewer-message" role="status">Opening PDF…</p> : null}
       <div className="pdf-viewer-paper" hidden={!pdf || Boolean(error)} aria-busy={rendering}>
         <canvas ref={canvas} role="img" aria-label={`Page ${page}${pdf ? ` of ${pdf.numPages}` : ""}`} />
