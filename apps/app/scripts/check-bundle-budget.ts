@@ -233,7 +233,10 @@ const storeLoaderPatterns = [
 // ~2.4 KiB gzip to the paint set (Vercel measured paint 426.2 KiB / ~436,428 B,
 // eager 1233.3 KiB / ~1,262,899 B). Allow 4 KiB headroom: paint 436,000 ->
 // 440,000; eager 1,262,000 -> 1,266,000.
-const eagerGzipBudget = 1_266_000;
+// The sidebar's Diagnostics/Tools row (component, icon, two CSS rules) and the
+// /tools route glue add ~0.6 KiB to the eager set; Vercel measured 1236.3 KiB
+// (local 1235.1 KiB) against the 1,266,000 cap: 1,266,000 -> 1,267,500.
+const eagerGzipBudget = 1_267_500;
 const paintGzipBudget = 440_000;
 const storeGzipBudget = 828_500;
 // The DICOM/Cornerstone suite (decoders, wasm codecs, vtk) is fully
