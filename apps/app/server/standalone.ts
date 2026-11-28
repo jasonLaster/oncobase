@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { createWikiViteHandler } from "./app-shell.js";
+import { isDataOverlayHost, rawRequestPath } from "./data-overlay/host.js";
 
 // WIKI_DIST_DIR lets the local stack serve a build pointed at its own backend
 // without replacing the default dist used by production-style verification.
@@ -12,6 +13,12 @@ Bun.serve({
   idleTimeout: 60,
   async fetch(request) {
     try {
+      // Mirrors vercel.json: data.diana-tnbc.com (data.localhost locally) is
+      // the data overlay, not the wiki.
+      if (isDataOverlayHost(request.headers.get("host"))) {
+        const { handleDataOverlayRequest } = await import("./data-overlay/entry.js");
+        return await handleDataOverlayRequest(request, rawRequestPath(request.url));
+      }
       return await handleRequest(request);
     } catch (error) {
       console.error("[wiki-vite-server]", error);

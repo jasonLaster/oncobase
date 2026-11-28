@@ -54,6 +54,8 @@
     "local:chat-audit": "bun scripts/local-chat-audit.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1179.0",
+    "@aws-sdk/s3-request-presigner": "^3.1179.0",
     "@liveblocks/client": "^3.18.1",
     "@liveblocks/node": "^3.18.1",
     "@liveblocks/react": "^3.18.1",

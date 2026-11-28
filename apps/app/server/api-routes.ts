@@ -119,6 +119,13 @@ export const API_ROUTES: readonly ApiRoute[] = [
   { path: "/api/auth/signout", gate: "exempt", load: () => import("./api/auth").then(m => legacy(m.handleAuthSignoutRequest)) },
   // Swaps an account email and password for a bearer access token (API and MCP clients).
   { path: "/api/auth/tokens", gate: "exempt", load: () => import("./api/auth").then(m => legacy(m.handleAccessTokenRequest)) },
+  // The diana-tnbc.com half of the data.diana-tnbc.com sign-in; it requires
+  // an account session itself (specs/data-overlay.md).
+  {
+    path: "/api/data-overlay/handoff", gate: "exempt",
+    load: () => import("./data-overlay/main-handoff").then(m => ({ request, client, siteSlug }: ApiRouteRequest) =>
+      m.handleDataOverlayHandoff(request, client, siteSlug)),
+  },
 
   {
     path: "/api/search", gate: "required", educationRead: always, privatize: true,
